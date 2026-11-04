@@ -46,13 +46,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
-        "tests/xr_options_integration/test_release_native_reachability.py"
+        "tests/xr_options_integration/test_release_native_reachability.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[zoom_in]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "zoom_out",
@@ -95,13 +97,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_native_reachability.py"
+        "tests/xr_options_integration/test_release_native_reachability.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[zoom_out]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "prev",
@@ -143,13 +147,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[prev]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "next",
@@ -191,13 +197,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[next]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "spacing_down",
@@ -237,13 +245,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[spacing_down]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "spacing_up",
@@ -283,13 +293,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[spacing_up]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "recenter",
@@ -329,13 +341,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[recenter]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "layout_reset",
@@ -377,13 +391,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_reset_has_distinct_confirmation_and_authoritative_no_step_completion"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_reset_has_distinct_confirmation_and_authoritative_no_step_completion",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[layout_reset]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "mode_next",
@@ -412,7 +428,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply",
+      "implementation_route": "Retained maximized mode_next key; C1 monitor/view mode_follow and mode_locked use existing ViewControl mode state",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -423,12 +439,16 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_next]",
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "prediction",
@@ -468,13 +488,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[prediction]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "typing_toggle",
@@ -517,13 +539,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[typing_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "privacy_display",
@@ -566,13 +590,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup",
-        "tests/xr_options_integration/test_release_owner_callbacks.py"
+        "tests/xr_options_integration/test_release_owner_callbacks.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[privacy_display]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "environment_toggle",
@@ -614,13 +640,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[environment_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_toggle",
@@ -663,13 +691,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_3d_phases.py"
+        "tests/xr_options_integration/test_release_3d_phases.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_toggle",
@@ -711,13 +741,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_open",
@@ -762,13 +794,15 @@
       "release_scenarios": [
         "tests/xr_options_integration/test_release_internal_text.py",
         "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed",
-        "tests/xr_options_integration/test_release_file_child.py"
+        "tests/xr_options_integration/test_release_file_child.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_open]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_paste",
@@ -810,13 +844,15 @@
         "exception": "Native clipboard video route"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_web_child.py"
+        "tests/xr_options_integration/test_release_web_child.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_paste]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "playback_menu_toggle",
@@ -857,13 +893,15 @@
         "exception": "Retained native video controls"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[playback_menu_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "help",
@@ -905,13 +943,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "binds_toggle",
@@ -953,13 +993,15 @@
         "exception": "Native keybind child; v4 modal handoff separately gated"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[binds_toggle]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "help_prev",
@@ -1001,13 +1043,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help_prev]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "help_next",
@@ -1049,13 +1093,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help_next]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_glasses",
@@ -1098,13 +1144,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup",
-        "tests/xr_options_integration/test_release_owner_callbacks.py"
+        "tests/xr_options_integration/test_release_owner_callbacks.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_glasses_1",
@@ -1146,13 +1194,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_1]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_glasses_2",
@@ -1194,13 +1244,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_2]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_glasses_3",
@@ -1242,13 +1294,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_3]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_glasses_4",
@@ -1290,13 +1344,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_4]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "send_back",
@@ -1338,13 +1394,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_each_numbered_send_and_back_verifies_actual_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_back]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_field_prev",
@@ -1385,12 +1443,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_field_prev]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_field_prev]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_field_prev]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_field_next",
@@ -1431,12 +1494,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_field_next]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_field_next]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_field_next]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_dec",
@@ -1478,12 +1546,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_dec]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_dec]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_dec]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_inc",
@@ -1525,12 +1598,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_inc]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_inc]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_inc]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_dec_big",
@@ -1572,12 +1650,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_dec_big]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_dec_big]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_dec_big]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_inc_big",
@@ -1619,12 +1702,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_inc_big]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_inc_big]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_inc_big]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_desktop_next",
@@ -1665,12 +1753,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_desktop_next]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_desktop_next]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_desktop_next]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_desktop_prev",
@@ -1711,12 +1804,17 @@
         ],
         "exception": "Preserved placement child keyboard"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_desktop_prev]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_desktop_prev]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_desktop_prev]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_reset",
@@ -1758,13 +1856,17 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_reset]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_reset]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_reset]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_back",
@@ -1805,12 +1907,17 @@
         ],
         "exception": "Preserved placement child close"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_back]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_owner_input_and_close[menu_back]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_placement_child_native_wire[menu_back]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_ultrawide",
@@ -1851,12 +1958,16 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_ultrawide]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_placement_child_output_keys_reach_real_broker[menu_ultrawide]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_add",
@@ -1897,12 +2008,16 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_add]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_placement_child_output_keys_reach_real_broker[menu_add]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "menu_delete",
@@ -1944,12 +2059,16 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_delete]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_placement_child_output_keys_reach_real_broker[menu_delete]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_pause",
@@ -1992,13 +2111,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_pause]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_seek_back",
@@ -2041,13 +2162,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_back]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_seek_fwd",
@@ -2090,13 +2213,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_fwd]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_seek_back_big",
@@ -2139,13 +2264,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_back_big]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_seek_fwd_big",
@@ -2188,13 +2315,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_fwd_big]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_format",
@@ -2237,13 +2366,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
-        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_format]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_up",
@@ -2285,13 +2416,15 @@
         "exception": "Retained native video controls while playing"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_up]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_down",
@@ -2333,13 +2466,15 @@
         "exception": "Retained native video controls while playing"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_down]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_exit",
@@ -2381,13 +2516,15 @@
         "exception": "Retained native video controls"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_exit]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_quality",
@@ -2431,13 +2568,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
-        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_quality]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_controls",
@@ -2479,13 +2618,15 @@
         "exception": "Retained native video controls"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_controls]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "stabilization",
@@ -2526,13 +2667,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[stabilization]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_all",
@@ -2575,13 +2718,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_3d_phases.py"
+        "tests/xr_options_integration/test_release_3d_phases.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_all]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_monitor",
@@ -2624,13 +2769,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_3d_phases.py"
+        "tests/xr_options_integration/test_release_3d_phases.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_monitor]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_preset",
@@ -2673,13 +2820,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_preset]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_strength_presets",
@@ -2709,7 +2858,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply",
+      "implementation_route": "C1 workspace/3d immersive_strength range includes original Soft50/Standard100/Enhanced150 backend values; no invented preset state",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -2721,12 +2870,18 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_strength_presets]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_soft_standard_enhanced_values_use_actual_backend_and_save[50]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_soft_standard_enhanced_values_use_actual_backend_and_save[100]",
+        "tests/xr_options_integration/test_release_preserved_child.py::test_c1_soft_standard_enhanced_values_use_actual_backend_and_save[150]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_strength",
@@ -2769,13 +2924,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_strength]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_monitor_strength",
@@ -2817,13 +2974,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_monitor_strength]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_plane",
@@ -2866,13 +3025,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_plane]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "placement_x",
@@ -2915,13 +3076,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_x]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "placement_y",
@@ -2964,13 +3127,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_y]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "placement_distance",
@@ -3013,13 +3178,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_distance]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "placement_curvature",
@@ -3062,13 +3229,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_curvature]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "placement_apply",
@@ -3098,7 +3267,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply",
+      "implementation_route": "Existing external absolute Apply retained; C1 live absolute placement fields use same ViewControl._on_placement authority",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -3110,12 +3279,15 @@
         ],
         "exception": null
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_apply]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "REVIEW GAP: no separate buffered multi-field Apply row in C1; live absolute fields are tested, atomic draft equivalence must be approved before removing external editor"
     },
     {
       "id": "placement_flat",
@@ -3157,13 +3329,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_flat]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "mode_follow",
@@ -3205,13 +3379,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_follow]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "mode_locked",
@@ -3253,13 +3429,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_locked]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_browse",
@@ -3304,13 +3482,15 @@
       "release_scenarios": [
         "tests/xr_options_integration/test_release_internal_text.py",
         "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed",
-        "tests/xr_options_integration/test_release_file_child.py"
+        "tests/xr_options_integration/test_release_file_child.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_browse]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_play",
@@ -3355,13 +3535,15 @@
       "release_scenarios": [
         "tests/xr_options_integration/test_release_internal_text.py",
         "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed",
-        "tests/xr_options_integration/test_release_web_child.py"
+        "tests/xr_options_integration/test_release_web_child.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_play]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "video_paste_ui",
@@ -3403,13 +3585,15 @@
         "exception": "Native clipboard video route"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_web_child.py"
+        "tests/xr_options_integration/test_release_web_child.py",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_paste_ui]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "resolution",
@@ -3438,7 +3622,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: desktops RESOLUTION",
+      "implementation_route": "C1 monitor/output resolution -> options_apply -> desktop_action -> authoritative DesktopManager; native placement dropdown retained",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -3451,13 +3635,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resolution]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "scale",
@@ -3486,7 +3672,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: desktops SCALE",
+      "implementation_route": "C1 monitor/output scale -> options_apply -> desktop_action -> authoritative DesktopManager; native placement dropdown retained",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -3499,13 +3685,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[scale]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "ultrawide",
@@ -3546,13 +3734,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[ultrawide]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "add_monitor",
@@ -3593,13 +3783,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[add_monitor]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "remove_monitor",
@@ -3641,13 +3833,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[remove_monitor]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "background",
@@ -3689,13 +3883,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "background_brightness",
@@ -3737,13 +3933,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background_brightness]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "roll_ccw",
@@ -3786,13 +3984,15 @@
         "exception": "Preserved native top level bar"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_ccw]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "roll_level",
@@ -3835,13 +4035,15 @@
         "exception": "Preserved native top level bar"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_level]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "roll_cw",
@@ -3884,13 +4086,15 @@
         "exception": "Preserved native top level bar"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_cw]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "drag_move",
@@ -3931,12 +4135,15 @@
         ],
         "exception": "Preserved pill gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[drag_move]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "drag_resize",
@@ -3977,12 +4184,15 @@
         ],
         "exception": "Preserved corner/edge gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[drag_resize]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "quality_filter",
@@ -4026,13 +4236,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
-        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[quality_filter]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "quality_deband",
@@ -4076,13 +4288,15 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
-        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[quality_deband]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "bind_change",
@@ -4124,13 +4338,15 @@
         "exception": "Native keybind child; v4 modal handoff separately gated"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_change]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "bind_reset",
@@ -4172,13 +4388,15 @@
         "exception": "Native keybind child"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_reset]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "bind_reset_all",
@@ -4220,13 +4438,15 @@
         "exception": "Native keybind child"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_reset_all]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "bind_cancel",
@@ -4268,13 +4488,15 @@
         "exception": "Native keybind child"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_cancel]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "bind_navigation",
@@ -4315,13 +4537,15 @@
         "exception": "Native keybind child"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_navigation]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "fallback",
@@ -4359,12 +4583,15 @@
         ],
         "exception": "Pre-start only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[fallback]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "tracking",
@@ -4404,12 +4631,15 @@
         ],
         "exception": "Pre-start only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[tracking]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "tracking_driver",
@@ -4449,12 +4679,15 @@
         ],
         "exception": "Pre-start only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[tracking_driver]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "mode_switch",
@@ -4492,12 +4725,15 @@
         ],
         "exception": "Pre-start consent only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_switch]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "startup_desktops",
@@ -4535,12 +4771,15 @@
         ],
         "exception": "Pre-start only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[startup_desktops]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "stop",
@@ -4570,7 +4809,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "implementation_route": "C1 workspace/session stop -> migration confirmation -> existing KeyboardInterrupt unwind; external emergency Stop also retained",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -4582,13 +4821,15 @@
         "exception": "External safety Stop plus native confirmation"
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_stop_requires_confirmation_and_uses_existing_unwind"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_stop_requires_confirmation_and_uses_existing_unwind",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[stop]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "recover",
@@ -4628,12 +4869,15 @@
         ],
         "exception": "External recovery-only safety path"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[recover]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "start",
@@ -4672,12 +4916,15 @@
         ],
         "exception": "Pre-start consent only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[start]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "confirm_start",
@@ -4716,12 +4963,15 @@
         ],
         "exception": "Pre-start consent only"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[confirm_start]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "confirm_recover",
@@ -4760,12 +5010,15 @@
         ],
         "exception": "External recovery-only safety path"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[confirm_recover]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "cancel",
@@ -4803,12 +5056,15 @@
         ],
         "exception": "External confirmation cancellation"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[cancel]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "status",
@@ -4848,12 +5104,15 @@
         ],
         "exception": "External measured status"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[status]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "controller_restart",
@@ -4894,12 +5153,15 @@
         ],
         "exception": "External controller fault; rediscovery tested without restarting service"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[controller_restart]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "close_external",
@@ -4938,12 +5200,15 @@
         ],
         "exception": "External shell dismissal; transport disconnect tested, QML dismiss gesture unverified"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[close_external]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "immersive_connected_tail",
@@ -4985,12 +5250,15 @@
         ],
         "exception": "Preserved Connected Tail gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_connected_tail]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "select_pointer",
@@ -5029,12 +5297,15 @@
         ],
         "exception": "Preserved app-content pointer"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[select_pointer]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "edge_pan",
@@ -5075,12 +5346,15 @@
         ],
         "exception": "Preserved edge-pan gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[edge_pan]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "background_switch",
@@ -5122,13 +5396,15 @@
         "exception": null
       },
       "release_scenarios": [
-        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert",
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background_switch]"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "profile_remember",
@@ -5168,12 +5444,15 @@
         ],
         "exception": "Automatic per-model persistence"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[profile_remember]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "plugin_restart",
@@ -5214,12 +5493,15 @@
         ],
         "exception": "External shell fault; shell restart gesture unverified, no live restart authorized"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[plugin_restart]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "resize_press",
@@ -5260,12 +5542,15 @@
         ],
         "exception": "Preserved capture protocol"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_press]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "resize_release",
@@ -5306,12 +5591,15 @@
         ],
         "exception": "Preserved capture protocol"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_release]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "resize_cancel",
@@ -5352,12 +5640,15 @@
         ],
         "exception": "Preserved capture protocol"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_cancel]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "super_left_press",
@@ -5399,12 +5690,15 @@
         ],
         "exception": "Preserved Super gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_left_press]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "super_right_press",
@@ -5446,12 +5740,15 @@
         ],
         "exception": "Preserved Super gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_right_press]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     },
     {
       "id": "super_release",
@@ -5493,12 +5790,15 @@
         ],
         "exception": "Preserved Super gesture"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_release]"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
         "cleanup/recovery equivalence"
-      ]
+      ],
+      "route_audit": "Executable C1/owner or explicitly retained input path; full equivalence remains pending lead review"
     }
   ],
   "gates": [

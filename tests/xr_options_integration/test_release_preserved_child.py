@@ -62,3 +62,30 @@ def test_c1_soft_standard_enhanced_values_use_actual_backend_and_save(strength,t
     assert c.immersive_run is None and not c.immersive_stereo
     assert c.options.snapshot()['status']!='error',c.options.snapshot()
     d.teardown()
+
+
+@pytest.mark.parametrize('op',['menu_ultrawide','menu_add','menu_delete'])
+def test_c1_placement_child_output_keys_reach_real_broker(op,tmp_path):
+    import unittest
+    from test_desktops import Run,SupervisorStandIn
+    cleanup=unittest.TestCase();run=Run(cleanup)
+    c=view.ViewControl(view.ViewState(run.manager.names()),'run','session',lambda n:None,
+                       profiles.LayoutStore(tmp_path/'layout.json'),None)
+    c.desktops=run.manager;c.attach_supervisor(SupervisorStandIn());c.state.sizes=run.manager.desktops()
+    d=MenuDriver(c)
+    try:
+        d.enter('XR-3','monitor','placement');d.focus('menu_toggle');d.key('Return')
+        assert c.state.menu_open and c.state.menu_desktop==2
+        before=copy.deepcopy(run.manager.desktops())
+        d.intent(op)
+        if op=='menu_delete':
+            assert c.state.remove_armed
+            assert run.manager.desktops()==before
+            d.intent(op)
+        d.add(c.poll())
+        if op=='menu_add':assert len(run.manager.names())==4
+        elif op=='menu_delete':assert run.manager.names()==['XR-1','XR-2']
+        else:assert run.manager.desktops()[2]['width']!=before[2]['width']
+        assert not c.state.desktops_busy
+        d.teardown()
+    finally:run.manager.close();cleanup.doCleanups()
