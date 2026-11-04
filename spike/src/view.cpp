@@ -6,7 +6,7 @@
 
 namespace xr {
 namespace {
-constexpr std::uint32_t kMaxIndex = 2;  // XR-1..XR-3
+constexpr std::uint32_t kMaxIndex = kMaxDesktops - 1;  // XR-1..XR-kMaxDesktops; Presentation::set_view clamps to the run's own count
 float clampf(float v, float lo, float hi) { return std::max(lo, std::min(hi, v)); }
 float lerp(float a, float b, float t) { return a + (b - a) * t; }
 bool valid(std::span<const Size> src, float view_w, float view_h) {

@@ -444,6 +444,16 @@ if(XR_ENABLE_PRESENTATION)
         --fractional-scale 150 --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_scaled_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
+    # Every desktop of a full run maximizes: the renderer gets the supervisor's frames for XR-N and XR-N's own frames fill the
+    # view (the stamp in the middle of the committed buffer says which desktop it came from).
+    foreach(N RANGE 1 4)
+      add_test(NAME capture_e2e_maximize_${N}_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
+        --outputs 4 --maximize ${N} --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_maximize_${N}_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
+    add_test(NAME capture_e2e_maximize_4_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 1.5 --warmup 1
+      --outputs 4 --maximize 4 --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_maximize_4_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
     # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.
     foreach(CHURN bounce resize)

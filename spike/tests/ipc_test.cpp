@@ -59,7 +59,16 @@ int main() {
     require(message.op == xr::ControlOp::view);
     auto& v = std::get<xr::ViewPayload>(message.payload);
     require(v.zoomed && v.selected == 2 && v.spacing == 40 && v.mode == 2 && v.cursor_follow && v.prediction && v.typing);
-    auto control_mode = xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
+    {  // `selected` reaches the last desktop a run can have, and no further.
+        auto selecting = [&](std::size_t selected) {
+            return view(R"({"zoomed":true,"selected":)" + std::to_string(selected) + R"(,"spacing":40,"mode":"follow","cursor_follow":false,"prediction":false,"typing":false})");
+        };
+        auto last = xr::decode_control(selecting(xr::kMaxDesktops - 1));
+        require(std::holds_alternative<xr::ControlMessage>(last));
+        require(std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(last).payload).selected == xr::kMaxDesktops - 1);
+        require(std::holds_alternative<xr::Error>(xr::decode_control(selecting(xr::kMaxDesktops))));
+    }
+    auto control_mode =xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
     require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
     require(!v.center);  // optional, false

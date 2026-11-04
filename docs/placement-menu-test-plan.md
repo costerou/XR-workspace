@@ -400,6 +400,47 @@ Glasses steps (a new run started the usual way, three desktops, a terminal and a
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
+## Maximizing every desktop of a four-desktop run: automated coverage and glasses test script
+
+With four desktops, XR-4 could not be maximized: the glasses showed XR-3 while the keyboard and mouse went to XR-4, and
+the overview's highlight stayed on XR-3 with XR-4 selected. `ViewAnimator::set_target` clamped the selection to a third
+desktop, a limit of its own from when a run had three (`5200e1f`) that `a0c487f` missed when it added the fourth. It now
+follows `kMaxDesktops`. The supervisor and the wire were always right.
+
+Automated coverage (offline only):
+
+- ctest `capture_e2e_maximize_{1,2,3,4}_gl-dmabuf` and `capture_e2e_maximize_4_gl-shm`: the real renderer with four
+  captured outputs gets the frames the supervisor sends for XR-N (`capture_e2e_bench --maximize N`), and every frame
+  after the zoom lands must have XR-N's own frame in the middle of the view. These failed with XR-3 there, on 119 of 119
+  frames, before the fix. There is no pose feed here, so they say which desktop is shown, not that it is centred (the
+  aim needs head tracking; ctest `view` checks its direction). The CPU fallback has no zoom, so it is not covered.
+- ctest `view` (`every_desktop_tests`): every desktop of every run size through selection, maximize, layout, placement,
+  aim and draw order; a key switch along all of them and back, retargeted and queued; the cut; the selected last desktop
+  removed.
+- ctest `ipc`: `selected` takes the last desktop and refuses one past it.
+- `tests/native_spike/test_view.py` (`EveryDesktopMaximizesTests`): in all 15 sets of desktops a run can have, gaps in the
+  numbers included, the index sent to the glasses and the name sent to Hyprland are the same desktop, by key, click and
+  edge push, and the selection stays on its desktop when Remove renumbers the run.
+
+Glasses script (Cody). Not yet run: not in an isolated VM, not in the glasses. Start a session with four desktops (a
+pill's Add new if it starts with three) and put a window you can tell apart on each. Type into a terminal to check
+focus; say so if the typing lands anywhere but the desktop you are looking at.
+
+| # | Do | Expect |
+|---|----|--------|
+| X1 | In the overview, press Ctrl+Alt+Right until XR-4 is selected | The highlight ends on XR-4, the last desktop in the row, not XR-3. |
+| X2 | Press Ctrl+Alt+Up | XR-4 fills the view, with XR-4's window on it. |
+| X3 | Type, then move the mouse | The typing lands in XR-4's window, the one you see. The cursor is on XR-4. |
+| X4 | Press Ctrl+Alt+Left, then Ctrl+Alt+Right | The view goes to XR-3, then back to XR-4. Keyboard and cursor go with it each time. |
+| X5 | Press Ctrl+Alt+Left, then push the cursor past XR-3's edge toward XR-4 | The view switches to XR-4. Keyboard and cursor go with it. |
+| X6 | Press Ctrl+Alt+V, turn your head, press Ctrl+Alt+V again | Locked and follow both stay on XR-4. Neither jumps to XR-3. |
+| X7 | Press Ctrl+Alt+Down, then maximize XR-1, XR-2 and XR-3 in turn (select with Ctrl+Alt+Left / Right, Ctrl+Alt+Up, then Ctrl+Alt+Down), typing on each | Each shows itself, and the typing lands on the desktop you see. |
+| X8 | Click on XR-4, then press Ctrl+Alt+Up | The click selects XR-4 and stays in the overview. The key maximizes XR-4. |
+| X9 | Press Ctrl+Alt+Down, then with the keys only (the dot would select the desktop it moves onto): Ctrl+Alt+L for XR-4's pill, Shift+Tab twice to XR-2's, Delete twice, Esc, Ctrl+Alt+Up | XR-2 is gone. XR-4 stays selected and maximizes, with focus on it. |
+| X10 | Press Ctrl+Alt+Down, Ctrl+Alt+L for XR-4's pill, Delete twice, then Ctrl+Alt+Up | XR-3 becomes the selected desktop, with the highlight on it, and maximizes. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
 ## Roll brackets: automated coverage and glasses test script
 
 On 2026-11-03 (`rotate-bracket-arrows`) the two small roll arrows above each desktop's top corners became arrow brackets
