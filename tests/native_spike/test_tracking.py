@@ -288,7 +288,7 @@ class DriverLifecycleTests(unittest.TestCase):
     def test_ensure_ready_reuses_only_calibrated_isolated_driver(self):
         healthy = dict(running=True, network_isolated=True, calibrated=True, driver='xrdriver', binary=tracking.DRIVER)
         for state in (healthy, dict(healthy, calibrated=False), dict(healthy, network_isolated=False), dict(running=False)):
-            with self.subTest(state=state), patch.object(tracking, 'status', return_value=state), \
+            with self.subTest(state=state), patch.object(tracking, 'status', return_value=state), patch.object(tracking, 'RECONNECT_WAIT_S', 0), \
                     patch.object(tracking, 'start', return_value=healthy) as start, patch.object(tracking, 'stop') as stop:
                 self.assertEqual(tracking.ensure_ready(self.runtime), healthy)
                 if state == healthy:

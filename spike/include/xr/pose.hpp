@@ -47,12 +47,25 @@ private:
 };
 
 // Tracking state: recenter, staleness (lost -> hold last good pose), view rotation for rendering.
+// A USB drop of the glasses (docs/technical.md, Head tracking drops): the feed stops, the driver reconnects by itself, and
+// it comes back on a new reference (driver_handle_pose: conj(reference) * pose, the reference taken as calibration ends), so
+// the same head reads as a different pose. While it is gone the view is held. A feed silent for more than kReanchorAfterMs
+// must then run unbroken for kResumeSettleMs before it is believed: the second disconnect of a pair can come seconds after
+// the first, and a few samples between the two are no recovery. What it says then is taken to be the head where it was
+// when the view was held, so nothing moves: the centre and the level are carried over into the new frame. If the head did
+// turn meanwhile, the world turns with it, as with a recentre; that is the price of no jump. The driver publishes no pose
+// until it has calibrated (outputs.c handle_imu_update), so a fresh sample is a calibrated one.
 class PoseState {
 public:
+    static constexpr double kReanchorAfterMs = 500;  // a hiccup under this is the same feed, a moment late
+    static constexpr double kResumeSettleMs = 250;
+    static constexpr double kHintAfterMs = 1000;     // the hint is for a drop, not for a hiccup
     explicit PoseState(double stale_ms = 100.0) : stale_ms_(stale_ms) {}
     void update(const std::optional<FeedSample>& sample, double now_ms);
     void recenter() { recenter_pending_ = true; }
     bool tracking() const { return tracking_; }
+    // Tracking was working and has been gone for kHintAfterMs: "Reconnecting tracking...".
+    bool reconnecting(double now_ms) const { return !tracking_ && center_ && now_ms - lost_at_ms_ >= kHintAfterMs; }
     Mat3 view() const { return view_; }  // identity until the first valid sample
     Quat relative() const { return relative_; }  // head vs recentre reference, driver frame
     // The recentre reference (the head's orientation when it was taken) in a frame whose z is the world's up as far as
@@ -60,7 +73,9 @@ public:
     std::optional<Quat> reference() const;
     std::uint64_t samples() const { return samples_; }
     std::uint64_t lost_events() const { return lost_events_; }
+    std::uint64_t reanchors() const { return reanchors_; }  // drops recovered from
 private:
+    void reanchor(Quat head);
     void recentre_up(Quat head);
     void learn_up(Quat head, double ms);
     double stale_ms_;
@@ -82,10 +97,12 @@ private:
     Quat last_{};
     float last_device_ms_ = -1;
     double last_change_ms_ = 0;
-    bool tracking_ = false, recenter_pending_ = true;
+    double lost_at_ms_ = 0;         // when tracking_ last went false
+    double settling_from_ms_ = -1;  // the unbroken run of fresh samples since a long silence; -1: not in one
+    bool tracking_ = false, recenter_pending_ = true, dropped_ = false;  // dropped_: after a long silence, until reanchored
     Mat3 view_{1, 0, 0, 0, 1, 0, 0, 0, 1};
     Quat relative_{};
-    std::uint64_t samples_ = 0, lost_events_ = 0;
+    std::uint64_t samples_ = 0, lost_events_ = 0, reanchors_ = 0;
 };
 
 Quat quat_slerp(Quat a, Quat b, float t);  // shortest arc

@@ -527,6 +527,10 @@ It notices when:
 - Hyprland crashes, or the XR plugin stops working
 - a session dies or stops answering, or Recover doesn't finish
 
+If the glasses' USB drops and the picture stays up, the session carries on. The view holds still, a small card says
+**Reconnecting tracking...**, and when tracking is back the view carries on from where it was. After 60 s without it the
+session ends the ordinary way, with your windows back on your monitor. If the picture goes too, the session ends at once.
+
 Pressing Stop, using Recover, restarting the panel and unplugging the glasses after you stop are all normal, so none of
 them make a report. A USB drop the session survives does make one, so you can see how often it happens, but the same
 problem is reported at most once every ten minutes.

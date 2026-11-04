@@ -93,6 +93,11 @@ struct Options {
     int maximize = 0;
     bool pointer_look = false;  // flip the dot and the Serif Beam and count the frames each flip takes to land
     bool edge_pan = false;  // --edge-pan, with --maximize N: get to desktop N from desktop 1 by the hand's pan, not a maximize of it
+    // --feed-drop S, with --feed-script PATH: head tracking on a simulated driver feed (tests/feed_script.cpp) in the renderer's
+    // private /tmp and IPC namespace, gone for S seconds with two disconnects. --check: the renderer stays up and resumes.
+    std::string feed_script;
+    double feed_drop = 0;
+    double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
 };
 constexpr double kChurnMs = 150;
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
@@ -854,7 +859,8 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n");
+                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S]\n");
 }
 }  // namespace
 
@@ -881,9 +887,13 @@ int main(int argc, char** argv) {
         else if (a == "--maximize") opt.maximize = std::stoi(next());
         else if (a == "--pointer-look") opt.pointer_look = true;
         else if (a == "--edge-pan") opt.edge_pan = true;
+        else if (a == "--feed-script") opt.feed_script = next();
+        else if (a == "--feed-drop") { opt.feed_drop = std::stod(next()); opt.tracking = true; }
+        else if (a == "--video-loss") opt.video_loss = std::stod(next());
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
+    if ((opt.feed_drop > 0) != !opt.feed_script.empty()) { usage(); return 2; }
     if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > int(xr::kMaxDesktops) || !(opt.hz > 1) || opt.capture_hz < 0 ||
         opt.maximize < 0 || opt.maximize > opt.outputs || (opt.maximize && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
@@ -987,7 +997,7 @@ int main(int argc, char** argv) {
             // Head tracking on, as in glasses runs (every frame callback redraws), but never against the live XRLinuxDriver:
             // a private /tmp and SysV IPC namespace leave the pose feed absent, so the renderer holds the identity pose.
             args = {"/usr/bin/bwrap", "--dev-bind", "/", "/", "--tmpfs", "/tmp", "--unshare-ipc", "--die-with-parent"};
-            for (const auto* file : {&opt.renderer, &opt.malloc_shim})  // single files only: the real /tmp stays hidden
+            for (const auto* file : {&opt.renderer, &opt.malloc_shim, &opt.feed_script})  // single files only: the real /tmp stays hidden
                 if (file->rfind("/tmp/", 0) == 0) args.insert(args.end(), {"--ro-bind", *file, *file});
             if (!opt.malloc_trace.empty() && opt.malloc_trace.rfind("/tmp/", 0) == 0) args.insert(args.end(), {"--bind", opt.malloc_trace, opt.malloc_trace});
             for (const auto& [k, v] : env) args.insert(args.end(), {"--setenv", k, v});
@@ -995,6 +1005,8 @@ int main(int argc, char** argv) {
         } else {
             for (const auto& [k, v] : env) setenv(k.c_str(), v.c_str(), 1);
         }
+        if (opt.feed_drop > 0)  // it sets the feed up, then execs the renderer: the pid stays the one this bench watches
+            args.insert(args.end(), {opt.feed_script, "--live-s", "3", "--gone-s", std::to_string(opt.feed_drop), "--"});
         args.insert(args.end(), {opt.renderer, "--supervised-fd", "10", "--wayland-fd", "11", "--output", "DP-2",
                                  "--run-id", "bench1", "--session", "s1", "--status-fd", "12"});
         if (capture) {
@@ -1031,6 +1043,9 @@ int main(int argc, char** argv) {
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
     nlohmann::json last_status;  // the newest measured status (not the geometry lines the same socket carries)
     std::string stderr_text;
+    // --feed-drop: the renderer's status through the drop, in order.
+    bool status_tracked = false, status_lost = false, status_resumed = false;
+    std::int64_t video_loss_at = 0;
     const int vblank_fd = make_timer(opt.hz, 0.0);
     const int capture_fd = capture ? make_timer(opt.capture_hz > 0 ? opt.capture_hz : opt.hz, 0.37) : -1;
     const std::int64_t start = now_ns();
@@ -1059,7 +1074,15 @@ int main(int argc, char** argv) {
             }
             try {
                 auto j = nlohmann::json::parse(line);
-                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry")) last_status = std::move(j);
+                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry")) {
+                    if (j.contains("tracking") && j["tracking"].is_boolean()) {
+                        const bool on = j["tracking"].get<bool>();
+                        if (on && status_lost) status_resumed = true;
+                        else if (on) status_tracked = true;
+                        else if (status_tracked) status_lost = true;
+                    }
+                    last_status = std::move(j);
+                }
             } catch (const std::exception&) {}
         }
         for (ssize_t n; (n = ::read(err_pipe[0], buf, sizeof buf)) > 0;) if (stderr_text.size() < (1 << 20)) stderr_text.append(buf, std::size_t(n));
@@ -1092,6 +1115,12 @@ int main(int argc, char** argv) {
                 server.maximized_ns = t + std::int64_t((opt.edge_pan ? kEdgePanLandedMs : kMaximizeSettleMs) * 1e6);
                 pan_started_ns = t;
             }
+        }
+        if (opt.video_loss > 0 && server.measuring && !video_loss_at) {
+            video_loss_at = t + std::int64_t(opt.video_loss * 1e9);
+        } else if (video_loss_at && t >= video_loss_at && !stop_sent) {
+            video_loss_at = INT64_MAX;
+            for (auto& o : server.outputs) if (o->name == "DP-2") wl_global_remove(o->global);
         }
         if (opt.edge_pan && pan_started_ns && !stop_sent) {  // as the supervisor does: frames as the hand goes, then the landing
             const double since = double(t - pan_started_ns) / 1e6;
@@ -1181,6 +1210,7 @@ int main(int argc, char** argv) {
         if (other.size() < 20) other.push_back(line.substr(0, 300));
     }
     for (const auto& j : reports) {
+        if (j.contains("tracking") && j["tracking"].is_object()) out["tracking_report"] = j["tracking"];
         if (j.contains("kind") && j["kind"] == "managed_output_capture") {
             nlohmann::json paths = nlohmann::json::array();
             for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]},
@@ -1202,9 +1232,28 @@ int main(int argc, char** argv) {
     int status_rc = rc == 0 ? 0 : 1;
     if (opt.check) {  // functional smoke for ctest: frames flowed and capture frames reached the screen
         auto fail = [&](const char* why) { std::fprintf(stderr, "capture_e2e check failed: %s\n", why); status_rc = 1; };
+        if (opt.video_loss > 0) {  // the video went: the end of the session, as ever, and no hanging on for the feed
+            status_rc = 0;  // exit status 1 is the point here
+            if (rc != 1) fail("the renderer did not exit by itself when its output went");
+            if (stderr_text.find("dispatch: closed, removed or disconnected") == std::string::npos) fail("the renderer ended some other way");
+            if (stop_sent) fail("the renderer outlived its output");
+            if (!status_tracked || !status_lost) fail("the feed was not gone when the video went");
+            wl_display_destroy(server.display);
+            g = nullptr; g_gpu = nullptr;
+            return status_rc;
+        }
         if (rc != 0) fail("renderer exit status");
         if (server.commits < std::uint64_t(opt.seconds * opt.hz * 0.25)) fail("too few commits");  // frames flow; not a speed check
         if (!window_complete || !stop_sent) fail("renderer ended before the measured window did");
+        if (opt.feed_drop > 0) {
+            const auto tracking = out.value("tracking_report", nlohmann::json::object());
+            if (!status_tracked) fail("head tracking never started");
+            if (!status_lost) fail("the renderer never reported the feed gone");
+            if (!status_resumed) fail("head tracking did not resume");
+            if (tracking.value("lost_events", 0) != 1) fail("the drop was not one outage");
+            if (tracking.value("reanchors", 0) != 1) fail("the view was not re-anchored");
+            if (tracking.value("hints", 0) != 1) fail("the reconnecting hint did not come up once");
+        }
         if (capture && server.capture_to_present_ms.v.empty()) fail("no capture frame shown");
         std::uint64_t captured_n = 0, shown_n = 0;
         for (int i = 0; capture && i < opt.outputs; ++i) {

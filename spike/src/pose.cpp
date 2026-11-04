@@ -174,6 +174,13 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
             if (sample->device_ms != last_device_ms_) {
                 const double since_ms = now_ms - last_change_ms_;
                 last_device_ms_ = sample->device_ms; last_change_ms_ = now_ms; ++samples_;
+                if (center_ && !tracking_ && !dropped_ && since_ms > kReanchorAfterMs) dropped_ = true;
+                if (dropped_) {
+                    if (settling_from_ms_ < 0 || since_ms > stale_ms_) settling_from_ms_ = now_ms;
+                    if (now_ms - settling_from_ms_ < kResumeSettleMs) return;  // the view stays held
+                    reanchor(*q);
+                    dropped_ = false; settling_from_ms_ = -1; ++reanchors_;
+                }
                 if (recenter_pending_ || !center_) { center_ = *q; recentre_up(*q); recenter_pending_ = false; }
                 else learn_up(*q, since_ms);
                 last_ = *q;
@@ -184,7 +191,19 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
             }
         }
     }
-    if (tracking_ && now_ms - last_change_ms_ > stale_ms_) { tracking_ = false; ++lost_events_; }  // hold last pose
+    if (tracking_ && now_ms - last_change_ms_ > stale_ms_) { tracking_ = false; lost_at_ms_ = now_ms; ++lost_events_; }  // hold last pose
+}
+
+// `head` in the feed's new frame is last_ in the old one, so `frame` turns the old frame's coordinates into the new one's. The
+// centre and up go through it: relative_ comes out the same, and so does the level. Up is only as good as "the head did not
+// move", so it is held loosely until learn_up has seen the head again.
+void PoseState::reanchor(Quat head) {
+    const Quat frame = quat_mul(head, quat_conj(last_));
+    center_ = quat_mul(frame, *center_);
+    up_ = xr::apply(quat_to_mat3(frame), up_);
+    const float loose = kUpHeadDeg * kDegToRad;
+    for (int i = 0; i < 3; ++i) up_cov_[i * 4] = std::max(up_cov_[i * 4], loose * loose);
+    last_ = head;
 }
 
 void PoseState::recentre_up(Quat head) {

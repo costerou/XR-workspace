@@ -440,5 +440,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
         result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
+        if report.get('stop_reason') == 'tracking-timeout':
+            send.notify('Head tracking did not come back, so XR stopped. Your windows are back on your monitor.')
     return {'journal': str(journal.path), 'renderer_returncode': returncode, 'complete': result.complete, 'remaining': result.remaining,
             'reasons': result.reasons, 'holds': holds.record, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}

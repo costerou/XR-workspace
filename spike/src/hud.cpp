@@ -501,6 +501,20 @@ HudLine popup_hint(std::string text) { return {std::move(text), 2, kCardDim, fal
 HudLine popup_key(std::string text) { return {std::move(text), 1, kCardDim, false, 0, HudRole::outline}; }
 }
 
+std::vector<HudLine> tracking_hint_lines() { return {popup_hint("Reconnecting tracking...")}; }
+
+void TrackingHint::set_font(const HudFont* font) { font_ = font; dirty_ = true; }
+bool TrackingHint::set_accent(std::array<float, 3> accent) {
+    if (accent == accent_) return false;
+    accent_ = accent; dirty_ = true;
+    return true;
+}
+void TrackingHint::ensure() const {
+    if (!dirty_) return;
+    image_ = render_hud_card(tracking_hint_lines(), accent_, font_);
+    dirty_ = false; ++generation_;
+}
+
 std::vector<HudLine> view_mode_lines(std::uint8_t mode) {
     // Maximize-follow (2026-11-03): the overview is always anchor; a maximized screen follows you, or is locked by choice
     // (Ctrl+Alt+V there, kept for the session). Only the start (anchor; a fresh start maximizes in follow) and Ctrl+Alt+V

@@ -18,7 +18,9 @@ SETTLE_S = 3.0                       # up this long without a flicker: the hub d
 POLL_S = 0.25
 MAX_HOLDS = 8                        # in HOLD_WINDOW_S: past this it is a bad cable, and the desktops belong on a monitor
 HOLD_WINDOW_S = 600.0
-STOPPED_BY_A_PERSON = ('interrupted',)
+# Ends that are final whatever the glasses did. A tracking timeout is the supervisor giving up on an outage after the limit
+# (docs/technical.md, Head tracking drops), and the USB number has moved by then, so it would otherwise read as a drop.
+NOT_A_DROP = ('interrupted', 'tracking-timeout')
 
 
 def usb_identity(root=SYS_USB):
@@ -48,7 +50,7 @@ def output_ok(client, output):
 
 def should_hold(returncode, stop_reason, *, output_ok, usb_before, usb_now):
     """Was this renderer's end a drop of the glasses? Only with evidence: a crash with the glasses fine is still a crash."""
-    if stop_reason in STOPPED_BY_A_PERSON: return False
+    if stop_reason in NOT_A_DROP: return False
     if returncode == 0 and stop_reason is None: return False
     return not output_ok or (usb_before is not None and usb_before != usb_now)
 

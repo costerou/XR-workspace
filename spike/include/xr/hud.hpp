@@ -175,6 +175,32 @@ private:
     double changed_ms_ = 0;
 };
 
+// Head tracking is being reconnected after a USB drop (pose.hpp PoseState::reconnecting): one small line where the pop-ups
+// appear, held for as long as that lasts. A pill would be the natural place, but a collapsed one is 14 px tall and a maximized
+// desktop has none, which is when a frozen view needs explaining most.
+constexpr double kTrackingHintFadeInMs = 120, kTrackingHintFadeOutMs = 380;
+std::vector<HudLine> tracking_hint_lines();
+class TrackingHint {
+public:
+    bool update(bool lost, double now_ms) { return fade_.set(lost, now_ms); }  // true when it starts or stops showing
+    void set_font(const HudFont* font);       // not owned; must outlive the hint. The card is drawn again.
+    bool set_accent(std::array<float, 3> accent);  // true if the colour changed
+    float alpha(double now_ms) const { return fade_.level(now_ms); }
+    bool animating(double now_ms) const { return fade_.animating(now_ms); }
+    const HudImage& image() const { ensure(); return image_; }
+    // Bumps when the card changes. Far from any StatusPopups generation: the two share one texture (GlCompositor::set_popup).
+    std::uint64_t generation() const { ensure(); return kGenerationBase + generation_; }
+private:
+    static constexpr std::uint64_t kGenerationBase = 1ull << 62;
+    void ensure() const;
+    CardFade fade_{kTrackingHintFadeInMs, kTrackingHintFadeOutMs};
+    const HudFont* font_ = nullptr;
+    std::array<float, 3> accent_ = kMdDefaultSeed;
+    mutable bool dirty_ = true;
+    mutable std::uint64_t generation_ = 0;
+    mutable HudImage image_;
+};
+
 // Top-left (from the top of the output) of a card drawn centred, lowered by `drop_px` while it fades in: the one
 // formula GlHud uses for the help card (CardOrigin is declared with the help card above).
 CardOrigin centered_card_origin(std::uint32_t output_w, std::uint32_t output_h, std::uint32_t card_w, std::uint32_t card_h, float drop_px);

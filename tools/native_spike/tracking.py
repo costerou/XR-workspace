@@ -62,6 +62,14 @@ CRASHED = ("The glasses' head tracking couldn't connect and the tracking driver 
 USB_DENIED = "XR can't open the glasses (USB permission). Unplug and replug the glasses' USB, then try again."
 # What the driver logs when it dies trying to reach the glasses; any one of them is enough.
 CRASH_LINES = ('Cannot open device', 'jcx start failed', 'Failed to send USB command - MsgID: 0x100B', 'Segmentation fault occurred')
+# How long a run holds its view with no head tracking before it gives up (supervisor.py). The file is optional and only says
+# {"lost_timeout_s": seconds}: anything else is logged and the default stands, because a typo must not cost a session.
+RECOVERY_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/tracking.json'
+LOST_TIMEOUT_S = 60.0
+LOST_TIMEOUT_MAX_S = 3600.0
+# A driver found uncalibrated has this long to finish reconnecting by itself (about 3 s) and calibrating (about 15 s) before
+# it is restarted.
+RECONNECT_WAIT_S = 30.0
 # Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
 # on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
 # interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
@@ -274,8 +282,36 @@ def status(runtime):
             'driver': driver, 'binary': data.get('binary') or DRIVER}  # no binary: a state file from before the choice existed
 
 
+def lost_timeout():
+    """RECOVERY_CONFIG's limit in seconds, else LOST_TIMEOUT_S. Never raises."""
+    try: text = RECOVERY_CONFIG.read_text()
+    except FileNotFoundError: return LOST_TIMEOUT_S
+    except OSError as exc:
+        print(f'xr-workspace: tracking: {RECOVERY_CONFIG.name} not read: {exc}', file=sys.stderr)
+        return LOST_TIMEOUT_S
+    try:
+        data = json.loads(text)
+        value = data['lost_timeout_s'] if isinstance(data, dict) and set(data) == {'lost_timeout_s'} else None
+        if type(value) in (int, float) and 0 < value <= LOST_TIMEOUT_MAX_S: return float(value)
+    except ValueError:
+        pass
+    print(f'xr-workspace: tracking: {RECOVERY_CONFIG.name} needs {{"lost_timeout_s": 1..{LOST_TIMEOUT_MAX_S:.0f}}}; '
+          f'using {LOST_TIMEOUT_S:.0f} s', file=sys.stderr)
+    return LOST_TIMEOUT_S
+
+
+def _wait_for_reconnect(runtime, seconds):
+    """A driver that lost the glasses gets them back by itself, so leave it to: 18 of 53 drops came within 30 s of the one
+    before, and a restart here would land on glasses about to drop again. The newest status."""
+    deadline = time.monotonic() + seconds
+    while True:
+        now = status(runtime)
+        if not (now['running'] and now['network_isolated']) or now['calibrated'] or time.monotonic() >= deadline: return now
+        time.sleep(0.2)
+
+
 def ensure_ready(runtime, timeout=120.0, luma=None, binary=None):
-    """Reuse a calibrated isolated driver of the kind asked for, or restart ours: disconnected, or the
+    """Reuse a calibrated isolated driver of the kind asked for, give a reconnecting one time to finish, or restart ours: disconnected, or the
     other kind, or another binary of the same kind, such as an older install's or the 3DoF test build.
 
     Only the PID/start-tick recorded by this app can be stopped. A separate
@@ -284,10 +320,7 @@ def ensure_ready(runtime, timeout=120.0, luma=None, binary=None):
     now = status(runtime)
     target = luma or binary or DRIVER
     wanted = lambda: now['network_isolated'] and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == target
-    if luma and now['running'] and wanted():  # the right driver, perhaps mid-reconnect: leave it be if it comes back
-        deadline = time.monotonic() + LUMA_SETTLE
-        while now['running'] and not now['calibrated'] and time.monotonic() < deadline:
-            time.sleep(0.1); now = status(runtime)
+    if now['running'] and wanted() and not now['calibrated']: now = _wait_for_reconnect(runtime, LUMA_SETTLE if luma else RECONNECT_WAIT_S)
     if now['running'] and wanted() and now['calibrated']:
         return now
     if now['running']:

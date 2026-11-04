@@ -221,6 +221,18 @@ class BundleTests(unittest.TestCase):
         e = e or episode('usb-drop', 'renderer-exit', ended='ended')
         return build_bundle(e, evidence(**over), 1010.0, scrubber(RUN))
 
+    def test_a_drop_the_session_survived_says_so(self):
+        b = self.bundle(episode('usb-drop', 'tracking-lost'))
+        self.assertIs(b['session_kept_alive'], True)
+        self.assertEqual(b['session'], 'kept-running')
+        self.assertIn('Kept alive: yes', markdown(b))
+
+    def test_a_drop_that_ended_the_session_says_so(self):
+        for ended in ('ended', 'stopped'):
+            b = self.bundle(episode('usb-drop', ended=ended))
+            self.assertIs(b['session_kept_alive'], False)
+            self.assertIn('Kept alive: no', markdown(b))
+
     def test_everything_a_diagnosis_asks_for_is_there(self):
         b = self.bundle(status=dict(presented_hz=119.9, missed=2), metrics=dict(tracking=dict(lost_events=1)))
         for key in ('schema', 'id', 'kind', 'summary', 'created_at', 'first_signal_at', 'session', 'run_id', 'timeline', 'cause', 'versions', 'glasses',
