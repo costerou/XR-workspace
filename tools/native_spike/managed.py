@@ -221,7 +221,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         initial, rolls = _restored(placements, capture, desktops)
         # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
         # no saved mode is read; spacing, prediction, the VR video quality and the background still are.
-        control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
+        control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'], stabilization=saved['stabilization'],
                                                    placements=_initial_placements(initial, capture),
                                                    video_quality=video_quality(saved),
                                                    environment=environment(saved), immersive=immersive.immersive(saved)),

@@ -535,7 +535,7 @@ class CursorFollowRemovedTests(unittest.TestCase):
             self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False,
                                                         'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                                         'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive'], 'stabilization': 25})
 
 
 class WiringTests(unittest.TestCase):

@@ -1,5 +1,6 @@
 #pragma once
 #include "xr/pose.hpp"
+#include "xr/stabilization.hpp"
 #include "xr/view.hpp"
 #include "xr/desktops.hpp"
 #include <string>
@@ -47,6 +48,7 @@ namespace xr {
 // Private, same-build renderer handover. Never persisted or accepted from IPC.
 struct ViewContinuity {
     PoseState pose;
+    Stabilizer stabilization;
     ModeController modes;
     ViewAnimator view;
     bool maximized = false;
@@ -57,7 +59,7 @@ struct ViewContinuity {
     std::array<float, 2> centre_dir{};
     double saved_ms = 0;
     template<class Archive> void checkpoint(Archive& a) {
-        a(pose, modes, maximized, rolls, last_drawn, centre_valid, centre_serial, centre_dir, saved_ms);
+        a(pose, stabilization, modes, maximized, rolls, last_drawn, centre_valid, centre_serial, centre_dir, saved_ms);
         view.checkpoint(a);
     }
     std::string encode() {

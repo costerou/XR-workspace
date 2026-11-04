@@ -239,6 +239,8 @@ class Controller:
                     operations += ['spacing_up' if delta>0 else 'spacing_down']*(abs(delta)//SPACING_STEP)
                 if 'prediction' in settings and target['prediction']!=current['prediction']: operations.append('prediction')
                 if len(operations)>8: raise ValueError('too many live operations; use smaller steps')
+                if 'stabilization' in settings:
+                    if not self.units.control(self.run['run_id'],self.run['session'],'stabilization',{'strength':target['stabilization']}): raise ValueError('run control unavailable')
                 for operation in operations:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
                 if 'environment' in settings and target['environment']!=current['environment']:  # absolute, like placements

@@ -394,6 +394,24 @@ class RunTests(unittest.TestCase):
         wait_for(have, f'{n} events, got {got}')
         return got
 
+    def test_poll_during_failure_cleanup_does_not_restart_the_engine(self):
+        stopped, release = threading.Event(), threading.Event()
+        class FailingEngine(FakeEngine):
+            def stop(self):
+                stopped.set()
+                release.wait(2)
+                super().stop()
+        run, engine = self.run_of(FailingEngine(fail=EngineError('missing')))
+        self.addCleanup(release.set)
+        run.request(['XR-1'])
+        self.assertTrue(stopped.wait(1))
+        run.request(['XR-1'])  # loop has not received the failure yet
+        release.set()
+        self.assertEqual(self.events(run), [('failed', 'engine', 'missing')])
+        time.sleep(0.03)
+        self.assertEqual(run.starts, 1)
+        self.assertEqual(run.take_events(), [])
+
     def test_nothing_runs_until_something_is_asked_for(self):
         before = threading.active_count()
         run, engine = self.run_of()

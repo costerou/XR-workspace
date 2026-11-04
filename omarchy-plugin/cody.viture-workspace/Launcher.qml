@@ -98,12 +98,17 @@ ColumnLayout {
     }
     Label {
         objectName: "inXrHint"
-        text: "Everything else is set in the glasses during the session. Press Ctrl+Alt+H there for the keys."
+        text: "Other view controls are in the glasses during the session. Press Ctrl+Alt+H there for the keys."
         opacity: 0.65
         horizontalAlignment: Text.AlignHCenter
         Layout.fillWidth: true
         Layout.topMargin: 6
         wrapMode: Text.WordWrap
+    }
+    StabilizationControls {
+        strength: root.settings.stabilization !== undefined ? root.settings.stabilization : 25
+        busy: root.busy
+        onRequest: message => root.request(message)
     }
     Button {
         objectName: "startupOptionsToggle"

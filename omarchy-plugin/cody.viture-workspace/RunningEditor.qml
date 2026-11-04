@@ -27,6 +27,12 @@ ColumnLayout {
         Button { text:"Stop"; enabled:!root.busy; onClicked:root.request({op:"stop"}) }
     }
     Label { visible:root.snapshot.display_mode !== undefined || root.snapshot.uptime !== undefined; text:(root.snapshot.display_mode || "") + (root.snapshot.uptime !== undefined ? " · " + root.snapshot.uptime + " s" : "") }
+    StabilizationControls {
+        strength: root.view.stabilization !== undefined ? root.view.stabilization
+                  : root.settings.stabilization !== undefined ? root.settings.stabilization : 25
+        busy: root.busy
+        onRequest: message => root.request(message)
+    }
     Rectangle {
         Layout.fillWidth:true; Layout.preferredHeight:135; color:Qt.darker(Commons.Color.background,1.2); radius:6
         clip:true  // a desktop resized past the view (up to 10x) stays inside the preview

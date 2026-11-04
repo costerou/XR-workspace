@@ -15,6 +15,7 @@
 #include "xr/continuity.hpp"
 #include <sys/stat.h>
 #include "xr/predict.hpp"
+#include "xr/stabilization.hpp"
 #include "xr/hud.hpp"
 #include "xr/environment.hpp"
 #include "video_mode.hpp"
@@ -444,6 +445,7 @@ struct Presentation::Impl : SurfaceRequests {
     bool tracking_requested = false;
     std::string pose_prefix;
     std::unique_ptr<PoseFeed> pose_feed;
+    Stabilizer stabilization;
     std::string pose_why;
     std::uint64_t pose_retry_ms = 0;
     PoseState pose;
@@ -1437,7 +1439,7 @@ bool Presentation::restore_continuity(int fd) {
     if (!c.decode(bytes)) return false;
     c.resume(double(monotonic_ms()));
     auto& s = *impl_;
-    s.pose = c.pose; s.modes = c.modes; s.view = c.view; s.maximized = c.maximized;
+    s.pose = c.pose; s.stabilization = c.stabilization; s.modes = c.modes; s.view = c.view; s.maximized = c.maximized;
     s.rolls = c.rolls; s.last_drawn = c.last_drawn;
     s.centre = {c.centre_valid, c.centre_serial, c.centre_dir};
     s.cadence.invalidate();
@@ -1447,7 +1449,7 @@ void Presentation::save_continuity(int fd) {
     if (!impl_ || fd < 0) return;
     auto& s = *impl_;
     ViewContinuity c;
-    c.pose = s.pose; c.modes = s.modes; c.view = s.view; c.maximized = s.maximized;
+    c.pose = s.pose; c.stabilization = s.stabilization; c.modes = s.modes; c.view = s.view; c.maximized = s.maximized;
     c.rolls = s.rolls; c.last_drawn = s.last_drawn;
     c.centre_valid = s.centre.valid; c.centre_serial = s.centre.serial; c.centre_dir = s.centre.dir;
     c.saved_ms = double(monotonic_ms());
@@ -1458,14 +1460,14 @@ void Presentation::save_continuity(int fd) {
             (void)ftruncate(fd, 0);
     } catch (const std::runtime_error&) { (void)ftruncate(fd, 0); }
 }
-void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
+void Presentation::recenter() { if (impl_) { impl_->stabilization.reset(); impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_edge_pan(const EdgePan& pan) {
     if (!impl_) return;
     impl_->view.set_pan(pan, double(monotonic_ms()));
     impl_->cadence.invalidate();
 }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
-                            bool prediction, bool typing, bool center, bool cut, bool pan) {
+                            bool prediction, bool typing, bool center, bool cut, bool pan, std::uint32_t stabilization) {
     if (!impl_) return;
     // Maximize-follow (2026-11-03): the overview is always anchor and a maximized desktop follow (or locked), so a maximize
     // and an un-maximize change the mode as well. Those changes need no pop-up (only Ctrl+Alt+V's does), the zoom-in grows
@@ -1475,6 +1477,7 @@ void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t s
     if (maximize || unmaximize) impl_->popups.track_mode(mode);
     impl_->popups.update(mode, cursor_follow, prediction, typing, double(monotonic_ms()));
     impl_->prediction = prediction;
+    impl_->stabilization.strength(int(stabilization));
     using Change = ModeController::Change;
     impl_->modes.set_mode(view_mode, double(monotonic_ms()),
                           maximize && view_mode != ViewMode::anchor ? Change::maximize
@@ -1536,7 +1539,10 @@ Status Presentation::draw_test_pattern() {
                 if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
             }
             const auto sample = s.pose_feed ? s.pose_feed->read() : std::nullopt;
-            s.pose.update(sample, double(now));
+            auto stabilized = sample;
+            if (stabilized) stabilized->orientation = s.stabilization.update(stabilized->orientation, stabilized->device_ms);
+            else s.stabilization.reset();
+            s.pose.update(stabilized, double(now));
             const bool lost = s.pose.reconnecting(double(now));
             if (s.tracking_hint.update(lost, double(now)) && lost) ++s.tracking_hints;
             Quat relative = s.pose.relative();
@@ -1548,7 +1554,7 @@ Status Presentation::draw_test_pattern() {
                                                                     : std::nullopt,
                                                         s.latency.expected_ms(), age.value_or(0.0), refresh ? refresh / 1e6 : 1000.0 / 120);
                 if (omega && horizon) {
-                    const Quat delta = prediction_delta(*omega, *horizon, Impl::kMaxPredictionDeg);
+                    const Quat delta = prediction_delta(*omega, *horizon * s.stabilization.prediction_gain(), Impl::kMaxPredictionDeg);
                     relative = quat_mul(relative, delta);  // body frame: newest sample * delta
                     s.last_horizon_ms = *horizon; s.last_predicted_deg = quat_angle(Quat{}, delta) * float(180 / M_PI);
                     ++s.predicted_frames;

@@ -448,17 +448,18 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
             const bool has_center = p.contains("center"), has_cut = p.contains("cut"), has_pan = p.contains("pan");
-            if (p.size() != 7u + has_center + has_cut + has_pan || (has_center && !p["center"].is_boolean()) ||
+            if (p.size() != 7u + has_center + has_cut + has_pan + p.contains("stabilization") || (has_center && !p["center"].is_boolean()) ||
                 (has_cut && !p["cut"].is_boolean()) || (has_pan && !p["pan"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
                 !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
                 p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return bad();
+            if (p.contains("stabilization") && (!p["stabilization"].is_number_unsigned() || p["stabilization"].get<std::uint64_t>() > 100)) return bad();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return bad();
             payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
                                   p["cursor_follow"].get<bool>(), p["prediction"].get<bool>(), p["typing"].get<bool>(),
-                                  has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>(), has_pan && p["pan"].get<bool>()};
+                                  has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>(), has_pan && p["pan"].get<bool>(), p.value("stabilization", 25u)};
         } else if (op == ControlOp::style) {
             const auto& p = j["payload"];
             if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return bad();

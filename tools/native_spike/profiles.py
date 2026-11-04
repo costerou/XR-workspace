@@ -191,7 +191,8 @@ def _view_part(data):
     out = {**view.DEFAULT_SETTINGS, 'video_quality': video_quality(data), 'environment': environment(data), 'immersive': immersive(data)}
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= view.MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in view.MODES: out['mode'] = data['mode']
-    if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']  # an old cursor_follow is dropped
+    if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
+    if type(data.get('stabilization')) is int and 0 <= data['stabilization'] <= 100: out['stabilization'] = data['stabilization']
     # A `cursor_switch_animate` (Ctrl+Alt+A, removed 2026-11-03) is ignored like any unknown key: the cleaned profile drops it.
     return out
 
