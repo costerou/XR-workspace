@@ -63,7 +63,11 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
     runtime=Path(os.environ['XDG_RUNTIME_DIR']);client=client_factory(data['instance'],runtime) if client_factory else BundleClient(data['instance'],runtime,root,manifest)
     consent={**data,'tracking':'pro2-supervised','mode_switch':False,'sbs_mode':None,'capture':CAPTURE_SCOPE}
     journal=runtime/'xr-workspace-spike'/data['run_id']/'journal.json'
-    if recover:return recover_pro2_test_managed(client,consent,journal)
+    if recover:
+        result=recover_pro2_test_managed(client,consent,journal)
+        if result.get('complete') and ownership_plugin_count(client.plugins_loaded())==1:
+            client.plugin_unload(str(root/'bin/libxr-ownership.so'))
+        return result
     provider=None;loaded=False;result=None;errors=[];started=False
     plugin=str(root/'bin/libxr-ownership.so')
     try:
@@ -89,7 +93,7 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
         if provider is not None:
             try:provider.close()
             except Exception as exc:errors.append(str(exc))
-    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and not errors),run=result,errors=errors)
+    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors)
 
 
 def main():

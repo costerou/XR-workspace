@@ -52,11 +52,11 @@ def _recover_managed_impl(client,consent,path,clear_rules=(),*,pro2_test=False):
         broker = OwnershipBrokerClient.from_journal(client, journal)
         if any(journal.broker[key] != consent[key] for key in ('instance', 'output', 'recovery_output')):
             raise OwnershipBlocked('consent does not match saved broker scope')
-        result = recover_restoring(client, journal, broker, consent['run_id'], clear_rules=clear_rules)
+        result = recover_restoring(client, journal, broker, consent['run_id'], clear_rules=clear_rules, **({'restore_sbs':False} if pro2_test else {}))
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining, 'reasons': result.reasons}
 
 
-def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None, *, clear_rules=()):
+def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None, *, clear_rules=(), restore_sbs=True):
     """Recovery, preceded by the run's layout restore (restore.py) while its XR outputs still exist: the snapshot
     taken at start (`snapshot`, else the one saved in the state directory). The saved one goes once recovery completes;
     an incomplete recovery keeps it, so the next attempt restores again. A monitor rule Omarchy wrote for one of the run's
@@ -66,7 +66,7 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     saved = getattr(journal, 'broker', None)
     if isinstance(saved, dict): privacy.wake(client, saved.get('recovery_output'))
     # So do the glasses, out of side-by-side 3D, as far as a program can: it says which button.
-    if isinstance(saved, dict) and saved.get('output'): immersive.restore_2d(sbs.ButtonSbs(client, saved['output'], send.notify))
+    if restore_sbs and isinstance(saved, dict) and saved.get('output'): immersive.restore_2d(sbs.ButtonSbs(client, saved['output'], send.notify))
     names = getattr(journal, 'output_names', list)()
     agreed = [name for name in names if name in clear_rules]
     unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
@@ -528,7 +528,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
-        result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
+        result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts, **({'restore_sbs':False} if pro2_scope is not None else {}))
         if report.get('stop_reason') == 'tracking-timeout':
             send.notify('Head tracking did not come back, so XR stopped. Your windows are back on your monitor.')
     return {'journal': str(journal.path), 'renderer_returncode': returncode, 'complete': result.complete, 'remaining': result.remaining,

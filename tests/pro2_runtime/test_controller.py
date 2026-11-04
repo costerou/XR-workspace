@@ -43,3 +43,10 @@ class ControllerTests(unittest.TestCase):
     def test_health_fails_closed(self):
         f=self.root/'health';f.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic()-1)));f.chmod(0o600)
         with self.assertRaises(ValueError):TestScope('/private/pose_',44.5,str(f),'n').healthy()
+
+    def test_recovery_does_not_start_sdk_and_unloads_only_after_complete(self):
+        client=Mock();client.plugins_loaded.return_value=[OWNERSHIP_PLUGIN_NAME]
+        session=Mock(side_effect=AssertionError('recovery must not start provider'))
+        with patch.dict(os.environ,XDG_RUNTIME_DIR=str(self.root)),patch('tools.native_spike.managed.recover_pro2_test_managed',return_value=dict(complete=True)) as recover:
+            result=execute(self.data,self.bundle,self.root,recover=True,client_factory=lambda *a:client,session_factory=session)
+        self.assertTrue(result['complete']);session.assert_not_called();recover.assert_called_once();client.plugin_unload.assert_called_once()
