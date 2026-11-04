@@ -35,6 +35,16 @@ Mat3 mul(const Mat3& a, const Mat3& b) {
 }
 // gl = M * driver: right = -left, up = up, back = -forward. A proper rotation (det +1).
 const Mat3 kDriverToGl{0, -1, 0, 0, 0, 1, -1, 0, 0};
+// PoseState::up_: how far it can be from a worn head, and the filter, in radians and seconds.
+constexpr float kDegToRad = 3.14159265f / 180.f;
+constexpr float kUpReachDeg = 45.f;  // a recentre: up is no further than this from the head's up
+constexpr float kUpWornDeg = 60.f;   // further than this from up, the glasses are not a head looking about
+constexpr float kUpFeedDeg = 8.f;    // how far off the feed's z is taken to be, when in reach (1 sigma): usually exact
+constexpr float kUpHeadDeg = 20.f;   // ... and the head's own up: the head's pitch is in it
+constexpr float kUpNoise = 0.0167f;  // head roll as measurement noise, rad^2 s: about 3 degrees, for about 3 s at a time
+constexpr float kUpDrift = 5e-6f;    // rad^2 / s, about a degree a minute: a held tilt is taken for how you sit in about that long
+constexpr double kUpMaxStepMs = 100; // a stall in the feed is no more evidence than one frame
+constexpr double kUpMinStepMs = 1;   // two samples in one tick are not free evidence
 }
 Mat3 driver_to_gl(const Mat3& driver) { return mul(mul(kDriverToGl, driver), transpose(kDriverToGl)); }
 std::array<float, 3> apply(const Mat3& m, std::array<float, 3> v) {
@@ -162,8 +172,10 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
     if (sample) {
         if (auto q = quat_normalized(sample->orientation)) {
             if (sample->device_ms != last_device_ms_) {
+                const double since_ms = now_ms - last_change_ms_;
                 last_device_ms_ = sample->device_ms; last_change_ms_ = now_ms; ++samples_;
-                if (recenter_pending_ || !center_) { center_ = *q; recenter_pending_ = false; }
+                if (recenter_pending_ || !center_) { center_ = *q; recentre_up(*q); recenter_pending_ = false; }
+                else learn_up(*q, since_ms);
                 last_ = *q;
                 const Quat relative = quat_mul(quat_conj(*center_), *q);
                 relative_ = relative;
@@ -173,6 +185,40 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
         }
     }
     if (tracking_ && now_ms - last_change_ms_ > stale_ms_) { tracking_ = false; ++lost_events_; }  // hold last pose
+}
+
+void PoseState::recentre_up(Quat head) {
+    const Mat3 m = quat_to_mat3(head);  // columns: the head's forward, left and up in the feed's frame
+    const float reach = std::cos(kUpReachDeg * kDegToRad);
+    const bool started = up_cov_[0] > 0;
+    if (started && m[2] * up_[0] + m[5] * up_[1] + m[8] * up_[2] >= reach) return;
+    const bool feed = m[8] >= reach;
+    if (feed) up_ = {0, 0, 1};
+    else up_ = {m[2], m[5], m[8]};
+    const float start = (feed ? kUpFeedDeg : kUpHeadDeg) * kDegToRad;
+    up_cov_ = {start * start, 0, 0, 0, start * start, 0, 0, 0, start * start};
+}
+void PoseState::learn_up(Quat head, double ms) {
+    const Mat3 m = quat_to_mat3(head);
+    if (m[2] * up_[0] + m[5] * up_[1] + m[8] * up_[2] < std::cos(kUpWornDeg * kDegToRad)) return;
+    // One measurement: the head's left axis is level, left . up = 0, with the head's roll as its noise.
+    const std::array<float, 3> left{m[1], m[4], m[7]};
+    const float seconds = float(std::clamp(ms, kUpMinStepMs, kUpMaxStepMs)) / 1000.f;
+    const std::array<float, 3> pl = xr::apply(up_cov_, left);  // (std::apply is a closer match on a non-const array)
+    const float s = left[0] * pl[0] + left[1] * pl[1] + left[2] * pl[2] + kUpNoise / seconds;
+    const float off = (left[0] * up_[0] + left[1] * up_[1] + left[2] * up_[2]) / s;
+    const std::array<float, 3> v{up_[0] - off * pl[0], up_[1] - off * pl[1], up_[2] - off * pl[2]};
+    const float n = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if (n > 1e-6f) up_ = {v[0] / n, v[1] / n, v[2] / n};
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) up_cov_[i * 3 + j] -= pl[i] * pl[j] / s - (i == j ? kUpDrift * seconds : 0.f);
+}
+std::optional<Quat> PoseState::reference() const {
+    if (!center_) return std::nullopt;
+    // The shortest turn taking up_ to z, half a turn about x when it is exactly opposite. Its heading is arbitrary there, and
+    // neither user minds: canvas_up undoes the turn, and environment_view takes the heading of the result.
+    const Quat turn = quat_normalized({up_[1], -up_[0], 0, 1 + up_[2]}).value_or(Quat{1, 0, 0, 0});
+    return quat_mul(turn, *center_);
 }
 
 Quat quat_slerp(Quat a, Quat b, float t) {
@@ -201,7 +247,7 @@ Mat3 view_from(Quat head, Quat anchor) {
 }
 
 std::array<float, 3> canvas_up(Quat reference, Quat anchor) {
-    const auto v = apply(transpose(quat_to_mat3(quat_mul(reference, anchor))), {0, 0, 1});  // driver up, in the canvas's driver frame
+    const auto v = apply(transpose(quat_to_mat3(quat_mul(reference, anchor))), {0, 0, 1});  // up, in the canvas's driver frame
     return apply(kDriverToGl, v);
 }
 

@@ -460,6 +460,12 @@ levels the desktop and moves nothing else. See [Level bar and corner caps](techn
 
 Automated (offline):
 
+- ctest `level_frame`: what level is measured against, with the feed as the driver publishes it (relative to wherever the
+  glasses were as calibration finished, including the numbers read from the live feed on 2026-11-03): tilts against true
+  gravity for a reference upside down, on one arm or hanging; a tipped or pitched recentre; a good frame exact from the first
+  sample; a reference that only looks right; ten minutes of use; glasses put down; the background's floor.
+- ctest `level_contract`: the bar pressed through `OverviewPointer` with those tilts: middle and turn segments, R on an open
+  panel, a drag through the detent, and a maximize after a level.
 - ctest `roll_level`: the roll about the line of sight, the tilt from level, gravity after a tipped recentre; the bar's size,
   place, thirds and hit region; bar and caps keeping their share of the desktop through resize, move, curvature and roll;
   every atlas pixel premultiplied and under the cap, a clear gutter round each cell, only the hot segment changed against
@@ -506,6 +512,9 @@ Glasses script (in the overview, unless a step says otherwise):
 | H18 | Leave the mouse alone for 30 s | The bars and caps hide with the pills, and come back on the next mouse move. |
 | H19 | Roll XR-2 about 20° with its bar and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
 | H20 | Move the dot slowly up from XR-2's top edge, under the middle of its bar | Right at the edge (the first few pixels) the dot shows the edge's up-down arrows and the bar does not light up; from about 8 px out it does. |
+| H21 | Before starting XR, set the glasses down upside down (or on one arm) and leave them there until the picture would appear, about a minute. Put them on, recentre (Ctrl+Alt+Space) looking straight ahead, wait a few seconds and click the middle of each desktop's bar | Every desktop stays within a few degrees of where it was, and looks level. None turns on its side. |
+| H22 | Same start. With Background on Grid, look around | The floor is below you and the sky above, not upside down or leaning. It may settle by a degree or two in the first half minute. |
+| H23 | Same start. After a minute of normal use, recentre with your head tipped to one side, straighten up, and click each bar's middle | Each desktop goes straight to level, with no wait. |
 
 ## Maximized desktops sit level: automated coverage and glasses test script
 

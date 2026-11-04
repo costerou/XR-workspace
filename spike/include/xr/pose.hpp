@@ -55,14 +55,30 @@ public:
     bool tracking() const { return tracking_; }
     Mat3 view() const { return view_; }  // identity until the first valid sample
     Quat relative() const { return relative_; }  // head vs recentre reference, driver frame
-    // The recentre reference itself (the head's absolute driver-frame orientation when it was taken); nullopt before the
-    // first valid sample. XRLinuxDriver's frame is gravity-aligned (z up), so this is what ties the canvas to level.
-    std::optional<Quat> reference() const { return center_; }
+    // The recentre reference (the head's orientation when it was taken) in a frame whose z is the world's up as far as
+    // that can be told (up_ below): what ties the canvas to level. nullopt before the first valid sample.
+    std::optional<Quat> reference() const;
     std::uint64_t samples() const { return samples_; }
     std::uint64_t lost_events() const { return lost_events_; }
 private:
+    void recentre_up(Quat head);
+    void learn_up(Quat head, double ms);
     double stale_ms_;
     std::optional<Quat> center_;
+    // The world's up in the feed's frame. The feed has no gravity in it: XRLinuxDriver publishes the pose relative to the one
+    // it captured as calibration finished (src/driver.c driver_handle_pose: conj(reference) * pose), so its z axis is the
+    // glasses' up at that moment, wherever they were: on your head, or upside down on the desk. Only the head is left to go
+    // on, and two things hold for a head:
+    //   - At a recentre the glasses are on it, so up is within a neck's reach of its own up (kUpReachDeg). Up stays if it is
+    //     (a tipped recentre is exactly what the level bar is for). If not, the feed's z takes over if that is in reach
+    //     (then it is exact, for glasses worn straight at the start), else the head's own up: the best there is.
+    //   - It is held straight on average, so whichever way it turns its left-right axis stays level. A Kalman filter on that
+    //     one fact (up_cov_) corrects a reference that only looked right and learns pitch as soon as the head has turned a
+    //     little. Unlike averaging the head's own up it takes nothing from looking up or down at a desktop.
+    // Glasses further than kUpWornDeg from up are not a head looking about (put down, on one arm): nothing is learned. So a
+    // head held tipped for a minute or more is taken for how you sit, which is level as you see it.
+    std::array<float, 3> up_{0, 0, 1};
+    std::array<float, 9> up_cov_{};  // row-major, rad^2; zero until the first sample
     Quat last_{};
     float last_device_ms_ = -1;
     double last_change_ms_ = 0;
@@ -76,8 +92,9 @@ Quat quat_slerp(Quat a, Quat b, float t);  // shortest arc
 float quat_angle(Quat a, Quat b);          // radians between orientations
 Quat level(Quat q);                        // same yaw/pitch of the forward axis, zero roll (driver frame)
 Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canvas anchored at `anchor`
-// The world's up (driver z, against gravity) as a unit vector in the GL frame of a canvas anchored at `anchor` relative to
-// the recentre `reference` (PoseState::reference): what view.hpp desktop_tilt measures a desktop's roll against.
+// The world's up (z of the frame `reference` is in) as a unit vector in the GL frame of a canvas anchored at `anchor`
+// relative to the recentre `reference` (PoseState::reference, level): what view.hpp desktop_tilt measures a desktop's roll
+// against.
 std::array<float, 3> canvas_up(Quat reference, Quat anchor);
 // The canvas turn (driver frame, relative to the canvas anchor) that brings canvas direction (az, el) straight ahead:
 // az / el radians round the eye as view.hpp place_point turns a desktop (+az right, +el up). With a canvas anchored at

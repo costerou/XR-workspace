@@ -325,6 +325,13 @@ if(XR_ENABLE_PRESENTATION)
       target_compile_options(roll_level_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME roll_level COMMAND roll_level_test)
+    # What level is measured against: the pose feed is relative to the driver's reference, not to gravity.
+    add_executable(level_frame_test tests/level_frame_test.cpp)
+    target_link_libraries(level_frame_test PRIVATE xr_hud xr_ipc)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(level_frame_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME level_frame COMMAND level_frame_test)
   endif()
   # The glass pill geometry, renderer side to supervisor side (tools/native_spike/free_pointer.py mirrors it).
   add_executable(glass_geometry_dump tests/glass_geometry_dump.cpp)
@@ -338,6 +345,10 @@ if(XR_ENABLE_PRESENTATION)
       "$<TARGET_FILE:glass_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
     add_test(NAME placement_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/placement_contract_test.py"
       "$<TARGET_FILE:placement_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    if(TARGET level_frame_test)  # the level bar pressed with the tilts level_frame_test reports
+      add_test(NAME level_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/level_contract_test.py"
+        "$<TARGET_FILE:level_frame_test>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    endif()
   endif()
   add_library(xr_capture STATIC src/capture.cpp)
   target_link_libraries(xr_capture PUBLIC xr_types)
