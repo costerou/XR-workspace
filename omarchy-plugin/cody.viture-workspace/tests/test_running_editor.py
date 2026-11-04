@@ -24,6 +24,38 @@ TestCase {
     width: 900; height: 860
     Component { id: running; Workspace.RunningEditor {} }
     Component { id: launcher; Workspace.Launcher {} }
+    Component { id: notice; Workspace.SessionNotice {} }
+    function test_recovery_state_gate() {
+        for (const state of ["idle", "running", "starting", "stopping", "failed", "cli-recovery", "recovery-needed"]) {
+            const item = createTemporaryObject(notice, testCase, {width:900, snapshot:{state:state,run_id:"run",reason:"fallback unavailable"}});
+            verify(item !== null);
+            const recover = findChild(item, "recoverButton");
+            compare(recover.visible, state === "recovery-needed");
+            if (recover.visible) {
+                const sent = []; item.request.connect(m => sent.push(m));
+                mouseClick(recover); compare(sent, [{op:"begin_recover"}]);
+                item.busy = true; verify(!recover.enabled);
+            }
+            item.destroy();
+        }
+    }
+    function test_runtime_migration_requires_complete_capability() {
+        const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{state:"running",model:"beast",output:"DP-2",capabilities:["options_menu"],status:{presented_hz:89.5}}, settings:{}});
+        verify(editor !== null);
+        verify(findChild(editor, "runtimeEditors").visible);
+        editor.snapshot = {state:"running",model:"beast",output:"DP-2",capabilities:["options_runtime_complete"],status:{presented_hz:89.5}};
+        verify(!findChild(editor, "runtimeEditors").visible);
+        verify(!findChild(editor, "runtimeEditors").enabled);
+        verify(findChild(editor, "measuredStatus").visible);
+        compare(editor.snapshot.status.presented_hz, 89.5);
+        const stop = findChild(editor, "stopButton");
+        verify(stop.visible && stop.enabled);
+        const sent = []; editor.request.connect(m => sent.push(m));
+        mouseClick(stop); compare(sent, [{op:"stop"}]);
+        editor.busy = true; verify(!stop.enabled);
+        editor.snapshot = {state:"running",capabilities:[]};
+        verify(findChild(editor, "runtimeEditors").visible);
+    }
     function test_stabilization_before_start() {
         const editor = createTemporaryObject(launcher, testCase, {width:900, snapshot:{}, settings:{stabilization:25}});
         verify(editor !== null);
@@ -112,7 +144,7 @@ class RunningEditorTests(unittest.TestCase):
             done = subprocess.run([RUNNER, '-input', tmp, '-import', str(Path(tmp) / 'imports')], capture_output=True, text=True, timeout=60,
                                   env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'})
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn('Totals: 7 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
+        self.assertIn('Totals: 9 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
 
 
 if __name__ == '__main__':
