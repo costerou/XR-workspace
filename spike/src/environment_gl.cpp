@@ -7,8 +7,8 @@ namespace {
 // linearly in screen space it is exact for a perspective projection (the eye ray is linear in NDC). `view` is uploaded
 // column-major from the row-major world -> eye matrix, so `e * view` is viewᵀ·e (eye -> world), as the video pass does.
 const char* kVertex =
-    "attribute vec2 pos; uniform mat3 view; uniform vec2 half_fov; varying vec3 dir;\n"
-    "void main() { dir = vec3(pos.x * half_fov.x, pos.y * half_fov.y, -1.0) * view; gl_Position = vec4(pos, 0.0, 1.0); }\n";
+    "attribute vec2 pos; uniform mat3 view; uniform vec2 half_fov; uniform float eye; varying vec3 dir;\n"
+    "void main() { dir = vec3((pos.x + eye) * half_fov.x, pos.y * half_fov.y, -1.0) * view; gl_Position = vec4(pos, 0.0, 1.0); }\n";
 
 // Every background's fragment shader: this head, its scene(), the tail.
 const char* kHead =
@@ -158,7 +158,7 @@ std::unique_ptr<EnvironmentPass> EnvironmentPass::create() {
         GLint linked = 0; glGetProgramiv(p.id, GL_LINK_STATUS, &linked);
         if (!linked) return nullptr;  // the destructor deletes the programs
         p.pos = glGetAttribLocation(p.id, "pos");
-        p.view = glGetUniformLocation(p.id, "view"); p.half_fov = glGetUniformLocation(p.id, "half_fov");
+        p.view = glGetUniformLocation(p.id, "view"); p.half_fov = glGetUniformLocation(p.id, "half_fov"); p.eye = glGetUniformLocation(p.id, "eye");
         p.line = glGetUniformLocation(p.id, "line"); p.level = glGetUniformLocation(p.id, "level");
         p.gain = glGetUniformLocation(p.id, "gain"); p.seconds = glGetUniformLocation(p.id, "seconds");
         if (p.pos < 0) return nullptr;
@@ -180,8 +180,8 @@ EnvironmentPass::~EnvironmentPass() {
 }
 
 void EnvironmentPass::draw(Background background, const Mat3& view, float half_w, float half_h, float level, float gain, const MdRgb& line,
-                           float seconds) {
-    const auto& p = programs_[std::size_t(background)];
+                           float seconds, float eye_shift) {
+    auto& p = programs_[std::size_t(background)];
     if (!p.id) return;
     const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
     glUseProgram(p.id);
@@ -191,6 +191,7 @@ void EnvironmentPass::draw(Background background, const Mat3& view, float half_w
     glUniform1f(p.level, level);
     glUniform1f(p.gain, gain);
     glUniform1f(p.seconds, seconds);
+    if (p.eye_set != eye_shift) { glUniform1f(p.eye, eye_shift); p.eye_set = eye_shift; }
     glBindBuffer(GL_ARRAY_BUFFER, buffer_);
     glVertexAttribPointer(GLuint(p.pos), 2, GL_FLOAT, GL_FALSE, 0, nullptr);
     glEnableVertexAttribArray(GLuint(p.pos));

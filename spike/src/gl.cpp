@@ -8,6 +8,8 @@
 #include "dmabuf.hpp"
 #include "environment_gl.hpp"
 #include "hud_gl.hpp"
+#include "stereo_gl.hpp"
+#include "video_gl.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -21,10 +23,7 @@ std::uint64_t now_us() {
 // World point (view.hpp place_point: canvas plane at z=-1 spanning the FOV, each desktop turned to face the eye, then
 // per-desktop placement) -> head rotation -> perspective. A centred desktop with the default placement and identity
 // rotation reproduces the head-locked NDC exactly; an off-centre one keeps its centre there and faces you.
-#define XR_PROJECT \
-    "uniform mat3 view; uniform vec2 half_fov;\n" \
-    "vec4 project(vec3 p) { vec3 q = view * p;\n" \
-    "  return vec4(q.x / half_fov.x, q.y / half_fov.y, 0.0, -q.z); }\n"
+// XR_PROJECT itself is in stereo_gl.hpp: the warp's programs share it.
 const char* kVertex =
     "attribute vec3 pos; attribute vec2 uv; varying vec2 v;\n" XR_PROJECT
     "void main() { v = uv; gl_Position = project(pos); }\n";
@@ -79,15 +78,16 @@ struct GlCompositor::Impl {
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
     GLint glow_pos = -1, glow_px = -1, glow_rect = -1, glow_color = -1, glow_falloff = -1, glow_view = -1, glow_half_fov = -1;
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
-    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, style = -1, opacity = -1; } glass_loc;
-    struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1; } panel_loc;
+    GLint tile_stereo = -1, color_stereo = -1, glow_stereo = -1;  // this eye's offset: only ever set in 3D (XR_PROJECT)
+    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, style = -1, opacity = -1, stereo = -1; } glass_loc;
+    struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1, stereo = -1; } panel_loc;
     GLuint panel_texture = 0; std::uint64_t panel_uploaded = 0;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     // Zero-copy: per source, per capture slot, an EGLImage-backed texture; `current` = slot to draw (-1 = SHM).
     // `held`: the last presented frame of buffers since re-created (hold_dmabuf), drawn until the new ones deliver one.
     struct Imported { std::array<GLuint, 3> tex{}; std::array<EGLImageKHR, 3> image{EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR}; int current = -1;
-                      GLuint held_tex = 0; EGLImageKHR held_image = EGL_NO_IMAGE_KHR; };
+                      GLuint held_tex = 0; EGLImageKHR held_image = EGL_NO_IMAGE_KHR; std::uint32_t width = 0, height = 0; };
     std::vector<Imported> imported;
     GLint swizzle = -1;
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr;
@@ -100,6 +100,22 @@ struct GlCompositor::Impl {
     std::unique_ptr<EnvironmentPass> environment;
     float env_level = 0, env_gain = 1, env_seconds = 0; Background env_background = Background::none; Mat3 env_view{1, 0, 0, 0, 1, 0, 0, 0, 1};
     bool env_visible() const { return environment && env_level > 0.f && env_background != Background::none; }
+    // Global immersive 3D (stereo_gl.hpp), all empty until set_stereo first turns it on: a 2D run never compiles its shaders.
+    std::unique_ptr<StereoPass> stereo; std::string stereo_why;
+    StereoSettings stereo_set;
+    struct StereoSource { StereoFader fader; float gain = 0; double depth_ms = -1; };
+    std::vector<StereoSource> stereo_sources;
+    StereoFader stereo_scene; float stereo_b = 0, env_eye = 0;  // this frame's half baseline; the background's eye shift (NDC)
+    std::uint64_t stereo_frames = 0;
+    static double now_ms() { return double(now_us()) / 1000.0; }
+    std::vector<EyeViewport> stereo_eyes() const {  // the two eye viewports; none in 2D or until the buffer is 3:1 wide
+        if (!stereo_set.enabled && !stereo_scene.moving()) return {};
+        auto eyes = eye_viewports(px_w, px_h);
+        if (eyes.size() != 2) eyes.clear();
+        return eyes;
+    }
+    void stereo_frame(const std::vector<FRect>& tiles, const Mat3& view, const Canvas& canvas, float eye_w);
+    StereoBudget stereo_tile_budget(std::size_t i, const Canvas& canvas, const FRect& tile, const Mat3& view, float eye_w) const;
     bool blend_max = false;  // GL_MAX blending (ES 3 or EXT_blend_minmax): the highlight's glow over the grid stays under the cap
     void drop(Imported& i) {
         for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
@@ -161,8 +177,8 @@ struct GlCompositor::Impl {
     // last given (uniforms keep their values per program, and only this class sets these programs' uniforms).
     GLuint current = 0;
     void use(GLuint p) { if (p != current) { glUseProgram(p); current = p; } }
-    struct Projection { bool set = false; Mat3 view{}; float half[2] = {0, 0}; };
-    Projection tile_projection, color_projection, glow_projection, glass_projection, panel_projection;
+    struct Projection { bool set = false; Mat3 view{}; float half[2] = {0, 0}; float stereo = 0; };
+    Projection tile_projection, color_projection, glow_projection, glass_projection, panel_projection, warp_projection;
     // The panel texture's pixels as last uploaded. A slider drag re-renders the panel up to once per frame but changes one
     // row of it: only the rows that differ from this copy are uploaded (none if a re-render left the pixels as they were).
     std::vector<std::uint8_t> panel_pixels; std::uint32_t panel_w = 0, panel_h = 0;
@@ -176,7 +192,7 @@ struct GlCompositor::Impl {
             drop_meshes();
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) { drop(i); drop_held(i); }
-            hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset();
+            hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset(); stereo.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
             if (handle_texture) glDeleteTextures(1, &handle_texture);
             if (glass_program) glDeleteProgram(glass_program);
@@ -261,6 +277,7 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
     if (!linked) { why = "shader link"; return false; }
     s.color_pos = glGetAttribLocation(s.color_program, "pos"); s.color = glGetUniformLocation(s.color_program, "color");
     s.color_view = glGetUniformLocation(s.color_program, "view"); s.color_half_fov = glGetUniformLocation(s.color_program, "half_fov");
+    s.color_stereo = glGetUniformLocation(s.color_program, "stereo");
     GLuint gvs = compile(GL_VERTEX_SHADER, kGlowVertex), gfs = compile(GL_FRAGMENT_SHADER, kGlowFragment);
     if (!gvs || !gfs) { why = "shader compile"; return false; }
     s.glow_program = glCreateProgram(); glAttachShader(s.glow_program, gvs); glAttachShader(s.glow_program, gfs); glLinkProgram(s.glow_program);
@@ -271,7 +288,9 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
     s.glow_rect = glGetUniformLocation(s.glow_program, "rect"); s.glow_color = glGetUniformLocation(s.glow_program, "color");
     s.glow_falloff = glGetUniformLocation(s.glow_program, "falloff");
     s.glow_view = glGetUniformLocation(s.glow_program, "view"); s.glow_half_fov = glGetUniformLocation(s.glow_program, "half_fov");
+    s.glow_stereo = glGetUniformLocation(s.glow_program, "stereo");
     s.view = glGetUniformLocation(s.program, "view"); s.half_fov = glGetUniformLocation(s.program, "half_fov");
+    s.tile_stereo = glGetUniformLocation(s.program, "stereo");
     s.pos = glGetAttribLocation(s.program, "pos"); s.uv = glGetAttribLocation(s.program, "uv");
     s.sampler = glGetUniformLocation(s.program, "tex");
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
@@ -300,12 +319,14 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
         g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
         g.rect = glGetUniformLocation(p, "rect"); g.radius = glGetUniformLocation(p, "radius");
         g.style = glGetUniformLocation(p, "style"); g.opacity = glGetUniformLocation(p, "opacity");  // style: glass_style()
+        g.stereo = glGetUniformLocation(p, "stereo");
     }
     if ((s.panel_program = link(kVertex, kPanelFragment))) {
         auto& g = s.panel_loc; const GLuint p = s.panel_program;
         g.pos = glGetAttribLocation(p, "pos"); g.uv = glGetAttribLocation(p, "uv");
         g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
         g.tex = glGetUniformLocation(p, "tex"); g.alpha = glGetUniformLocation(p, "alpha");
+        g.stereo = glGetUniformLocation(p, "stereo");
         glGenTextures(1, &s.panel_texture); glBindTexture(GL_TEXTURE_2D, s.panel_texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -373,7 +394,7 @@ bool GlCompositor::import_dmabuf(std::size_t source, std::size_t slot, const Dma
     if (glGetError() != GL_NO_ERROR) { glDeleteTextures(1, &tex); s.destroy_image(s.display, image); return false; }
     if (im.tex[slot]) glDeleteTextures(1, &im.tex[slot]);
     if (im.image[slot] != EGL_NO_IMAGE_KHR) s.destroy_image(s.display, im.image[slot]);
-    im.tex[slot] = tex; im.image[slot] = image;
+    im.tex[slot] = tex; im.image[slot] = image; im.width = b.width; im.height = b.height;
     return true;
 }
 
@@ -435,6 +456,8 @@ void GlCompositor::insert_source(std::size_t at) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     s.textures.insert(s.textures.begin() + std::ptrdiff_t(at), t);
     s.imported.insert(s.imported.begin() + std::ptrdiff_t(std::min(at, s.imported.size())), Impl::Imported{});
+    if (s.stereo) s.stereo->insert_source(at);
+    s.stereo_sources.insert(s.stereo_sources.begin() + std::ptrdiff_t(std::min(at, s.stereo_sources.size())), Impl::StereoSource{});
 }
 
 void GlCompositor::remove_source(std::size_t at) {
@@ -444,6 +467,66 @@ void GlCompositor::remove_source(std::size_t at) {
         if (s.textures[at].id) glDeleteTextures(1, &s.textures[at].id);
         s.textures.erase(s.textures.begin() + std::ptrdiff_t(at));
     }
+    if (s.stereo) s.stereo->remove_source(at);
+    if (at < s.stereo_sources.size()) s.stereo_sources.erase(s.stereo_sources.begin() + std::ptrdiff_t(at));
+}
+
+void GlCompositor::set_stereo(const StereoSettings& settings) {
+    auto& s = *impl_;
+    s.stereo_set = settings; s.stereo_set.params = stereo_clamped(settings.params);
+    s.stereo_set.half_baseline = std::isfinite(settings.half_baseline) ? std::clamp(settings.half_baseline, 0.f, 2.f * kStereoHalfBaseline) : kStereoHalfBaseline;
+    if (!settings.enabled || s.stereo || !s.stereo_why.empty()) return;
+    s.stereo = StereoPass::create(s.pos, s.uv, s.color_pos, s.stereo_why);  // the shaders, now and not on a later frame
+    if (s.stereo) s.stereo->resize_sources(s.textures.size());
+    s.current = 0;
+}
+
+bool GlCompositor::stereo_available() const { return impl_->stereo != nullptr; }
+
+bool GlCompositor::set_depth(std::size_t source, const DepthFrame& frame) {
+    auto& s = *impl_;
+    if (!s.stereo || source >= s.textures.size()) return false;
+    if (s.stereo_sources.size() < s.textures.size()) s.stereo_sources.resize(s.textures.size());
+    const auto& t = s.textures[source];
+    const auto& im = s.imported[source];
+    const bool imported = im.current >= 0 || im.held_tex;
+    const GLuint colour = im.current >= 0 ? im.tex[std::size_t(im.current)] : im.held_tex ? im.held_tex : t.valid ? t.id : 0;
+    const std::uint32_t w = imported ? im.width : t.width, h = imported ? im.height : t.height;
+    if (!colour || !w || !h) return false;
+    auto& state = s.stereo_sources[source];
+    const double now = Impl::now_ms();
+    const bool ok = s.stereo->update(source, frame, colour, w, s.stereo_set.params, float(w) / float(h), state.depth_ms >= 0 ? float(now - state.depth_ms) : 0.f);
+    if (ok) state.depth_ms = now;
+    s.current = 0;
+    return ok;
+}
+
+// Once per frame, before the eyes: the fades, then the baseline that keeps every desktop's plane inside the limits.
+void GlCompositor::Impl::stereo_frame(const std::vector<FRect>& tiles, const Mat3& rotation, const Canvas& canvas, float eye_w) {
+    if (stereo_sources.size() < textures.size()) stereo_sources.resize(textures.size());
+    const double now = now_ms();
+    for (std::size_t i = 0; i < stereo_sources.size(); ++i) {
+        auto& state = stereo_sources[i];
+        const bool wanted = stereo_set.enabled && (i >= stereo_set.desktops.size() || stereo_set.desktops[i]);
+        const bool fresh = stereo && stereo->ready(i) && state.depth_ms >= 0 && now - state.depth_ms < kStereoStaleMs;
+        state.gain = state.fader.update(now, wanted && fresh);
+    }
+    const float scene = stereo_scene.update(now, stereo_set.enabled);
+    const auto limits = stereo_limits(stereo_set.params, eye_w, canvas.half_w);
+    std::vector<float> depths;
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        const auto c = place_point(canvas, tiles[i], resolved[i], tiles[i].x + tiles[i].width / 2, tiles[i].y + tiles[i].height / 2);
+        depths.push_back(apply(rotation, {c.x, c.y, c.z})[2]);
+    }
+    stereo_b = stereo_safe_baseline(scene * stereo_set.half_baseline, depths, limits, eye_w, canvas.half_w);
+    ++stereo_frames;
+}
+
+StereoBudget GlCompositor::Impl::stereo_tile_budget(std::size_t i, const Canvas& canvas, const FRect& tile, const Mat3& rotation, float eye_w) const {
+    const auto c = place_point(canvas, tile, resolved[i], tile.x + tile.width / 2, tile.y + tile.height / 2);
+    const float plane = stereo_plane_disparity(stereo_b, apply(rotation, {c.x, c.y, c.z})[2], eye_w, canvas.half_w);
+    const float gain = i < stereo_sources.size() ? stereo_sources[i].gain : 0.f;
+    return stereo_budget(stereo_limits(stereo_set.params, eye_w, canvas.half_w), plane, stereo_tile_scale(tile.width, canvas.view_w, resolved[i].distance), gain);
 }
 
 std::size_t GlCompositor::sources() const { return impl_->textures.size(); }
@@ -463,7 +546,7 @@ bool GlCompositor::draw_environment(float half_w, float half_h) {
     auto& s = *impl_;
     if (!s.env_visible()) return false;
     s.environment->draw(s.env_background, s.env_view, half_w, half_h, s.env_level, s.env_gain,
-                        environment_line_color({s.accent[0], s.accent[1], s.accent[2]}), s.env_seconds);
+                        environment_line_color({s.accent[0], s.accent[1], s.accent[2]}), s.env_seconds, s.env_eye);
     s.current = s.environment->program(s.env_background);
     return true;
 }
@@ -610,12 +693,35 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
                                  float highlight_alpha, const Mat3& view, float half_w, float half_h) {
     auto& s = *impl_;
     const auto start = now_us();
+    const auto eyes = s.stereo_eyes();
+    if (eyes.empty()) {
+        s.env_eye = 0;
+        draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, nullptr);
+    } else {
+        glEnable(GL_SCISSOR_TEST);
+        for (const auto& e : eyes) {
+            glScissor(GLint(e.x), GLint(e.y), GLsizei(e.width), GLsizei(e.height));
+            draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, &e);
+        }
+        glDisable(GL_SCISSOR_TEST);
+        glViewport(0, 0, GLsizei(s.px_w), GLsizei(s.px_h));
+    }
+    const bool ok = glGetError() == GL_NO_ERROR && s.swap();
+    s.draw_stat.add(now_us() - start);
+    return ok;
+}
+
+void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
+                             float highlight_alpha, const Mat3& view, float half_w, float half_h, const EyeViewport* eye) {
+    auto& s = *impl_;
     const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
     const float half[2] = {half_w, half_h};
     s.current = 0;  // whatever ran since the last frame (a video, GlHud) may have changed the program
     // Use program `p`; give it this frame's head rotation and FOV unless it still has them from an earlier draw.
-    auto program = [&](GLuint p, Impl::Projection& last, GLint view_loc, GLint fov_loc) {
+    float eye_offset = 0;  // this eye's stereo.x; 0 in 2D, and no program then gets a call for it
+    auto program = [&](GLuint p, Impl::Projection& last, GLint view_loc, GLint fov_loc, GLint stereo_loc) {
         s.use(p);
+        if (last.stereo != eye_offset) { glUniform2f(stereo_loc, eye_offset, 0.f); last.stereo = eye_offset; }
         if (last.set && std::memcmp(last.view.data(), column_major.data(), sizeof column_major) == 0 &&
             std::memcmp(last.half, half, sizeof half) == 0) return;
         glUniformMatrix3fv(view_loc, 1, GL_FALSE, column_major.data()); glUniform2f(fov_loc, half_w, half_h);
@@ -624,6 +730,12 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const Canvas canvas{float(s.width), float(s.height), half_w, half_h};
     s.resolved.resize(tiles.size());
     for (std::size_t i = 0; i < tiles.size(); ++i) s.resolved[i] = i < placements.size() ? placements[i] : Placement{};
+    const float eye_w = eye ? float(eye->width) : float(s.px_w);
+    if (eye) {
+        if (eye->eye == 0) s.stereo_frame(tiles, view, canvas, eye_w);
+        eye_offset = stereo_side(eye->eye) * s.stereo_b;
+        s.env_eye = stereo_side(eye->eye) * stereo_infinity_shift(s.stereo_b, stereo_limits(s.stereo_set.params, eye_w, half_w), eye_w, half_w);
+    }
     for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
     if (s.bar_meshes.size() < tiles.size()) s.bar_meshes.resize(tiles.size());
@@ -634,7 +746,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
                               reinterpret_cast<const void*>(std::uintptr_t(offset) * sizeof(GLfloat)));
         glEnableVertexAttribArray(static_cast<GLuint>(loc));
     };
-    glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
+    if (eye) glViewport(GLint(eye->x), GLint(eye->y), GLsizei(eye->width), GLsizei(eye->height));
+    else glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
     if (s.glass_program && s.panel_program && s.glass.content >= 0 && s.glass.image && s.glass.generation != s.panel_uploaded) {
         // A new panel image is uploaded before anything is drawn (the driver flushes queued work before a large upload
         // from client memory), under exactly the conditions on which the glass loop below draws it.
@@ -663,7 +776,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
             if (s.blend_max) glBlendEquation(GL_MAX_EXT);
         }
-        program(s.glow_program, s.glow_projection, s.glow_view, s.glow_half_fov);
+        program(s.glow_program, s.glow_projection, s.glow_view, s.glow_half_fov, s.glow_stereo);
         glUniform4f(s.glow_rect, framed.x + framed.width / 2, framed.y + framed.height / 2, framed.width / 2, framed.height / 2);
         glUniform3f(s.glow_color, s.accent[0], s.accent[1], s.accent[2]);
         glUniform2f(s.glow_falloff, kGlowIntensity * highlight_alpha, kGlowSigmaPx);
@@ -671,7 +784,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         attrib(s.glow_pos, 3, 5, 0); attrib(s.glow_px, 2, 5, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         glDisableVertexAttribArray(static_cast<GLuint>(s.glow_px));
-        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov, s.color_stereo);
         if (environment) { if (s.blend_max) glBlendEquation(GL_FUNC_ADD); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); }
         glUniform4f(s.color, s.accent[0] * highlight_alpha, s.accent[1] * highlight_alpha, s.accent[2] * highlight_alpha,
                     environment ? highlight_alpha : 1.f);  // over black (or premultiplied over the grid)
@@ -694,7 +807,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // lights up.
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov);
+        program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
         glUniform1f(s.panel_loc.alpha, 1.f);
         glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.handle_texture);  // sampler `tex` = unit 0 (link-time value)
         auto image = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, const AtlasBox& box) {
@@ -714,16 +827,24 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
         glDisable(GL_BLEND);
     }
-    program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
+    program(s.program, s.tile_projection, s.view, s.half_fov, s.tile_stereo); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     float swizzle = -1;  // the value set this frame (-1: none yet)
+    bool warping = false;  // in 3D: this tile goes through the warp program (same attribute locations)
     for (const std::size_t i : order) {
         if (i >= s.textures.size()) continue;
         const auto& im = s.imported[i];
         const bool zero_copy = im.current >= 0;
         const bool held = !zero_copy && im.held_tex;  // buffers being re-created: the last frame stays up
         if (!zero_copy && !held && !s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
+        const bool warp = eye && s.stereo && s.stereo->ready(i) && i < s.stereo_sources.size() && s.stereo_sources[i].gain > 0.f;
+        if (warp != warping) {
+            warping = warp; swizzle = -1;
+            if (warp) program(s.stereo->warp_program(), s.warp_projection, s.stereo->warp_view(), s.stereo->warp_half_fov(), s.stereo->warp_stereo());
+            else program(s.program, s.tile_projection, s.view, s.half_fov, s.tile_stereo);
+        }
         const float tile_swizzle = zero_copy || held ? 0.f : 1.f;
-        if (tile_swizzle != swizzle) { glUniform1f(s.swizzle, tile_swizzle); swizzle = tile_swizzle; }
+        if (tile_swizzle != swizzle) { glUniform1f(warp ? s.stereo->warp_swizzle() : s.swizzle, tile_swizzle); swizzle = tile_swizzle; }
+        if (warp) s.stereo->warp_uniforms(i, eye->eye, s.stereo_tile_budget(i, canvas, tiles[i], view, eye_w));
         glBindTexture(GL_TEXTURE_2D, zero_copy ? im.tex[std::size_t(im.current)] : held ? im.held_tex : s.textures[i].id);
         const GLsizei n = s.build(s.tile_meshes[i], canvas, tiles[i], s.resolved[i], tiles[i], Impl::Attr::tile_uv);
         attrib(s.pos, 3, 5, 0); attrib(s.uv, 2, 5, 3);
@@ -739,7 +860,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         auto glass_on = [&](std::size_t i) -> const Placement& { return int(i) == g.surface_desktop && g.surface ? *g.surface : s.resolved[i]; };
         auto shape = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, float radius, const GlassLook& look, float opacity, float margin) {
-            program(s.glass_program, s.glass_projection, s.glass_loc.view, s.glass_loc.half_fov);
+            program(s.glass_program, s.glass_projection, s.glass_loc.view, s.glass_loc.half_fov, s.glass_loc.stereo);
             glUniform4f(s.glass_loc.rect, r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
             glUniform1f(s.glass_loc.radius, radius);
             glUniform4fv(s.glass_loc.style, kGlassStyleVecs, glass_style(look).data());  // every M3 style input at once
@@ -764,7 +885,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const auto& im = *g.image;
             if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) continue;
             glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
-            program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov);
+            program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
             s.upload_panel(im, g.generation);  // already uploaded before the first draw: binds it
             glUniform1f(s.panel_loc.alpha, std::min(g.content_alpha, 1.f));
             // The content rides on the morphing shape (it only shows over the last quarter, when the shape is near full size).
@@ -780,7 +901,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // Window drag: the desktop the window would land on, framed in the accent on its own surface, over its pixels.
         const auto d = std::size_t(s.drop_target);
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov, s.color_stereo);
         glUniform4f(s.color, s.accent[0], s.accent[1], s.accent[2], 1.f);
         const auto bands = drop_frame(tiles[d]);
         for (std::size_t k = 0; k < bands.size(); ++k) {
@@ -803,10 +924,33 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots),
         // or turned to its direction round you when one is given (the supervisor always gives one).
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        GLint dot_color = s.color;
+        if (eye && s.stereo) {
+            // In 3D the pointer sits on what it points at, a pixel in front of it: it gets the disparity of the surface under
+            // it, the desktop's plane plus the depth under the dot, and none of its own (it is drawn at radius 1).
+            const auto [a, e] = Impl::dot_direction(canvas, s.free_x, s.free_y, s.free_directed, s.free_az, s.free_el);
+            const Vec3 ray{std::cos(e) * std::sin(a), std::sin(e), -std::cos(e) * std::cos(a)};
+            int on = -1; float nearest = 1e9f, u = 0, v = 0, z = -1;
+            for (std::size_t i = 0; i < tiles.size(); ++i) {
+                const auto hit = stereo_surface_hit(canvas, tiles[i], s.resolved[i], ray);
+                if (!hit) continue;
+                const auto q = apply(view, {hit->world.x, hit->world.y, hit->world.z});
+                const float d = -q[2];
+                if (d < nearest) { nearest = d; on = int(i); u = hit->u; v = hit->v; z = q[2]; }
+            }
+            const auto budget = on >= 0 ? s.stereo_tile_budget(std::size_t(on), canvas, tiles[std::size_t(on)], view, eye_w) : StereoBudget{};
+            const float side = stereo_side(eye->eye);
+            const float shift = side * stereo_plane_disparity(s.stereo_b, z, eye_w, half_w) / eye_w + side / eye_w;
+            s.use(s.stereo->pointer_program());
+            glUniformMatrix3fv(s.stereo->pointer_view(), 1, GL_FALSE, column_major.data()); glUniform2f(s.stereo->pointer_half_fov(), half_w, half_h);
+            s.stereo->pointer_uniforms(on, u, v, eye->eye, budget, eye_w, shift);
+            dot_color = s.stereo->pointer_color();
+        } else {
+            program(s.color_program, s.color_projection, s.color_view, s.color_half_fov, s.color_stereo);
+        }
         if (s.ghost_w > 0.f && s.ghost_h > 0.f) {  // window drag: the window's ghost round the dot, under it
             const GLsizei n = s.build_ghost(s.ghost_mesh, canvas, s.free_x, s.free_y, s.ghost_w, s.ghost_h, s.free_directed, s.free_az, s.free_el);
-            glUniform4f(s.color, kGhostLevel, kGhostLevel, kGhostLevel, 1.f);
+            glUniform4f(dot_color, kGhostLevel, kGhostLevel, kGhostLevel, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         }
@@ -814,23 +958,20 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const float level = k ? s.free_level : 0.f;
             const GLsizei n = s.build_marks(s.mark_mesh[k], canvas, s.free_x, s.free_y, s.free_look, k ? 0.f : kFreePointerRingPx,
                                             s.free_directed, s.free_az, s.free_el);
-            glUniform4f(s.color, level, level, level, 1.f);
+            glUniform4f(dot_color, level, level, level, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLES, 0, n);
         }
         if (s.free_look != PointerLook::text) for (int k = 0; k < 2; ++k) {  // the Serif Beam stands in for the disc
             const float radius = k ? kFreePointerRadiusPx : kFreePointerRadiusPx + kFreePointerRingPx, level = k ? s.free_level : 0.f;
             const GLsizei n = s.build_disc(s.disc_mesh[k], canvas, s.free_x, s.free_y, radius, s.free_directed, s.free_az, s.free_el);
-            glUniform4f(s.color, level, level, level, 1.f);
+            glUniform4f(dot_color, level, level, level, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, n);
         }
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
-    const bool ok = glGetError() == GL_NO_ERROR && s.swap();
-    s.draw_stat.add(now_us() - start);
-    return ok;
 }
 
 bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, std::uint32_t)>& scene, const HudImage* card,
@@ -838,12 +979,19 @@ bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, s
     auto& s = *impl_;
     const auto start = now_us();
     scene(s.px_w, s.px_h);  // the scene's own viewports are buffer pixels (video_mode.cpp eye_viewports)
-    glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
-    if (card && card_alpha > 0.f) {
-        if (!s.video_hud) s.video_hud = GlHud::create();
-        if (s.video_hud) s.video_hud->draw(*card, card_generation, card_alpha, s.width, s.height);
+    const auto overlays = [&] {
+        if (card && card_alpha > 0.f) {
+            if (!s.video_hud) s.video_hud = GlHud::create();
+            if (s.video_hud) s.video_hud->draw(*card, card_generation, card_alpha, s.width, s.height);
+        }
+        if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);
+    };
+    const auto eyes = s.stereo_eyes();
+    if (eyes.empty()) { glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h)); overlays(); }
+    else {  // the same picture in each eye: on the screen plane
+        for (const auto& e : eyes) { glViewport(GLint(e.x), GLint(e.y), GLsizei(e.width), GLsizei(e.height)); overlays(); }
+        glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
     }
-    if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);
     const bool ok = glGetError() == GL_NO_ERROR && s.swap();
     s.draw_stat.add(now_us() - start);
     return ok;
@@ -855,6 +1003,10 @@ std::string GlCompositor::report() const {
     return std::string("{\"path\":\"") + (any ? "gles2-dmabuf-import" : "gles2-shm-upload") + "\",\"imported_frames\":" +
            std::to_string(s.imported_frames) + ",\"vendor\":\"" + s.vendor + "\",\"renderer\":\"" + s.renderer + "\",\"version\":\"" + s.version +
            "\",\"upload\":" + s.upload_stat.json() + ",\"draw_swap\":" + s.draw_stat.json() +
-           ",\"uploaded_mib\":" + std::to_string(s.uploaded_bytes >> 20) + "}";
+           ",\"uploaded_mib\":" + std::to_string(s.uploaded_bytes >> 20) +
+           (s.stereo || !s.stereo_why.empty()
+                ? ",\"stereo\":{\"available\":" + std::string(s.stereo ? "true" : "false") + ",\"why\":\"" + escape(s.stereo_why.c_str()) + "\",\"frames\":" +
+                      std::to_string(s.stereo_frames) + ",\"depth_updates\":" + std::to_string(s.stereo ? s.stereo->updates() : 0) + "}"
+                : std::string()) + "}";
 }
 }
