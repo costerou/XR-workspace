@@ -6,6 +6,7 @@
     "F3"
   ],
   "checks": [
+    "workspace per-run mode: disabled overview / enabled maximized / absent selected scope",
     "scope filtering",
     "signed units/ranges",
     "state persistence across categories/scope",
