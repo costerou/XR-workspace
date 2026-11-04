@@ -1,3 +1,4 @@
+#include "xr/options_geometry.hpp"
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include <wayland-client.h>
@@ -488,6 +489,7 @@ struct Presentation::Impl : SurfaceRequests {
         PointerLook look = PointerLook::plain;
     } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
+    std::string maximize_geometry_line="{\"maximize_geometry\":null}", maximize_geometry_sent;
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
     double help_geometry_ms = -1e9;      // when it was sent
     Mat3 last_head{1, 0, 0, 0, 1, 0, 0, 0, 1};  // head rotation of the last desktop frame (help card hit testing)
@@ -1409,6 +1411,11 @@ std::optional<std::string> Presentation::take_overview_geometry() {
     return line;
 }
 void Presentation::resend_overview_geometry() { if (impl_) impl_->overview_geometry_sent.clear(); }
+std::optional<std::string> Presentation::take_maximize_geometry(){
+ if(!impl_ || impl_->maximize_geometry_line==impl_->maximize_geometry_sent)return std::nullopt;
+ impl_->maximize_geometry_sent=impl_->maximize_geometry_line;return impl_->maximize_geometry_line;
+}
+void Presentation::resend_maximize_geometry(){if(impl_)impl_->maximize_geometry_sent.clear();}
 std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
     if (!impl_ || !impl_->gl) return std::nullopt;
     auto& s = *impl_;
@@ -1639,6 +1646,7 @@ Status Presentation::draw_test_pattern() {
            // morph until the overview is reached: GlassPills::frame), never moving on their own.
             const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
             GlassFrame glass = s.glass.frame(overview, help_now);
+            glass.maximized=s.view.zoom()>=.99f && !s.view.switching();
             glass.pills = s.pills.visible && overview;
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
@@ -1682,6 +1690,15 @@ Status Presentation::draw_test_pattern() {
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
         s.last_drawn = glass_view_shift(s.turned(head), panel_shift);
+        s.maximize_geometry_line="{\"maximize_geometry\":null}";
+        const auto selected=s.view.focus();
+        if(s.view.zoom()>=.99f && !s.view.switching() && selected<tiles.size() && selected<placed.size() && selected<s.captures.size()){
+          auto t=tiles[selected];auto p=placed[selected];auto r=options_maximize(t);auto h=options_maximize_hit(t);
+          auto number=[](float v){return std::to_string(v);};
+          std::string line="{\"maximize_geometry\":{\"monitor\":\""+s.captures[selected]->name+"\",\"maximized\":true,\"canvas\":["+number(float(s.width))+","+number(float(s.height))+","+number(s.half_w)+","+number(s.half_h)+"],\"tile\":["+number(t.x)+","+number(t.y)+","+number(t.width)+","+number(t.height)+"],\"placement\":["+number(p.x)+","+number(p.y)+","+number(p.distance)+","+number(p.curvature)+","+number(p.roll)+"],\"rect\":["+number(r.x)+","+number(r.y)+","+number(r.width)+","+number(r.height)+"],\"hit_mesh\":[";
+          bool first=true;for(const auto& v:tile_mesh(Canvas{float(s.width),float(s.height),s.half_w,s.half_h},t,p,h)){if(!first)line+=",";first=false;line+="["+number(v.world.x)+","+number(v.world.y)+","+number(v.world.z)+"]";}
+          line+="],\"view\":[";first=true;for(auto v:s.last_drawn){if(!first)line+=",";first=false;line+=number(v);}line+="]}}";s.maximize_geometry_line=std::move(line);
+        }
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
