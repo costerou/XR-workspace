@@ -4,9 +4,10 @@
 //
 // Offline only: no display, no glasses, no Hyprland. The renderer gets the same inherited sockets as from the Python
 // supervisor (supervised control stream, Wayland socket, status datagrams). The server advertises one presentation
-// output (DP-2) and up to three managed outputs (XR-1..XR-3) with ext-image-copy-capture sessions. Each captured frame
-// carries a 24-bit stamp (a 64x64 block at the source centre for SHM targets, a GPU clear for dmabuf targets); the
-// stamp read back from the renderer's committed buffer at each tile centre says which capture frame it shows.
+// output (DP-2) and up to kMaxDesktops managed outputs (XR-1..XR-4) with ext-image-copy-capture sessions. Each captured
+// frame carries a 24-bit stamp (a 64x64 block at the source centre for SHM targets, a GPU clear for dmabuf targets); the
+// stamp read back from the renderer's committed buffer at each tile centre says which capture frame it shows, and so
+// which desktop (--maximize checks that the desktop a maximize names is the one in the middle of the glasses).
 //
 // Modes: cpu (no EGL: SHM capture + CPU composition), gl-shm (GL composition, SHM capture + texture upload),
 // gl-dmabuf (GL composition, zero-copy dmabuf capture), pattern (presentation-only animated test pattern).
@@ -22,6 +23,7 @@
 #include "viewporter-server-protocol.h"
 #undef namespace
 #include "xr/capture.hpp"
+#include "xr/desktops.hpp"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -82,8 +84,15 @@ struct Options {
     // Fractional scale (120ths, 0: none): wp_viewporter and wp_fractional_scale_manager_v1 are advertised and the renderer's
     // surface is told this preferred scale, as Hyprland does for the glasses at 1.25 (150).
     std::uint32_t fractional_scale = 0;
+    // Maximize XR-N (1..outputs, 0: never) as the measured window starts, with the frames the supervisor sends (N selected
+    // in the overview, then Ctrl+Alt+Up). --check: once the zoom has landed, every frame has XR-N's own frame in the middle.
+    // GL modes only: CPU composition has no zoom (always side_by_side). There is no pose feed, so no aim (set_aim runs only
+    // when tracked) and the desktop fills the view from where it sits: SHM frames are stamped whole, as a dmabuf clear is.
+    int maximize = 0;
 };
 constexpr double kChurnMs = 150;
+constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
+using Stamps = std::array<std::uint32_t, xr::kMaxDesktops>;  // which capture frame each tile of a buffer shows
 
 // A wl_buffer reference that forgets the buffer when the client destroys it.
 struct BufRef {
@@ -249,7 +258,7 @@ struct Surface {
     std::vector<wl_resource*> pending_frames, pending_fb;
     bool has_commit = false, commit_has_buffer = false; BufRef commit_buf;
     std::vector<wl_resource*> commit_frames, commit_fb;
-    std::array<std::uint32_t, 3> commit_stamps{};  // SHM output: stamps read at commit
+    Stamps commit_stamps{};  // SHM output: stamps read at commit
     bool commit_stamps_valid = false;
     BufRef shown;
     std::int64_t shown_ns = 0; bool shown_unread = false;  // GPU output: read back at the next latch, once rendered
@@ -282,8 +291,12 @@ struct Server {
     bool measuring = false;
     // measured window
     std::uint64_t commits = 0, latched = 0, presented_fb = 0, discarded_fb = 0, callbacks = 0, missed_ticks = 0;
-    std::array<std::uint64_t, 3> captured_frames{}, shown_frames{};
-    std::array<std::uint32_t, 3> last_shown{};
+    std::array<std::uint64_t, xr::kMaxDesktops> captured_frames{}, shown_frames{};
+    Stamps last_shown{};
+    // --maximize: once the zoom has landed (maximized_ns), frames with each desktop's frame in the middle, and with none.
+    std::int64_t maximized_ns = 0;
+    std::array<std::uint64_t, xr::kMaxDesktops> centre_frames{};
+    std::uint64_t centre_none = 0;
     Dist callback_to_commit_us, capture_to_commit_ms, capture_to_present_ms, commit_interval_ms;
     std::int64_t last_commit_ns = -1;
     std::vector<std::uint32_t> row;
@@ -304,7 +317,7 @@ struct Server {
         return buffer_side == logical_side ? v : std::uint32_t(std::uint64_t(v) * buffer_side / logical_side);
     }
     // Which capture frame each tile of `buffer` shows.
-    bool read_stamps(wl_resource* buffer, std::array<std::uint32_t, 3>& out) {
+    bool read_stamps(wl_resource* buffer, Stamps& out) {
         out = {};
         if (tiles.empty()) return false;
         if (auto* shm = wl_shm_buffer_get(buffer)) {
@@ -312,7 +325,7 @@ struct Server {
             const auto stride = std::uint32_t(wl_shm_buffer_get_stride(shm)) / 4;
             wl_shm_buffer_begin_access(shm);
             const auto* px = static_cast<const std::uint32_t*>(wl_shm_buffer_get_data(shm));
-            for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
+            for (std::size_t i = 0; i < tiles.size() && i < out.size(); ++i) {
                 const auto x = to_buffer(tiles[i].x + tiles[i].width / 2, w, kOutW), y = to_buffer(tiles[i].y + tiles[i].height / 2, h, kOutH);
                 if (x < w && y < h) out[i] = px[std::size_t(y) * stride + x] & 0xffffffu;
             }
@@ -322,7 +335,7 @@ struct Server {
         auto* d = static_cast<Dmabuf*>(wl_resource_get_user_data(buffer));
         if (!d || !g_gpu) return false;
         std::int32_t y_last = -1;
-        for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
+        for (std::size_t i = 0; i < tiles.size() && i < out.size(); ++i) {
             const auto x = std::int32_t(to_buffer(tiles[i].x + tiles[i].width / 2, std::uint32_t(d->width), kOutW)),
                        y = std::int32_t(to_buffer(tiles[i].y + tiles[i].height / 2, std::uint32_t(d->height), kOutH));
             if (y != y_last && !d->read_row(y, row)) { ++readback_failures; return false; }
@@ -331,12 +344,17 @@ struct Server {
         }
         return true;
     }
-    void account_shown(const std::array<std::uint32_t, 3>& got, std::int64_t at_ns, Dist& dist, bool count_shown) {
-        for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
+    void account_shown(const Stamps& got, std::int64_t at_ns, Dist& dist, bool count_shown) {
+        for (std::size_t i = 0; i < tiles.size() && i < got.size(); ++i) {
             if (!got[i] && last_shown[i] && count_shown && measuring) ++blank_frames;
             if (!got[i] || got[i] == last_shown[i]) continue;
             if (const auto* info = lookup(got[i]); info && measuring) dist.add(double(at_ns - info->ready_ns) / 1e6);
             if (count_shown) { last_shown[i] = got[i]; if (measuring) ++shown_frames[i]; }
+        }
+        if (count_shown && measuring && maximized_ns && at_ns >= maximized_ns) {
+            const auto* info = lookup(got[0]);
+            if (info && info->output >= 0 && std::size_t(info->output) < centre_frames.size()) ++centre_frames[std::size_t(info->output)];
+            else ++centre_none;
         }
     }
 };
@@ -655,7 +673,7 @@ void vblank(std::int64_t t) {
         if (s->commit_has_buffer && s->commit_buf.r) {
             // The buffer shown until now has long finished rendering: read it before it goes back to the client, so the
             // readback never waits on the renderer's GPU work (a compositor samples without such a stall too).
-            std::array<std::uint32_t, 3> got{};
+            Stamps got{};
             if (s->shown.r && s->shown_unread && g->read_stamps(s->shown.r, got)) g->account_shown(got, s->shown_ns, g->capture_to_present_ms, true);
             s->shown_unread = false;
             if (s->shown.r && s->shown.r != s->commit_buf.r) wl_buffer_send_release(s->shown.r);
@@ -711,8 +729,9 @@ void capture_tick(std::int64_t t, bool first_only) {
             const auto stride = std::uint32_t(wl_shm_buffer_get_stride(shm)) / 4;
             wl_shm_buffer_begin_access(shm);
             auto* px = static_cast<std::uint32_t*>(wl_shm_buffer_get_data(shm));
-            for (std::uint32_t y = h / 2 - 32; y < h / 2 + 32; ++y)
-                for (std::uint32_t x = w / 2 - 32; x < w / 2 + 32; ++x) px[std::size_t(y) * stride + x] = 0xff000000u | stamp;
+            const std::uint32_t half_w = g->opt.maximize ? w / 2 : 32, half_h = g->opt.maximize ? h / 2 : 32;  // Options::maximize
+            for (std::uint32_t y = h / 2 - half_h; y < h / 2 + half_h; ++y)
+                for (std::uint32_t x = w / 2 - half_w; x < w / 2 + half_w; ++x) px[std::size_t(y) * stride + x] = 0xff000000u | stamp;
             wl_shm_buffer_end_access(shm);
         } else if (auto* d = static_cast<Dmabuf*>(wl_resource_get_user_data(f->buf.r)); !d || !d->clear(stamp)) {
             ext_image_copy_capture_frame_v1_send_failed(f->res, EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_UNKNOWN);
@@ -721,7 +740,7 @@ void capture_tick(std::int64_t t, bool first_only) {
         const std::int64_t ready = now_ns();
         const auto out = f->session->output - 1;  // outputs[0] is DP-2
         g->stamps[stamp & 0xffff] = {stamp, ready, out};
-        if (g->measuring && out >= 0 && out < 3) ++g->captured_frames[std::size_t(out)];
+        if (g->measuring && out >= 0 && std::size_t(out) < g->captured_frames.size()) ++g->captured_frames[std::size_t(out)];
         f->session->delivered = true;
         const std::uint64_t sec = std::uint64_t(t / 1'000'000'000), nsec = std::uint64_t(t % 1'000'000'000);
         ext_image_copy_capture_frame_v1_send_transform(f->res, WL_OUTPUT_TRANSFORM_NORMAL);
@@ -807,9 +826,9 @@ std::uint64_t process_ctx_switches(pid_t pid) {
 
 void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
-                         "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..3] [--tracking (bwrap)]\n"
+                         "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--check]\n");
+                         "                  [--maximize 1..outputs] [--check]\n");
 }
 }  // namespace
 
@@ -831,10 +850,12 @@ int main(int argc, char** argv) {
         else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
+        else if (a == "--maximize") opt.maximize = std::stoi(next());
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
-    if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > 3 || !(opt.hz > 1) || opt.capture_hz < 0 ||
+    if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > int(xr::kMaxDesktops) || !(opt.hz > 1) || opt.capture_hz < 0 ||
+        opt.maximize < 0 || opt.maximize > opt.outputs || (opt.maximize && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
     // The renderer's animation is at most 60 s and must outlast the measured window.
     const double pattern_ms = (opt.warmup + opt.seconds + 5) * 1000;
@@ -986,7 +1007,7 @@ int main(int argc, char** argv) {
         for (ssize_t n; (n = ::recv(status[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;) {
             ++status_lines;
             const std::string line(buf, std::size_t(n));
-            if (line.rfind("{\"overview_geometry\":", 0) == 0 && gl) {
+            if (line.rfind("{\"overview_geometry\":", 0) == 0 && gl && !server.maximized_ns) {
                 ++geometry_lines;
                 try {
                     const auto j = nlohmann::json::parse(line)["overview_geometry"];
@@ -1009,13 +1030,21 @@ int main(int argc, char** argv) {
             server.measuring = true; measured_pid = renderer_pid(pid, opt.renderer);
             cpu0 = process_cpu_ns(measured_pid); ctx0 = process_ctx_switches(measured_pid); hb0 = heartbeats;
             if (malloc_count) { mallocs0 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(1); }
+            if (opt.maximize) {
+                const std::string selected = ",\"selected\":" + std::to_string(opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
+                const std::string rest = "\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false}";
+                send_frame(3, "view", "{\"zoomed\":false" + selected + "anchor" + rest);
+                send_frame(4, "view", "{\"zoomed\":true" + selected + "follow" + rest);
+                server.tiles = {xr::Rect{0, 0, kOutW, kOutH}};  // read the middle of the view from here on
+                server.maximized_ns = t + std::int64_t(kMaximizeSettleMs * 1e6);
+            }
         }
         if (server.measuring && t >= end_at && !stop_sent) {
             drain();
             cpu1 = process_cpu_ns(measured_pid); ctx1 = process_ctx_switches(measured_pid); hb1 = heartbeats;
             if (malloc_count) { mallocs1 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(0); }
             server.measuring = false;
-            send_frame(capture ? 3 : 2, "stop", "{}");
+            send_frame(!capture ? 2 : opt.maximize ? 5 : 3, "stop", "{}");
             stop_sent = true; stop_deadline = t + 5'000'000'000;
         }
         if (!child_exited && waitpid(pid, &child_status, WNOHANG) == pid) child_exited = true;
@@ -1058,6 +1087,7 @@ int main(int argc, char** argv) {
         for (int i = 0; i < opt.outputs; ++i) { cap += server.captured_frames[std::size_t(i)]; shown += server.shown_frames[std::size_t(i)]; }
         out["captured_frames_per_s"] = std::round(double(cap) / secs * 10) / 10;
         out["shown_capture_frames_per_s"] = std::round(double(shown) / secs * 10) / 10;
+        if (opt.maximize) { out["maximize"] = opt.maximize; out["centre_frames"] = server.centre_frames; out["centre_none"] = server.centre_none; }
         out["readback_failures"] = server.readback_failures;
         out["blank_frames"] = server.blank_frames;
         if (!opt.churn.empty()) {
@@ -1107,10 +1137,10 @@ int main(int argc, char** argv) {
         if (capture && server.capture_to_present_ms.v.empty()) fail("no capture frame shown");
         std::uint64_t captured_n = 0, shown_n = 0;
         for (int i = 0; capture && i < opt.outputs; ++i) {
-            if (!server.shown_frames[std::size_t(i)]) fail("a desktop never showed a new capture frame");
+            if (!opt.maximize && !server.shown_frames[std::size_t(i)]) fail("a desktop never showed a new capture frame");  // (maximized: one is read)
             captured_n += server.captured_frames[std::size_t(i)]; shown_n += server.shown_frames[std::size_t(i)];
         }
-        if (capture && opt.capture_hz > 0 && shown_n * 4 < captured_n) fail("under a quarter of the captured frames were shown");
+        if (capture && opt.capture_hz > 0 && !opt.maximize && shown_n * 4 < captured_n) fail("under a quarter of the captured frames were shown");
         if (opt.mode == "cpu" && out.value("composition", std::string()) != "cpu-blit") fail("not on the CPU composition path");
         if (opt.mode == "gl-dmabuf" && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "dmabuf")) fail("not on the dmabuf path");
         if ((opt.mode == "gl-shm" || opt.mode == "cpu") && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "shm")) fail("not on the shm path");
@@ -1123,7 +1153,14 @@ int main(int argc, char** argv) {
             if (!scaled) fail("committed buffer not at the fractional scale's size");
             if (server.dest_w != std::int32_t(kOutW) || server.dest_h != std::int32_t(kOutH)) fail("viewport destination is not the logical size");
         }
-        if (capture && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
+        if (capture && !opt.maximize && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
+        if (opt.maximize) {  // the gap between the desktops crosses the middle while the zoom runs, so only after it landed
+            const auto want = std::size_t(opt.maximize - 1);
+            if (!server.centre_frames[want]) fail("the maximized desktop never reached the middle of the view");
+            for (std::size_t i = 0; i < server.centre_frames.size(); ++i)
+                if (i != want && server.centre_frames[i]) fail("another desktop is in the middle of the view");
+            if (server.centre_none) fail("a frame had no desktop's frame in the middle of the view");
+        }
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {
             if (!out.contains("capture_paths")) fail("no capture report");

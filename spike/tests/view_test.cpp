@@ -92,8 +92,77 @@ void tile_ease_tests() {
     }
 }
 
+// Every desktop of every run maximizes: the view selects, zooms on, highlights and aims at the one the supervisor names, by
+// its index in the run's desktops. Until 2026-11-03 the animator stopped at the third, so with four desktops the glasses
+// maximized XR-3 while the keyboard and mouse went to XR-4.
+void every_desktop_tests() {
+    const Canvas canvas{1920, 1200, 0.8f, 0.5f};
+    const std::uint32_t last = kMaxDesktops - 1;
+    for (std::uint32_t n = 1; n <= kMaxDesktops; ++n) {
+        const std::vector<Size> sizes(n, Size{1920, 1080});
+        const auto overview = overview_layout(sizes, 1920, 1200, 40);
+        for (std::uint32_t i = 0; i < n; ++i) {
+            ViewAnimator v(200);
+            v.set_target(false, i, 40, 0); v.advance(1000);  // selected in the overview: the highlight is on it
+            CHECK(v.selected() == i && v.focus() == i && v.zoom() == 0);
+            v.set_target(true, i, 40, 1000); v.advance(2000);  // Ctrl+Alt+Up
+            CHECK(!v.animating() && v.zoom() == 1 && v.selected() == i && v.focus() == i && v.position() == float(i));
+            const auto tiles = blended_layout(sizes, 1920, 1200, 40, v.zoom(), v.position());  // it fills the view
+            CHECK(tiles.size() == n && near(tiles[i].x + tiles[i].width / 2, 960) && near(tiles[i].width, 1920));
+            const auto placed = zoomed_placements(canvas, overview, tiles, {}, v.zoom(), v.position());
+            CHECK(placed.size() == n && near(placed[i].distance, 1, 1e-4f));
+            CHECK(zoom_weight(v.zoom(), v.position(), i) == 1 && focus_weight(v) == 1);
+            // Follow and locked aim at it, and it is drawn on top of anything dragged nearer.
+            const auto aim = focus_direction(canvas, overview, {}, v.focus());
+            const float x = (2 * (overview[i].x + overview[i].width / 2) / 1920 - 1) * canvas.half_w;
+            CHECK(near(aim[0], std::atan2(x, 1.f), 1e-5f) && near(aim[1], 0, 1e-5f));
+            CHECK(zoom_draw_order(draw_order(canvas, tiles, placed), v.zoom(), v.focus()).back() == i);
+        }
+    }
+    {  // Maximized, Ctrl+Alt+Left / Right's animated switch along every desktop and back, each landing where it was sent.
+        ViewAnimator v(200);
+        v.set_target(true, 0, 40, 0); v.advance(1000);
+        double t = 1000;
+        auto walk = [&](std::uint32_t to) {
+            v.set_target(true, to, 40, t); CHECK(v.switching() && v.selected() == to);
+            t += 2000; v.advance(t);
+            CHECK(!v.switching() && v.zoom() == 1 && v.focus() == to && v.position() == float(to));
+            const auto turn = v.take_landed_turn();
+            CHECK(turn && (*turn)[1] == to);
+        };
+        for (std::uint32_t to = 1; to <= last; ++to) walk(to);
+        for (std::uint32_t to = last; to-- > 0;) walk(to);
+        // Sent on to the last one while zooming out of the first (a retarget), then while turning (it queues).
+        v.set_target(true, 1, 40, t); v.advance(t + 50); CHECK(v.switching() && v.zoom() > 0);
+        v.set_target(true, last, 40, t + 50); t += 2000; v.advance(t);
+        CHECK(!v.switching() && v.focus() == last && v.zoom() == 1);
+        v.set_target(true, 0, 40, t); v.advance(t + 300); CHECK(v.switching() && v.zoom() == 0);
+        v.set_target(true, last, 40, t + 300); t += 4000; v.advance(t);
+        CHECK(!v.switching() && v.focus() == last && v.zoom() == 1);
+        // The cut (a maximized cursor switch or key: follow and locked): straight there, to the last one and from it.
+        v.set_target(true, 0, 40, t, false, true); CHECK(!v.switching() && v.focus() == 0);
+        v.set_target(true, last, 40, t, false, true); CHECK(!v.switching() && v.focus() == last && v.zoom() == 1);
+    }
+    {  // The selected last desktop removed: its `desktops` frame comes just before the `view` frame that moves the selection
+        // (view.py), so for a moment the animator names a desktop that is gone. Nothing it feeds goes out of bounds.
+        ViewAnimator v(200);
+        v.set_target(true, last, 40, 0); v.advance(1000);
+        const std::vector<Size> fewer(last, Size{1920, 1080});
+        const auto overview = overview_layout(fewer, 1920, 1200, 40);
+        const auto tiles = blended_layout(fewer, 1920, 1200, 40, v.zoom(), v.position());
+        CHECK(tiles.size() == fewer.size() && std::all_of(tiles.begin(), tiles.end(), [](const FRect& r) { return std::isfinite(r.x) && r.width > 0; }));
+        CHECK(zoomed_placements(canvas, overview, tiles, {}, v.zoom(), v.position()).size() == fewer.size());
+        CHECK((focus_direction(canvas, overview, {}, v.focus()) == std::array<float, 2>{0, 0}));
+        const std::vector<std::size_t> order{0, 1, 2};
+        CHECK(zoom_draw_order(order, v.zoom(), v.focus()) == order);
+        v.set_target(true, last - 1, 40, 1000, false, true); v.advance(2000);
+        CHECK(v.selected() == last - 1 && v.focus() == last - 1 && v.zoom() == 1);
+    }
+}
+
 int main() {
     tile_ease_tests();
+    every_desktop_tests();
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
     // Overview: 3 x 16:9 desktops in 1920x1200 with 40 px gaps and margins.
     auto o = overview_layout(eq, 1920, 1200, 40);
@@ -171,7 +240,7 @@ int main() {
     a.set_target(false, 1, 120, 2000); a.advance(2100); CHECK(a.zoom() > 0 && a.zoom() < 1 && a.position() == 1);
     a.advance(3000); CHECK(a.zoom() == 0 && !a.animating());
     a.set_target(true, 9, 9999, 3000); a.advance(4000);  // selection and spacing are clamped
-    CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
+    CHECK(a.selected() == kMaxDesktops - 1 && a.spacing() == float(kMaxSpacing));
 
     // Cursor switch with its animation off (anchor mode, 2026-11-03): zoomed in, a cut shows the target at once at its
     // placement: no zoom out, no turn, nothing landed for anchor mode's room. A later plain frame changes nothing.

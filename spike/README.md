@@ -48,6 +48,9 @@ protocol XML provenance is in [protocols/PROVENANCE.md](protocols/PROVENANCE.md)
   back in one flush (as a reload does to each XR-n output), `resize` really changes the size. Both fail if a desktop
   that had shown a frame ever shows none, and `bounce` fails if a desktop's capture buffers were re-created at all
   (`reallocations` in the renderer's capture report). See `CaptureBuffers` in `include/xr/capture.hpp`.
+- ctest `capture_e2e_maximize_{1,2,3,4}_gl-dmabuf` and `capture_e2e_maximize_4_gl-shm` run four desktops and send the
+  supervisor's frames for maximizing XR-N (`--maximize N`). They fail unless every frame after the zoom lands has XR-N's
+  own frame in the middle of the view: each stamp remembers its desktop. GL modes only, since CPU composition has no zoom.
 
 These are a model of the compositor, not Hyprland. They do not show glasses latency or Hyprland's scheduling.
 

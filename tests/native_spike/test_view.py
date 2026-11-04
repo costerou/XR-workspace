@@ -1,4 +1,5 @@
 """Glasses view controls: zoom in/out, switch desktop, spacing; runtime binds; control client."""
+import itertools
 import json
 import os
 from pathlib import Path
@@ -9,12 +10,13 @@ import tempfile
 import threading
 import unittest
 
-from tools.native_spike.geometry import DEFAULT_PLACEMENT
+from tools.native_spike.geometry import DEFAULT_PLACEMENT, MAX_DESKTOPS
 from tools.native_spike import view
 from tools.native_spike.profiles import LayoutStore
 from tools.native_spike.ipc import decode_control
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
+ALL_DESKTOPS = [f'XR-{i + 1}' for i in range(MAX_DESKTOPS)]
 
 
 class ViewStateTests(unittest.TestCase):
@@ -172,6 +174,75 @@ class SupervisorControlTests(unittest.TestCase):
         control.join_focus(timeout=2)
         self.assertEqual(focused, ['XR-2', 'XR-2'])
         self.assertEqual(view.load_spacing(settings), 60)
+
+
+class EveryDesktopMaximizesTests(unittest.TestCase):
+    """Whichever desktop a run maximizes, the glasses (its index in the run's desktops) and Hyprland's focus (its name) are
+    told the same one, in every run a pill's Add and Remove can make, gaps in the numbers included. The renderer's half is
+    ctest `view` and `capture_e2e_maximize_*`: until 2026-11-03 it stopped at the third desktop, so XR-4 showed XR-3."""
+    RUNS = [list(r) for n in range(1, MAX_DESKTOPS + 1) for r in itertools.combinations(ALL_DESKTOPS, n)]
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.focused = []
+
+    def control(self, names):
+        return view.ViewControl(view.ViewState(names), 'run', 'session', self.focused.append,
+                                LayoutStore(Path(self.tmp.name) / 'layout.json'), None)
+
+    def payload(self, frame):
+        message = json.loads(frame)
+        self.assertEqual(message['op'], 'view')
+        return message['payload']
+
+    def sent(self, control, frame):
+        """(frame's payload, the monitor focused for it)."""
+        control.join_focus(2)
+        return self.payload(frame), self.focused[-1]
+
+    def test_every_desktop_of_every_run_maximizes_with_focus_on_it(self):
+        self.assertEqual(len(self.RUNS), 2 ** MAX_DESKTOPS - 1)
+        for names in self.RUNS:
+            for i, name in enumerate(names):
+                with self.subTest(names=names, desktop=name):
+                    c = self.control(names)
+                    for step in range(1, i + 1):
+                        payload, focus = self.sent(c, c.on_message({'op': 'next'}))
+                        self.assertEqual((payload['zoomed'], payload['selected'], focus), (False, step, names[step]))
+                    payload, focus = self.sent(c, c.on_message({'op': 'zoom_in'}))
+                    self.assertEqual((payload['zoomed'], payload['selected'], payload['mode']), (True, i, 'follow'))
+                    self.assertEqual(focus, name)
+
+    def test_keys_reach_every_desktop_while_maximized(self):
+        c = self.control(ALL_DESKTOPS)
+        c.on_message({'op': 'zoom_in'})
+        last = MAX_DESKTOPS - 1
+        for i in list(range(1, last + 1)) + list(range(last - 1, -1, -1)):
+            payload, focus = self.sent(c, c.on_message({'op': 'next' if i > c.state.selected else 'prev'}))
+            self.assertEqual((payload['zoomed'], payload['selected'], payload['cut'], focus), (True, i, True, ALL_DESKTOPS[i]))
+
+    def test_the_last_desktop_by_click_and_by_edge_push(self):
+        c = self.control(ALL_DESKTOPS)
+        last = MAX_DESKTOPS - 1
+        payload = self.payload(c.select_desktop(last))
+        self.assertEqual((payload['zoomed'], payload['selected']), (False, last))
+        payload, focus = self.sent(c, c.on_message({'op': 'zoom_in'}))
+        self.assertEqual((payload['selected'], focus), (last, ALL_DESKTOPS[last]))
+        c.state.selected = 0
+        payload = self.payload(c.switch_desktop(last))
+        self.assertEqual((payload['zoomed'], payload['selected'], payload['cut']), (True, last, True))
+
+    def test_selection_stays_on_its_desktop_when_the_numbers_change(self):
+        s = view.ViewState(ALL_DESKTOPS)
+        s.selected = 3
+        names = ['XR-1', 'XR-3', 'XR-4']  # XR-2 removed: XR-4 is the third desktop now
+        s.set_desktops(names, [dict(DEFAULT_PLACEMENT)] * 3, [False] * 3)
+        self.assertEqual(s.selected, 2)
+        self.assertEqual(s.apply('zoom_in'), 'XR-4')
+        s.apply('zoom_out')
+        s.set_desktops(names[:2], [dict(DEFAULT_PLACEMENT)] * 2, [False] * 2)  # the selected one removed: the nearest left
+        self.assertEqual(s.selected, 1)
+        self.assertEqual(s.apply('zoom_in'), 'XR-3')
 
 
 class HyprlandViewRequestTests(unittest.TestCase):
