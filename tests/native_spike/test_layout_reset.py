@@ -329,6 +329,24 @@ class ResetTests(unittest.TestCase):
         s.apply('zoom_in')
         self.assertEqual(s.mode, 'locked')
 
+    def test_maximized_the_backup_keeps_the_rolls_of_the_overview_not_the_level_one(self):
+        self.start(None, PLACED[:3], [1200, -300, 50])  # drawn level while maximized; these are still its rolls
+        self.c.state.apply('zoom_in')
+        self.reset()
+        self.assertEqual(self.saved()['previous_setup']['rolls'], [1200, -300, 50])
+        self.tick(view.RESET_ANIM_S * 2)
+        self.assertEqual(self.pointer.rolls[:3], [0, 0, 0])
+
+    def test_maximized_a_place_change_still_waiting_lands_in_the_backup(self):
+        self.start(None, PLACED[:3], [0] * 3)
+        self.c.state.apply('zoom_in')
+        change = [dict(PLACED[0], x=77), *PLACED[1:3]]
+        self.assertIsNone(self.c.on_message({'op': 'placement', 'payload': {'desktops': change}}))
+        self.c.join_focus()
+        self.told.clear()  # the toast saying it waits
+        self.reset()
+        self.assertEqual(self.saved()['previous_setup']['placements'], change)
+
     def test_a_video_or_a_change_in_progress_turns_it_away_with_a_toast(self):
         self.start([WIDE, D169], PLACED[:2], [10, 20])
         self.c.video_active = True

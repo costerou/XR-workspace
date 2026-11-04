@@ -138,8 +138,8 @@ public:
     // Overview only, never moving on its own. GPU composition only.
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
     // Roll brackets and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
-    // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement, every
-    // zoom); `icons` per desktop -1 none, 0 the bracket round the top-left corner (counter-clockwise), 1 round the top-right
+    // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement; a
+    // maximized desktop's fades out with the zoom); `icons` per desktop -1 none, 0 the bracket round the top-left corner (counter-clockwise), 1 round the top-right
     // (clockwise), 2 both, drawn with the pills (overview only); `hover` / `side` the desktop and bracket that is brighter,
     // brightest when `active`.
     void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,

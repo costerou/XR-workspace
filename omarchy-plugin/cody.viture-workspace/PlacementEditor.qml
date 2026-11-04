@@ -7,7 +7,8 @@ import "Model.js" as Model
 // Per-desktop placement in the glasses view: position round you, distance (size in space) and curvature. Every
 // desktop always faces you, upright, so there is no facing setting.
 // Idle: edits the saved startup placement. Live: each slider release applies it to the running session, which
-// also saves it to this glasses model's profile. Presentation only; no permission scope changes.
+// also saves it to this glasses model's profile (while a desktop is maximized the session keeps it for the overview).
+// Presentation only; no permission scope changes.
 ColumnLayout {
     id: root
     required property var placement

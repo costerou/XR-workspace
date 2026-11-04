@@ -449,6 +449,25 @@ The steps need your usual go-ahead for a live run, the renderer and the Python s
 | B15 | Roll XR-2 about 20° with a bracket and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
 | B16 | Move the dot slowly outward from XR-2's left edge, beside its bracket's side arm | Right at the edge (the first few pixels) the bracket does not light up; from just past the border it does. |
 
+## Maximized desktops sit level: automated coverage and glasses test script
+
+A maximized desktop's roll fades out with the zoom and comes back with it; only what is drawn changes (see **Maximized
+and the overview** in [technical.md](technical.md#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Automated
+coverage: ctest `roll_level`, `focus_center`; `tests/native_spike/test_maximize_level.py`, `test_directional_switch.py`,
+`test_layout_reset.py`. Passing them is not a glasses pass. Nothing below has run in an isolated VM or been tried in the
+glasses. Start with XR-1 rolled about 20° with a bracket and XR-2 about 10° the other way.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| L1 | Select XR-1 and press Ctrl+Alt+Up | XR-1 turns level as it grows, smoothly, with no jump. Once it is in front of you it is level and square to the glasses; XR-2 still shows its roll past the edge if you look that way. |
+| L2 | Tip your head to one side and hold it | Follow brings XR-1 back level with the glasses, tipped with your head. |
+| L3 | Press Ctrl+Alt+V for locked, then Ctrl+Alt+V again | It stays level with the glasses in both. |
+| L4 | Ctrl+Alt+Right, to the next desktop | XR-2 is level at once. |
+| L5 | Ctrl+Alt+Down | Back in the overview XR-1 and XR-2 have exactly the rolls they had, easing back as the desktop shrinks. The brackets and pills are back and work. |
+| L6 | Roll XR-1 about 70° with a bracket, maximize it and push the cursor past its right edge | It switches to XR-2, on your right as you see it. A desktop tilted 70° would point well away from XR-2, so if the roll were still counted nothing would happen. Go back to the overview and roll XR-1 back to about 20°. |
+| L7 | Maximize XR-1, then Stop, then start again | The new run starts in the overview with XR-1 and XR-2 at the rolls they had, not level. |
+| L8 | Maximize XR-1. In the settings panel's Place tab move XR-1 and XR-3 and press Apply, then Ctrl+Alt+Down | While maximized nothing moves, a notification says the change is kept, and the panel keeps showing your values. On Ctrl+Alt+Down both desktops glide to their new places, and they are there after a restart. |
+
 ## Resolution dropdown (the pill's Resolution box): automated coverage and glasses test script
 
 Automated, offline only: `tests/native_spike/test_resolution_dropdown.py` (the size table against the renderer's, the

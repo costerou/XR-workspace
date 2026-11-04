@@ -142,12 +142,13 @@ what you are looking at, as on the INAIR Pod:
   look at a different one. Every session starts here.
 - **Maximized:** in the overview, move the mouse onto a desktop (or pick it with Ctrl+Alt+Left / Right), then press
   **Ctrl+Alt+Up** (or the panel's **Maximize**). It fills your view and **follows** your head: it eases back in front
-  of you when you turn. Clicking in a desktop never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
+  of you when you turn. However you rolled it in the overview, it sits level and square to the glasses while
+  maximized, locked as well. Clicking in a desktop never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
   instead, like a normal screen glued to your face, and again to go back to follow. Your choice sticks: every desktop
   you maximize after that uses it, until you press Ctrl+Alt+V again. Each new XR start begins with follow.
 - **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
-  where they were before you maximized, wherever you turned meanwhile. Ctrl+Alt+Space (recenter) while maximized
-  brings the overview back centred on the desktop you had maximized.
+  where they were before you maximized, each with the roll it had, wherever you turned meanwhile. Ctrl+Alt+Space
+  (recenter) while maximized brings the overview back centred on the desktop you had maximized.
 
 Ctrl+Alt+V in the overview changes nothing; a small notification says why. The little card in the glasses names the
 mode when the session starts and when Ctrl+Alt+V changes it, not on every maximize.
@@ -224,6 +225,8 @@ bumps anything. Super + drag is your window manager's as always: it moves or res
 bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
 
 The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
+While a desktop is maximized, a change there waits: a small notification says so, the panel keeps showing it, and it
+applies when you go back to the overview. If you stop XR first it is saved for the next start.
 
 When the layout itself changes, desktops that overlap afterwards are pushed apart by themselves, gliding the same way:
 when a session starts with a saved layout that overlaps, when you change the spacing, and when you add, remove or widen
@@ -312,7 +315,8 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   in anchor mode), else 2° further. A desktop's picture, and any desktop covering a bracket, keeps its clicks. Press R
   in its open pill to put the desktop back flat in its slot and level.
   Or hold either bracket and drag the dot round the desktop to roll it either
-  way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout.
+  way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout. It belongs to the
+  overview: a maximized desktop always sits level, and gets its roll back when you return.
 - **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
   (and its panel when open), the two roll brackets round its top corners, and the resize handles just outside its edges
   and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window

@@ -330,12 +330,13 @@ class UnifiedPointer(fp.OverviewPointer):
 
     def neighbour(self, edge):
         """The desktop placed past home's `edge` round you (neighbors.pick on the renderer's overview layout and the
-        placements as drawn), or None. Without a layout with one slot per desktop: the row order (neighbors.row_fallback).
+        placements as drawn: without their rolls, home being level while maximized and a neighbour's roll turning it about
+        its own centre), or None. Without a layout with one slot per desktop: the row order (neighbors.row_fallback).
         Read from the sampler thread: the layout and placements are replaced, never changed in place."""
         s = self.control.state
         home, count, g = s.selected, len(s.names), self.geometry
         if g is None or len(g['tiles']) != count: return neighbors.row_fallback(count, home, edge)
-        return neighbors.pick(neighbors.frames(g, self._rolled()), home, edge)
+        return neighbors.pick(neighbors.frames(g, s.placements), home, edge)
 
     def request_switch(self, home, target):
         """Sampler thread: the push past home's edge reached a neighbour; the loop switches (poll)."""
