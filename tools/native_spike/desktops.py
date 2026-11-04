@@ -1,7 +1,7 @@
 """Live desktop changes from a glass pill in the glasses: Ultrawide, Add, Remove, Resolution and Scale.
 
 The open placement panel (an expanded glass pill, glass.hpp) has a row of three buttons under its sliders, also on keys
-while it is open (view.MENU_BINDS: U, N, Delete):
+while it is open (view.MENU_BINDS: U, N, Shift+Delete):
 
     Ultrawide   that desktop toggles between 16:9 and 21:9 at its own height (geometry.toggle_ultrawide)
     Add new     a new desktop, the size of the one whose pill it is (standard 16:9 if that one is ultrawide), named

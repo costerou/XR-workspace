@@ -747,7 +747,7 @@ Entering a desktop (`unified_cursor.enter_desktop_lua`, one eval) focuses its mo
 under the dot, then installs the left button's non-consuming binds. The focus makes the keyboard go to that monitor's
 focused window whatever the focus-follows-mouse setting; the warp after it puts the cursor back under the dot (a
 monitor focus alone moves the cursor to that monitor's last window) and, with focus-follows-mouse, focuses the window
-under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Delete, Esc) would
+under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Shift+Delete, Esc) would
 take typing meant for a window, so a left press on a window (desktop mode) takes them off the keyboard
 (`ViewControl.desktop_press`). The pill stays open, on that desktop, and a press on the panel or its pill brings its keys back.
 Window drag (hold a window to lift it onto another desktop) is off (`OverviewPointer.window_drag = False`): it took

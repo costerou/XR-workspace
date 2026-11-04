@@ -444,8 +444,8 @@ focus; say so if the typing lands anywhere but the desktop you are looking at.
 | X6 | Press Ctrl+Alt+V, turn your head, press Ctrl+Alt+V again | Locked and follow both stay on XR-4. Neither jumps to XR-3. |
 | X7 | Press Ctrl+Alt+Down, then maximize XR-1, XR-2 and XR-3 in turn (select with Ctrl+Alt+Left / Right, Ctrl+Alt+Up, then Ctrl+Alt+Down), typing on each | Each shows itself, and the typing lands on the desktop you see. |
 | X8 | Click on XR-4, then press Ctrl+Alt+Up | The click selects XR-4 and stays in the overview. The key maximizes XR-4. |
-| X9 | Press Ctrl+Alt+Down, then with the keys only (the dot would select the desktop it moves onto): Ctrl+Alt+L for XR-4's pill, Shift+Tab twice to XR-2's, Delete twice, Esc, Ctrl+Alt+Up | XR-2 is gone. XR-4 stays selected and maximizes, with focus on it. |
-| X10 | Press Ctrl+Alt+Down, Ctrl+Alt+L for XR-4's pill, Delete twice, then Ctrl+Alt+Up | XR-3 becomes the selected desktop, with the highlight on it, and maximizes. |
+| X9 | Press Ctrl+Alt+Down, then with the keys only (the dot would select the desktop it moves onto): Ctrl+Alt+L for XR-4's pill, Shift+Tab twice to XR-2's, Shift+Delete twice, Esc, Ctrl+Alt+Up | XR-2 is gone. XR-4 stays selected and maximizes, with focus on it. |
+| X10 | Press Ctrl+Alt+Down, Ctrl+Alt+L for XR-4's pill, Shift+Delete twice, then Ctrl+Alt+Up | XR-3 becomes the selected desktop, with the highlight on it, and maximizes. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

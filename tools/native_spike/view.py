@@ -62,7 +62,7 @@ resize_press and resize_release come from left-button binds: modal (consuming) w
 desktops, non-consuming over them (unified_cursor.py); they are not USER_OPS.
 
 Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove buttons (free-pointer presses; keys U, N
-and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
+and Shift+Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
 renderer the new desktop set (`desktops` frame) and hands the broker steps to desktops.DesktopManager's worker; poll()
 collects the result, sends the view, placement and panel frames for the new set, restarts the guard and saves the
 profile. Remove asks for a second press within desktops.REMOVE_ARM_S. Above that row, the Scale dropdown (a free-pointer
@@ -229,10 +229,12 @@ MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field
 # The open panel's desktop row on keys (desktops.ACTIONS): the same as pressing its buttons.
 MENU_DESKTOP_OPS = {'menu_ultrawide': 'ultrawide', 'menu_add': 'add', 'menu_delete': 'remove'}
 # menu_back (Escape) collapses the open panel; Tab / Shift+Tab move it to the next / previous desktop (only one is open).
+# Remove is on Shift+Delete, not Delete: bare Delete is the desktop's push-to-talk here, and collapsing the panel would erase it
+# (Keybind:remove() takes every bind on the same modifiers and key).
 MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', 'menu_dec'), ('right', 'menu_inc'),
               ('SHIFT + left', 'menu_dec_big'), ('SHIFT + right', 'menu_inc_big'), ('Tab', 'menu_desktop_next'),
               ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'),
-              ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
+              ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('SHIFT + Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
 IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key', ENVIRONMENT_OP)
@@ -1212,7 +1214,7 @@ class ViewControl:
 
     def _on_menu(self, op):
         """Panel key op. Ctrl+Alt+L while maximized goes back to the overview first, so the expanding pill is seen."""
-        if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
+        if op in MENU_DESKTOP_OPS:  # U / N / Shift+Delete: the open panel's desktop row
             return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
         if op in ('menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big') and self.state.menu_open and self.state.menu_field == BRIGHTNESS_FIELD:
             step = _environment.BRIGHTNESS_STEPS[op.endswith('_big')] * (1 if op.startswith('menu_inc') else -1)
@@ -1244,7 +1246,7 @@ class ViewControl:
     def desktop_press(self):
         """A left press on a desktop's content with a panel open (unified_cursor: the window has the click). The panel stays
         (Cody, 2026-11-03: clicking another desktop moves it there, so a press on a desktop is no click outside it), on that
-        desktop if it was on another, and its modal keys come off: they are plain keys (R, U, N, Delete, arrows, Tab, Escape),
+        desktop if it was on another, and its modal keys come off: they are plain keys (R, U, N, Shift+Delete, arrows, Tab, Escape),
         and the typing is the window's now. A press on the panel or its pill brings them back (panel_keys_on), and a collapse
         forgets it. Renderer frames (bytes), b'' if the panel stayed where it was."""
         out = self.follow_focus()
@@ -1406,7 +1408,7 @@ class ViewControl:
         return self.desktop_action(desktop, 'resolution', size=size) or self._menu_frame()
 
     def desktop_action(self, desktop, action, scale=None, size=None):
-        """Ultrawide / Add / Remove pressed on `desktop`'s open panel (or U / N / Delete), a Scale step picked (action
+        """Ultrawide / Add / Remove pressed on `desktop`'s open panel (or U / N / Shift+Delete), a Scale step picked (action
         desktops.SCALE with `scale`) or a Resolution picked (desktops.RESOLUTION with `size`). Remove's first press only
         arms it. Starts the change (module docstring) and returns the frames that go before it: the panel showing it busy
         and, for a removal, the renderer's new desktop set (its capture stops before the output goes). b'' if nothing

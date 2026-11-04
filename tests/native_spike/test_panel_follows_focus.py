@@ -152,7 +152,7 @@ class FollowTests(unittest.TestCase):
         self.send('menu_desktop_next')  # the panel on XR-2, XR-1 selected: the press is on XR-1
         self.assertEqual(self.menu([json.loads(line) for line in self.c.desktop_press().splitlines()])['desktop'], 0)
         self.assertTrue(self.c.state.menu_open)
-        self.assertEqual(self.join(), [True, False])  # R, Delete and the rest are the window's again
+        self.assertEqual(self.join(), [True, False])  # R, Shift+Delete and the rest are the window's again
 
     def test_the_panel_keys_stay_off_through_more_presses_and_moves(self):
         self.send('menu_toggle')
