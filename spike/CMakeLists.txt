@@ -566,6 +566,9 @@ if(XR_ENABLE_PRESENTATION)
     add_test(NAME capture_e2e_bad_control_fatal COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
       --bad-control --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_bad_control_fatal PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    add_test(NAME capture_e2e_control_closed COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
+      --close-control --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     # A USB drop against a simulated driver feed: 20 s with two disconnects, then back on a new reference. The real renderer
     # stays up, says so, and resumes. With the feed gone, losing the output still ends it.
     add_executable(feed_script tests/feed_script.cpp)

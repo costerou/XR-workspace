@@ -98,6 +98,7 @@ struct Options {
     // private /tmp and IPC namespace, gone for S seconds with two disconnects. --check: the renderer stays up and resumes.
     std::string feed_script;
     double feed_drop = 0;
+    bool close_control = false;  // --close-control: the supervisor's end closes in the window. --check: the renderer stops and says why.
     bool bad_control = false;  // --bad-control: every kind of bad frame in the window, with a good one after each kind
     std::string control_errors = "fatal";  // the renderer's rule (ipc.hpp ControlStream): tests run strict; `--control-errors log` is the shipped one
     double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
@@ -863,7 +864,7 @@ void usage() {
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
-                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--control-errors fatal|log]\n");
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--close-control] [--control-errors fatal|log]\n");
 }
 }  // namespace
 
@@ -894,6 +895,7 @@ int main(int argc, char** argv) {
         else if (a == "--feed-drop") { opt.feed_drop = std::stod(next()); opt.tracking = true; }
         else if (a == "--video-loss") opt.video_loss = std::stod(next());
         else if (a == "--bad-control") opt.bad_control = true;
+        else if (a == "--close-control") opt.close_control = true;
         else if (a == "--control-errors") opt.control_errors = next();
         else { usage(); return 2; }
     }
@@ -1053,11 +1055,11 @@ int main(int argc, char** argv) {
             return "{\"schema\":1,\"request_id\":" + std::to_string(id) + ",\"run_id\":\"" + run + "\",\"session\":\"s1\",\"op\":\"" + op + "\",\"payload\":" + payload + "}\n";
         };
         const std::string roll = R"({"roll":[0,0,0,0],"icons":["none","none","none","none"],"hover":-1,"side":"none","active":false})";
-        const std::string open = R"({"action":"open","projection":"360","stereo":"mono","fov":180,"title":"t"})";
+        const std::string open = R"({"action":"open","projection":"360","stereo":"mono","fov":180,"title":"a private film"})";
         send_frame(next_request++, "roll", roll);  // the floor
         send_frame(next_request - 2, "roll", roll);  // 1. the 2026-11-04 crash: a good frame with an id already passed
         send_frame(next_request - 1, "roll", roll);  // 2. the same id again
-        raw(line(next_request, "other", "roll", roll));  // 3. someone else's run
+        raw(line(next_request, "another-run", "roll", roll));  // 3. someone else's run
         raw("this is not a control frame\n");  // 4.
         raw(line(next_request, "bench1", "no_such_op", "{}"));  // 5.
         raw(line(next_request, "bench1", "view", "{}"));  // 6. a malformed payload that acts
@@ -1146,6 +1148,7 @@ int main(int argc, char** argv) {
             server.measuring = true; measured_pid = renderer_pid(pid, opt.renderer);
             cpu0 = process_cpu_ns(measured_pid); ctx0 = process_ctx_switches(measured_pid); hb0 = heartbeats;
             if (opt.bad_control) send_bad_control();
+            if (opt.close_control) ::shutdown(control[0], SHUT_WR);
             if (malloc_count) { mallocs0 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(1); }
             if (opt.maximize) {
                 const std::string selected = ",\"selected\":" + std::to_string(opt.edge_pan ? 0 : opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
@@ -1284,6 +1287,14 @@ int main(int argc, char** argv) {
             g = nullptr; g_gpu = nullptr;
             return status_rc;
         }
+        if (opt.close_control) {  // the one thing that still ends a session, and it says so
+            status_rc = 0;  // exit status 1 is the point here
+            if (rc != 1) fail("the renderer did not stop when the supervisor closed its end");
+            if (stderr_text.find("control: supervisor channel closed (EOF)") == std::string::npos) fail("the renderer did not say why it stopped");
+            wl_display_destroy(server.display);
+            g = nullptr; g_gpu = nullptr;
+            return status_rc;
+        }
         if (opt.bad_control && opt.control_errors == "fatal") {  // what every other test relies on: a bad frame does stop this renderer
             status_rc = 0;  // exit status 1 is the point here
             if (rc != 1) fail("the renderer did not stop on a refused frame");
@@ -1302,6 +1313,13 @@ int main(int argc, char** argv) {
             if (stderr_text.find("control: video open without a file descriptor") == std::string::npos) fail("a refused video open left its descriptor for the next one");
             if (stderr_text.find("control: refused frame") == std::string::npos) fail("the refused frames were not logged");
             if (out.value("view_shift_mrad", 0) <= 0) fail("a good frame after the bad ones did nothing");
+            // The 2026-11-04 crash, as the journal would now tell it: which frame, why, and what it looked like.
+            if (stderr_text.find("(roll): control_replay: request id ") == std::string::npos) fail("a replay was not named as one");
+            if (stderr_text.find("(roll): control_wrong_run:") == std::string::npos) fail("another run's frame was not named as one");
+            if (stderr_text.find("(no_such_op): invalid_control: unknown op") == std::string::npos) fail("an unknown op was not named as one");
+            if (stderr_text.find("(view): invalid_control: bad view payload") == std::string::npos) fail("a bad payload was not named as one");
+            if (stderr_text.find("\"op\":\"roll\"") == std::string::npos) fail("the log did not show the frame's shape");
+            if (stderr_text.find("private film") != std::string::npos || stderr_text.find("another-run") != std::string::npos) fail("a frame's text reached the log");
         }
         if (!window_complete || !stop_sent) fail("renderer ended before the measured window did");
         if (opt.feed_drop > 0) {

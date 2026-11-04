@@ -222,17 +222,22 @@ int main(int argc, char** argv) {
                              [&](const xr::ControlRefusal& r) {
         if (++refusals <= 20 || refusals % 1000 == 0)  // bounded: a supervisor that keeps doing this must not fill the journal
             std::cerr << "control: refused frame " << r.request_id << " (" << (r.op.empty() ? "unreadable" : r.op) << "): " << r.error.code
-                      << ", " << refusals << " so far\n";
+                      << ": " << r.error.detail << " (" << refusals << " so far): " << r.frame << '\n';
         // A video open brings its descriptor, and only its own open takes one: left here, the next open would play this file.
         if ((r.op == "video" || r.op.empty()) && !video_fds.empty()) { ::close(video_fds.front()); video_fds.pop_front(); }
     });
     stream.start(raw);  // the validated start frame sets the replay floor
+    std::string closed = "EOF";  // why the socket ended, for the log
     auto read_control = [&]() -> bool {
         char buffer[4096];
         for (;;) {
             const ssize_t n = receive(buffer, sizeof(buffer));
             if (n == 0) return false;  // supervisor gone
-            if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
+            if (n < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return true;
+                closed = std::string("recv: ") + std::strerror(errno);
+                return false;
+            }
             if (!stream.feed({buffer, std::size_t(n)})) return false;
         }
     };
@@ -243,7 +248,8 @@ int main(int argc, char** argv) {
         bool control_ready = true;
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50, control, &control_ready))) { result = 1; break; }
         if (control_ready && !read_control()) {
-            std::cerr << (stream.stopped() ? "control: stopping on a refused frame (--control-errors fatal)\n" : "control: supervisor channel closed\n");
+            if (stream.stopped()) std::cerr << "control: stopping on a refused frame (--control-errors fatal)\n";
+            else std::cerr << "control: supervisor channel closed (" << closed << ")\n";
             result = 1; break;
         }
         if (status_fd >= 0)  // overview layout for the supervisor's free-pointer hit testing, only when it changes

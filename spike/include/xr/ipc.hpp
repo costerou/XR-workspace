@@ -192,12 +192,19 @@ private:
     std::uint64_t last_ = 0;
     std::deque<ControlMessage> messages_;
 };
-// A frame the stream refused: why, and its op and request id where it has them (never its payload).
+// A frame the stream refused: why, its op and request id where it has them, and `frame` (redacted_frame).
 struct ControlRefusal {
     Error error;
     std::string op;
     std::uint64_t request_id = 0;
+    std::string frame;
 };
+constexpr const char* kControlReplayCode = "control_replay";      // a request id at or below the last one taken
+constexpr const char* kControlWrongRunCode = "control_wrong_run";  // another run's or session's identity
+constexpr std::size_t kMaxRedactedFrame = 200;
+// What a log may say of a frame: its first kMaxRedactedFrame bytes on one line, with no string it does not know to be harmless.
+// Frames carry video titles and the bind panel's text.
+std::string redacted_frame(std::string_view frame);
 constexpr std::size_t kMaxControlPending = 65536;  // bytes with no newline before the stream gives the frame up
 constexpr const char* kControlOverflowCode = "control_overflow";
 // The bytes off the renderer's control socket, frame by frame: what main.cpp runs and what the ctest control_wire feeds the

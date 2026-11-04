@@ -10,7 +10,7 @@ import json
 import os
 import subprocess
 
-TOOL = os.environ.get('CONTROL_WIRE_CHECK')
+TOOL = os.environ.get('CONTROL_WIRE_CHECK')  # the real decoder: set by the ctests, unset in a plain run of the Python suite
 
 
 def ids(data):
@@ -52,4 +52,4 @@ def refused(data, run_id, session):
 
 def faults(data, run_id, session):
     """problems() and refused() together, for an assertEqual(..., [])."""
-    return problems(data) + [f"the renderer refused {r['op']} id {r['id']}: {r['code']}" for r in refused(data, run_id, session)]
+    return problems(data) + [f"the renderer refused {r['op']} id {r['id']}: {r['code']}: {r['detail']}" for r in refused(data, run_id, session)]

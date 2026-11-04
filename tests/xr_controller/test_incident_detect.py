@@ -468,7 +468,8 @@ class ControlChannelTests(unittest.TestCase):
         self.assertIn('control channel', out[0].detail)
 
     def test_the_new_renderers_words_read_the_same(self):
-        for line in ('control: supervisor channel closed', 'control: supervisor channel closed (heartbeat: Broken pipe)'):
+        for line in ('control: supervisor channel closed (EOF)', 'control: supervisor channel closed (recv: Connection reset by peer)',
+                     'control: supervisor channel closed (heartbeat: Broken pipe)'):
             with self.subTest(line):
                 self.assertEqual(kinds(self.end(RESULT_0321, log=[f'2026-11-04T03:21:48-05:00 h python3[1]: {line}'])), ['control-closed'])
 

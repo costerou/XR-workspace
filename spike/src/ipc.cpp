@@ -4,6 +4,7 @@
 #include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <iterator>
 #include <set>
@@ -25,7 +26,25 @@ bool help_text(const Json& value) {
     const auto& s = value.get_ref<const std::string&>();
     return !s.empty() && s.size() <= kMaxHelpText && std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; });
 }
-Error invalid() { return {"invalid_control", "Rejected malformed or unsupported control message"}; }
+Error invalid(std::string why) { return {"invalid_control", std::move(why)}; }
+// String values a log may show: this protocol's own words, never a person's text (redacted_frame).
+bool harmless_string(const std::string& key, const Json& value) {
+    static const std::set<std::string> keys{"action", "background", "corner", "field", "look", "mode", "op", "projection", "side", "state", "stereo"};
+    return keys.contains(key) && token(value) && value.get_ref<const std::string&>().size() <= 32;
+}
+void redact(Json& value, const std::string& key, int depth) {
+    if (depth > 8) { value = "***"; return; }  // deeper than any frame this protocol has, and dump() recurses
+    if (value.is_object()) {
+        Json out = Json::object();
+        for (auto& [name, item] : value.items()) {
+            redact(item, name, depth + 1);
+            out[token(Json(name)) ? name : "***"] = std::move(item);
+        }
+        value = std::move(out);
+    } else if (value.is_array()) {
+        for (auto& item : value) redact(item, key, depth + 1);
+    } else if (value.is_string() && !harmless_string(key, value)) value = "***";
+}
 struct Bound { const char* key; std::int32_t lo, hi; };
 // Same order and values as tools/native_spike/geometry.py PLACEMENT_BOUNDS (tests/native_spike/test_placement.py checks).
 constexpr Bound kPlacementBounds[] = {
@@ -347,7 +366,7 @@ bool roll(const Json& p, RollPayload& out) {
 }
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
-    if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
+    if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid("bad framing");
     try {
         std::vector<std::set<std::string>> keys;
         auto callback = [&](int depth, Json::parse_event_t event, Json& parsed) {
@@ -359,13 +378,14 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             return true;
         };
         auto j = Json::parse(frame, callback);
-        if (!j.is_object() || j.size() != 6) return invalid();
+        if (!j.is_object() || j.size() != 6) return invalid("bad envelope");
         for (auto field : {"schema", "request_id", "run_id", "session", "op", "payload"})
-            if (!j.contains(field)) return invalid();
-        if (!j["schema"].is_number_unsigned() || j["schema"] != 1 || !j["request_id"].is_number_unsigned() || j["request_id"].get<std::uint64_t>() == 0) return invalid();
-        if (!token(j["run_id"]) || !token(j["session"]) || !j["op"].is_string() || !j["payload"].is_object()) return invalid();
+            if (!j.contains(field)) return invalid("bad envelope");
+        if (!j["schema"].is_number_unsigned() || j["schema"] != 1 || !j["request_id"].is_number_unsigned() || j["request_id"].get<std::uint64_t>() == 0) return invalid("bad envelope");
+        if (!token(j["run_id"]) || !token(j["session"]) || !j["op"].is_string() || !j["payload"].is_object()) return invalid("bad envelope");
         ControlOp op;
         const auto name = j["op"].get<std::string>();
+        const auto bad = [&name] { return invalid("bad " + name + " payload"); };
         if (name == "status") op = ControlOp::status;
         else if (name == "video") op = ControlOp::video;
         else if (name == "start") op = ControlOp::start;
@@ -386,14 +406,14 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "environment") op = ControlOp::environment;
         else if (name == "binds") op = ControlOp::binds;
         else if (name == "edge_pan") op = ControlOp::edge_pan;
-        else return invalid();
+        else return invalid("unknown op");
         ControlPayload payload;
         if (op == ControlOp::video) {
             VideoPayload video;
-            if (!decode_video_payload(j["payload"], video)) return invalid();
+            if (!decode_video_payload(j["payload"], video)) return bad();
             payload = std::move(video);
         } else if (op == ControlOp::select) {
-            if (j["payload"].size() != 1 || !j["payload"].contains("output_id") || !token(j["payload"]["output_id"])) return invalid();
+            if (j["payload"].size() != 1 || !j["payload"].contains("output_id") || !token(j["payload"]["output_id"])) return bad();
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
@@ -402,47 +422,47 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 (has_cut && !p["cut"].is_boolean()) || (has_pan && !p["pan"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
                 !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
-                p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return invalid();
+                p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return bad();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
-            if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
+            if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return bad();
             payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
                                   p["cursor_follow"].get<bool>(), p["prediction"].get<bool>(), p["typing"].get<bool>(),
                                   has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>(), has_pan && p["pan"].get<bool>()};
         } else if (op == ControlOp::style) {
             const auto& p = j["payload"];
-            if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return invalid();
+            if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return bad();
             std::uint8_t c[3];
             for (int i = 0; i < 3; ++i) {
                 const auto& v = p["border"][std::size_t(i)];
-                if (!v.is_number_unsigned() || v.get<std::uint64_t>() > 255) return invalid();
+                if (!v.is_number_unsigned() || v.get<std::uint64_t>() > 255) return bad();
                 c[i] = std::uint8_t(v.get<std::uint64_t>());
             }
             payload = StylePayload{c[0], c[1], c[2]};
         } else if (op == ControlOp::help) {
             const auto& p = j["payload"];
             if (!p.contains("visible") || !p["visible"].is_boolean() || !p.contains("rows") || !p["rows"].is_array() ||
-                p["rows"].size() > kMaxHelpRows || p.size() != std::size_t(2 + p.contains("sections") + p.contains("turn"))) return invalid();
+                p["rows"].size() > kMaxHelpRows || p.size() != std::size_t(2 + p.contains("sections") + p.contains("turn"))) return bad();
             HelpPayload help{p["visible"].get<bool>(), {}, {}, 0};
             for (const auto& row : p["rows"]) {
-                if (!row.is_array() || row.size() != 2 || !help_text(row[0]) || !help_text(row[1])) return invalid();
+                if (!row.is_array() || row.size() != 2 || !help_text(row[0]) || !help_text(row[1])) return bad();
                 help.rows.emplace_back(row[0].get<std::string>(), row[1].get<std::string>());
             }
             if (p.contains("sections")) {
                 const auto& sections = p["sections"];
-                if (!sections.is_array() || sections.size() > kMaxHelpRows) return invalid();
+                if (!sections.is_array() || sections.size() > kMaxHelpRows) return bad();
                 std::size_t total = 0;
                 for (const auto& n : sections) {
-                    if (!n.is_number_unsigned() || n.get<std::uint64_t>() < 1 || n.get<std::uint64_t>() > kMaxHelpRows) return invalid();
+                    if (!n.is_number_unsigned() || n.get<std::uint64_t>() < 1 || n.get<std::uint64_t>() > kMaxHelpRows) return bad();
                     help.sections.push_back(std::uint32_t(n.get<std::uint64_t>()));
                     total += help.sections.back();
                 }
-                if (total != help.rows.size()) return invalid();
+                if (total != help.rows.size()) return bad();
             }
             if (p.contains("turn")) {
                 const auto& t = p["turn"];
                 if (!t.is_number_integer() || (t.is_number_unsigned() ? t.get<std::uint64_t>() != 1 : t.get<std::int64_t>() != -1))
-                    return invalid();
+                    return bad();
                 help.turn = std::int32_t(t.get<std::int64_t>());
             }
             payload = std::move(help);
@@ -451,16 +471,16 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             const bool glide = p.contains("glide");  // optional: the frame's desktops glide there together (ipc.hpp)
             if (p.size() != 1 + std::size_t(glide) || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() ||
                 p["desktops"].size() > kMaxDesktops)
-                return invalid();
+                return bad();
             PlacementPayload placements;
             if (glide) {
                 const auto& g = p["glide"];
-                if (!g.is_number_unsigned() || g.get<std::uint64_t>() < 1 || g.get<std::uint64_t>() > kMaxPlacementGlideMs) return invalid();
+                if (!g.is_number_unsigned() || g.get<std::uint64_t>() < 1 || g.get<std::uint64_t>() > kMaxPlacementGlideMs) return bad();
                 placements.glide_ms = std::uint32_t(g.get<std::uint64_t>());
             }
             for (const auto& d : p["desktops"]) {
                 WirePlacement w;
-                if (!placement(d, w)) return invalid();
+                if (!placement(d, w)) return bad();
                 placements.desktops.push_back(w);
             }
             payload = std::move(placements);
@@ -494,7 +514,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(panel);
         } else if (op == ControlOp::desktops) {
             DesktopsPayload set;
-            if (!desktops(j["payload"], set)) return invalid();
+            if (!desktops(j["payload"], set)) return bad();
             payload = std::move(set);
         } else if (op == ControlOp::environment) {
             const auto& p = j["payload"];
@@ -503,9 +523,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 !p.contains("brightness") || !brightness_percent(p["brightness"], e.brightness))
                 return Error{kInvalidEnvironmentCode, "Ignored malformed environment payload"};
             payload = e;
-        } else if (!j["payload"].empty()) return invalid();
+        } else if (!j["payload"].empty()) return bad();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
-    } catch (const std::exception&) { return invalid(); }
+    } catch (const Json::exception&) { return invalid("not JSON"); }
+    catch (const std::exception& e) { return invalid(e.what()); }  // the parser's callback: a duplicate key, nesting too deep
 }
 ControlQueue::ControlQueue(std::string run_id, std::string session)
     : run_id_(std::move(run_id)), session_(std::move(session)) {
@@ -515,7 +536,9 @@ Status ControlQueue::push(std::string_view frame) {
     auto decoded = decode_control(frame);
     if (const auto* error = std::get_if<Error>(&decoded)) return *error;
     auto message = std::get<ControlMessage>(std::move(decoded));
-    if (message.run_id != run_id_ || message.session != session_ || message.request_id <= last_) return invalid();
+    if (message.run_id != run_id_ || message.session != session_) return Error{kControlWrongRunCode, "frame is for another run or session"};
+    if (message.request_id <= last_)
+        return Error{kControlReplayCode, "request id " + std::to_string(message.request_id) + " is not above " + std::to_string(last_)};
     if (messages_.size() >= 8) return Error{"queue_full", "Control queue capacity is eight"};
     last_ = message.request_id;
     messages_.push_back(std::move(message));
@@ -525,6 +548,20 @@ std::optional<ControlMessage> ControlQueue::pop() {
     if (messages_.empty()) return std::nullopt;
     auto message = std::move(messages_.front()); messages_.pop_front(); return message;
 }
+std::string redacted_frame(std::string_view frame) {
+    if (frame.empty()) return {};
+    auto parsed = Json::parse(frame, nullptr, false);
+    std::string out;
+    if (!parsed.is_discarded()) {
+        redact(parsed, {}, 0);
+        out = parsed.dump(-1, ' ', true, Json::error_handler_t::replace);
+    } else {  // not JSON: nothing tells its strings from any other text, so no words at all
+        for (const unsigned char c : frame.substr(0, kMaxRedactedFrame + 1))
+            out += std::isalnum(c) ? 'x' : c >= 0x20 && c < 0x7f ? char(c) : '.';
+    }
+    if (out.size() > kMaxRedactedFrame) { out.resize(kMaxRedactedFrame); out += "..."; }
+    return out;
+}
 ControlStream::ControlStream(std::string run_id, std::string session, bool fatal, Deliver deliver, Refused refused)
     : queue_(std::move(run_id), std::move(session)), fatal_(fatal), deliver_(std::move(deliver)), refused_callback_(std::move(refused)) {}
 void ControlStream::start(std::string_view frame) {
@@ -533,7 +570,7 @@ void ControlStream::start(std::string_view frame) {
 }
 bool ControlStream::refuse(const Error& error, std::string_view frame) {
     ++refused_;
-    ControlRefusal refusal{error, {}, 0};
+    ControlRefusal refusal{error, {}, 0, redacted_frame(frame)};
     // Only for the log and the descriptor a video frame may have brought: nothing of a refused frame is acted on.
     const auto parsed = Json::parse(frame, nullptr, false);
     if (parsed.is_object()) {
@@ -566,9 +603,10 @@ bool ControlStream::feed(std::string_view bytes) {
         }
     }
     if (pending_.size() > kMaxControlPending) {
+        const auto start = pending_.substr(0, kMaxRedactedFrame + 1);
         pending_.clear();
         skipping_ = true;
-        return refuse({kControlOverflowCode, "Gave up on a control frame with no end"}, {});
+        return refuse({kControlOverflowCode, "no newline in " + std::to_string(kMaxControlPending) + " bytes"}, start);
     }
     return true;
 }

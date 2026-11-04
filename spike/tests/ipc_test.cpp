@@ -1,4 +1,5 @@
 #include "xr/ipc.hpp"
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <cstdint>
@@ -11,7 +12,7 @@ std::string wire(unsigned id = 1) {
     return "{\"schema\":1,\"request_id\":" + std::to_string(id) +
         ",\"run_id\":\"run\",\"session\":\"session\",\"op\":\"status\",\"payload\":{}}\n";
 }
-int main() {
+void run() {
     const auto good = xr::decode_control(wire());
     require(std::holds_alternative<xr::ControlMessage>(good));
     require(std::get<xr::ControlMessage>(good).schema == 1);
@@ -390,8 +391,10 @@ int main() {
             require(log.taken.empty());  // the start frame is main.cpp's
             require(s.feed(wire(7) + wire(8) + wire(6) + wire(9)));
             require((log.taken == std::vector<std::uint64_t>{7, 8, 9}));  // the frames either side of it still count
-            require(log.refused.size() == 1 && log.refused[0].error.code == "invalid_control");
+            require(log.refused.size() == 1 && log.refused[0].error.code == xr::kControlReplayCode);
+            require(log.refused[0].error.detail == "request id 6 is not above 8");
             require(log.refused[0].op == "status" && log.refused[0].request_id == 6);
+            require(log.refused[0].frame.find("\"op\":\"status\"") != std::string::npos);
             require(s.accepted() == 3 && s.refused() == 1 && !s.stopped());
         }
         {  // The start frame is the floor; a replay of it is refused.
@@ -407,7 +410,45 @@ int main() {
             require((log.taken == std::vector<std::uint64_t>{4}) && s.refused() == 5);
             require(log.refused[0].op == "status" && log.refused[1].op.empty() && log.refused[2].op.empty());  // (the blank line is a frame too)
             require(log.refused[3].op == "exec" && log.refused[4].op == "view" && log.refused[4].request_id == 3);
-            require(log.refused[3].error.code == "invalid_control");
+            require(log.refused[0].error.code == xr::kControlWrongRunCode && log.refused[1].error.code == "invalid_control");
+            require(log.refused[1].error.detail == "not JSON" && log.refused[2].error.detail == "not JSON");
+            require(log.refused[3].error.detail == "unknown op" && log.refused[4].error.detail == "bad view payload");
+        }
+        {  // The other reasons a frame can have, each said as itself. The code stays: only what logs read changes.
+            const auto why = [](const std::string& frame) { return std::get<xr::Error>(xr::decode_control(frame)); };
+            require(why(std::string(16385, ' ') + "\n").detail == "bad framing" && why("no newline").detail == "bad framing");
+            require(why("{\"schema\":2}\n").detail == "bad envelope");
+            require(why(R"({"a":1,"a":2})" "\n").detail == "duplicate key");
+            for (const std::string op : {"placement", "desktops", "style", "help", "select", "video"})
+                require(why(named(1, op)).detail == "bad " + op + " payload" && why(named(1, op)).code == "invalid_control");
+        }
+        {  // What a refused frame may say of itself: its shape, never its strings.
+            const std::string video = R"({"schema":1,"request_id":9,"run_id":"run-secret","session":"session-secret","op":"video",)"
+                                      R"("payload":{"action":"open","projection":"360","stereo":"mono","fov":180,"title":"my private film"}})" "\n";
+            const auto said = xr::redacted_frame(video);
+            require(said.find("secret") == std::string::npos && said.find("private") == std::string::npos);
+            require(said.find(R"("op":"video")") != std::string::npos && said.find(R"("action":"open")") != std::string::npos);
+            require(said.find(R"("request_id":9)") != std::string::npos && said.find(R"("fov":180)") != std::string::npos);
+            require(said.find("\"title\":\"***\"") != std::string::npos);
+            const auto rows = xr::redacted_frame(R"({"op":"help","payload":{"rows":[["Ctrl+Alt+R","reset my layout"]]}})" "\n");
+            require(rows.find("reset") == std::string::npos && rows.find("Ctrl") == std::string::npos);
+            // Not JSON: no string to tell from any other text, so no words at all.
+            const auto garbage = xr::redacted_frame("password hunter2 {\"title\":\"x\"}\n");
+            require(garbage.find("hunter2") == std::string::npos && garbage.find("password") == std::string::npos && garbage.find("title") == std::string::npos);
+            require(garbage.find('{') != std::string::npos);
+            for (const auto& line : {said, rows, garbage, xr::redacted_frame("a\tb\x01\xff\n")})  // one printable line, whatever came in
+                require(std::all_of(line.begin(), line.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; }));
+            std::string long_row = R"({"op":"help","payload":{"rows":[)";
+            for (int i = 0; i < 400; ++i) long_row += (i ? ",1" : "1");
+            require(xr::redacted_frame(long_row + "]}}\n").size() <= xr::kMaxRedactedFrame + 3);
+            require(xr::redacted_frame(std::string(1 << 16, 'x')).size() <= xr::kMaxRedactedFrame + 3);
+            // Nesting past what a stack takes is still only a bad frame.
+            std::string deep = "{\"op\":\"view\",\"payload\":" + std::string(60000, '[') + "1" + std::string(60000, ']') + "}\n";
+            require(xr::redacted_frame(deep).find("\"op\":\"view\"") != std::string::npos);
+            require(xr::redacted_frame({}).empty());
+            Log log; auto s = stream(log, false);
+            require(s.feed(video + "\n"));
+            require(log.refused.size() == 2 && log.refused[0].frame.find("secret") == std::string::npos);
         }
         {  // A frame in pieces, in any cut.
             Log log; auto s = stream(log, false);
@@ -420,6 +461,7 @@ int main() {
             const std::string chunk(4096, 'x');
             for (std::size_t sent = 0; sent <= xr::kMaxControlPending + 8192; sent += chunk.size()) require(s.feed(chunk));
             require(s.refused() == 1 && log.refused[0].error.code == xr::kControlOverflowCode && log.refused[0].op.empty());
+            require(!log.refused[0].frame.empty() && log.refused[0].frame.find_first_not_of("x.") == std::string::npos);  // its start, masked
             require(s.feed(chunk));                 // more of the same frame
             require(s.feed("tail\n" + wire(1)));    // its end, then a good one in the same read
             require((log.taken == std::vector<std::uint64_t>{1}) && s.refused() == 1);
@@ -441,4 +483,10 @@ int main() {
         }
     }
     std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, control stream, view, recenter, help, placement, placement_menu, binds: PASS\n";
+}
+int main() {
+    // A failing assertion is a failed test, not a crash: an uncaught throw aborts, and the desktop announces it as one.
+    try { run(); }
+    catch (const std::exception& e) { std::cerr << "FAILED: " << e.what() << '\n'; return 1; }
+    return 0;
 }
