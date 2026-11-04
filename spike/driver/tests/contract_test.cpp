@@ -5,7 +5,8 @@
 //      checker must accept a good fake and reject fakes broken the way a real branch could break it.
 //   2. The same checkers applied to the real headers, as static_asserts. A mismatch is a compile error.
 //   3. A scan of the driver's sources for what the contract and the safety rules forbid (device resets, network,
-//      the VITURE SDK, libraries beyond libc/libudev, get_display_mode), and for what pose.cpp needs from the feed.
+//      the VITURE SDK, libraries beyond libc/libudev, get_display_mode, camera streams), and for what pose.cpp needs
+//      from the feed.
 //
 // It compares against the contract only where the contract is exact. Names it leaves open (how a Transport is
 // opened, Publisher's write method, the Command builders, hotplug events) are listed in docs/acceptance.md under
@@ -358,6 +359,9 @@ inline constexpr Rule kForbidden[] = {
     {"<hidapi", false, "is a new runtime dependency"},
     // Minimal commands: the suspect in the drops. This driver has no business asking the display mode.
     {"get_display_mode", false, "is the command the drops point at; the driver must not poll it"},
+    // Zero drops comes first, and camera power is a suspect: this driver is IMU only until 6DoF passes its own soak.
+    {"VIDIOC_STREAMON", true, "starts a camera stream"},
+    {"<linux/videodev2.h>", false, "is the camera API"},
     // The driver publishes a feed. It must not be able to move the mouse, as XRLinuxDriver's output modes can.
     {"uinput", false, "can drive the mouse or keyboard"},
 };
@@ -439,6 +443,8 @@ inline void scanner_self_test(Report& r) {
     r.check(count_for("std::ofstream(dev + \"/authorized\") << 0;") == 1, "a path inside a string is scanned");
     r.check(count_for("device.get_display_mode();") == 1, "the suspect command is found");
     r.check(count_for("// get_display_mode is what the drops point at\n") == 0, "a comment about the suspect is fine");
+    r.check(count_for("ioctl(fd, VIDIOC_STREAMON, &type);") == 1, "starting a camera stream is found");
+    r.check(count_for("#include <linux/videodev2.h>\n") == 1, "the camera API is found");
 
     std::vector<Finding> findings;
     scan_text("f", "\n\n/* a\n b */\nsocket(AF_INET, 1, 0);", findings);

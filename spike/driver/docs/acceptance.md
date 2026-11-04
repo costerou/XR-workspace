@@ -1,8 +1,9 @@
 # Luma driver: acceptance criteria and merge plan
 
 Owner: drv-review-qa. Written 2026-11-03 against master `c5787ac` and the swarm's unmerged work as it stood at about
-23:50. Seven branches had been pushed and the rest were still in their worktrees, so anything said about a sibling branch
-may change. Re-check it before merging.
+about 00:10. Twelve of the sixteen other branches had been pushed. drv-transport, drv-fusion, drv-prediction and
+drv-performance were still only in their worktrees, so anything said about a sibling branch may change. Re-check it before
+merging.
 
 This document decides when `xr-luma-driver` may replace XRLinuxDriver. Nothing has been accepted yet. Keep three kinds of
 evidence apart when reporting, because each proves less than the next:
@@ -14,6 +15,26 @@ evidence apart when reporting, because each proves less than the next:
 | **Session** | The real driver feeding a real XR session in the glasses | Orchestrator with Cody, step by step |
 
 Zero drops can only be shown at Session level. A green ctest says nothing about it.
+
+## Cody's bar, and what happens when goals collide
+
+"The most high-performance driver for us, with ZERO dropping and the most features." In order:
+
+1. Zero USB drops
+2. Lowest latency, sensor to published pose
+3. Highest sample rate the hardware supports
+4. No drift
+5. Instant calibration
+6. Rock-solid reconnect
+7. As many useful features as the hardware safely allows, each behind a flag with tests
+
+**A higher goal always wins.** If 1 kHz, a real-time thread or a feature turns out to bring drops back, it comes down or
+stays off, whatever it would add. Three examples: if drops return at 1 kHz, step down through `ImuRate` (500, 240, 120 Hz)
+and record the rate that holds; if a feature's command coincides with a drop, its flag stays off; and if prediction needs
+more than the feed carries, the feed does not grow.
+
+Z, S, R and F block replacing XRLinuxDriver. C, L, D and P are held to their targets too, but a miss there is reported to
+Cody with the number, and he decides. X decides which features may be turned on.
 
 ## What blocks everything
 
@@ -40,7 +61,7 @@ xr-driver-git 2.11.9.
 | XR run length on Nov 3 | median 7.8 min, longest 100 min | Drops end many of these. |
 | Kernel: disconnect to glasses back on USB | fastest 0.9 s, median 4.2 s, 33 of 37 within 17 s; the rest 55 s, 204 s, 302 s and one overnight | Nothing in the driver can beat this. |
 | Calibration wait | median 11.5 s, range 10.9 to 15.5 s (69 cycles) | Fixed in the driver. Tracking start adds about 30 s on top unless the faster start works (not tried on glasses). |
-| IMU rate | 1 kHz; pose published every sample, the two older samples 16 and 32 samples back | `src/buffer.c`, `viture_device_carina.h` |
+| IMU rate | 1 kHz, the fastest VITURE's SDK lists; pose published every sample, the two older samples 16 and 32 samples back | `src/buffer.c`, `viture_device_carina.h`, `viture_protocol_public.h` |
 
 Not measured yet, so they must be taken in the same conditions as the new driver: XRLinuxDriver's CPU use, its
 sensor-to-feed latency, and its yaw drift. It was not running when this was written.
@@ -91,6 +112,8 @@ measured during XR runs. If a drop happens anyway, the soak report's last 5 seco
 | C2 | Same with the glasses moving (put on while starting) | Never hangs; calibrated within `coarse_timeout_s` (2.5 s) at reduced quality, then improves | Daemon log, `FusionStatus` | Bench |
 | C3 | Started upside down on a desk | Correct level once worn; steps H21 to H23 pass | Glasses | Session |
 | C4 | Up is real gravity | 1 degree or less from the accelerometer's average when still (*proposed*) | Replay, then bench | Bench |
+| C5 | Instant start with a saved calibration | `calibrated` within 100 ms of the first sample (*proposed*), then improves to full quality in the background. Needs the saved bias stored between sessions. | Daemon log | Bench |
+| C6 | A stale saved calibration does no harm | With a wrong saved bias, tracking recovers without restarting and D1 holds after it settles | Offline with a bad bias, then bench | Offline, Bench |
 
 ### L. Latency and rate
 
@@ -99,18 +122,21 @@ measured during XR runs. If a drop happens anyway, the soak report's last 5 seco
 | L1 | USB packet in hand to pose in the feed, added by the driver | p99 under 0.5 ms | `spike/driver/bench`, fake 1 kHz transport | Offline |
 | L2 | The same on the glasses | p99 under 1 ms (*proposed*) | Daemon stats | Bench |
 | L3 | Against XRLinuxDriver | Age of the feed at the renderer's read is no worse, same conditions, same day | Passive feed reader on each driver | Session |
-| L4 | Sample rate published | At least the 1 kHz baseline | Daemon stats | Bench |
+| L4 | Sample rate published | The highest the glasses hold with zero drops: 1 kHz unless a soak forces it down. Every sample published, no batching. | Daemon stats | Bench |
 | L5 | Lost samples | Under 0.1%; no gap over 20 ms while connected (*proposed*). The renderer calls tracking lost at 100 ms. | Daemon stats | Session |
 | L6 | Prediction still runs | `angular_velocity` returns a value on every frame | Offline replay through `predict.cpp` | Offline |
+| L7 | Worst case, not only the typical case | Longest added delay under 2 ms, on the bench and with the desktop busy (*proposed*) | `spike/driver/bench`, daemon stats | Offline, Bench |
 
 ### D. Drift
 
-An IMU-only driver has nothing to correct its heading with, and XRLinuxDriver's 6DoF mode has the cameras. "No drift" may
-not be reachable, so measure both and compare before deciding.
+The bar says no drift. Roll and pitch can meet that, because gravity corrects them. Heading is harder: an IMU-only driver
+has nothing to correct it with, and XRLinuxDriver's 6DoF mode probably has the cameras doing that. So zero is the aim for
+heading, D1 and D2 are the most we expect to reach, and D4 may show ours behind. If the capture reveals a magnetometer,
+test it as a heading correction behind a flag.
 
 | Id | Criterion | Target | Measured by | Level |
 |---|---|---|---|---|
-| D1 | Yaw drift, glasses still for 10 min | 1 degree/min or less (*proposed*) | Passive feed reader | Bench |
+| D1 | Yaw drift, glasses still for 10 min | 0.5 degrees/min or less (*proposed*; `fusion_test` holds this on simulated data) | Passive feed reader | Bench |
 | D2 | Yaw error after 5 min of head motion and return to the start | 2 degrees or less (*proposed*) | Passive feed reader, stand or marked start point | Bench |
 | D3 | Roll and pitch | No long-term drift at all (gravity corrects them) | Same runs | Bench |
 | D4 | Against XRLinuxDriver | Report D1 and D2 for both. If ours is worse, Cody decides whether it is acceptable. | Same day | Bench |
@@ -130,13 +156,14 @@ The contract's "within about 1 s" cannot be counted from the disconnect, because
 
 | Id | Criterion | Target | Measured by | Level |
 |---|---|---|---|---|
-| R1 | Kernel's `usb 5-2.1: New USB device found` to first fresh pose | 1 s or less in at least 9 of 10 events | Kernel log against daemon log | Bench |
+| R1 | Kernel's `usb 5-2.1: New USB device found` to first fresh pose | 1 s or less in at least 19 of 20 events | Kernel log against daemon log | Bench |
 | R2 | The test runs inside the real isolation | Done in `unshare --user --net`, never only outside it. See the note below. | `tracking.py` launch | Bench |
 | R3 | Calibration kept when the glasses return within the keep window | `luma: calibrated restored`, no new still period | Daemon log | Bench |
 | R4 | Renderer stays alive | Session survives, tracking returns, nothing needs restarting. The feed's shared memory stays the same segments, because a running renderer holds them. | Session | Session |
 | R5 | Bursts | The real pattern, 2 to 23 s between drops, does not lead to a tight reopen loop or a hang | Fake test, then real unplugs | Offline, Bench |
 | R6 | One start per connection | Exactly one stream-start command per connection, including every reconnect | usbmon | Bench |
 | R7 | Glasses stay away | Holds the last pose, marks it stale, recovers whenever they return; no crash at any gap | Fake test, 5 min unplug | Offline, Bench |
+| R8 | Every time | 20 unplugs in a row, all recovered with nothing restarted. One failure fails R8. | Bench unplugs, in the namespace | Bench |
 
 Measured 2026-11-03 with a passive listener: **kernel USB plug and unplug events never reach a process in
 `unshare --user --net`.** A harmless test event reached a listener on the host and 0 reached one in the namespace.
@@ -174,6 +201,23 @@ file and return by other means. R2 keeps it honest. A test outside the namespace
 | F9 | Fallback is visible | Falling back to xrdriver always shows why. A silent fallback would pass a soak on the wrong driver. | pytest, soak report records which driver ran | Offline, Session |
 | F10 | No stand-ins | `luma: warning stand-in` never appears on a live run | Daemon log | Bench |
 
+### X. Features
+
+The list and flags are in `spike/driver/docs/features.md`. Most features there are code waiting on ids nobody has seen yet.
+
+| Id | Criterion | Target | Measured by | Level |
+|---|---|---|---|---|
+| X1 | Every feature has a flag and tests | No exceptions, including a test that shows the flag off does nothing | `features_test`, `display_test` | Offline |
+| X2 | Default state | Only features with no USB traffic may default on. Anything that sends a command defaults off. | `features.md` table against the code | Offline |
+| X3 | No polling, ever | With every flag on, each command appears at most once per connection or once per explicit request | usbmon report | Bench |
+| X4 | No guessed ids | A feature whose id is unknown sends nothing and says so. Brightness, dimming, firmware and wear query stay disabled until a capture shows the id. Endpoints 0x04/0x85 also carry firmware flashing. | Tests, code review | Offline |
+| X5 | Commands earn their place | Each command-sending feature passes a 30-minute soak with only that flag added, after Z2 passes. Any drop keeps it off. | `tools/luma_soak` | Session |
+| X6 | The configuration Cody runs | The exact set of flags he will use passes Z1 and Z2 together | `tools/luma_soak` | Session |
+| X7 | Features cost no latency | L1 and L7 still hold with the zero-traffic features on | `spike/driver/bench` | Offline |
+| X8 | Wrong guesses are safe | Auto-pause and the OLED saver never trigger while worn across one hour of normal use, before either can default on | Real use | Session |
+| X9 | Other devices count | Opening anything but the glasses' own interface, such as the microphone's HID at `35ca:1102`, counts as a new command path and needs X5 | Code review, usbmon | Bench |
+| X10 | Cameras stay off | The driver never starts a camera stream. 6DoF stays out until `6dof-feasibility.md`'s plan shows it does not raise drops; then it needs its own full Z series. | `contract_test`, journal | Offline, Session |
+
 ## Seams the contract does not pin
 
 The contract fixes `types.hpp`, `parse_imu` and `Fusion::update` exactly. These links between threads it leaves open, so
@@ -183,12 +227,13 @@ The contract fixes `types.hpp`, `parse_imu` and `Fusion::update` exactly. These 
 |---|---|---|---|
 | Device access | contract, transport | The contract says hidraw first, but the Luma Ultra has no HID interface. Usbfs is the only path. | Update the contract text. |
 | Hotplug | contract, transport | Contract's libudev or netlink cannot work (see R). Transport already avoids them. | Update the contract text. |
-| Log lines | daemon, integration, soak monitor | The daemon prints `luma: calibrated restored` and `luma: connected`; integration matches `luma: calibrated`. | Agree the list. One test should feed real daemon output to integration's parser. |
+| Log lines | daemon, integration, soak monitor | The daemon prints `luma: calibrated restored=0\|1`; integration matches the prefix `luma: calibrated`, which fits. A later `fresh` or `stale` line has no match yet. | One test should feed real daemon output to integration's parser. |
 | Daemon flags | daemon, integration | Daemon has `--ipc-prefix`, `--replay`, `--stale-ms`, `--reopen-ms`, `--keep-calibration-ms`. | Integration's fake driver must take the same flags. |
 | Capture format | recorder, daemon `--replay` | `load_capture` exists; `capture-format.md` is not written yet. | One file replayed end to end before merging the daemon. |
 | Angular velocity | fusion, prediction, publisher | `PoseOut` has no field for it and `contract_test` refuses extras. | Keep it beside `PoseOut`, as `FusionStatus` and `predict.hpp` do. The feed cannot carry it anyway. |
 | Seqlock | performance, publisher | The task asks for a seqlock in shared memory, but `pose.cpp` reads under the robust mutex. | The compatible feed keeps the mutex. A seqlock is for the later clean IPC or between internal threads only. |
-| Bias saved between sessions | fusion, daemon | `FusionConfig` can take a saved bias; nothing stores it. | Optional. Decide whether "instant calibration" wants it. |
+| Bias saved between sessions | fusion, daemon | `FusionConfig::warm_start_bias` takes one; nothing stores it. C5 cannot pass until the daemon does. | drv-daemon saves it on exit and loads it at start, under the user's state directory. |
+| Which features the daemon wires in | features, display, daemon | `features.md` has a section on wiring it in; the daemon does not yet. | Wired in at step 13 with every flag at its default. |
 
 ## Merge plan
 
@@ -211,7 +256,7 @@ The brief named nine branches, but seventeen are running. All are placed below.
 | 6 | drv-protocol-impl | Owns `types.hpp`, which all the rest need | `types.hpp`, `protocol.*`, `protocol.cmake` | See below: the compile error |
 | 7 | drv-fusion | Needs only types | `fusion.*`, `imu_sim.hpp` | Add/add on `types.hpp`: keep step 6's |
 | 8 | drv-publisher | Needs only types | `publish.*` | Add/add on `types.hpp` and `CMakeLists.txt`: keep what is there; see below |
-| 9 | drv-performance | Leaf | `rt.*`, `bench/` | Check the seqlock seam |
+| 9 | drv-performance | Leaf. Needed early for L1, L7 and X7. | `rt.*`, `bench/` and its own `bench/CMakeLists.txt`, `docs/performance.md` | Check the seqlock seam. `bench/stubs` must not end up on the real include path. |
 | 10 | drv-prediction | Leaf | `predict.*`, `predict.cmake` | Delete its `tests/stub/luma/types.hpp` |
 | 11 | drv-display-control | Leaf, off by default | `display.*` | Add/add on `CMakeLists.txt`: keep what is there; see below |
 | 12 | drv-features | Leaf, off by default | `features.*`, `features.cmake` | Clean, after the CMake check below |
@@ -242,14 +287,21 @@ file including both fails, and the daemon has to. Fix it at step 6: keep the def
 header from the other. Confirmed by compiling the two headers together.
 
 **`spike/CMakeLists.txt`.** A trial merge of the pushed branches with `git merge-tree` shows real conflicts here. drv-transport,
-drv-display-control and drv-daemon each add the same option and `add_subdirectory(driver)` with different wording, and
-`usb-drop-fix` also changes the file. Keep drv-transport's block, plus `usb-drop-fix`'s change. Remove the other two lines
-as well: drv-features has its own copy of the option with `include(driver/features.cmake)`, and drv-protocol-impl has
+drv-publisher, drv-display-control and drv-daemon each add the same option and `add_subdirectory(driver)` with different
+wording, and
+`usb-drop-fix` also changes the file. Keep drv-transport's block, plus `usb-drop-fix`'s change. Remove two other lines as well: drv-features has its own copy of the option with `include(driver/features.cmake)`, and drv-protocol-impl has
 `include(driver/protocol.cmake)` with no option around it at all, so that one would build even with the driver switched off.
 Once `add_subdirectory(driver)` and the glob are in, both includes would also build their tests a second time.
 
-In the same trial, drv-protocol-research, drv-upstream-issues, drv-6dof-research and drv-protocol-impl merged cleanly on
-master, and drv-features merged cleanly on top of them. The unpushed branches have not been trial-merged.
+The same trial, run in the order below against master, gave:
+
+- Clean: the three research branches, drv-hil-harness, drv-soak-monitor, drv-recorder, drv-review-qa, drv-protocol-impl,
+  drv-features and drv-integration.
+- `spike/CMakeLists.txt`: drv-publisher, drv-display-control, drv-daemon.
+- `types.hpp`: drv-publisher, as predicted above.
+- Not yet tried: drv-transport, drv-fusion, drv-performance, drv-prediction. `usb-drop-fix` was left out too, so
+  drv-integration's clean result does not cover the overlap with it.
+- A clean merge is not a working build: the duplicate targets and the compile error above only appear on building.
 
 ### After every step
 
@@ -293,4 +345,5 @@ Each step needs Cody's go-ahead and is run by the orchestrator. `spike/driver/do
 3. Bench: read-only detection, then 60 s of stream, then S1 to S4, then C, D, R.
 4. Session: 30-minute soak (Z1). Any drop stops the series.
 5. Session: up to 3 h in total (Z2), then L3, P1, F7.
-6. Cody accepts, and only then does `tracking_driver` change default.
+6. Session: features, one flag at a time (X5), then the chosen set together (X6).
+7. Cody accepts, and only then does `tracking_driver` change default.
