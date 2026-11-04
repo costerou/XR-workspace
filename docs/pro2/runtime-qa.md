@@ -170,3 +170,43 @@ python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_co
 Lead notified immediately; fixes reported in worktree, awaiting committed SHA.
 Red evidence stored in qa-evidence/runtime/wrapper-rq2-rq3-red.txt. Full route is
 not cleared until these retest green; no hardware activation approval inferred.
+
+## Recovery audit: be41233
+
+Merged committed `be41233` launcher fixes and package builder. RQ2 and RQ3
+independent reproductions now pass. Full23-case suite at this point has one new
+recovery failure (11.827s); adding plugin recovery assertion yields focused route
+suite **8 tests, 2 failures** (3.142s). No runtime edits by QA.
+
+### RQ4 — Pro2 recovery still invokes nested legacy SBS restoration (open)
+
+`recover_pro2_test_managed` calls `_recover_managed_impl(pro2_test=True)`, which
+skips only its outer immersive.restore_2d call. It then calls recover_restoring,
+which unconditionally invokes immersive.restore_2d(ButtonSbs) for saved output.
+The normal `_run_owned` finally block also calls that same recovery function.
+Thus dedicated Pro2 teardown/recovery can enter the legacy R1 prompt path if the
+monitor is wide. Pro2 requires HOLD L1 and SBS disabled; no legacy SBS handling
+should run. Reproduction calls actual recover_pro2_test_managed and actual nested
+recover_restoring, with fake client/journal/broker/recovery and spies on all
+external operations. `test_pro2_recovery_never_enters_legacy_sbs_restore` observes
+one restore_2d call where zero is required. Fix should propagate the Pro2 no-SBS
+scope into both normal teardown and explicit recovery; preserve other models.
+
+### RQ5 — successful explicit recovery leaves retained plugin loaded (open)
+
+Controller execute(recover=True) returns recover_pro2_test_managed result directly.
+It never unloads the pinned bundle plugin that incomplete run intentionally retained.
+A successful recover therefore cannot return to a clean next-start state: the
+next start refuses an already-present ownership plugin. Reproduction uses actual
+controller recover branch and validated fixture manifest, fake client and a
+successful managed recovery return. `test_successful_explicit_recovery_unloads_retained_bundle_plugin`
+expects one pinned bundle unload and observes zero. No provider/session starts.
+Incomplete recovery must retain ownership; successful recovery must unload and
+truthfully surface unload failures.
+
+```
+python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_controller_route.py -v
+# 8 tests, 2 failures RQ4/RQ5; RQ2/RQ3 pass
+```
+
+Lead notified promptly. Evidence: qa-evidence/runtime/recovery-rq4-rq5-red.txt.
