@@ -8,7 +8,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
-from tools.native_spike import immersive
+from unittest import mock
+from tools.native_spike import immersive, sbs
 from tools.native_spike.profiles import DEFAULT_PROFILE
 from tools.native_spike.view import DEFAULT_SETTINGS
 from tools.native_spike.geometry import DEFAULT_DESKTOP
@@ -338,6 +339,29 @@ class StateTests(unittest.TestCase):
         self.journal(); self.units.active=True; self.c.tick()
         self.c.live['immersive']=dict(names=['XR-1'],stereo=True,failed=False)
         self.assertEqual(self.c.snapshot()['immersive']['names'],['XR-1'])
+    def scoped(self,engine=True):
+        """Luma Ultra glasses with the run's 120 Hz option on, the depth engine beside the renderer or not."""
+        self.observation['model']='luma-ultra'
+        profile=self.c.store.load('luma-ultra'); profile['mode_switch']=True; self.c.store.save('luma-ultra',profile)
+        patcher=mock.patch.object(immersive,'find_engine',lambda renderer:'/pinned/xr-depth-engine' if engine else None)
+        patcher.start(); self.addCleanup(patcher.stop)
+    def test_the_3d_scope_is_offered_only_where_the_engine_is(self):
+        self.scoped(engine=False)
+        self.assertNotIn('sbs_mode',self.begin()['scope'])
+    def test_the_3d_scope_is_listed_and_reaches_the_consent(self):
+        self.scoped()
+        reply=self.begin()
+        self.assertEqual(reply['scope']['sbs_mode'],sbs.SCOPE)
+        self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=reply['scope_id']))['ok'])
+        self.assertEqual(json.loads((self.path/(reply['scope']['run_id']+'.json')).read_text())['sbs_mode'],sbs.SCOPE)
+    def test_unticking_120_hz_takes_the_3d_scope_with_it(self):
+        # It rests on the mode switch: left in, the consent would be refused and Start with it.
+        self.scoped()
+        reply=self.begin()
+        self.assertIn('sbs_mode',reply['scope'])
+        done=self.c.request(dict(op='confirm_start',scope_id=reply['scope_id'],optional=dict(mode_switch=False)))
+        self.assertTrue(done['ok'],done)
+        self.assertNotIn('sbs_mode',json.loads((self.path/(reply['scope']['run_id']+'.json')).read_text()))
     def test_immersive_saved_while_idle_and_off_by_default(self):
         off={**immersive.DEFAULTS}
         self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],off)

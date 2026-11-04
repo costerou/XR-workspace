@@ -25,7 +25,7 @@ const char* kTextFragment =
     "      before = l;\n"
     "    }\n"
     "  }\n"
-    "  color = vec4(smoothstep(1.0, 2.0, jumps / 3.0));\n"
+    "  color = vec4(smoothstep(0.75, 1.5, jumps / 3.0));\n"
     "}\n";
 // Mirrors stereo.cpp stereo_guide (stereo_v, stereo_edge_gain, stereo_temporal).
 const char* kGuideFragment =
@@ -45,6 +45,7 @@ const char* kGuideFragment =
     "  float t = texelFetch(text, p, 0).r;\n"
     "  t = max(t, max(texelFetch(text, clamp(p + ivec2(-1, 0), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(1, 0), ivec2(0), top), 0).r));\n"
     "  t = max(t, max(texelFetch(text, clamp(p + ivec2(0, -1), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(0, 1), ivec2(0), top), 0).r));\n"
+    "  t = max(t, max(texelFetch(text, clamp(p + ivec2(0, -2), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(0, 2), ivec2(0), top), 0).r));\n"
     "  v *= 1.0 + (params.z - 1.0) * t;\n"
     "  float e = min(min(uv.x, 1.0 - uv.x) / TAPER, min(uv.y, 1.0 - uv.y) / (TAPER * aspect));\n"
     "  v *= smoothstep(0.0, 1.0, e);\n"

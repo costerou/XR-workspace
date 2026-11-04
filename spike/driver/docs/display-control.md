@@ -97,7 +97,7 @@ No VITURE library was linked, run or disassembled for this work.
 | Need | Do this | USB traffic |
 |---|---|---|
 | 1920x1200@120 | Keep `apply_session_mode` in `tools/native_spike/hyprland.py`: it sets the DisplayPort mode and verifies by reading it back | None |
-| SBS off | Do not command it. If the glasses are in SBS, the mode XR asks for will not be available and the readback fails, which is the signal. Show a message | None |
+| SBS on and off | Do not command it. A person holds R1 on the glasses, and XR follows what DisplayPort then offers: [docs/immersive-3d.md](../../../docs/immersive-3d.md) | None |
 | Brightness | Glasses' buttons. The scene already has its own brightness in the Background menu | None |
 | Knowing the mode | Read Hyprland's monitor list, never the glasses | None |
 
@@ -143,8 +143,9 @@ luma::DisplayControl control(display, wire, sink);  // sink wraps Transport::wri
    a process check. To settle it: with no XR run and no `xrDriver`, in a normal session, run
    `hyprctl monitors all | grep -A2 DP-2`, apply 1920x1200@120 the way XR does, and read it back. Then look at
    the glasses for a clean picture.
-2. **How do the glasses leave SBS by hand on a Luma Ultra?** The button-lock call is "Luma / Luma Pro only",
-   which does not say whether the Ultra has such a button. Nor is it known what mode list Hyprland shows in SBS.
+2. **How do the glasses leave SBS by hand on a Luma Ultra?** Answered 2026-11-04: VITURE's Luma page says "Press and hold R1 to
+   switch between 2D and 3D display modes", and its SDK table lists 3840x1200 at 60 and 90 Hz for the Ultra. What is still unknown is
+   what mode list Hyprland shows in SBS: `python3 -m tools.native_spike.sbs_probe` shows it, read-only.
 3. **Real set commands.** The `usbmon` capture in `protocol.md` would show `0x0007` and how tracking starts. It
    would **not** show mode or brightness sets, because XRLinuxDriver never sends them, and triggering them
    means running the SDK, which is not licensed for us. So unless a public source appears, `UnmappedWire` stays.

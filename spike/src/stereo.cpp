@@ -192,7 +192,8 @@ PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text,
         float v = stereo_v(stereo_nearness(depth.at(x, y), lo, hi), params);
         if (text) {
             const auto mask = [&](int a, int b) { return text->at(std::clamp(a, 0, text->w - 1), std::clamp(b, 0, text->h - 1)); };
-            const float t = std::max({mask(x, y), mask(x - 1, y), mask(x + 1, y), mask(x, y - 1), mask(x, y + 1)});
+            // Two rows up and down: the space between two lines of text is no reason for the plane to come back.
+            const float t = std::max({mask(x, y), mask(x - 1, y), mask(x + 1, y), mask(x, y - 1), mask(x, y + 1), mask(x, y - 2), mask(x, y + 2)});
             v *= 1.f + (params.text_keep - 1.f) * t;
         }
         v *= stereo_edge_gain((float(x) + 0.5f) / float(depth.w), (float(y) + 0.5f) / float(depth.h), aspect);

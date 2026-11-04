@@ -46,6 +46,7 @@ def bind_controller(controller,consent):
         scope.update(run_id=consent['run_id'],tracking=consent.get('tracking',False),mode_switch=False)
         scope.pop(LUMA_PIN,None)  # a VM has no glasses: its consent names the whole tracking scope
         scope.pop('tracking_driver',None)
+        scope.pop('sbs_mode',None)  # no glasses to follow
         return scope
     controller.scope_transform=scope
 

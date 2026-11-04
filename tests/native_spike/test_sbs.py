@@ -7,7 +7,7 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import hyprland, immersive, managed, panel_consent, sbs, survive, view
+from tools.native_spike import hyprland, immersive, managed, panel_consent, sbs, sbs_probe, survive, view
 from tools.native_spike.immersive import ImmersiveRun, NoDeviceSbs, SbsError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -145,6 +145,29 @@ class EnterTests(unittest.TestCase):
         self.assertTrue(b.switching())
         b.test_clock.t += sbs.EXPECT_S + 1
         self.assertFalse(b.switching())
+
+
+class ParkTests(unittest.TestCase):
+    """The output's place depends on its width, and the wide mode doubles that."""
+    class Client(Glasses):
+        def __init__(self, *script):
+            super().__init__(*script)
+            self.order = []
+        def apply_wide_mode(self, output, rate): self.order.append('wide')
+        def apply_session_mode(self, output): self.order.append('session')
+        def park_presentation(self, output): self.order.append('park')
+
+    def test_after_going_wide(self):
+        c = self.Client(monitor(modes=WIDE))
+        button(c).enter()
+        self.assertEqual(c.order, ['wide', 'park'])
+
+    def test_after_coming_back(self):
+        c = self.Client(monitor(width=3840, hz=90.0, modes=WIDE), monitor())
+        b = button(c)
+        b.leave()
+        self.assertTrue(b.settle())
+        self.assertEqual(c.order, ['session', 'park'])
 
 
 class LeaveTests(unittest.TestCase):
@@ -412,6 +435,53 @@ class WideModeRequestTests(unittest.TestCase):
         src = (ROOT / 'tools/native_spike/sbs.py').read_text()
         self.assertNotIn('createFunctionHook', src)
         self.assertNotIn('dispatch', src)
+
+
+class ProbeTests(unittest.TestCase):
+    """tools/native_spike/sbs_probe.py: the first thing to run on real glasses, and read-only."""
+    def test_what_each_outcome_means(self):
+        two_d_kernel, two_d = ('1920x1080', '1920x1200'), tuple(TWO_D)
+        self.assertEqual(sbs_probe.verdict([two_d_kernel, ('3840x1200',)], [two_d, tuple(WIDE)]), ('ready', {'mode': '3840x1200@90'}))
+        self.assertEqual(sbs_probe.verdict([two_d_kernel], [two_d, ('3840x1200@60.00Hz',)]), ('ready', {'mode': '3840x1200@60'}))
+        self.assertEqual(sbs_probe.verdict([two_d_kernel], [two_d, ('3840x1200@120.00Hz',)])[0], 'wrong_rate')
+        self.assertEqual(sbs_probe.verdict([two_d_kernel, ('3840x1200',)], [two_d])[0], 'hyprland_blind')
+        self.assertEqual(sbs_probe.verdict([two_d_kernel, ('3840x1080',)], [two_d]), ('narrow', {'modes': '3840x1080'}))
+        self.assertEqual(sbs_probe.verdict([two_d_kernel], [two_d])[0], 'silent')
+        self.assertEqual(sbs_probe.verdict([()], [None, ()])[0], 'silent')
+
+    def test_every_finding_can_be_said(self):
+        for finding, fill in (('ready', {'mode': 'x'}), ('wrong_rate', {'rates': '1'}), ('hyprland_blind', {}), ('narrow', {'modes': 'x'}), ('silent', {})):
+            self.assertTrue(sbs_probe.FINDINGS[finding].format(**fill))
+
+    def test_the_kernel_side_reads_files_and_nothing_else(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / 'card1-DP-2'
+            root.mkdir()
+            (root / 'status').write_text('connected\n'); (root / 'modes').write_text('3840x1200\n1920x1200\n'); (root / 'edid').write_bytes(b'\0\xff')
+            self.assertEqual(sbs_probe.connector('DP-2', Path(d)), root)
+            self.assertEqual(sbs_probe.kernel_state(root), ('connected', ('3840x1200', '1920x1200'), b'\0\xff'))
+            self.assertEqual(sbs_probe.kernel_state(root / 'gone'), ('gone', (), b''))
+            self.assertIsNone(sbs_probe.connector('DP-9', Path(d)))
+
+    def test_hyprland_is_asked_one_read_only_question(self):
+        asked = []
+        class Done:
+            stdout = json.dumps([{'name': 'DP-2', 'availableModes': TWO_D}, {'name': 'DP-1'}])
+        def run(argv, **kw):
+            asked.append(argv); return Done()
+        self.assertEqual(sbs_probe.hyprland_modes('DP-2', run), tuple(TWO_D))
+        self.assertEqual(asked, [['hyprctl', 'monitors', 'all', '-j']])
+        self.assertIsNone(sbs_probe.hyprland_modes('DP-9', run))
+        class Bad:
+            stdout = 'not json'
+        self.assertEqual(sbs_probe.hyprland_modes('DP-2', lambda *a, **k: Bad()), ())
+
+    def test_nothing_in_it_writes_to_a_device(self):
+        code = (ROOT / 'tools/native_spike/sbs_probe.py').read_text().split('"""', 2)[2]
+        for word in ('keyword', 'dispatch', 'hl.monitor', '/dev/', 'usb', 'ioctl'):
+            self.assertNotIn(word, code)
+        self.assertEqual(code.count('write_bytes'), 1)  # the EDID copy in the state folder, and that is all
 
 
 if __name__ == '__main__':

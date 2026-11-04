@@ -90,8 +90,15 @@ class ButtonSbs:
     def _apply(self, monitor, rate):
         apply = getattr(self.client, 'apply_wide_mode', None)
         if apply is None: raise SbsError('this client cannot change mode')
-        try: apply(self.output, rate)
+        try:
+            apply(self.output, rate)
+            self._park()
         except (OSError, ValueError, TimeoutError) as exc: raise SbsError(str(exc) or type(exc).__name__) from exc
+
+    def _park(self):
+        """The output sits left of the desktops by its own width (hyprland.presentation_placement), which a mode change just changed."""
+        park = getattr(self.client, 'park_presentation', None)
+        if park is not None: park(self.output)
 
     def _expect(self):
         self.expect_until = self.clock() + EXPECT_S
@@ -148,6 +155,8 @@ class ButtonSbs:
         self.left_at = None
         apply = getattr(self.client, 'apply_session_mode', None)
         if apply is not None:
-            try: apply(self.output)
+            try:
+                apply(self.output)
+                self._park()
             except (OSError, ValueError, TimeoutError): pass  # survive.py's restore tries as well; a run does not end here
         return True

@@ -290,6 +290,7 @@ class Controller:
                 if scope['tracking'] is False:
                     scope.pop(LUMA_PIN,None)
                     scope.pop('tracking_driver',None)
+                if scope['mode_switch'] is False: scope.pop(sbs.SCOPE_KEY,None)  # 3D's mode is one the run could then not leave
                 consent=build_consent(scope)
                 name=write_consent(self.consent_fd,consent)
                 self.run=dict(run_id=scope['run_id'])

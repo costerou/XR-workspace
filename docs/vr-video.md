@@ -190,10 +190,9 @@ about 2×. Plain bilinear filtering blurs that, so the pass handles it like this
 
 The renderer draws one viewport per eye when its surface is at least 3:1 wide. That is the glasses' side-by-side 3D
 mode (3840×1200 on the Luma, 3840×1080 on the Beast). Otherwise it draws one viewport with the left eye, so a 3D video
-plays flat but correct in the normal 2D mode. The renderer has no stereo output today: the glasses run in 2D, and both
-the session-mode grant and the consent cover 1920×1200@120 only. Turning the 3D mode on means switching the glasses
-to SBS (button or driver) and the output to 3840×1200. That needs its own consent scope and a physical test, and is not
-part of this version. The eye split is implemented and unit-tested, so it works as soon as the surface is 3840 wide.
+plays flat but correct in the normal 2D mode. If the glasses are in side-by-side when a video plays (R1 held, for immersive 3D:
+[immersive-3d.md](immersive-3d.md)), the video gets both eyes. Nothing here asks for that mode: immersive 3D's own consent scope covers
+following the glasses into it.
 
 ### Output resolution
 
@@ -400,7 +399,7 @@ The projection runs every display refresh with a fresh pose, so head motion is s
 - **Desktops and video together** (a desktop floating in the 360° scene). It would need the video drawn as a background
   pass before the desktop tiles; it is left out to keep the first version simple and the OLED/brightness behaviour
   predictable.
-- **Stereo output** needs the glasses' 3D mode and a 3840-wide session mode with its own consent (see above).
+- **Stereo output** has never been seen in the glasses (see above).
 - **Playback across a run restart:** a video stops when the run stops; nothing is resumed.
 - **Zero-copy VA-API** is implemented through mpv but untested until it runs in the glasses.
 - **Physical acceptance:** not done. First physical checks: orientation (centre ahead, up is up), 180° edges,

@@ -460,6 +460,11 @@ if(XR_ENABLE_PRESENTATION)
   set_tests_properties(stereo_render PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
   # The renderer's end of the depth engine (src/depth_link.hpp): the real compositor and link against a stand-in engine in this
   # process, through the real shared memory: feed, maps, a still desktop, a crash going flat, a restart, the per-frame budget.
+  # tools/immersive_proof's measuring half: the whole chain, off screen (docs/immersive-3d.md).
+  add_executable(stereo_chain_bench bench/stereo_chain_bench.cpp)
+  target_include_directories(stereo_chain_bench PRIVATE src)
+  target_link_libraries(stereo_chain_bench PRIVATE xr_presentation PkgConfig::GPU nlohmann_json::nlohmann_json)
+  target_compile_options(stereo_chain_bench PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_executable(depth_link_render_test tests/depth_link_render_test.cpp)
   target_include_directories(depth_link_render_test PRIVATE src)
   target_link_libraries(depth_link_render_test PRIVATE xr_presentation PkgConfig::GPU)

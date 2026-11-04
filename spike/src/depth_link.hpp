@@ -4,8 +4,9 @@
 // and nothing it does can reach the renderer: when its heartbeat stops, this simply stops feeding and stops vouching for the
 // last maps, and the compositor eases those desktops flat by itself.
 //
-// The GPU budget is per frame, not per desktop: at most one shrink and one map upload each tick, whatever the number of desktops,
-// so 3D's cost on the render thread is bounded and head tracking is not paid for it. The pose is read after tick(), as ever.
+// The GPU budget is per frame, not per desktop: at most kDepthPerTick shrinks and map uploads each tick, whatever the number of
+// desktops, so 3D's cost on the render thread is bounded and head tracking is not paid for it. Two is what lets four moving
+// desktops reach their 30 Hz at the glasses' 90. The pose is read after tick(), as ever.
 // No link exists while nothing is 3D, so a 2D run does no work here at all.
 //
 // Everything needs the compositor's GL context current.
@@ -23,6 +24,7 @@
 
 namespace xr {
 static_assert(kDepthLinkShm.channels == kMaxDesktops);
+inline constexpr int kDepthPerTick = 2;
 inline constexpr std::uint64_t kDepthFeedFocusedNs = 1'000'000'000ull / 60, kDepthFeedOtherNs = 1'000'000'000ull / 30;
 
 // The nearness at `percentile` (0..100) of a half-float map, read from one pixel in 16. Positive half floats sort as their
@@ -76,5 +78,7 @@ private:
     std::size_t next_feed_ = 0, next_map_ = 0;
     bool alive_ = false, feed_failed_ = false;
     std::uint64_t feeds_ = 0, maps_ = 0, lag_us_ = 0;
+    std::array<std::uint32_t, 256> age_ms_{};  // how old each map's picture was when it reached the compositor, in 1 ms bins
+    double age_percentile(double q) const;
 };
 }

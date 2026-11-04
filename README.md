@@ -109,7 +109,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
 | Ctrl+Alt+E | The background behind your desktops: off, and back to the last one you used (see below) |
-| Ctrl+Alt+I | Immersive 3D for every desktop, on or off (not working yet: see docs/technical.md, "Immersive 3D") |
+| Ctrl+Alt+I | Immersive 3D for every desktop, on or off; hold R1 on the glasses when asked ([docs/immersive-3d.md](docs/immersive-3d.md)) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
 | Ctrl+Alt+R, twice | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
@@ -576,5 +576,6 @@ No. A session only starts when you press Start, and that approval covers only th
 - [docs/technical.md](docs/technical.md): test evidence, how it is built, the safety design, the full key rules, running
   the tests, and the host diagnostic tool.
 - [docs/vr-video.md](docs/vr-video.md) and [docs/web-video.md](docs/web-video.md): how VR video and web video work.
+- [docs/immersive-3d.md](docs/immersive-3d.md): immersive 3D as a whole: how the glasses enter 3D, the risks, the numbers, install steps.
 - [docs/depth-engine.md](docs/depth-engine.md): the AI depth engine behind the 3D filter: models, runtimes, numbers.
 - [docs/placement-menu-test-plan.md](docs/placement-menu-test-plan.md): step-by-step checks to try in the glasses.

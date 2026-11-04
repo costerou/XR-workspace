@@ -3,8 +3,8 @@
 Research and recommended settings for the AI 3D filter: how other products do it, what keeps it comfortable, and what offline tests
 on real depth maps showed. The tool behind the numbers is [tools/stereo_eval](../tools/stereo_eval/README.md).
 
-Status: **offline only.** The depth is real (Depth Anything V2 Small on the CPU), but the conversion is a Python reference of the
-recommended pipeline and not the renderer's shaders. Nobody has seen any of this in the glasses. The numbers are engineering scores,
+Status: **offline only.** The depth is real (Depth Anything V2 Small on the CPU), but the conversion below is a Python reference of the
+recommended pipeline and not the renderer's shaders. [immersive-3d.md](immersive-3d.md) has the same scores on what the real renderer drew. Nobody has seen any of this in the glasses. The numbers are engineering scores,
 not measurements of people's comfort. Preview pictures are in `~/.hermes/profiles/coder/previews/3d-samples/`.
 
 ## The short version

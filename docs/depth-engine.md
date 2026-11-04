@@ -4,8 +4,8 @@ The first half of the "make anything 3D" filter: every XR desktop in, a smooth d
 draw each eye from. This document covers the engine only. Drawing the two eyes from the map, the 3D button and the
 glasses' side-by-side mode are separate pieces of work.
 
-Status: built and measured off screen on the RX 7800 XT. It has never run in the real renderer, on a real desktop or in
-the glasses.
+Status: built and measured off screen on the RX 7800 XT, and joined to the real renderer code off screen ([immersive-3d.md](immersive-3d.md)
+has that chain's numbers). It has never run on a real desktop or in the glasses.
 
 ## What was chosen
 
@@ -171,11 +171,18 @@ $P -m tools.depth_engine bench --backend rocm --size 518x322 --flicker
 
 `bench` refuses to run while an XR session is active.
 
+## In a run
+
+The supervisor starts the launcher `xr-depth-engine`, which `install` writes beside the renderer when this environment exists, and
+hands it the run's memfd: `serve --supervised --shm-fd N`. It says `ready` once the model is up and the memory attached, and goes
+when its standard input ends. Everything is 420x266 in a run, which [3d-comfort.md](3d-comfort.md) found enough. Black bars are cropped
+before the model and take the picture's median depth. If ROCm cannot start, a supervised engine falls back to ncnn.
+
 ## Using it from the renderer
 
 1. On the first 3D toggle, make the file with `DepthShm::create()` and start the engine. Channels start switched off.
 2. `set_control(channel, kDepthEnabled)` per desktop in 3D, plus `kDepthFocused` on the one being looked at.
-3. Per captured frame: `DepthFeed::begin_external(texture)`, then `collect()` on a later frame, then
+3. Per captured frame: `DepthFeed::begin_texture(texture)` (the compositor's captures are `GL_TEXTURE_2D`), then `collect()` on a later frame, then
    `publish(Side::Input, ...)`. `source_seq` starts at 1 and `source_ns` is CLOCK_MONOTONIC.
 4. Per render: `fetch(Side::Output, channel, storage, last_seq)`. Upload with `glTexSubImage2D(..., GL_RED, GL_HALF_FLOAT,
    ...)` into a `GL_R16F` texture with linear filtering. 0 is far, 1 is near, row 0 is the top. `kDepthFlat` means nothing

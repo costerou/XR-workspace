@@ -720,21 +720,44 @@ real child process, the run's own wiring), ctest `immersive`, `glass_contract`, 
 cap), `tests/xr_controller/test_state.py`, the panel's `tst_model.qml` and `test_running_editor.py`. Not run on a live compositor or
 in the glasses.
 
-Steps I1-I4 work today. I5-I12 wait for the engine, the SBS command and the stereo pass.
+Also `tests/native_spike/test_sbs.py`, `tests/depth_engine`, ctest `depth_link_render`, `stereo_render` and `capture_e2e_immersive_*`, and
+`tools/immersive_proof` for the whole chain on real content ([immersive-3d.md](immersive-3d.md)). **Run S1-S4 first:** they settle what
+nobody has seen yet, and I3 and I5-I12 depend on the answer.
 
 | Step | Do | Expect |
 | --- | --- | --- |
 | I1 | Open the overview | Joined to every level bar, 2 px apart: a dark 3D segment and a dark tail with three small desktops |
 | I2 | Move the dot onto each | Each lights in turn; the dot stays plain; the bar's own segments still work right up to the gap |
-| I3 | Click the 3D, the tail, press Ctrl+Alt+I, or use the panel's 3D row | Toast: the depth engine could not start. Back to 2D; the picture never changes |
+| I3 | With no depth engine installed, click the 3D, the tail, press Ctrl+Alt+I, or use the panel's 3D section | Toast: the depth engine could not start. Back to 2D; the picture never changes |
 | I4 | Ctrl+Alt+T, then Ctrl+Alt+I | Nothing: typing mode has that key off |
-| I5 | Press Ctrl+Alt+I | Buttons light at once; after the engine loads the glasses switch and every desktop is 3D |
+| I5 | Press Ctrl+Alt+I, then hold R1 at the prompt | Buttons light at once; the panel says Loading, then Hold R1; after the press every desktop is 3D |
 | I6 | Click one desktop's 3D segment | Only that desktop goes flat, its segment and every tail go dark, the rest stay 3D |
 | I6a | Click any tail | Every desktop 3D, every segment and tail lit; click again: all flat |
-| I7 | Turn the last 3D desktop off | Glasses back in 2D; `xr-depth-engine` gone from `ps`; GPU load back down |
-| I8 | Kill `xr-depth-engine` while 3D is on | Flat, 2D mode, a toast; the next press retries |
+| I7 | Turn the last 3D desktop off | Flat at once; `xr-depth-engine` gone from `ps`; GPU load back down; a toast says to hold R1 for 2D and 120 Hz |
+| I8 | Kill `xr-depth-engine` while 3D is on | Flat, the same picture in each eye, a toast; the run carries on; the next press retries |
 | I9 | Open a VR video in 3D, close it | 3D stands down for the video and comes back |
 | I10 | Reload the Hyprland config in 3D | Stays in 3D |
-| I11 | Stop XR in 3D; then again with a crash of the supervisor | Glasses back in 2D, no engine left running |
+| I11 | Stop XR in 3D; then again with a crash of the supervisor | Windows back, no engine left running, a toast says to hold R1 |
 | I12 | Restart XR after leaving one desktop 3D | Comes back on that desktop only; another glasses model is off |
+
+### The glasses' 3D mode
+
+S1-S4 with **XR stopped**. They only read: `sbs_probe` changes nothing.
+
+| Step | Do | Expect, and what it decides |
+| --- | --- | --- |
+| S1 | `python3 -m tools.native_spike.sbs_probe`, glasses on, 2D desktop extended to them. Hold R1 until they react | Is it R1, and how long? Does a chime or a picture change tell you? |
+| S2 | Read what it printed | Did DP-2 drop? Did the kernel's modes change? Did Hyprland list `3840x1200@90`? |
+| S3 | Hold R1 again, then Ctrl+C | Back to `1920x1200@120` in the list. Its last line says what this means for 3D |
+| S4 | `edid-decode` the saved EDID | Keep it: the wide timings are the first real record of this mode |
+| S5 | Start XR in 2D. Click one 3D segment | Panel: Loading the depth model, then Hold R1. Time from click to prompt (expect about 5 s) |
+| S6 | Hold R1 | The view may blank for a few seconds; no "dropped off USB" toast; the desktops come back in 3D, at 90 Hz in the panel |
+| S7 | Look at text, then a photo | Text sharp and on the screen plane; the photo has depth. If not: strength and Screen plane in the panel |
+| S8 | Turn head quickly | Tracking feels the same as 2D. Depth may trail fast window drags by a few frames |
+| S9 | Panel: Soft, Standard, Enhanced; Desktop, Video, Games; move Screen plane | Each changes the depth at once, with no flash |
+| S10 | Add a desktop, remove one, switch by edge pan, maximize | All as in 2D; the tiles keep their places |
+| S11 | Turn 3D off, do not press R1 | Flat, the same picture each eye, a toast about R1; everything works at 90 Hz |
+| S12 | Hold R1 | Back to 120 Hz; a new renderer if DP-2 dropped |
+| S13 | In 3D, hold R1 without touching the 3D button | Falls back to 2D with a toast: "R1 took them back to 2D" |
+| S14 | In a 2D run, hold R1 by accident | The same picture in each eye at 90 Hz. Hold R1 again: back to 120 Hz. The run never ends |
 

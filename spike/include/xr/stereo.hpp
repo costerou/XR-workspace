@@ -51,7 +51,7 @@ float stereo_alpha(float dt_ms);  // 60 ms time constant, so the filter does not
 // kStereoTextEdge: strokes go up and down several times in a texel, a photo's edge goes one way, once. Returns 0 (none) .. 1
 // (certainly text), from the mean over the rows.
 inline constexpr int kStereoTextCols = 8, kStereoTextRows = 3;
-inline constexpr float kStereoTextEdge = 0.1f, kStereoTextLo = 1.0f, kStereoTextHi = 2.0f;
+inline constexpr float kStereoTextEdge = 0.1f, kStereoTextLo = 0.75f, kStereoTextHi = 1.5f;
 float stereo_text_score(float mean_jumps_per_row);
 
 // Desktops' real depth. The canvas plane z = -1 is the screen plane: the eyes sit `b` either side of the axis in canvas

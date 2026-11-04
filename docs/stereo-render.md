@@ -2,7 +2,7 @@
 
 The renderer half of global immersive 3D: it draws the whole XR view side by side, one 1920x1200 image per eye in a 3840x1200
 buffer, and turns each desktop's capture plus a depth map into two views. Status: **offline tests only.** Nothing here has run
-in the glasses, no depth engine feeds it yet, and nothing in the supervisor turns it on.
+in the glasses. The depth engine feeds it through `spike/src/depth_link.hpp`, and [immersive-3d.md](immersive-3d.md) has the whole chain.
 
 The code: `spike/include/xr/depth.hpp` (`DepthInput`, what the depth engine hands over), `spike/include/xr/stereo.hpp` and
 `spike/src/stereo.cpp` (the maths, and a CPU mirror of each GL pass), `spike/src/stereo_gl.*` (the GL passes),
@@ -10,9 +10,10 @@ The code: `spike/include/xr/depth.hpp` (`DepthInput`, what the depth engine hand
 
 ## How a frame is drawn
 
-`resize(1920, 1200, 3840, 1200)` keeps the canvas, so no layout, hit test or card changes. With `set_stereo({enabled = true})`
-`draw_and_swap` runs the frame once per eye inside `eye_viewports()` (the split VR video already uses). A buffer narrower than 3:1
-stays 2D, so turning 3D on before the glasses have switched modes draws a normal frame.
+`resize(1920, 1200, 3840, 1200)` keeps the canvas, so no layout, hit test or card changes. A buffer at least 3:1 wide always runs the frame
+once per eye inside `eye_viewports()` (the split VR video already uses), because the glasses are showing each half to one eye whatever
+was asked for; without `set_stereo({enabled = true})` the two views are the same picture. A narrower buffer stays 2D, so turning 3D
+on before the glasses have switched modes draws a normal frame, to the bit.
 
 | Thing | Where it sits in depth |
 | --- | --- |
@@ -33,7 +34,7 @@ Depth frames arrive at 30 Hz or so. Per depth frame and desktop, two small passe
 1. **Text mask.** Eight taps across three rows of each texel count how often the brightness turns back by more than 0.1. Strokes
    go up and down several times in a texel; a photo's edge goes one way, once.
 2. **Guide map** (R16F, two textures in turn). Raw depth through `lo..hi` to nearness; nearness through strength and convergence
-   to `v`, -1..1, with a soft knee near the limits; text reduces `v` to `text_keep` of itself; `v` tapers to 0 over 3% at each edge of
+   to `v`, -1..1, with a soft knee near the limits; text reduces `v` to `text_keep` of itself; `v` tapers to 0 over 5% at each edge of
    the desktop, so nothing crosses its frame; a temporal filter with a 60 ms time constant lets go when `v` jumps by more than 0.35
    (a cut), so a new scene does not smear. NaN and infinity come out as 0: flat.
 
@@ -58,12 +59,16 @@ uncrossed. Defaults are 1.0 and 0.75 degrees. A virtual image at 4 m leaves abou
 
 The limits are for the sum: the plane's disparity and the warp's together stay inside them (`stereo_budget`), and the baseline shrinks
 if a desktop would otherwise go past them (`stereo_safe_baseline`). A small desktop gets proportionally less depth, down to 35%
-(`stereo_tile_scale`). On, off and a depth source that stopped for 500 ms all ease over 300 ms.
+(`stereo_tile_scale`). On, off and a depth source that stopped for 500 ms all ease over 300 ms. A run sends the Desktop preset of
+[3d-comfort.md](3d-comfort.md) unless the panel says otherwise (`immersive.PRESETS`, `stereo_from_wire`), not these defaults.
 
 ## Depth input
 
-`GlCompositor::set_depth(source, DepthInput)`, with either shared-memory R32F pixels or a GL texture name (an imported dmabuf, R16F
-or R32F). Values are nearness: larger is nearer, and `lo` / `hi` give the frame's range. Any resolution at least 256 px tall works.
+`GlCompositor::set_depth(source, DepthInput)`, with R32F or R16F pixels from shared memory (the engine sends R16F, uploaded as it is) or a
+GL texture name (an imported dmabuf, R16F or R32F). Values are nearness: larger is nearer, and `lo` / `hi` give the frame's range. Any
+resolution at least 256 px tall works. `convergence` overrides the screen plane per frame: `DepthLink` sets it to a percentile of the map,
+eased, so the plane follows the scene as `docs/3d-comfort.md` recommends. `keep_depth(source)` says a map is still right: the engine sends
+nothing for a still desktop, and only a dead engine should go flat.
 `spike/tests/fake_depth.hpp` is the stand-in the tests use.
 
 ## Evidence
@@ -90,8 +95,8 @@ shader (fill from the foreground, no text safety, double disparity) fails 2, 5 a
 
 - **Refresh rate.** VITURE's SDK headers (`viture_protocol_public.h` in XRLinuxDriver) list 3840x1200 at 60 and 90 Hz only, while
   2D has 120 Hz. Tests hold the renderer to 120 Hz, but the glasses look limited to 90 Hz in 3D, a hard change for a run built on 120.
-- **Mode switch.** The 2D EDID lists no 3840x1200 mode, and the headers list it as a display-mode command, so this looks like a USB
-  command, then a new mode on DisplayPort. The modeset and the surface resize are not done here.
+- **Mode switch.** The glasses' own R1 button, not a USB command, with the output following: [immersive-3d.md](immersive-3d.md). The surface
+  keeps a canvas of one eye (`canvas_width`), so no layout changes.
 - **How it looks.** Every comfort number comes from published rules of thumb, not from anyone wearing the glasses. Strength,
   convergence, the text threshold and the 4 m figure all need tuning there.
 - **Real depth.** The fake maps are clean. A network's maps flicker and miss thin things, the warp can miss a surface thinner than a

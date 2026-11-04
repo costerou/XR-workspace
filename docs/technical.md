@@ -44,7 +44,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Recovery past a monitor rule (`recover-incomplete-fix`, after run `4468c283` on 2026-11-03: Omarchy's scale control, used with XR-1 focused, left a rule naming XR-1 and the broker could then never remove that output; see [When a recovery cannot finish](#when-a-recovery-cannot-finish)) | Offline tests only: `tests/native_spike/test_leftover_rule.py` (the run's own journal shape through the real journal, broker client and `recover_managed` against a compositor double that blocks as the loaded plugin did, stop to finish), `tests/xr_controller/test_recovery_report.py` (`recover-run`, the panel's reason and confirm box, the incident report), ctest `ownership` (the step a refusal names) and `ownership_offset` (the plugin's real `cleanup`). Not run against a live Hyprland or in the glasses, so what the broker does on the real output is unobserved; the reload's effect on the rule comes from reading the pinned source. The plugin, Python controller and panel must be installed together. Steps R1 to R7 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Head tracking driver choice (`xrdriver-3dof-ab`, 2026-11-03: Standard or the 3DoF test build; see [Choosing the driver](#choosing-the-driver) and [tracking-3dof-ab.md](tracking-3dof-ab.md)) | Offline tests only: `tests/native_spike/test_tracking.py`, `test_profiles.py`, `test_panel_consent.py`, `tests/xr_controller/test_install.py`, `test_state.py`, `test_runner.py`, the panel's `tst_model.qml` and `tst_launcher.qml`. The namespaces were run with a fake driver script. The 3DoF build itself has only been inspected, never run: `xrDriver` reads no command line, so any run starts it against the glasses. |
 | Tracking drops (`survive-usb-drop`, 2026-11-04: a USB drop that leaves the video up holds the view with a hint, resumes with no jump, gives up after 60 s; [Head tracking drops](#head-tracking-drops)) | Offline tests, and the real renderer against a simulated feed. Never met a real drop: steps D1 to D7. Not installed. |
-| Immersive 3D, the toggle and its lifecycle (`3d-integration`: Ctrl+Alt+I, the 3D button, the panel's 3D row, per-profile setting, engine and SBS on and off, fall back to 2D; see [Immersive 3D](#immersive-3d)) | Offline tests only: `tests/native_spike/test_immersive.py` and the suites it names. No engine, no SBS command and no stereo drawing exist yet, so a real run always falls back to 2D. Not run on a live compositor or in the glasses. The wire changed: install the renderer, supervisor, controller and panel QML together. |
+| Immersive 3D (`3d-assemble`: the 3D button, Ctrl+Alt+I, the panel's 3D section, the AI depth engine, the stereo renderer and following the glasses into their side-by-side mode; see [immersive-3d.md](immersive-3d.md)) | Offline only: `tests/native_spike/test_immersive.py`, `test_sbs.py`, `tests/depth_engine`, ctest `depth_link_render`, `stereo_render`, `capture_e2e_immersive_*`, and `tools/immersive_proof` on real content. **Never run in the glasses or on a live compositor, and nobody has yet seen what holding R1 does on DisplayPort.** The wire changed: install the renderer, supervisor, controller and panel QML together. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -2037,31 +2037,22 @@ The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy 
 
 ### Immersive 3D
 
-A toggle that makes any desktop stereo 3D from an AI depth map. `tools/native_spike/immersive.py`'s docstring is the design; this is
-what is there and what is missing. **It cannot turn on yet: a real run always falls back to 2D with a toast**, because the
-glasses' 3D mode switch and the depth engine program do not exist in this repo. Nothing is sent to the glasses.
+Any desktop made stereo 3D by an AI depth map: [immersive-3d.md](immersive-3d.md) is the whole story, with how the glasses get into
+their 3D mode and what is not known about it. `tools/native_spike/immersive.py` and `sbs.py` have the design in their docstrings.
 
 - **Toggle.** Ctrl+Alt+I for every desktop (help card: it shares the background's row, so the card stays at 14), the 3D button joined to
   each desktop's level bar (Connected Tail, Cody's pick, option 02 of `3d-button-mockups`; `free_pointer.immersive_part`,
-  `glass.hpp`, compared by `glass_contract`), and the running panel's 3D row. The button's 3D segment is that desktop. Its tail,
+  `glass.hpp`, compared by `glass_contract`), and the running panel's 3D section. The button's 3D segment is that desktop. Its tail,
   lit when every desktop is 3D, lights all of them from any state and turns them all off once lit. There is no
   row in the glass placement panel.
-- **Saved** as `immersive` `{global, desktops}` with the view settings, per glasses model, off by default.
+- **Saved** as `immersive` `{global, desktops, preset, strength, convergence}` with the view settings, per glasses model, off by default.
 - **Power.** The engine process exists only while a desktop is 3D. It stops for a VR video and comes back after.
-- **Order.** On: engine, glasses, renderer. Off: renderer, glasses, engine. All of it runs off the watchdog loop
-  (`ImmersiveRun`), and a run's end and recovery both bring the glasses back to 2D.
+- **Order.** On: engine, glasses (hold R1), renderer. Off: renderer at once, then the engine, and the glasses when you hold R1 again.
+  All of it runs off the watchdog loop (`ImmersiveRun`).
 - **Failure.** Engine or glasses failing, at the start or later, ends in 2D with a toast; the saved setting stays, the next press
   retries, and so does the next XR start, once.
 
-What others must supply, each one small on this side:
-
-| Needed | Where it plugs in |
-| --- | --- |
-| A way into SBS, and the 3840x1200 output mode with its own consent scope (see [vr-video.md](vr-video.md#stereo-output)). The driver work found no public command id and recommends no display commands over USB (`spike/driver/docs/display-control.md` on `drv-display-control`), so the glasses' own 3D button, with XR waiting for Hyprland to report the wide mode, may be the way in; untested | a class with `enter()` / `leave()`, returned by `immersive.make_sbs()`. `after_reload` calls `reassert()`, but `view.session_mode` still expects 1920x1200 and would need to know about 3D; the guard (`validate_physical_pair`) needs checking at 3840x1200 |
-| The depth engine | `xr-depth-engine` beside the pinned renderer, added to `install.py`, following `ProcessEngine`'s contract; or, for an in-renderer stage, another class with the Engine methods |
-| Drawing | `ImmersivePayload.stereo` reaches `Presentation::Impl::immersive`; nothing reads it yet |
-
-Steps I1-I12 in [placement-menu-test-plan.md](placement-menu-test-plan.md) are for when those land.
+Steps I1-I12 and S1-S14 are in [placement-menu-test-plan.md](placement-menu-test-plan.md).
 
 ## Tests
 

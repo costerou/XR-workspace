@@ -5,7 +5,7 @@
 //   * the picture reaches the engine the right way up and in the right colours, from either kind of texture the compositor keeps;
 //   * maps reach the compositor: the eyes differ; a still desktop stays 3D though no new map comes; a crash goes flat, by itself,
 //     with every frame still drawn; a restarted engine brings 3D back;
-//   * the budget: never more than one shrink and one map a frame, however many desktops.
+//   * the budget: never more than kDepthPerTick shrinks a frame, however many desktops.
 #include "depth_link.hpp"
 #include <GLES3/gl3.h>
 #include <algorithm>
@@ -68,8 +68,8 @@ struct Rig {
     int fd = -1;
     void* base = nullptr;
     std::size_t bytes = depth_shm_bytes(kDepthLinkShm);
-    std::array<std::uint64_t, 2> frames{1, 1};
-    std::array<bool, 2> wanted{true, false};
+    std::array<std::uint64_t, 4> frames{1, 1, 1, 1};
+    std::array<bool, 4> wanted{true, false, false, false};
     bool draw() {
         const bool ok = gl->draw_and_swap(tiles, placements, -1, 0, kIdentity, kHalfW, kHalfH);
         glFinish();
@@ -114,7 +114,7 @@ int main() {
     anchors();
     Rig r;
     std::string why;
-    r.gl = GlCompositor::create_offscreen(2 * W, H, 2, why);
+    r.gl = GlCompositor::create_offscreen(2 * W, H, 4, why);
     if (!r.gl) { std::printf("skip: %s\n", why.c_str()); return failures ? 1 : 77; }
     r.gl->resize(W, H, 2 * W, H);
     r.fd = memfd_create("depth-link-test", MFD_CLOEXEC);
@@ -123,11 +123,11 @@ int main() {
     CHECK(r.base != MAP_FAILED);
 
     const auto px = picture();
-    for (std::size_t i = 0; i < 2; ++i) CHECK(r.gl->upload(i, px.data(), W, H, W * 4));
-    r.tiles = {FRect{0, 0, float(W), float(H)}, FRect{float(W), 0, float(W), float(H)}};
-    r.placements = {Placement{}, Placement{}};
+    for (std::size_t i = 0; i < 4; ++i) CHECK(r.gl->upload(i, px.data(), W, H, W * 4));
+    r.tiles = {FRect{0, 0, float(W), float(H)}, FRect{float(W), 0, float(W), float(H)}, FRect{2 * float(W), 0, float(W), float(H)}, FRect{3 * float(W), 0, float(W), float(H)}};
+    r.placements.assign(4, Placement{});
     StereoSettings set; set.enabled = true; set.half_baseline = 0; set.params.near_deg = 1.5f; set.params.far_deg = 1.f; set.params.strength = 2.f; set.params.text_keep = 1.f;
-    set.desktops = {true, false};
+    set.desktops = {true, false, false, false};
     r.gl->set_stereo(set);
     if (!r.gl->stereo_available()) { std::puts("skip: stereo not available on this GL"); return 77; }
 
@@ -178,21 +178,27 @@ int main() {
     }
     CHECK(link->feeds() == 1);  // the frame count has not moved, so the same picture does not go twice
 
-    // The budget: two desktops, both with new pictures, one shrink a tick.
-    r.wanted = {true, true};
-    r.frames = {2, 2};
+    // The budget: however many desktops have new pictures, kDepthPerTick shrinks a tick.
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));  // past the first desktop's rate limit
+    r.wanted = {true, true, true, true};
+    r.frames = {2, 2, 2, 2};
     engine.beat();
     const auto before = link->feeds();
     link->tick(*r.gl, r.tick());
-    CHECK(link->feeds() == before + 1);
+    CHECK(link->feeds() == before + std::uint64_t(kDepthPerTick));
     glFinish();
-    std::this_thread::sleep_for(std::chrono::milliseconds(40));  // past the desktops' rate limits
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    engine.beat();
+    link->tick(*r.gl, r.tick());  // the rest, in their turn
+    CHECK(link->feeds() == before + 4);
+    glFinish();
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
     engine.beat();
     link->tick(*r.gl, r.tick());
-    CHECK(link->feeds() == before + 2);
-    r.wanted = {true, false};
+    CHECK(link->feeds() == before + 4);  // the same frames again: nothing new to send, whatever the turn says
+    r.wanted = {true, false, false, false};
 
-    // A map arrives: 3D. One map a tick: the second desktop's waits its turn.
+    // A map arrives: 3D.
     engine.beat();
     engine.publish(0);
     link->tick(*r.gl, r.tick());
@@ -223,7 +229,7 @@ int main() {
     CHECK(!link->engine_alive() && bad == 0 && frames > 40);
     CHECK(flat < 0.5f);
     const auto feeds_dead = link->feeds();
-    r.frames = {3, 3};
+    r.frames = {3, 3, 3, 3};
     link->tick(*r.gl, r.tick());
     CHECK(link->feeds() == feeds_dead);  // nothing is fed to a dead engine
 
@@ -244,7 +250,7 @@ int main() {
     CHECK(again > 0.8f * deep);
 
     // A desktop not asked for never gets depth, whatever the engine publishes for it, and 3D off goes flat.
-    r.wanted = {false, false};
+    r.wanted = {false, false, false, false};
     engine.publish(0);
     const auto maps = link->maps();
     link->tick(*r.gl, r.tick());

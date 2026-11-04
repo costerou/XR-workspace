@@ -81,9 +81,10 @@ void DepthLink::tick(GlCompositor& gl, const Tick& t) {
         DepthFrame f{kDepthLinkShm.in_w, kDepthLinkShm.in_h, ++c.seq, c.source_ns, 0, c.bgr ? DepthFormat::Bgra8 : DepthFormat::Rgba8, 0, c.rgba};
         if (c.on) shm_->publish(DepthShm::Side::Input, std::uint32_t(i), f);
     }
-    // One new shrink: the next desktop round from the last one with a new picture and its turn due.
-    if (!feed_failed_) for (std::size_t k = 0; k < n; ++k) {
-        const std::size_t i = (next_feed_ + k) % n;
+    // New shrinks: the next desktops round from the last one with a new picture and their turn due.
+    int shrinks = 0;
+    if (!feed_failed_) for (std::size_t k = 0, from = next_feed_; k < n && shrinks < kDepthPerTick; ++k) {
+        const std::size_t i = (from + k) % n;
         auto& c = channels_[i];
         if (!c.on || t.frames[i] == c.fed_frames || t.now_ns < c.next_ns || (c.feed && c.feed->busy())) continue;
         const auto texture = gl.source_texture(i);
@@ -96,17 +97,16 @@ void DepthLink::tick(GlCompositor& gl, const Tick& t) {
         c.bgr = texture.bgr; c.fed_frames = t.frames[i]; c.source_ns = t.now_ns;
         c.next_ns = t.now_ns + (int(i) == t.focused ? kDepthFeedFocusedNs : kDepthFeedOtherNs);
         next_feed_ = (i + 1) % n;
-        ++feeds_;
-        break;
+        ++feeds_; ++shrinks;
     }
     if (!t.drawing) return;
-    // One new map, and the rest vouched for: the engine is alive, so a desktop with nothing new has simply not changed.
-    bool taken = false;
-    for (std::size_t k = 0; k < n; ++k) {
-        const std::size_t i = (next_map_ + k) % n;
+    // New maps, and the rest vouched for: the engine is alive, so a desktop with nothing new has simply not changed.
+    int taken = 0;
+    for (std::size_t k = 0, from = next_map_; k < n; ++k) {
+        const std::size_t i = (from + k) % n;
         auto& c = channels_[i];
         if (!c.on) continue;
-        if (!taken) if (const auto f = shm_->fetch(DepthShm::Side::Output, std::uint32_t(i), map_, c.seen);
+        if (taken < kDepthPerTick) if (const auto f = shm_->fetch(DepthShm::Side::Output, std::uint32_t(i), map_, c.seen);
                         f && f->format == DepthFormat::R16F && f->w >= 1 && f->h >= kDepthMinHeight) {
             const std::span<const std::uint16_t> half(reinterpret_cast<const std::uint16_t*>(f->pixels.data()), f->pixels.size() / 2);
             const float now = f->flags & kDepthFlat ? 0.5f : depth_anchor(half, f->w, f->h, t.convergence);
@@ -115,16 +115,31 @@ void DepthLink::tick(GlCompositor& gl, const Tick& t) {
             c.anchor = snap ? now : c.anchor + (now - c.anchor) * float(1.0 - std::exp(-dt_ms / double(t.range_ms)));
             c.have_anchor = true; c.map_ns = t.now_ns;
             DepthInput in; in.w = f->w; in.h = f->h; in.source_seq = f->source_seq; in.half = half.data(); in.convergence = c.anchor;
-            if (gl.set_depth(i, in)) { c.seen = f->source_seq; ++maps_; if (f->done_ns >= f->source_ns) lag_us_ = (f->done_ns - f->source_ns) / 1000; }
-            taken = true;
+            if (gl.set_depth(i, in)) {
+                c.seen = f->source_seq; ++maps_;
+                if (f->done_ns >= f->source_ns) lag_us_ = (f->done_ns - f->source_ns) / 1000;
+                if (t.now_ns >= f->source_ns) ++age_ms_[std::min<std::uint64_t>((t.now_ns - f->source_ns) / 1'000'000, age_ms_.size() - 1)];
+            }
+            ++taken;
             next_map_ = (i + 1) % n;
         }
         gl.keep_depth(i);
     }
 }
 
+double DepthLink::age_percentile(double q) const {
+    std::uint64_t total = 0, seen = 0;
+    for (const auto n : age_ms_) total += n;
+    for (std::size_t i = 0; i < age_ms_.size(); ++i) {
+        seen += age_ms_[i];
+        if (seen && double(seen) >= q * double(total)) return double(i);
+    }
+    return 0;
+}
+
 std::string DepthLink::report() const {
     return "{\"alive\":" + std::string(alive_ ? "true" : "false") + ",\"feeds\":" + std::to_string(feeds_) + ",\"maps\":" + std::to_string(maps_) +
-           ",\"lag_us\":" + std::to_string(lag_us_) + ",\"feed_failed\":" + (feed_failed_ ? "true" : "false") + "}";
+           ",\"lag_us\":" + std::to_string(lag_us_) + ",\"age_p50_ms\":" + std::to_string(int(age_percentile(0.5))) +
+           ",\"age_p99_ms\":" + std::to_string(int(age_percentile(0.99))) + ",\"feed_failed\":" + (feed_failed_ ? "true" : "false") + "}";
 }
 }
