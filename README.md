@@ -330,9 +330,18 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   and its windows take every click, drag, right-click, scroll and key, wherever it is placed, however it is curved,
   rolled or sized, and whatever its scale.
 - **The dot shows what a press will do** (new, not yet tried in the glasses). It's one cursor everywhere, and its look
-  changes with what's under it: a plain dot over windows and empty space, two small arrows on a desktop's edge or
-  corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the dot on the level
-  bar. The look stays through a drag until you let go.
+  changes with what's under it: a plain dot over windows and empty space, a thin I-beam over text, two small arrows on a
+  desktop's edge or corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the
+  dot on the level bar. The look stays through a drag until you let go.
+- **Over text the dot turns into an I-beam** (new, not yet tried in the glasses, and it needs the new ownership plugin).
+  Wherever an app asks for a text cursor, the dot becomes a thin grey beam with a small serif at each end, in the dot's
+  grey and with its black ring, and clicks land on the beam's middle, exactly where the dot's centre was. It stays about
+  a tenth of a second after the app stops asking, so it doesn't flicker as you cross the gaps between lines, and the
+  arrows on an edge, corner, pill or level bar always win over it. This is the overview only: maximized, in typing mode
+  and during a video you see the app's own cursor, as before. It works for apps that ask for their cursor by name, which
+  GTK, Qt, Chromium and Electron apps and foot do. XWayland apps such as Spotify and Steam, and web pages with their own
+  picture cursor, send a picture with no name, so they keep the dot. Terminals ask for the beam over the whole window,
+  blank cells too, and an app that takes the mouse, such as tmux with mouse mode on, keeps the dot.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
