@@ -27,6 +27,7 @@ include(daemon.cmake OPTIONAL)
 include(display.cmake OPTIONAL)
 include(features.cmake OPTIONAL)
 include(cmake/fusion.cmake OPTIONAL)
+add_subdirectory(bench)
 
 # drv-review-qa's shape check. Exit 77 means a piece is missing, which ctest must show as skipped.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/contract_test.cpp")
