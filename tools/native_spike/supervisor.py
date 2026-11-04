@@ -146,6 +146,17 @@ class Supervisor:
                         target=getattr(self.control,'view',self.control)
                         menu=getattr(target,'options',None)
                         if menu is not None: menu.acknowledge(rid)
+                    elif isinstance(value, dict) and set(value) == {'owner_readback'}:
+                        handler=getattr(self.control,'set_owner_readback',None)
+                        if handler is not None: handler(value['owner_readback'])
+                    elif isinstance(value, dict) and set(value) == {'control_refused'}:
+                        refusal=value['control_refused']
+                        from .options_menu import string,integer
+                        if type(refusal) is not dict or set(refusal)!={'request_id','op','detail'}: raise ValueError('invalid refusal')
+                        integer(refusal['request_id'],1,2**64-1);string(refusal['op'],64);string(refusal['detail'],256)
+                        target=getattr(self.control,'view',self.control)
+                        menu=getattr(target,'options',None)
+                        if menu is not None: menu.refuse(refusal['request_id'],refusal['op'],refusal['detail'])
                     elif isinstance(value, dict) and set(value) == {'maximize_geometry'}:
                         handler=getattr(self.control,'set_maximize_geometry',None)
                         if handler is not None:
