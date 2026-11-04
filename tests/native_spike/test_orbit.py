@@ -325,7 +325,8 @@ class FootprintTests(unittest.TestCase):
             f = orbit.footprint(G, T1, p)
             self.assertIsNotNone(f.vertices)
             self.assertLess(math.degrees(f.radius), 60)
-            self.assertAlmostEqual(orbit.overlap(f, f), orbit._area(f.vertices), places=9)
+            self.assertAlmostEqual(orbit._shared(f, f), orbit._area(f.vertices), places=9)
+            self.assertGreaterEqual(orbit.overlap(f, f), orbit._area(f.vertices))  # its handles' strips count too
 
     def test_huge_desktops_have_sane_footprints_and_overlap_their_neighbours(self):
         # Distance 10 is ten times the size: XR-2 then covers both neighbours as you see it, flat or curved.

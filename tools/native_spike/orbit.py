@@ -32,10 +32,14 @@ Design (3dof-free-placement, 2026-11-02):
     (free_pointer), and its target is kept unwrapped, so a desktop held against a neighbour never flips round the other
     way when the target passes behind you.
   * Footprints (footprint, overlap): what a desktop covers is judged as you see it, as the set of directions from your
-    eye that its surface covers, with a MARGIN_PX border and, under it, the strip holding its glass pill and the pill's
-    grab padding (PILL_ZONE_PX): a convex spherical polygon from its true placed outline (distance, orbit and curvature
-    included; a curved desktop's outline is replaced by its convex hull, so it errs early). Desktops that do not share a
-    direction neither intersect nor hide each other.
+    eye that its surface covers: a convex spherical polygon from its true placed outline (distance, orbit and curvature
+    included; a curved desktop's outline is replaced by its convex hull, so it errs early), CLEARANCE_PX past its edges,
+    and two more for its handles (bump-closer, 2026-11-03): a strip above it up to the top of its level bar and one
+    under it down to the bottom of its pill, each as wide as the handle, not the desktop, with sloping ends (_strips),
+    taken from free_pointer's own level_bar_rect and pill_rect. So what a desktop keeps is what is really there: the
+    pill's grab padding, which is only a convenience, gives way to a neighbour, and a desktop whose handles are not in
+    the way comes right up to it. One whole strip across the desktop would keep room where there is nothing. Desktops
+    that do not share a direction neither intersect nor hide each other.
   * No overlap (bump.py, monitor-collision-bump, 2026-11-03): a desktop moved or resized in the overview (a pill drag, a
     corner resize, its open panel's sliders and keys) pushes every desktop it runs into out of its way, cascading, and
     they stay where they were pushed; where there is no room it stops, as the guard before it did.
@@ -50,8 +54,9 @@ TURN = 3600                  # wire units in a full turn of x
 X_LIMIT, Y_LIMIT = 1800, 900
 SNAP = 5                     # a drag within this many tenths of a degree of the slot (0) snaps to it, per axis
 REACH = 2.0                  # reach() outside anchor mode: half a view past each edge (normalized canvas, 1 = edge)
-PILL_ZONE_PX = 34.0          # free_pointer.PILL_GAP + PILL_THICKNESS + PILL_PAD_Y: the pill and its grab zone under a desktop
-MARGIN_PX = 6.0              # spike/src/gl.cpp kBorderPx: the highlight frame round a desktop (canvas px)
+CLEARANCE_PX = 1.0           # kept past a desktop's edges (tile px), so neighbours stop 2 px apart. It is not the highlight frame's
+                             # width (kBorderPx, 6 px): the frame needs no room, as only the selected desktop has one and it is
+                             # drawn under every picture, so it never goes over a neighbour and shows as a thin line next to one
 AREA_EPS = 1e-9              # steradians: "overlaps no more than now" tolerance
 _BEHIND = 1e-6
 
@@ -301,24 +306,46 @@ def _angle(a, b):
 
 
 def _outline(g, tile, p):
-    """Points round a desktop, its MARGIN_PX border and the pill zone under it, on its placed surface (un-orbited): the
-    corners and, when curved, the top and bottom edges every few degrees of arc."""
+    """Points round a desktop and its CLEARANCE_PX, on its placed surface (un-orbited): the corners and, when curved, the top
+    and bottom edges every few degrees of arc."""
     tx, ty, tw, th = tile
-    k = p['distance'] / 100 if p['distance'] > 0 else 1.0  # the pill keeps its size (free_pointer.glass_to_desktop)
-    top, bottom = ty - MARGIN_PX, ty + th + PILL_ZONE_PX * k + MARGIN_PX
+    top, bottom = ty - CLEARANCE_PX, ty + th + CLEARANCE_PX
     columns = max(4, min(16, math.ceil(p['curvature'] / 6))) if p['curvature'] > 0 else 1
-    xs = [tx - MARGIN_PX + (tw + 2 * MARGIN_PX) * i / columns for i in range(columns + 1)]
+    xs = [tx - CLEARANCE_PX + (tw + 2 * CLEARANCE_PX) * i / columns for i in range(columns + 1)]
     return [place_point(g, tile, p, x, top) for x in xs] + [place_point(g, tile, p, x, bottom) for x in reversed(xs)]
+
+
+def _strips(g, tile, p):
+    """Points round the strips a desktop's handles take, on its placed surface (un-orbited): from CLEARANCE_PX past its edge
+    (where _outline ends) to the far side of the handle as drawn: the level bar above it, on the desktop's own surface,
+    and the pill under it, on the glass (free_pointer.glass_to_desktop: it keeps its size however big the desktop is). As
+    wide as the handle at its far side, sloping out at 45 degrees to the desktop's edge (within the desktop's width):
+    with square ends the notch beside a handle would catch a neighbour's corner, which could then only get out by
+    jumping the handle's whole height, past what a push may do, and stop the desktop being moved. A corner that meets
+    the slope slides off it, and a pill coming up to a bar eases over it. A handle that does not get past the margin (a
+    pill under a huge desktop) takes no strip of its own."""
+    from . import free_pointer  # (it builds on this module)
+    tx, ty, tw, th = tile
+    lo, hi = tx - CLEARANCE_PX, tx + tw + CLEARANCE_PX
+    strips = []
+    x, y, w, _ = free_pointer.level_bar_rect(tile)
+    if w > 0 and y < ty - CLEARANCE_PX: strips.append((x, x + w, ty - CLEARANCE_PX, y))
+    x, y, w, h = free_pointer.pill_rect(tile)
+    (x0, _), (x1, y1) = free_pointer.glass_to_desktop(tile, p, x, y), free_pointer.glass_to_desktop(tile, p, x + w, y + h)
+    if x1 > x0 and y1 > ty + th + CLEARANCE_PX: strips.append((x0, x1, ty + th + CLEARANCE_PX, y1))
+    return [[place_point(g, tile, p, u, v) for u, v in ((max(x0 - abs(far - near), lo), near), (min(x1 + abs(far - near), hi), near), (x1, far), (x0, far))]
+            for x0, x1, near, far in strips]
 
 
 class Footprint:
     """A convex spherical polygon: unit direction vectors (counter-clockwise as you see it), its edges' inward great-circle
-    normals, and a bounding cone (centre, angular radius). `vertices` None: it reaches 90 degrees from its own centre or
+    normals, and a bounding cone (centre, angular radius). `handles`: the footprints of the strips its handles take, the
+    rest of what it covers (_strips); the cone holds them too. `vertices` None: it reaches 90 degrees from its own centre or
     further, too wide to be convex; then only its cone is used (bumping errs early)."""
-    __slots__ = ('vertices', 'normals', 'centre', 'radius')
+    __slots__ = ('vertices', 'normals', 'centre', 'radius', 'handles')
 
-    def __init__(self, vertices, centre, radius):
-        self.vertices, self.centre, self.radius = vertices, centre, radius
+    def __init__(self, vertices, centre, radius, handles=()):
+        self.vertices, self.centre, self.radius, self.handles = vertices, centre, radius, handles
         self.normals = None
         if vertices:
             k = len(vertices)
@@ -331,6 +358,7 @@ class Footprint:
         if self.vertices:
             out.vertices = [apply(m, v) for v in self.vertices]
             out.normals = [apply(m, n) for n in self.normals]
+            out.handles = tuple(h.rotated(m) for h in self.handles)
         return out
 
 
@@ -370,13 +398,21 @@ def _footprint(key):
     if centre is None:  # a huge, close, curved desktop wrapping round the eye: it covers every direction
         tx, ty, tw, th = tile
         return Footprint(None, _norm(place_point(g, tile, p, tx + tw / 2, ty + th / 2)) or (0.0, 0.0, -1.0), math.pi)
-    radius = max(_angle(centre, d) for d in dirs) + 1e-9
-    if any(_dot(d, centre) < 0.02 for d in dirs): return Footprint(None, centre, radius)
+    strips = [[d for d in (_norm(q) for q in s) if d is not None] for s in _strips(g, tile, p)]
+    every = dirs + [d for s in strips for d in s]
+    radius = max(_angle(centre, d) for d in every) + 1e-9
+    if any(_dot(d, centre) < 0.02 for d in every): return Footprint(None, centre, radius)
     up = (0.0, 1.0, 0.0) if abs(centre[1]) < 0.9 else (0.0, 0.0, -1.0)
     right = _norm(_cross(centre, up))
     top = _cross(right, centre)
-    flat2 = [(_dot(d, right) / _dot(d, centre), _dot(d, top) / _dot(d, centre)) for d in dirs]
-    return Footprint([dirs[i] for i in _hull(flat2)], centre, radius)
+
+    def convex(points):
+        return [points[i] for i in _hull([(_dot(d, right) / _dot(d, centre), _dot(d, top) / _dot(d, centre)) for d in points])]
+    handles = []
+    for strip in strips:
+        hull, middle = convex(strip), _norm(tuple(sum(d[i] for d in strip) for i in range(3)))
+        if len(hull) >= 3 and middle is not None: handles.append(Footprint(hull, middle, max(_angle(middle, d) for d in hull) + 1e-9))
+    return Footprint(convex(dirs), centre, radius, tuple(handles))
 
 
 def _clip(polygon, normal):
@@ -404,14 +440,19 @@ def _area(polygon):
     return total
 
 
-def overlap(a, b):
-    """Solid angle that footprints `a` and `b` share (0 if they only touch or are apart)."""
-    gap = _angle(a.centre, b.centre) - a.radius - b.radius
-    if gap >= 0: return 0.0
-    if a.vertices is None or b.vertices is None:  # too wide to clip: the cones' overlap, a stand-in that grows with it
-        return gap * gap
+def _shared(a, b):
+    """Solid angle that two convex polygons (a Footprint's own, without its handles) share."""
     polygon = a.vertices
     for n in b.normals:
         polygon = _clip(polygon, n)
         if len(polygon) < 3: return 0.0
     return _area(polygon)
+
+
+def overlap(a, b):
+    """Solid angle that footprints `a` and `b` share, their handles' strips included (0 if they only touch or are apart)."""
+    gap = _angle(a.centre, b.centre) - a.radius - b.radius
+    if gap >= 0: return 0.0
+    if a.vertices is None or b.vertices is None:  # too wide to clip: the cones' overlap, a stand-in that grows with it
+        return gap * gap
+    return sum(_shared(p, q) for p in (a,) + a.handles for q in (b,) + b.handles)
