@@ -294,6 +294,10 @@ int main(int argc, char** argv) {
                     presentation.resend_help_geometry();
             }
         }
+        if(status_fd>=0)if(const auto geometry=presentation.take_maximize_geometry()){
+            const auto line=*geometry+"\n";
+            if(send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT)!=ssize_t(line.size()))presentation.resend_maximize_geometry();
+        }
         const auto now = std::chrono::steady_clock::now();
         if (status_fd >= 0 && now >= next_status) {
             next_status = now + std::chrono::seconds(1);

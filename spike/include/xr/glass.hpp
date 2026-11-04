@@ -299,7 +299,7 @@ constexpr float kContentFrom = 0.75f;  // the panel's content fades in over the 
 
 // What the compositor draws this frame (GlassPills::frame and wayland.cpp fill it; overview only).
 struct GlassFrame {
-    bool options = false;
+    bool options = false, maximized = false;
     bool pills = false;                       // collapsed pills under every desktop
     int hover = -1; float hover_level = kGlassIdle;  // the desktop whose pill is hovered or dragged
     std::array<float, kPlacementMenuDesktopCount> expand{};  // eased expansion per desktop
