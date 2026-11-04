@@ -95,12 +95,12 @@ class HostSources:
         return result if isinstance(result, dict) and result.get('run_id') == run_id else None
 
     def recovery(self, run_id):
-        """Why the last Recover of a run stopped (__main__.report_recovery): {'reasons': [text]}, or None."""
+        """What the last Recover of a run left (__main__.report_recovery): {'remaining': [step id], 'reasons': [text]}, or None."""
         try: record = read_private_json(self.state_dir / f'{run_id}.recovery.json')
         except FileNotFoundError: return None
         if not isinstance(record, dict) or record.get('run_id') != run_id: return None
-        reasons = record.get('reasons')
-        return dict(reasons=[str(r) for r in reasons] if isinstance(reasons, list) else [])
+        def texts(value): return [str(item) for item in value] if isinstance(value, list) else []
+        return dict(remaining=texts(record.get('remaining')), reasons=texts(record.get('reasons')))
 
     @staticmethod
     def _cursor(lines):
@@ -399,7 +399,9 @@ class IncidentMonitor:
             at = o['at']
             reasons = (self._safe(self.sources.recovery, run_id) or {}).get('reasons')
             detail = 'Recover ran, and the session still has unfinished work' + (': ' + '; '.join(reasons) if reasons else '')
-            self.correlator.add(Signal(at, 'recovery-failed', 'controller', detail), run_id, self._context(run_id, at), now=at)
+            context = self._context(run_id, at)
+            context.result = self._safe(self.sources.result, run_id)  # how the run itself ended, for the report's renderer section
+            self.correlator.add(Signal(at, 'recovery-failed', 'controller', detail), run_id, context, now=at)
             self.correlator.run_ended(run_id, at, 'ended')
 
     # --- reporting -----------------------------------------------------------------------------------------------------

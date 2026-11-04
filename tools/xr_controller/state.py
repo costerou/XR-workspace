@@ -261,7 +261,9 @@ class Controller:
                 self.run=dict(run_id=scope['run_id'])
             else: name=scope['run_id']+'.json'
             self._state('starting'); self.pending=None; self.started=self.clock()
-            try: self.spawn(action,str(self.state_dir/name),pending.get('journal'))
+            # Only the desktops the box listed: recover-run edits nothing else (monitor_rules.py).
+            rules=[r['name'] for r in pending.get('rules') or []]
+            try: self.spawn(action,str(self.state_dir/name),pending.get('journal'),*([rules] if rules else []))
             except Exception as exc:
                 self.error=str(exc); self._state('failed'); raise ValueError(self.error) from exc
             return

@@ -146,9 +146,11 @@ def _top_frame(core):
     return None
 
 
-def _recovery_reasons(ev):
-    """Why a recovery stopped: the last Recover's own report, else what the run's result says of its recovery at Stop."""
-    return (ev.get('recovery') or {}).get('reasons') or (ev.get('result') or {}).get('recovery') or []
+def _recovery(ev):
+    """What a recovery left and why: the last Recover's own report, else what the run's result says of its recovery at Stop."""
+    saved, result = ev.get('recovery') or {}, ev.get('result') or {}
+    return dict(remaining=list(saved.get('remaining') or result.get('remaining') or []),
+                reasons=list(saved.get('reasons') or result.get('recovery') or []))
 
 
 def guess_cause(episode, ev):
@@ -179,9 +181,11 @@ def guess_cause(episode, ev):
         return guess('The display link to the glasses dropped with no USB trouble: check the cable and the display output.', 'medium')
     if result.get('stop_reason') == 'heartbeat-timeout':
         return guess('The renderer froze for over 2 seconds, which usually means a stuck GPU or compositor.', 'medium')
-    reasons = _recovery_reasons(ev)
-    if reasons:
-        return guess('Recovery could not finish: ' + ' '.join(reasons), 'high')
+    left = _recovery(ev)
+    if left['reasons']:
+        steps = f"{len(left['remaining'])} left ({', '.join(left['remaining'])})" if left['remaining'] else 'none listed'
+        # As lists too: every string of a report stops at LINE_MAX, and no reason may be lost to a long sentence.
+        return dict(guess(f"Recovery could not finish. Journal steps: {steps}. Why: {' '.join(left['reasons'])}", 'high'), **left)
     if any('dispatch: closed' in line for line in logs.get('run') or []):
         return guess("Hyprland closed the renderer's surface or connection, usually because its output went away.", 'medium')
     if result.get('error'):
@@ -240,7 +244,7 @@ def build_bundle(episode, ev, now, scrub):
         display=dict(mode=ev.get('mode'), expected_mode=ev.get('expected_mode'), drm=ev.get('drm')),
         renderer=dict(returncode=rc, signal=signal_name(-rc) if type(rc) is int and rc < 0 else None, stop_reason=result.get('stop_reason'),
                       complete=result.get('complete'), phase=result.get('phase'), error=result.get('error')),
-        recovery=dict(reasons=_recovery_reasons(ev)),
+        recovery=_recovery(ev),
         unit=ev.get('unit') or {}, metrics=dict(last=ev.get('status') or {}, exit_report=ev.get('metrics') or {}), core_dumps=cores, logs=logs,
         suppressed_since_last=ev.get('suppressed') or {}, truncated=False, privacy=PRIVACY)
     # The id too: a long kind makes it look like a token, and it is the file's name.
@@ -255,7 +259,11 @@ def markdown(bundle):
            f"- When: {bundle['first_signal_at']}", f"- Session: {bundle['session']}", f"- Run: {bundle['run_id']}",
            f"- Glasses: {bundle['glasses']['model']} on {bundle['glasses']['output']}, {bundle['display']['mode']}",
            f"- Build: source {(bundle['versions']['source_sha'] or 'unknown')[:12]}, bin {bundle['versions']['bin']}", '',
-           f"Likely cause ({bundle['cause']['confidence']} confidence): {bundle['cause']['text']}", '', '## What happened', '']
+           f"Likely cause ({bundle['cause']['confidence']} confidence): {bundle['cause']['text']}", '']
+    if bundle['cause'].get('reasons'):
+        out += ['## Why recovery stopped', '', *[f'- step left: {step}' for step in bundle['cause']['remaining']],
+                *[f'- {reason}' for reason in bundle['cause']['reasons']], '']
+    out += ['## What happened', '']
     out += [f"- {t['at']} ({t['source']}): {t['detail']}" for t in bundle['timeline'][:12]]
     extra = len(bundle['timeline']) - 12
     if extra > 0: out.append(f'- and {extra} more in the JSON report')

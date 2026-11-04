@@ -16,9 +16,10 @@ multi-line table, say) was written by hand and is only reported, with its line. 
 swap is atomic, through any symlink, as Omarchy's own edit is.
 
 This is the one exception to "saved monitor configuration is never edited" (docs/technical.md, Safety boundaries), and it
-needs a person's click: Recover's confirm box lists the line (state.py begin_recover). Stop and the CLI's recover only say
-that the line is there (named), and a start refuses with it (refuse_start). All of it is reached only through a client that
-says where the file is (HyprlandClient.monitors_config), so test doubles never touch a real one.
+needs a person's click: Recover's confirm box lists the line (state.py begin_recover), and only the desktops it listed
+reach recover-run (--clear-rule), so a controller from before this, which shows no such box, cannot cause an edit. Stop and
+the CLI's recover only say that the line is there (named), and a start refuses with it (refuse_start). All of it is reached
+only through a client that says where the file is (HyprlandClient.monitors_config), so test doubles never touch a real one.
 """
 import os
 from pathlib import Path
@@ -38,6 +39,12 @@ def config_path(environ=None):
     environ = os.environ if environ is None else environ
     base = environ.get('XDG_CONFIG_HOME') or str(Path(environ.get('HOME') or Path.home()) / '.config')
     return Path(base) / 'hypr' / 'monitors.lua'
+
+
+def desktop(name):
+    """`name` if it is an XR desktop's name, else ValueError: the only thing the Recover command line may ask to clear."""
+    if not re.fullmatch(NAME, name): raise ValueError('not an XR desktop')
+    return name
 
 
 def config_of(client):

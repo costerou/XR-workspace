@@ -23,6 +23,9 @@ from tools.xr_controller.state import Controller
 RUN = 'a' * 32
 REAL_READ = controller_main.read_private_json
 REASON = 'XR-1: the ownership plugin refused to remove it (state blocked)'
+OTHER = 'XR-3: compositor socket closed'
+OP = '790c77a9-bb02-4d53-9c96-3c70f62bb571'
+OP2 = '4c9c3b54-548e-4356-8456-03f25c97d105'
 
 
 class RecoverRun(unittest.TestCase):
@@ -60,12 +63,43 @@ class RecoverRun(unittest.TestCase):
         return json.loads(self.record().read_text())
 
     def test_an_incomplete_recovery_says_why(self):
-        code, said = self.run_it(dict(complete=False, remaining=['x'], reasons=[REASON]))
+        code, said = self.run_it(dict(complete=False, remaining=[OP], reasons=[REASON]))
         self.assertEqual(code, 2)
         self.assertIn(REASON, said)
         self.assertEqual(self.saved()['reasons'], [REASON])
         self.assertEqual(self.saved()['run_id'], RUN)
         self.client.plugin_unload.assert_not_called()
+
+    def test_every_step_left_and_every_reason_is_printed_and_saved(self):
+        code, said = self.run_it(dict(complete=False, remaining=[OP, OP2], reasons=[REASON, OTHER]))
+        self.assertEqual(code, 2)
+        lines = said.splitlines()
+        self.assertIn(f'recovery incomplete: remaining: {OP}, {OP2}', lines)
+        self.assertIn(f'recovery incomplete: {REASON}', lines)
+        self.assertIn(f'recovery incomplete: {OTHER}', lines)
+        self.assertEqual(self.saved()['remaining'], [OP, OP2])
+        self.assertEqual(self.saved()['reasons'], [REASON, OTHER])
+
+    def test_a_refusal_before_the_journal_has_no_steps_to_list(self):
+        code, said = self.run_it(error=ValueError('consent does not match saved broker scope'))
+        self.assertNotIn('remaining:', said)
+        self.assertEqual(self.saved()['remaining'], [])
+
+    def test_only_the_rules_the_box_listed_are_passed_on(self):
+        recover = mock.Mock(return_value=dict(complete=True, remaining=[], reasons=[]))
+        self.plain = lambda: None
+        with mock.patch.dict(os.environ, XDG_RUNTIME_DIR=str(self.state), XDG_DATA_HOME=str(self.state)), \
+             mock.patch.object(controller_main, 'read_private_json', self.reading), \
+             mock.patch('tools.native_spike.panel_consent.load_panel_consent', return_value=dict(instance='i', plugin=self.plugin)), \
+             mock.patch('tools.xr_controller.install.verify_recovery_pin'), \
+             mock.patch.object(controller_main, 'HyprlandClient', return_value=self.client), \
+             mock.patch('tools.native_spike.managed.recover_managed', recover):
+            controller_main.main(['recover-run', '--consent', str(self.consent), '--journal', 'j', '--clear-rule', 'XR-1', '--clear-rule', 'XR-2'])
+        self.assertEqual(recover.call_args.kwargs, dict(clear_rules=['XR-1', 'XR-2']))
+
+    def test_a_flag_that_is_no_desktop_is_refused_outright(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            controller_main.main(['recover-run', '--consent', 'c', '--journal', 'j', '--clear-rule', 'DP-1'])
 
     def test_with_no_reason_given_it_still_says_something(self):
         code, said = self.run_it(dict(complete=False, remaining=['x']))
@@ -146,7 +180,8 @@ class Panel(unittest.TestCase):
         self.observation = dict(model='beast', output='DP-2', reason=None, instance='instance', monitors=[dict(name='DP-2'), dict(name='DP-1')],
                                 installed=installed, plugins=[OWNERSHIP_PLUGIN_NAME], config_rules=[],
                                 journals=[dict(run_id=RUN, session='session', path=str(self.path / 'journal.json'), operations=[operation])])
-        self.controller = Controller(lambda: 100, lambda: copy.deepcopy(self.observation), lambda *a: None, Units(), Store(), self.fd, self.path)
+        self.spawned = []
+        self.controller = Controller(lambda: 100, lambda: copy.deepcopy(self.observation), lambda *a: self.spawned.append(a), Units(), Store(), self.fd, self.path)
 
     def failed(self, *reasons):
         record = self.path / f'{RUN}.recovery.json'
@@ -188,10 +223,27 @@ class Panel(unittest.TestCase):
         reply = self.controller.request(dict(op='begin_recover'))
         self.assertTrue(reply['ok'], reply)
         self.assertEqual(reply['rules'], [dict(name='XR-1', line=9, removable=True)])  # XR-3 is no output of this run
+        self.controller.request(dict(op='confirm_recover', scope_id=reply['scope_id']))
+        self.assertEqual(self.spawned[-1][3], ['XR-1'])  # what the box listed, and nothing else, goes to recover-run
 
     def test_the_confirm_box_is_quiet_when_there_is_none(self):
         self.controller.tick()
-        self.assertEqual(self.controller.request(dict(op='begin_recover'))['rules'], [])
+        reply = self.controller.request(dict(op='begin_recover'))
+        self.assertEqual(reply['rules'], [])
+        self.controller.request(dict(op='confirm_recover', scope_id=reply['scope_id']))
+        self.assertEqual(len(self.spawned[-1]), 3)  # no rules, no extra argument
+
+
+class IsolatedRecovery(unittest.TestCase):
+    def test_its_confirm_box_never_promises_an_edit(self):
+        """An isolated recovery does not touch a monitor config, and its spawn takes no rules."""
+        from tools.xr_controller import isolated
+        host = isolated.GuestHost.__new__(isolated.GuestHost)
+        host.vm, host.client = dict(run_id=RUN, session='s', output='DP-2', recovery_output='DP-1'), None
+        found = dict(journals=[], config_rules=[dict(name='XR-1', line=9, removable=True)])
+        with mock.patch.object(isolated.vm, 'check_scope'), mock.patch.object(isolated.vm, 'validate_virtual_outputs'), \
+             mock.patch.object(controller_main.Host, 'probe', return_value=found):
+            self.assertEqual(host.probe()['config_rules'], [])
 
 
 class ReadingTheRecord(unittest.TestCase):
@@ -210,14 +262,14 @@ class ReadingTheRecord(unittest.TestCase):
         self.assertIsNone(self.sources.recovery(RUN))
 
     def test_its_reasons(self):
-        self.write(dict(run_id=RUN, reasons=[REASON]))
-        self.assertEqual(self.sources.recovery(RUN), dict(reasons=[REASON]))
+        self.write(dict(run_id=RUN, remaining=[OP], reasons=[REASON]))
+        self.assertEqual(self.sources.recovery(RUN), dict(remaining=[OP], reasons=[REASON]))
 
     def test_another_runs_or_the_wrong_shape(self):
         self.write(dict(run_id='b' * 32, reasons=[REASON]))
         self.assertIsNone(self.sources.recovery(RUN))
         self.write(dict(run_id=RUN, reasons='not a list'))
-        self.assertEqual(self.sources.recovery(RUN), dict(reasons=[]))
+        self.assertEqual(self.sources.recovery(RUN), dict(remaining=[], reasons=[]))
 
 
 class Report(unittest.TestCase):
@@ -231,6 +283,31 @@ class Report(unittest.TestCase):
         scrub = Scrubber(home='/home/testuser', user='testuser', host='testhost')
         return build_bundle(self.episode('recovery-failed'), dict(recovery=recovery), 1793750010.0, scrub)
 
+    def test_the_cause_lists_every_step_left_and_every_reason(self):
+        bundle = self.bundle(dict(remaining=[OP, OP2], reasons=[REASON, OTHER]))
+        self.assertEqual(bundle['recovery'], dict(remaining=[OP, OP2], reasons=[REASON, OTHER]))
+        for text in (OP, OP2, REASON, OTHER): self.assertIn(text, bundle['cause']['text'])
+        self.assertIn(OP, markdown(bundle))
+
+    def test_no_reason_is_lost_to_the_length_of_the_cause(self):
+        """Every string of a report stops at LINE_MAX: a sentence holding them all would drop the last ones."""
+        reasons = [f'XR-{n}: ' + 'a reason of ordinary length, ' * 12 + f'and its own ending {n}' for n in range(1, 5)]
+        bundle = self.bundle(dict(remaining=[OP, OP2], reasons=reasons))
+        self.assertEqual(bundle['cause']['remaining'], [OP, OP2])
+        self.assertEqual(len(bundle['cause']['reasons']), 4)
+        for n, reason in enumerate(bundle['cause']['reasons'], 1): self.assertTrue(reason.endswith(f'its own ending {n}'), reason)
+
+    def test_the_short_report_lists_each_step_and_reason(self):
+        text = markdown(self.bundle(dict(remaining=[OP], reasons=[REASON, OTHER])))
+        self.assertIn(f'- step left: {OP}', text)
+        self.assertIn(f'- {REASON}', text)
+        self.assertIn(f'- {OTHER}', text)
+
+    def test_any_other_report_has_no_such_section(self):
+        bundle = self.bundle(None)
+        self.assertEqual(set(bundle['cause']), {'text', 'confidence'})
+        self.assertNotIn('Why recovery stopped', markdown(bundle))
+
     def test_the_bundle_holds_the_reason_and_the_cause_names_it(self):
         bundle = self.bundle(dict(reasons=[REASON]))
         self.assertEqual(bundle['recovery']['reasons'], [REASON])
@@ -240,12 +317,13 @@ class Report(unittest.TestCase):
         self.assertIn(REASON, markdown(bundle))
 
     def test_a_stop_that_kept_the_plugin_gives_its_reasons_too(self):
-        guess = guess_cause(self.episode('run-failed'), dict(result=dict(error='ownership plugin retained for explicit recovery', recovery=[REASON])))
+        guess = guess_cause(self.episode('run-failed'), dict(result=dict(error='ownership plugin retained for explicit recovery', recovery=[REASON], remaining=[OP])))
         self.assertIn(REASON, guess['text'])
+        self.assertIn(OP, guess['text'])
 
     def test_no_reason_is_no_section_of_guesses(self):
         bundle = self.bundle(None)
-        self.assertEqual(bundle['recovery'], {'reasons': []})
+        self.assertEqual(bundle['recovery'], dict(remaining=[], reasons=[]))
         self.assertEqual(bundle['cause']['confidence'], 'low')
 
 

@@ -31,6 +31,9 @@ CONFIG = ('-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\n'
 
 class Compositor:
     """The loaded plugin and the Hyprland behind it, as far as recovery can tell."""
+    epoch = 'epoch-one'
+    session = 'session'
+
     def __init__(self, config=None, *, new_plugin=False):
         self.instance = INSTANCE
         self.config, self.new_plugin = config, new_plugin
@@ -48,7 +51,7 @@ class Compositor:
 
     # transport
     runtime_dir = None
-    def verified_session(self): return {'id': 'session'}
+    def verified_session(self): return {'id': self.session}
     def reload_config(self):
         self.reloads += 1
         self.foreign_rule = self._named()
@@ -61,7 +64,7 @@ class Compositor:
         if kind == 'workspaces': return [{'id': w, 'monitor': 'XR-1'} for w in self.workspaces.get('XR-1', [])]
         return []
     def _reply(self, envelope, result):
-        return json.dumps({k: envelope[k] for k in ('schema', 'session', 'run_id', 'request_id')} | {'epoch': 'epoch-one', 'result': result}).encode()
+        return json.dumps({k: envelope[k] for k in ('schema', 'session', 'run_id', 'request_id')} | {'epoch': self.epoch, 'result': result}).encode()
     def _state(self, oid, state):
         live = oid in self.outputs
         observation = {'workspaces': [{'id': w, 'name': str(w), 'special': False} for w in self.workspaces.get('XR-1', [])],
@@ -118,7 +121,7 @@ class Base(unittest.TestCase):
         return journal
 
     def recover(self, compositor, **agreed):
-        agreed = agreed or dict(clear_rules=True)  # the panel's Recover, its confirm box clicked
+        agreed = agreed or dict(clear_rules=['XR-1'])  # the panel's Recover, its confirm box listing XR-1, clicked
         self.compositor = compositor
         compositor.runtime_dir = self.root
         self.journal() if not self.path.exists() else None
@@ -263,7 +266,7 @@ class TheWholeStory(Base):
             return managed._run_owned(compositor, journal, broker, 'DP-2', 'DP-1', [], context=dict(
                 instance=INSTANCE, output='DP-2', recovery_output='DP-1', epoch='epoch-one', fallback='fallback-one'), guard=lambda: None)
 
-    def recover_run(self):
+    def recover_run(self, *flags):
         """`recover-run`, as the panel's Recover spawns it, with the real recovery behind it."""
         import contextlib
         import io
@@ -282,7 +285,7 @@ class TheWholeStory(Base):
              patch('tools.xr_controller.install.verify_recovery_pin', lambda *a, **k: None), \
              patch.object(controller_main, 'HyprlandClient', lambda *a, **k: compositor), \
              patch.dict(os.environ, XDG_RUNTIME_DIR=str(self.root), XDG_DATA_HOME=str(self.root)), contextlib.redirect_stderr(err):
-            code = controller_main.main(['recover-run', '--consent', str(consent_path), '--journal', str(self.path)])
+            code = controller_main.main(['recover-run', '--consent', str(consent_path), '--journal', str(self.path), *flags])
         return code, err.getvalue(), state / f'{RUN}.recovery.json'
 
     def test_a_rule_recovery_may_not_touch_stops_it_until_the_person_acts(self):
@@ -318,7 +321,7 @@ class TheWholeStory(Base):
         self.assertEqual((result['renderer_returncode'], result['complete']), (0, False))
         self.assertIn('monitors.lua line 3 names XR-1', ' '.join(result['reasons']))
         self.assertEqual((self.config.read_text(), compositor.reloads), (CONFIG, 0))  # Stop has no consent for this
-        code, said, record = self.recover_run()
+        code, said, record = self.recover_run('--clear-rule', 'XR-1')
         self.assertEqual((code, said), (0, ''))
         self.assertFalse(record.exists())
         self.assertNotIn(XR_1, compositor.outputs)
@@ -344,7 +347,7 @@ class NoClickNoEdit(Base):
 
     def test_the_cli_recover_only_says_so(self):
         compositor = Compositor(self.config)
-        result = self.recover(compositor, clear_rules=False)
+        result = self.recover(compositor, clear_rules=())
         self.assertFalse(result['complete'])
         self.assertIn('monitors.lua line 3 names XR-1', ' '.join(result['reasons']))
         self.assert_untouched(compositor)
@@ -366,6 +369,30 @@ class NoClickNoEdit(Base):
         self.assert_untouched(compositor)
 
 
+    def test_only_the_rules_the_box_listed_go(self):
+        """A rule that appeared after the box was shown was never agreed to."""
+        two = CONFIG + OMARCHY_LINE.replace('XR-1', 'XR-2')
+        self.config.write_text(two)
+        compositor = Compositor(self.config, new_plugin=True)
+        result = self.recover(compositor, clear_rules=['XR-2'])
+        self.assertTrue(result['complete'])
+        self.assertEqual(self.config.read_text(), CONFIG)
+        self.assertEqual(len(self.backups()), 1)
+        self.assertTrue(any('line 3 names XR-1' in note for note in self.notes), self.notes)
+
+    def test_recover_run_without_the_box_edits_nothing(self):
+        """An old controller still running after an install shows no box and sends no flag, while new code runs recover-run."""
+        story = TheWholeStory('recover_run')
+        story.root, story.path, story.compositor = self.root, self.path, Compositor(self.config)
+        story.compositor.runtime_dir = self.root
+        self.journal()
+        code, said, record = story.recover_run()
+        self.assertEqual(code, 2)
+        self.assertIn('monitors.lua line 3 names XR-1', said)
+        self.assertEqual(self.config.read_text(), CONFIG)
+        self.assertEqual(self.backups(), [])
+
+
 class LiveRecoveryReports(Base):
     """What the run's own recovery at Stop gives back, for the runner's result."""
     def test_the_result_of_a_stop_carries_the_reasons(self):
@@ -379,6 +406,138 @@ class LiveRecoveryReports(Base):
         self.assertFalse(result.complete)
         self.assertEqual(len(result.remaining), 1)
         self.assertIn('XR-1', ' '.join(result.reasons))
+
+
+class CodeChangedUnderTheSession(unittest.TestCase):
+    """The code in the worktree and installed.json move on while a session's plugin stays pinned and loaded. Not what happened
+    in run 4468c283 (its Stop came first, the install at 21:24:05), but what an install during a session or a pending recovery
+    does. The consent, the pins, the journal bytes, the client's own checks and recover-run are all the real ones here."""
+    INSTANCE = 'efb50993780079460b0cbed1363e2166a2de1d9f_1793506481_1554975112'
+    RUN = '4468c2831588ef1bfa8425d5359db70a'
+    SESSION = '1773a47b7c3d178bf7ce8e28aa9de204a7b4be19afcea1988b7dc6ca21b32e4b'
+    EPOCH = '89e94de3b58dd0ea61e7f69e8e194c4c1f11547e830c8992'
+
+    def setUp(self):
+        from tools.native_spike.ipc import private_dir
+        from tools.native_spike.panel_consent import build_consent, write_consent
+        from tools.xr_controller.install import install
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        root = self.root = Path(self.tmp.name)
+        self.data, self.state, self.config = root / 'data', root / 'state', root / 'hypr' / 'monitors.lua'
+        self.config.parent.mkdir(); self.config.write_text(CONFIG)
+        for name, body in (('old', b'old'), ('new', b'new')):
+            build = root / name; build.mkdir()
+            (build / 'xr-native-spike').write_bytes(body + b'-renderer'); (build / 'libxr-ownership.so').write_bytes(body + b'-plugin')
+        self.old = install(root / 'old', self.data)  # the session's pins
+        self.new = install(root / 'new', self.data)  # what the install left: installed.json no longer names the session's
+        scope = dict(run_id=self.RUN, instance=self.INSTANCE, output='DP-2', recovery_output='DP-1', model='luma-ultra', tracking=False, mode_switch=False,
+                     desktops=[dict(width=1920, height=1200, scale=1.0), dict(width=1920, height=1200, scale=1.25)], **self.old)
+        fd = private_dir(self.state, create=True); self.addCleanup(os.close, fd)
+        write_consent(fd, build_consent(scope))
+        self.consent = self.state / f'{self.RUN}.json'
+        self.journal = root / 'xr-workspace-spike' / self.RUN / 'journal.json'
+        self.journal.parent.mkdir(parents=True, mode=0o700); self.journal.parent.parent.chmod(0o700)
+        # The journal as run 4468c283 left it, to the byte.
+        self.journal.write_text(json.dumps(dict(schema=1, run_id=self.RUN, session=self.SESSION, operations=[
+            dict(id='790c77a9-bb02-4d53-9c96-3c70f62bb571', operation=dict(kind='output', id=XR_1, name='XR-1', index=0, before=None), state='confirmed'),
+            dict(id='4c9c3b54-548e-4356-8456-03f25c97d105', operation=dict(kind='output', id=XR_2, name='XR-2', index=1, before=None), state='done')],
+            broker=dict(instance=self.INSTANCE, output='DP-2', recovery_output='DP-1', epoch=self.EPOCH, fallback='6fa09398ea1bda277bdac44f515a7719bc5e4fe2b9a5036c'))))
+        self.journal.chmod(0o600)
+        for name in ('tools.native_spike.privacy.wake', 'tools.native_spike.managed.validate_physical_pair', 'tools.native_spike.send.notify'):
+            patcher = patch(name, lambda *a, **k: None); patcher.start(); self.addCleanup(patcher.stop)
+        env = patch.dict(os.environ, XDG_RUNTIME_DIR=str(root), XDG_DATA_HOME=str(self.data), XDG_STATE_HOME=str(root / 'xdg-state'))
+        env.start(); self.addCleanup(env.stop)
+
+    def compositor(self):
+        from tools.native_spike.hyprland import HyprlandClient
+        class Pinned(Compositor):
+            """The plugin from before the install, loaded; the real client's checks on what may be unloaded."""
+            plugin_unload, _plugin_command = HyprlandClient.plugin_unload, HyprlandClient._plugin_command
+            epoch, session = self.EPOCH, self.SESSION
+            def __init__(self, config):
+                super().__init__(config)
+                self.loaded, self.unloaded = ['hyprbars', 'xr-ownership'], []
+            def plugins_loaded(self): return list(self.loaded)
+            def _request(self, wire, timeout=None):
+                if not wire.startswith('/plugin unload '): return super()._request(wire, timeout)
+                self.unloaded.append(wire.split(' ', 2)[2]); self.loaded.remove('xr-ownership')
+                return b'ok'
+        compositor = Pinned(self.config)
+        compositor.instance, compositor.runtime_dir = self.INSTANCE, self.root
+        return compositor
+
+    def recover_run(self, compositor, *flags):
+        import contextlib
+        import io
+        from tools.xr_controller import __main__ as controller_main
+        err = io.StringIO()
+        with patch.object(controller_main, 'HyprlandClient', lambda *a, **k: compositor), contextlib.redirect_stderr(err):
+            code = controller_main.main(['recover-run', '--consent', str(self.consent), '--journal', str(self.journal), *flags])
+        return code, err.getvalue()
+
+    def test_the_new_code_finishes_the_old_session_with_its_own_plugin(self):
+        compositor = self.compositor()
+        code, said = self.recover_run(compositor, '--clear-rule', 'XR-1')
+        self.assertEqual((code, said), (0, ''))
+        self.assertEqual(compositor.unloaded, [self.old['plugin']['path']])
+        self.assertNotEqual(compositor.unloaded, [self.new['plugin']['path']])
+        self.assertEqual(compositor.loaded, ['hyprbars'])  # nothing of the new install was loaded; Omarchy's stays
+        self.assertNotIn(XR_1, compositor.outputs)
+        saved = json.loads(self.journal.read_text())
+        self.assertEqual([r['state'] for r in saved['operations']], ['done', 'done'])
+        self.assertEqual(saved['broker']['epoch'], self.EPOCH)
+        self.assertEqual(json.loads((self.data / 'viture-workspace/installed.json').read_text()), self.new)  # untouched
+
+    def test_a_short_recovery_keeps_the_old_plugin_and_says_which_step_is_left(self):
+        compositor = self.compositor()
+        code, said = self.recover_run(compositor)  # no box: the line stays, so the old plugin still blocks
+        self.assertEqual(code, 2)
+        self.assertEqual(compositor.unloaded, [])
+        self.assertEqual(compositor.loaded, ['hyprbars', 'xr-ownership'])
+        self.assertIn('790c77a9-bb02-4d53-9c96-3c70f62bb571', said)
+        self.assertIn('XR-1', said)
+
+    def test_a_pin_that_changed_is_refused_before_the_compositor_hears_of_it(self):
+        Path(self.old['plugin']['path']).chmod(0o700)
+        Path(self.old['plugin']['path']).write_bytes(b'something else')
+        compositor = self.compositor()
+        code, said = self.recover_run(compositor, '--clear-rule', 'XR-1')
+        self.assertEqual(code, 2)
+        self.assertIn('recovery plugin pin unavailable', said)
+        self.assertEqual((compositor.events, compositor.unloaded), ([], []))
+        self.assertEqual(self.config.read_text(), CONFIG)
+
+    def test_stop_reads_nothing_more_from_a_tree_that_has_moved_on(self):
+        """A run imports lazily from the worktree, so anything first imported at Stop would be the new code in the old process
+        (2026-11-03 13:16: an ImportError that way left a plugin behind). Everything recovery needs is in by the run's start."""
+        import subprocess
+        import sys
+        repo = Path(__file__).resolve().parents[2]
+        script = f'''
+import sys
+sys.path.insert(0, {str(repo)!r})
+import tools.xr_controller.runner  # what the run's unit has loaded by the time the session is up
+from tools.native_spike import managed
+class Moved:
+    def find_spec(self, name, path=None, target=None):
+        if name.startswith('tools.'): raise ImportError('read from the moved tree at Stop: ' + name)
+sys.meta_path.insert(0, Moved())
+class Journal:
+    broker, operations = dict(recovery_output='DP-1'), []
+    def output_names(self): return ['XR-1']
+class Client:
+    def query(self, kind, *a, **k): return []
+    def restore_layout(self, snapshot): pass
+from tools.native_spike.journal import RecoveryResult
+managed.recover = lambda journal, broker: RecoveryResult(False, ['x'], ['XR-1: refused'])
+snapshot = dict(schema=1, run_id='run', monitor='DP-1', active=None, focus=None, focus_monitor=None, workspaces=[], windows=[])
+result = managed.recover_restoring(Client(), Journal(), None, 'run', snapshot)
+print('recovered', result.reasons)
+'''
+        done = subprocess.run([sys.executable, '-I', '-c', script], capture_output=True, text=True, timeout=30,
+                              env=dict(os.environ, XDG_CONFIG_HOME=str(self.root), XDG_STATE_HOME=str(self.root)))
+        self.assertEqual(done.returncode, 0, done.stderr[-600:])
+        self.assertIn("recovered ['XR-1: refused']", done.stdout)
 
 
 class Finding(unittest.TestCase):

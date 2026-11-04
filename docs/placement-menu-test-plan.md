@@ -659,7 +659,7 @@ Record any failure with the step number and what you saw. Keep it apart from aut
 Automated, offline only: `tests/native_spike/test_leftover_rule.py`, `tests/xr_controller/test_recovery_report.py` and the
 ctests `ownership` and `ownership_offset`. Their compositor is a double modelled on the pinned Hyprland source and the logs of
 run `4468c283`; none of this has run on a live Hyprland. R1 to R3 need no glasses, only the stuck session if it is still
-there. R4 to R6 deliberately break a session, so they need your usual go-ahead.
+there. R4 to R7 deliberately break a session or install during one, so they need your usual go-ahead.
 
 | # | Do | Expect |
 |---|----|--------|
@@ -669,5 +669,6 @@ there. R4 to R6 deliberately break a session, so they need your usual go-ahead.
 | R4 | During a session, focus an XR desktop and change its scale with Omarchy's Monitor panel, then Stop | Stop finishes, no Recover is offered, and a notification names the `monitors.lua` line. The file is unchanged. |
 | R5 | Start XR with that line still there | It refuses at once, before head tracking starts, and says which line to delete. |
 | R6 | Delete the line, run `hyprctl reload`, and start | It starts. |
+| R7 | During a session, install a new build (orchestrator's job, with your go-ahead), then Stop | Stop finishes with nothing left over: no XR desktops, `hyprctl plugin list` has no `xr-ownership`, and the next start loads the new plugin. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.

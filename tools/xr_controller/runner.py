@@ -94,7 +94,7 @@ def execute(consent_path, data_home, progress=None):
                           store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'])
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
         if run.get('stop_reason'): result['stop_reason'] = run['stop_reason']
-        if run.get('reasons'): result['recovery'] = run['reasons']
+        if run.get('reasons'): result['recovery'] = run['reasons']  # `remaining` lists the same recovery's steps
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
     finally:
@@ -109,8 +109,10 @@ def execute(consent_path, data_home, progress=None):
         if attempted and not preserve:
             if not errors: result['phase'] = 'teardown'
             try:
-                # Only ever the pinned path this runner asked to load (also after an unconfirmed load).
-                client.plugin_unload(plugin, data_home=data_home)
+                # Only ever the pinned path this runner asked to load (also after an unconfirmed load). Its own pin, not
+                # installed.json: an install during the session must not leave this plugin behind with a clean journal,
+                # where no Recover is offered and every start refuses with "already loaded".
+                client.plugin_unload(plugin, data_home=data_home, recovery_pin=installed['plugin'])
                 if PLUGIN_NAME in client.plugins_loaded(): raise ValueError('plugin still loaded after unload')
             except Exception as exc:
                 errors.append('unload: ' + (str(exc) or type(exc).__name__))

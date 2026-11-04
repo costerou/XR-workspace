@@ -133,10 +133,11 @@ class Host:
         try: result['config_rules']=monitor_rules.leftovers()  # what Recover would take out; the box says so before the click
         except (OSError,ValueError): result['config_rules']=[]
         return result
-    def spawn(self,action,consent,journal):
+    def spawn(self,action,consent,journal,rules=()):
         raw=read_private_json(consent); run_id=token(raw['run_id'])
         args=isolated('tools.xr_controller.runner','--consent',consent,'--state-dir',self.state_dir)
-        if action=='recover': args=isolated('tools.xr_controller','recover-run','--consent',consent,'--journal',journal)
+        if action=='recover':
+            args=isolated('tools.xr_controller','recover-run','--consent',consent,'--journal',journal,*[a for name in rules for a in ('--clear-rule',name)])
         subprocess.run(['systemd-run','--user','--unit=viture-xr-'+run_id,'--collect',
             '--property=WorkingDirectory='+str(REPO),'--setenv=XDG_RUNTIME_DIR='+str(self.runtime),
             '--setenv=XDG_DATA_HOME='+str(self.data_home),
@@ -157,15 +158,17 @@ def incident_monitor(runtime,state_dir,config_home):
 MAX_REASONS=8  # of an unfinished Recover, in its saved report: one per output or window at most
 
 
-def report_recovery(consent_path,reasons):
+def report_recovery(consent_path,reasons,remaining=()):
     """Where `<run_id>.recovery.json` comes from (the consent names the run and sits in the state directory): an unfinished
-    Recover says why, in its own output and for the panel and the incident report. A finished one leaves no such file, and
-    the run's result stops saying it failed: the panel would go on showing that after the desktop was back."""
+    Recover says which journal steps are left (`remaining`, none for a refusal before the journal was read) and why, on stderr
+    and for the panel and the incident report. A finished one leaves no such file, and the run's result stops saying it
+    failed: the panel would go on showing that after the desktop was back."""
     from .runner import _write_result
     state,run_id=Path(consent_path).parent,Path(consent_path).stem
     if reasons:
-        print('recovery incomplete: '+'; '.join(reasons),file=sys.stderr)
-        _write_result(state,run_id+'.recovery.json',dict(run_id=run_id,complete=False,reasons=reasons[:MAX_REASONS],at=time.time()))
+        if remaining: print('recovery incomplete: remaining: '+', '.join(remaining),file=sys.stderr)
+        for reason in reasons: print('recovery incomplete: '+reason,file=sys.stderr)
+        _write_result(state,run_id+'.recovery.json',dict(run_id=run_id,complete=False,remaining=list(remaining),reasons=reasons[:MAX_REASONS],at=time.time()))
         return
     (state/(run_id+'.recovery.json')).unlink(missing_ok=True)
     try: result=read_private_json(state/(run_id+'.result.json'))
@@ -175,14 +178,16 @@ def report_recovery(consent_path,reasons):
         _write_result(state,run_id+'.result.json',dict(result,complete=True,remaining=[],error=None))
 
 
-def recover_command(consent_path,journal):
+def recover_command(consent_path,journal,clear_rules=()):
     """`recover-run`: 0 once the run is cleaned up, else 2, always saying why."""
+    remaining=[]
     try:
-        result=recover_pinned(consent_path,journal)
+        result=recover_pinned(consent_path,journal,clear_rules)
+        remaining=result.get('remaining') or []
         code,reasons=(0,[]) if result['complete'] else (2,result.get('reasons') or ['recovery did not finish, and nothing said why'])
     except (OSError,ValueError,KeyError,TypeError) as exc:
         code,reasons=2,[str(exc) or type(exc).__name__]
-    try: report_recovery(consent_path,reasons)
+    try: report_recovery(consent_path,reasons,remaining)
     except (OSError,ValueError) as exc: print(f'recovery report not written: {exc}',file=sys.stderr)
     return code
 
@@ -191,7 +196,7 @@ def recover_run(consent_path,journal):
     return 0 if recover_pinned(consent_path,journal)['complete'] else 2
 
 
-def recover_pinned(consent_path,journal):
+def recover_pinned(consent_path,journal,clear_rules=()):
     from tools.native_spike.panel_consent import load_panel_consent
     from tools.native_spike.managed import recover_managed
     from .install import verify_recovery_pin
@@ -206,8 +211,8 @@ def recover_pinned(consent_path,journal):
     client=HyprlandClient(consent['instance'],Path(os.environ['XDG_RUNTIME_DIR']))
     # Recover only the consented broker; never load a replacement with a new epoch.
     if ownership_plugin_count(client.plugins_loaded())!=1: raise ValueError('consented ownership plugin unavailable for recovery')
-    # The confirm box listed any monitor rule this takes out (state.py begin_recover): the click agreed to it.
-    result=recover_managed(client,consent,Path(journal),clear_rules=True)
+    # `clear_rules`: what the confirm box listed and the click agreed to (state.py begin_recover); nothing else is edited.
+    result=recover_managed(client,consent,Path(journal),clear_rules=clear_rules)
     if result['complete']:
         client.plugin_unload(plugin['path'],data_home=data_home,recovery_pin=plugin)
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')
@@ -230,6 +235,7 @@ def main(argv=None):
     ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest='command',required=True)
     sub.add_parser('serve'); p=sub.add_parser('install'); p.add_argument('--build',type=Path,required=True)
     p=sub.add_parser('recover-run'); p.add_argument('--consent',required=True); p.add_argument('--journal',required=True)
+    p.add_argument('--clear-rule',action='append',default=[],type=monitor_rules.desktop,help='a desktop whose monitors.lua rule the confirm box listed')
     args=ap.parse_args(argv)
     data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     if args.command=='install':
@@ -239,7 +245,7 @@ def main(argv=None):
             print(json.dumps(entry,indent=2)); return 0
         except (OSError,ValueError,subprocess.SubprocessError) as exc:
             print(f'install failed: {exc}',file=sys.stderr); return 1
-    if args.command=='recover-run': return recover_command(args.consent,args.journal)
+    if args.command=='recover-run': return recover_command(args.consent,args.journal,args.clear_rule)
     runtime=Path(os.environ['XDG_RUNTIME_DIR'])
     base=Path(os.environ.get('XDG_STATE_HOME',Path.home()/'.local/state'))
     base.mkdir(parents=True,exist_ok=True)

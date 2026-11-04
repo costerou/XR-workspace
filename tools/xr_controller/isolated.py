@@ -62,7 +62,8 @@ class GuestHost(Host):
         result=super().probe()
         if any(j['run_id']!=self.vm['run_id'] for j in result['journals']):
             raise ValueError('foreign run in guest runtime')
-        result.update(model='unknown',output=self.vm['output'],reason='isolated VM; virtual outputs, no glasses')
+        # config_rules: an isolated recovery never edits a monitor config, so its confirm box must not say it will.
+        result.update(model='unknown',output=self.vm['output'],reason='isolated VM; virtual outputs, no glasses',config_rules=[])
         return result
 
     def spawn(self,action,consent,journal):

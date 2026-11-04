@@ -411,11 +411,15 @@ class RunEndTests(Case):
         self.tick('recovery-needed', status=None, seconds=30)
         self.tick('confirming', status=None, seconds=2)
         self.tick('starting', status=None, seconds=3)
-        self.host.recoveries[RUN] = dict(run_id=RUN, complete=False, reasons=[why])
+        step = '790c77a9-bb02-4d53-9c96-3c70f62bb571'
+        self.host.recoveries[RUN] = dict(remaining=[step], reasons=[why])
+        self.host.results[RUN] = dict(CLEAN, phase='run', complete=False, remaining=[step], error='ownership plugin retained for explicit recovery')
         self.tick('recovery-needed', status=None, seconds=30)
         report = json.loads(self.reports()[-1].read_text())
         self.assertEqual(report['kind'], 'recovery-failed')
-        self.assertEqual(report['recovery']['reasons'], [why])
+        self.assertEqual(report['recovery'], dict(remaining=[step], reasons=[why]))
+        self.assertIn(step, report['cause']['text'])
+        self.assertEqual((report['renderer']['complete'], report['renderer']['phase']), (False, 'run'))  # was all null in 20261104T022700Z
         self.assertIn(why, report['cause']['text'])
         self.assertIn(why, report['timeline'][-1]['detail'])
 
