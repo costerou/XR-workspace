@@ -15,8 +15,20 @@ add_test(NAME luma_transport COMMAND luma_transport_test)
 set_tests_properties(luma_transport PROPERTIES TIMEOUT 60)
 
 # Each other piece declares its own targets and tests in its own file, so pieces can land in any
-# order. Add one line per piece. protocol.cmake is not here: its paths are relative to spike/.
+# order. Add one line per piece.
+include(protocol.cmake)
 include(daemon.cmake OPTIONAL)
 include(display.cmake OPTIONAL)
 include(features.cmake OPTIONAL)
 include(cmake/fusion.cmake OPTIONAL)
+
+# drv-review-qa's shape check. Exit 77 means a piece is missing, which ctest must show as skipped.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/contract_test.cpp")
+  add_executable(luma_contract_test tests/contract_test.cpp)
+  target_compile_options(luma_contract_test PRIVATE -Wall -Wextra -Wpedantic)
+  target_link_libraries(luma_contract_test PRIVATE xr_luma_driver)
+  target_compile_definitions(luma_contract_test PRIVATE XR_ENABLE_LUMA_DRIVER=1)
+  target_include_directories(luma_contract_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+  add_test(NAME luma_contract COMMAND luma_contract_test)
+  set_tests_properties(luma_contract PROPERTIES SKIP_RETURN_CODE 77)
+endif()
