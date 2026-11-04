@@ -809,7 +809,9 @@
         ],
         "exception": "Native clipboard video route"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_web_child.py"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
@@ -3352,7 +3354,8 @@
       },
       "release_scenarios": [
         "tests/xr_options_integration/test_release_internal_text.py",
-        "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed"
+        "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed",
+        "tests/xr_options_integration/test_release_web_child.py"
       ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
@@ -3399,7 +3402,9 @@
         ],
         "exception": "Native clipboard video route"
       },
-      "release_scenarios": [],
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_web_child.py"
+      ],
       "remaining_release_checks": [
         "actual C1/preserved input equivalence",
         "owner readback or specific failure",
