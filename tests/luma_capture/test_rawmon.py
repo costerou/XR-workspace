@@ -131,12 +131,14 @@ class Fixture(Base):
 
 
 class RealFixture(unittest.TestCase):
-    def test_the_committed_fixture_is_imu_packets_only(self):
-        path = Path(__file__).parents[2] / 'spike/driver/tests/fixtures/luma_imu_real.bin'
-        data = path.read_bytes()
-        self.assertEqual(len(data) % rawmon.IMU_PACKET, 0)
-        for at in range(0, len(data), rawmon.IMU_PACKET):
-            self.assertEqual(data[at:at + 4], rawmon.IMU_HEAD)
+    def test_the_committed_fixtures_are_imu_packets_only(self):
+        fixtures = list((Path(__file__).parents[2] / 'spike/driver/tests/fixtures').iterdir())
+        self.assertGreaterEqual(len(fixtures), 2)
+        for path in fixtures:
+            data = path.read_bytes()
+            self.assertEqual(len(data) % rawmon.IMU_PACKET, 0, path.name)
+            for at in range(0, len(data), rawmon.IMU_PACKET):
+                self.assertEqual(data[at:at + 4], rawmon.IMU_HEAD, path.name)
 
 
 if __name__ == '__main__':

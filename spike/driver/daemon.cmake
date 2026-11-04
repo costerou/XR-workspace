@@ -17,5 +17,6 @@ target_compile_options(luma_replay_report PRIVATE -Wall -Wextra -Wpedantic -Werr
 add_executable(luma_real_capture_test tests/real_capture_test.cpp)
 target_link_libraries(luma_real_capture_test PRIVATE xr_luma_protocol xr_luma_fusion)
 target_compile_options(luma_real_capture_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
-add_test(NAME luma_real_capture COMMAND luma_real_capture_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin")
+add_test(NAME luma_real_capture COMMAND luma_real_capture_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin"
+         "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_upside_down.bin")
 add_test(NAME luma_replay_report_smoke COMMAND luma_replay_report "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin" --every 2)

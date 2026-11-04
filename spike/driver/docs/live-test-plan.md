@@ -287,17 +287,35 @@ needs `--drain-camera` has lost the main hoped-for advantage of an IMU-only driv
 
 Pass: `stale=0` for the 20 s.
 
-**G6. Axes.** Cody picks the glasses up while it runs. A wrong sign is a one-line fix in `protocol.cpp`.
+**G6. Axes.** The first run of this step had the glasses upside down, which read correctly as upside down but could not settle
+the signs (`capture-findings.md`). So: **right side up**, arms open, flat on the desk. The recorder runs throughout, so the raw
+bytes exist if the feed surprises anyone. A wrong sign is a one-line fix in `protocol.cpp`.
 
 ```sh
-luma --start stream; sleep 4
-python3 -m tools.luma_probe.feed record --feed "$RUN/feed_pose_orientation" --seconds 25 --out "$RUN/axes.csv"
-python3 -m tools.luma_probe.feed attitude "$RUN/axes.csv"; kill -TERM "$PID"; wait "$PID"
+python3 -m tools.luma_capture record --bus 5 --out "$RUN/capture-g6" --segment 30 --duration 120 &
+REC6=$!
+luma --start stream; sleep 6
+python3 -m tools.luma_probe.feed record --feed "$RUN/feed_pose_orientation" --seconds 40 --out "$RUN/axes.csv"
+python3 -m tools.luma_probe.feed attitude "$RUN/axes.csv" | head -5
+python3 -m tools.luma_probe.feed moves "$RUN/axes.csv"
+kill -TERM "$PID"; wait "$PID"
+PID=$REC6; kill -TERM "$PID"; wait "$PID"
 ```
 
-Cody moves them slowly, about 5 s each, with notifications as cues: nose up, back; nose down, back;
-turn left, back; right ear down, back. Pass: nose down raises `pitch`, turning left raises `yaw`,
-right ear down raises `roll`. Each returns to where it started.
+Cody leaves them on the desk for the first 5 s of the recording. Then Cody lifts them, holds them level in front of the chest
+as if about to put them on, with the lenses facing away, and makes four moves, about 30 degrees each, 3 s out, 3 s back, a pause
+at level between them. Read `moves`, whose numbers are in the glasses' own frame, so they mean the same at any pose. Use the first
+big number of each move, not `attitude`.
+
+| Move | `moves` must show |
+|---|---|
+| Nose up | `nose-down` negative, then positive coming back |
+| Nose down | `nose-down` positive, then negative |
+| Turn left | `turn-left` positive, then negative |
+| Right ear down | `right-ear-down` positive, then negative |
+
+Pass: all four, with most of each move on its own column. At rest on the desk `attitude` shows `roll` near 0, and `pitch` near -8.5
+give or take how the glasses sit. Save the file and report, whatever it shows. Do not try to correct anything on the spot.
 
 **G7. What went on the wire.** Stop the recorder and read it.
 

@@ -139,6 +139,32 @@ and then fresh, and tracking carries on.
 
 Any other long gap in the capture is a recorder hole (see above).
 
+## The first bench run's axes: upside down, and not a bug
+
+Stage G's first G6 (2026-11-04 02:20) read roll -179, pitch -19 then near -50, and swung wildly. The glasses had been resting
+upside down, so that first reading is right:
+
+- **The sensor agrees.** The raw desk gravity in the same session is wire (0.01, -0.46, -0.89): z down, 27.4 degrees off flat. The feed's
+  first sample in G6, four minutes later, matches it to within 1.6 degrees. G6's own raw bytes were not recorded, and the glasses may
+  have been moved in between. Pitch -19 is that -27.4 with the 8.5 degree mount taken
+  off, the other way round because it is inverted.
+- **The swings are Euler angles, not motion.** From 9.5 to 10.4 s roll and yaw jump 150 degrees while the glasses turned 42. They
+  pass close to pitch -90.
+- **The old driver would have shown nothing like this**, because its feed is `conj(reference) * pose`, relative to where it calibrated.
+  Ours is true to gravity.
+
+In the glasses' own frame the four cues, at 0, 6, 12 and 18 s, are clean: 98%, 99%, 97% and 93% of each on one axis. That rules
+out swapped axes. Nose moves are about the left axis, the turn about the up axis. The fourth is about an axis halfway between
+forward and up, because the nose was about 65 degrees up by then, and that axis is true vertical to within 15 degrees.
+
+**That run cannot settle the signs.** The first two cues went the same way, +36 and +69 degrees about left, so no mapping makes
+both of them right, and the fourth swung about evenly both ways. Cody was turning the glasses over at the time.
+
+**What does settle the forward sign is physics, and it stands.** On the worn session, during 1373 nearly pure yaw samples, sideways
+acceleration tracks yaw acceleration with correlation 0.93, putting the sensor 8.7 cm along -y from the yaw axis. A head's yaw axis
+is behind the glasses, so -y is forward. This needs no moves or cue timing, only that the accelerometer reports true specific force.
+Step G6 is the direct check.
+
 ## Replay through the real daemon
 
 `xr-luma-driver --replay` on the sanitised capture, with real parser, tracker, Fusion and Publisher:

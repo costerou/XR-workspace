@@ -7,7 +7,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.luma_probe.feed import Row, analyse, angle_deg, attitude, attitude_lines, compare, decode, load, read_segment, record
+from tools.luma_probe.feed import MOUNT_PITCH_DEG, Row, analyse, angle_deg, attitude, attitude_lines, compare, decode, load, moves_lines, read_segment, record, turned
+
+
+def _product(a, b):
+    return (a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3], a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+            a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1], a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0])
 
 
 def yaw(degrees):
@@ -39,6 +44,34 @@ class AttitudeTests(unittest.TestCase):
     def test_one_line_per_second(self):
         rows = [Row(i * 100_000_000, float(i), 0.0, 0.0, 0.0, 1.0) for i in range(35)]
         self.assertEqual(len(attitude_lines(rows)), 4)
+
+
+class MovesTests(unittest.TestCase):
+    def fed(self, base, axis, degrees):
+        """As the publisher writes it: base, turned about the glasses' own axis, then the mount."""
+        half = math.radians(degrees) / 2
+        move = (math.cos(half), *(math.sin(half) * a for a in axis))
+        mount = math.radians(MOUNT_PITCH_DEG) / 2
+        w, x, y, z = _product(_product(base, move), (math.cos(mount), 0, math.sin(mount), 0))
+        return Row(0, 0.0, x, y, z, w)
+
+    # Level, upside down, and nearly straight up: Euler angles cope with the first only. The G6 run of 2026-11-04 had the other two.
+    POSES = {'level': (1, 0, 0, 0), 'upside down': (0, 1, 0, 0), 'nose straight up': (math.cos(math.radians(40)), 0, -math.sin(math.radians(40)), 0)}
+
+    def test_reads_each_axis_with_its_sign_from_any_pose(self):
+        for name, base in self.POSES.items():
+            for axis, expected in (((1, 0, 0), (30, 0, 0)), ((0, 1, 0), (0, 30, 0)), ((0, 0, 1), (0, 0, 30))):
+                with self.subTest(pose=name, axis=axis):
+                    got = turned(self.fed(base, (1, 0, 0), 0), self.fed(base, axis, 30))
+                    for g, e in zip(got, expected): self.assertAlmostEqual(g, e, places=4)
+
+    def test_opposite_ways_read_opposite(self):
+        base = self.POSES['level']
+        self.assertAlmostEqual(turned(self.fed(base, (1, 0, 0), 0), self.fed(base, (0, 1, 0), -20))[1], -20, places=4)
+
+    def test_one_line_a_second_after_the_heading(self):
+        rows = [Row(i * 100_000_000, float(i), 0.0, 0.0, 0.0, 1.0) for i in range(25)]
+        self.assertEqual(len(moves_lines(rows)), 4)
 
 
 class DecodeTests(unittest.TestCase):

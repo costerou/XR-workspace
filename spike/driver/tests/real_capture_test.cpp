@@ -4,6 +4,9 @@
 // readings and nothing that identifies the device. The head rests, turns about 60 degrees, and comes back.
 //
 // These are the facts the simulators cannot give: that the layout, scales and axes are right for the real device.
+//
+// tests/fixtures/luma_imu_upside_down.bin is 2 s from the first bench run (2026-11-04): the glasses lying upside down on the desk,
+// 27 degrees off flat. It looked like a sign bug and is not one. It guards against "fixing" a correct reading.
 #include "luma/fusion.hpp"
 #include "luma/protocol.hpp"
 #include <algorithm>
@@ -32,6 +35,7 @@ std::vector<Packet> load(const std::string& path) {
 
 double yaw_of(const Quatf& q) { return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z)) * kDeg; }
 double pitch_of(const Quatf& q) { return std::asin(std::clamp(2.0 * (q.w * q.y - q.z * q.x), -1.0, 1.0)) * kDeg; }
+double roll_of(const Quatf& q) { return std::atan2(2.0 * (q.w * q.x + q.y * q.z), 1.0 - 2.0 * (q.x * q.x + q.y * q.y)) * kDeg; }
 
 void test_fixture_is_sensor_readings_and_nothing_else(const std::vector<Packet>& packets) {
     CHECK(packets.size() > 7000);
@@ -105,6 +109,32 @@ void test_gyro_and_accelerometer_agree(const std::vector<Packet>& packets) {
     CHECK(std::fabs(pitch_of(pose.q)) < 15);
 }
 
+void test_upside_down_on_a_desk_reads_upside_down(const std::vector<Packet>& packets) {
+    CHECK(packets.size() > 1500);
+    Fusion fusion;
+    auto tracker = luma_sequence_tracker();
+    PoseOut pose{};
+    double a[3]{};
+    for (const Packet& p : packets) {
+        auto s = parse_imu(p);
+        CHECK(s);
+        if (!s) return;
+        tracker.observe(*s);
+        pose = fusion.update(*s);
+        for (int k = 0; k < 3; ++k) a[k] += double(s->accel_m_s2[std::size_t(k)]) / double(packets.size());
+    }
+    CHECK(a[2] < -8.5);  // the sensor itself: z reads down, so nothing downstream invented this
+    const FusionStatus status = fusion.status();
+    CHECK(status.quality == FusionQuality::Good);  // still on a desk: a full calibration, in 1.5 s
+    CHECK(std::fabs(status.calibrated_after_s - 1.5f) < 0.2f);
+    const auto& up = status.up_body;
+    const double n = std::hypot(a[0], a[1], a[2]);
+    const double cosine = (up[0] * a[0] + up[1] * a[1] + up[2] * a[2]) / n;
+    CHECK(std::acos(std::clamp(cosine, -1.0, 1.0)) * kDeg < 0.5);  // fusion agrees with gravity to half a degree
+    CHECK(std::fabs(std::fabs(roll_of(pose.q)) - 180.0) < 3);      // the reading the bench run saw, about -179
+    CHECK(std::fabs(pitch_of(pose.q) + 27.4) < 1);                 // 19 in the feed: this, less the 8.5 mount, the other way up
+}
+
 void test_axes_rotate_the_right_way(const std::vector<Packet>& packets) {
     // Over the first big swing, world yaw rate and the raw gyro's z must carry the same sign: z is up in both frames.
     Fusion fusion;
@@ -130,7 +160,7 @@ void test_axes_rotate_the_right_way(const std::vector<Packet>& packets) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) { std::cerr << "usage: real_capture_test FIXTURE\n"; return 2; }
+    if (argc < 3) { std::cerr << "usage: real_capture_test FIXTURE UPSIDE_DOWN_FIXTURE\n"; return 2; }
     const std::vector<Packet> packets = load(argv[1]);
     if (packets.empty()) { std::cerr << "no packets in " << argv[1] << '\n'; return 1; }
     test_fixture_is_sensor_readings_and_nothing_else(packets);
@@ -139,6 +169,7 @@ int main(int argc, char** argv) {
     test_gravity_is_up_and_the_right_size_at_rest(packets);
     test_gyro_and_accelerometer_agree(packets);
     test_axes_rotate_the_right_way(packets);
+    test_upside_down_on_a_desk_reads_upside_down(load(argv[2]));
     std::cerr << (g_failures ? "FAILED\n" : "all passed\n");
     return g_failures ? 1 : 0;
 }

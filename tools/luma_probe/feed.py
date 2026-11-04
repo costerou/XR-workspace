@@ -4,6 +4,7 @@
     python -m tools.luma_probe.feed report run.csv
     python -m tools.luma_probe.feed compare old.csv new.csv
     python -m tools.luma_probe.feed attitude run.csv      once a second: yaw, pitch, roll, in degrees
+    python -m tools.luma_probe.feed moves run.csv         once a second: how far the glasses turned about their own axes
 
 The feed is the 16 floats spike/src/pose.cpp reads: x y z w three times, then three timestamps. The
 segment is attached read-only and the driver's mutex is left alone on purpose, so this cannot stall a
@@ -34,6 +35,7 @@ _MAX_HITCH_MS = 20.0
 _MAX_DRIFT_DEG_PER_MIN = 0.5
 _DRIFT_NOISE = 0.1
 _PLACEMENT_NOISE_DEG = 0.5
+MOUNT_PITCH_DEG = -8.5  # the publisher's default: spike/driver/include/luma/publish.hpp
 _RATE_NOISE = 0.98  # the recorder polls from Python and can miss the odd sample, on either driver
 
 
@@ -182,6 +184,40 @@ def attitude_lines(rows):
     return lines
 
 
+def _multiply(a, b):
+    return (a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3], a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+            a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1], a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0])
+
+
+def _without_mount(row):
+    """(w, x, y, z) of the glasses, taking off the publisher's mount_pitch_deg (publish.hpp): feed = pose * pitch(MOUNT)."""
+    half = math.radians(-MOUNT_PITCH_DEG) / 2
+    return _multiply((row.w, row.x, row.y, row.z), (math.cos(half), 0.0, math.sin(half), 0.0))
+
+
+def turned(a, b):
+    """The rotation from row a to row b in the glasses' own frame, degrees: (right ear down, nose down, turn left)."""
+    p, q = _without_mount(a), _without_mount(b)
+    w, x, y, z = _multiply((p[0], -p[1], -p[2], -p[3]), q)
+    if w < 0: w, x, y, z = -w, -x, -y, -z
+    sine = math.sqrt(x * x + y * y + z * z)
+    if sine < 1e-9: return 0.0, 0.0, 0.0
+    scale = math.degrees(2 * math.atan2(sine, w)) / sine
+    return x * scale, y * scale, z * scale
+
+
+def moves_lines(rows):
+    """One line per second. Euler angles go wild near straight up or down and read oddly upside down; this does not."""
+    lines = ['  second  right-ear-down  nose-down  turn-left']
+    start = 0
+    for at, row in enumerate(rows):
+        if row.host_ns - rows[start].host_ns >= 1_000_000_000 or at == len(rows) - 1:
+            ear, nose, left = turned(rows[start], row)
+            lines.append(f'{(rows[start].host_ns - rows[0].host_ns) / 1e9:8.0f}  {ear:14.1f}  {nose:9.1f}  {left:9.1f}')
+            start = at
+    return lines
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='python -m tools.luma_probe.feed')
     commands = parser.add_subparsers(dest='command', required=True)
@@ -191,6 +227,7 @@ def main(argv=None):
     p.add_argument('--feed', default=DEFAULT_FEED)
     commands.add_parser('report').add_argument('file', type=Path)
     commands.add_parser('attitude').add_argument('file', type=Path)
+    commands.add_parser('moves').add_argument('file', type=Path)
     p = commands.add_parser('compare')
     p.add_argument('old', type=Path)
     p.add_argument('new', type=Path)
@@ -200,6 +237,8 @@ def main(argv=None):
             print(f'{record(args.feed, args.out, args.seconds)} samples in {args.out}')
         elif args.command == 'attitude':
             print('\n'.join(attitude_lines(load(args.file))))
+        elif args.command == 'moves':
+            print('\n'.join(moves_lines(load(args.file))))
         elif args.command == 'report':
             for key, value in analyse(load(args.file)).items():
                 print(f'{key}: {value:.3f}' if isinstance(value, float) else f'{key}: {value}')
