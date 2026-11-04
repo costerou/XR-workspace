@@ -21,3 +21,11 @@ class OptionsTransportTests(unittest.TestCase):
         q.push(wire('options_close',{}))
         with self.assertRaises(ValueError): q.push(wire('options_close',{}))
         with self.assertRaises(ValueError): q.push(wire('options_close',{},2,'old'))
+
+class OptionsHelperTests(unittest.TestCase):
+    def test_signed_wheel_helper_payload(self):
+        from unittest.mock import patch
+        from tools.native_spike import xr_control
+        with patch.object(xr_control, 'send') as send:
+            self.assertEqual(xr_control.main(['xr_control','/tmp/private.sock','run','session','options_scroll','-38']),0)
+            self.assertEqual(send.call_args.args[-1], {'delta':-38})

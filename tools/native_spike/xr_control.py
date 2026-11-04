@@ -247,6 +247,14 @@ def _key(argv):
 
 
 def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
+    if len(argv) == 6 and argv[4] == 'options_scroll':
+        path, run_id, session = argv[1:4]
+        try: delta = int(argv[5])
+        except ValueError: return 2
+        if not -4096 <= delta <= 4096 or not path.startswith('/') or not _is_token(run_id) or not _is_token(session): return 2
+        try: send(path, run_id, session, 'options_scroll', {'delta': delta})
+        except OSError: return 1
+        return 0
     key = _key(argv) if len(argv) == 7 else None
     if len(argv) != 5 and key is None: return 2
     path, run_id, session, op = argv[1:5]
