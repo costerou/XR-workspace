@@ -44,7 +44,7 @@ def test_c1_file_child_keeps_worker_failure_and_never_applies_from_typed_report_
             watch.status_bytes((json.dumps(dict(owner_readback=dict(video=native,immersive=None,outputs=[])))+'\n').encode())
             assert c.owner_readback is not None, 'native fixture rejected by authoritative schema'
             assert c.owner_readback['video']==native
-            d.add(v.poll());d.add(c.poll())
+            d.add(v.poll());d.add(c.poll());d.native()
             assert c.options.snapshot()['status']=='pending', 'async native frame was never received/applied by a renderer'
         d.teardown()
     finally:
