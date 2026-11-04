@@ -130,7 +130,13 @@ real read will see them too.
 - On xHCI, address assignment happens inside the controller, so `SET_ADDRESS` never appears.
 - For a moment after a reconnect, until sysfs lists the device, its events can lack the glasses flag. Their payloads
   are kept, but they are not replayable.
-- The IMU stream's endpoint and layout are not public. `tools/luma_capture/streams.py` looks for them in a capture.
-- `spike/driver/docs/protocol.md` on branch `drv-protocol-research` gives the command endpoints: 0x06/0x87 for `FF FE`
-  frames, 0x04/0x85 for `FA 55` frames. Interrupt IN 0x81 (1024 bytes, every 500 us at high speed), interrupt IN 0x83
-  (512 bytes, every 1 ms) and bulk IN 0x82 have no known role yet.
+- `spike/driver/docs/capture-findings.md` gives the roles of the endpoints, from a real session: 0x81 is the IMU, 0x83 the
+  display's events, 0x82 the cameras, 0x06/0x87 the `FF FE` frames and 0x04/0x85 the `FA 55` frames.
+
+## Importing a raw dump
+
+`python3 -m tools.luma_capture import-usbmon DUMP -o FILE.lcap` converts what `cat /dev/usbmonN` writes. A raw dump holds
+everything on the bus, the serial and camera images included, so never commit one. The import keeps IMU, command and reply
+traffic, a 12 byte header of each camera tile, and no isochronous events. It drops long `0x85` replies, which hold the
+calibration and the serial, USB string descriptors, and every other device's data. `imu-fixture` then cuts a stretch of IMU
+packets for a test, and stops at anything that is not an IMU packet.

@@ -3,12 +3,14 @@
 // device, no feed. A real recording has no heading truth, so "drift at rest" is the slope of heading over windows where
 // the head barely moves: an upper bound, because a resting head also wanders.
 //
-//   luma_replay_report FILE.lcap|FILE.bin [--every SECONDS] [--set name=value ...]
+//   luma_replay_report FILE.lcap|FILE.bin [--every SECONDS] [--set name=value ...] [--predict-ms N]
 //
 // FILE.bin is 28-byte packets end to end, the form of tests/fixtures/luma_imu_real.bin. --set overrides a FusionConfig
-// field, for tuning against a recording.
+// field, for tuning against a recording. --predict-ms N scores pose prediction N ms ahead against where the head really
+// went: nothing, the finite difference the renderer does today from the feed's history, a raw gyro step, and Predictor.
 #include "luma/capture_file.hpp"
 #include "luma/fusion.hpp"
+#include "luma/predict.hpp"
 #include "luma/protocol.hpp"
 #include <algorithm>
 #include <array>
@@ -16,6 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <map>
 #include <numeric>
@@ -82,6 +85,39 @@ double percentile(std::vector<double> values, double p) {
     return values[std::min(values.size() - 1, std::size_t(p * double(values.size())))];
 }
 
+struct Dq { double w = 1, x = 0, y = 0, z = 0; };
+Dq to_d(const Quatf& q) { return {q.w, q.x, q.y, q.z}; }
+Dq conj(Dq q) { return {q.w, -q.x, -q.y, -q.z}; }
+Dq mul(Dq a, Dq b) {
+    return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w};
+}
+double angle_deg(Dq a, Dq b) {
+    const Dq d = mul(conj(a), b);
+    return 2 * std::atan2(std::hypot(d.x, d.y, d.z), std::fabs(d.w)) * kDeg;
+}
+// a to b, scaled: where the same rotation lands after `factor` times as long, from b. What the renderer's finite difference does.
+Dq extend(Dq a, Dq b, double factor) {
+    Dq d = mul(conj(a), b);
+    if (d.w < 0) d = {-d.w, -d.x, -d.y, -d.z};
+    const double half = std::atan2(std::hypot(d.x, d.y, d.z), d.w), n = std::hypot(d.x, d.y, d.z);
+    if (n < 1e-12) return b;
+    const double scaled = half * factor, k = std::sin(scaled) / n;
+    return mul(b, Dq{std::cos(scaled), d.x * k, d.y * k, d.z * k});
+}
+
+// How far off each way of predicting was, once the head has really got there.
+struct Score {
+    double sum_sq = 0;
+    std::vector<double> errors;
+    void add(double degrees) { sum_sq += degrees * degrees; errors.push_back(degrees); }
+    void print(const char* name) const {
+        const double n = double(std::max<std::size_t>(errors.size(), 1));
+        std::printf("  %-32s rms %6.3f  p99 %6.3f  max %6.3f deg\n", name, std::sqrt(sum_sq / n), percentile(errors, 0.99), percentile(errors, 0.9999));
+    }
+};
+struct Guess { Dq none, renderer, gyro, predictor; double rate_deg_s; };
+
 // Mean and spread of one 5 s stretch at rest.
 struct Window {
     std::vector<double> t, yaw;
@@ -101,9 +137,11 @@ int main(int argc, char** argv) {
     if (argc < 2) { std::fputs("usage: luma_replay_report FILE [--every SECONDS] [--set name=value ...]\n", stderr); return 2; }
     FusionConfig config;
     double every = 120;
+    int predict_ms = 0;
     for (int i = 2; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--every" && i + 1 < argc) every = std::atof(argv[++i]);
+        else if (arg == "--predict-ms" && i + 1 < argc) predict_ms = std::atoi(argv[++i]);
         else if (arg == "--set" && i + 1 < argc) {
             if (!apply_setting(config, argv[++i])) { std::fprintf(stderr, "unknown setting %s\n", argv[i]); return 2; }
         } else { std::fprintf(stderr, "unknown option %s\n", arg.c_str()); return 2; }
@@ -117,6 +155,10 @@ int main(int argc, char** argv) {
     bool have_yaw = false;
     Window window;
     std::vector<double> slopes, tilts;
+    Predictor predictor;
+    std::deque<Guess> guesses;
+    std::deque<Dq> history;  // newest first, for the renderer's q1 16 samples back
+    Score moving[4], turning[4];
     std::printf("%8s %6s %-11s %24s %8s %7s %7s\n", "time_s", "temp_C", "quality", "bias_deg_s(f,l,u)", "yaw", "pitch", "roll");
     for (const Packet& p : packets) {
         auto sample = parse_imu(p.bytes);
@@ -130,6 +172,24 @@ int main(int argc, char** argv) {
         if (first_t < 0) first_t = t;
         t -= first_t;
         const FusionStatus status = fusion.status();
+        if (predict_ms > 0 && pose.calibrated) {
+            predictor.set_gyro_bias(status.gyro_bias_rad_s);
+            predictor.update(pose, *sample, sample->t_ns);
+            const Dq now = to_d(pose.q);
+            if (guesses.size() >= std::size_t(predict_ms)) {
+                const Guess& g = guesses.front();
+                const double errors[4] = {angle_deg(g.none, now), angle_deg(g.renderer, now), angle_deg(g.gyro, now), angle_deg(g.predictor, now)};
+                if (g.rate_deg_s > 20) for (int k = 0; k < 4; ++k) moving[k].add(errors[k]);
+                if (g.rate_deg_s > 60) for (int k = 0; k < 4; ++k) turning[k].add(errors[k]);
+                guesses.pop_front();
+            }
+            history.push_front(now);
+            if (history.size() > 17) history.pop_back();
+            const Dq renderer = history.size() > 16 ? extend(history[16], now, double(predict_ms) / 16.0) : now;
+            const auto& omega = status.omega_body_rad_s;
+            guesses.push_back({now, renderer, to_d(fusion.predict(float(predict_ms) * 1e-3f)), to_d(predictor.predict(float(predict_ms)).q),
+                               std::hypot(omega[0], omega[1], omega[2]) * kDeg});
+        }
         if (status.quality != quality) {
             std::printf("%8.2f quality %s -> %s\n", t, name_of(quality), name_of(status.quality));
             quality = status.quality;
@@ -181,5 +241,12 @@ int main(int argc, char** argv) {
     std::printf("at rest: %zu windows of 5 s; heading slope deg/min median %.2f, |median| %.2f, p95 |slope| %.2f; tilt against gravity median %.2f deg, p95 %.2f deg\n",
                 slopes.size(), percentile(slopes, 0.5), percentile(magnitudes, 0.5), percentile(magnitudes, 0.95), percentile(tilts, 0.5), percentile(tilts, 0.95));
     std::printf("net heading change over the run %.1f deg\n", unwrapped * kDeg);
+    if (predict_ms > 0) {
+        const char* names[4] = {"no prediction", "renderer today (finite diff)", "raw gyro step", "luma::Predictor"};
+        std::printf("\nprediction %d ms ahead, head moving over 20 deg/s, %zu samples\n", predict_ms, moving[0].errors.size());
+        for (int k = 0; k < 4; ++k) moving[k].print(names[k]);
+        std::printf("head turning over 60 deg/s, %zu samples\n", turning[0].errors.size());
+        for (int k = 0; k < 4; ++k) turning[k].print(names[k]);
+    }
     return bad ? 1 : 0;
 }

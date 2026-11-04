@@ -764,6 +764,31 @@ void test_transport_link_routes_and_filters() {
     CHECK(t.routed_to == (std::vector<std::uint8_t>{0x04, 0x06}));
 }
 
+void test_feature_host_refuses_anything_that_sends() {
+    std::string why;
+    std::vector<std::string> lines;
+    const Logger log = [&](std::string_view l) { lines.emplace_back(l); };
+    CHECK(wiring::FeatureHost::make({}, log, why));
+    CHECK(wiring::FeatureHost::make({"--no-feature-temperature", "--feature-discovery"}, log, why));
+    for (const char* flag : {"--feature-firmware-query", "--feature-wear-query", "--feature-control", "--feature-brightness=3", "--feature-dimming=1"}) {
+        why.clear();
+        CHECK(!wiring::FeatureHost::make({flag}, log, why));
+        CHECK(why.find("no capture") != std::string::npos);
+    }
+    why.clear();
+    CHECK(!wiring::FeatureHost::make({"--feature-nonsense"}, log, why));
+    CHECK(!why.empty());
+    const auto host = wiring::FeatureHost::make({}, log, why);
+    host->tick(1, 41.5f);
+    host->tick(2, 42.5f);  // once a minute is plenty
+    host->link(true, 3);
+    host->link(false, 4);
+    CHECK(count(lines, "luma: feature {") >= 1);
+    int temperatures = 0;
+    for (const auto& l : lines) if (l.find("emperature") != std::string::npos) ++temperatures;
+    CHECK(temperatures == 1);
+}
+
 void test_replay_clean() {
     Replay r; replay(r, capture(3000));
     CHECK(r.end == DaemonEnd::replay_ended);
@@ -996,6 +1021,7 @@ int main(int argc, char** argv) {
     RUN(test_repeats_are_not_junk);
     RUN(test_real_capture_format, dir);
     RUN(test_bias_store, dir);
+    RUN(test_feature_host_refuses_anything_that_sends);
     RUN(test_stats_line);
     RUN(test_every_line_is_parseable);
     RUN(test_replay_clean);

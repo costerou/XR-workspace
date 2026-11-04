@@ -176,6 +176,10 @@ std::optional<ImuSample> parse_imu(std::span<const std::uint8_t> packet) noexcep
 // as a plain function pointer, which an overload would make ambiguous.
 std::optional<ImuSample> parse_imu_with(std::span<const std::uint8_t> packet, const ParseOptions& options) noexcept;
 
+// The packet's temperature word in degrees C, or nothing for a packet that is not IMU. The trend is measured (38 to 47 over a
+// warm-up); the formula is the one common to this class of sensor, so the absolute value is not proven.
+std::optional<float> luma_temperature_c(std::span<const std::uint8_t> packet) noexcept;
+
 // The inverse of parse_imu for a Luma Ultra packet, for fixtures and fakes. The
 // sample's body frame goes back to wire axes; values saturate at the i16 range.
 std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& sample, std::uint32_t temperature_raw = 2000) noexcept;

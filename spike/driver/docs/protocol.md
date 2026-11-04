@@ -17,6 +17,12 @@ or run `libglasses.so` or `libcarina_vio.so`.
 
 ## Read this first
 
+**Superseded in part, 2026-11-04.** A usbmon capture of a real session settled what this
+research had to leave open: see [capture-findings.md](capture-findings.md), which wins wherever
+the two differ. The IMU is on `0x81` in a framing of its own, not `0x83`; `0x04`/`0x85` carries the
+stream start as well as flashing; and `0x82` is the cameras. The rest of this file is the research
+as written, kept because its reasoning still applies.
+
 1. **The IMU packet layout and the command that starts the stream are not public.** No open
    source documents them for the Luma Ultra. `luma::parse_imu` and the start command cannot
    be written from open knowledge alone. One USB capture of a normal session should answer

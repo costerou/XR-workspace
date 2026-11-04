@@ -205,6 +205,11 @@ std::optional<Command> data_request(std::uint16_t msg_id, Bytes payload) {
     return c;
 }
 
+std::optional<float> luma_temperature_c(Bytes p) noexcept {
+    if (p.size() < kLumaImuPacketSize || p[0] != 0xaa || p[1] != 0x8f || p[3] != kLumaImuType) return std::nullopt;
+    return float(read_le16(p.data() + 24)) / 132.48f + 25.0f;
+}
+
 std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& s, std::uint32_t temperature_raw) noexcept {
     std::array<std::uint8_t, kLumaImuPacketSize> b{0xaa, 0x8f, 0x00, kLumaImuType};
     const auto put16 = [&](std::size_t at, std::uint16_t v) { b[at] = std::uint8_t(v); b[at + 1] = std::uint8_t(v >> 8); };

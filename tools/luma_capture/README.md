@@ -163,3 +163,18 @@ the driver sends that VITURE's does not, which matters most on the pipe that als
 usbmon adds a small amount of work to every USB transfer. If drops vanish while recording, that is itself a clue
 about timing, and worth saying. It sees transfers on the host's side, not electrical signals on the cable, so a bad
 cable shows up only as errors and lost ports.
+
+## A raw dump from `cat /dev/usbmonN`
+
+`cat` needs no recorder, but its ring is the kernel's default 300 KiB, which a session with the cameras on overflows, so the
+dump has holes. `record` is better when it can be used. To turn a dump into something safe to keep:
+
+```sh
+python3 -m tools.luma_capture import-usbmon dump.bin -o session.lcap
+python3 -m tools.luma_capture imu-fixture session.lcap --start 666 --seconds 8 -o fixture.bin
+build/release/driver/xr-luma-driver --replay session.lcap --ipc-prefix /tmp/some-folder/feed_
+build/release/driver/luma_replay_report session.lcap --predict-ms 25
+```
+
+`docs/capture-format.md` says what the import keeps and drops. `--replay` always makes its own shared memory, because ftok
+keys hold only 16 bits of the inode and a borrowed one could land on the live feed.

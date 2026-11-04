@@ -36,18 +36,59 @@ more than the feed carries, the feed does not grow.
 Z, S, R and F block replacing XRLinuxDriver. C, L, D and P are held to their targets too, but a miss there is reported to
 Cody with the number, and he decides. X decides which features may be turned on.
 
-## What blocks everything
+## State at assembly
 
-1. **The Luma Ultra's IMU packet and start command are not public.** `spike/driver/docs/protocol.md` found this, and
-   `protocol.hpp` agrees: `start_imu(Device::luma_ultra)` returns nothing on purpose, because guessing an opcode is not
-   safe. Endpoints 0x04/0x85 also carry firmware flashing. Until a USB capture of a normal session answers both
-   questions, the driver cannot read a single sample from the glasses, however good its other parts are. This is
-   **Cody's decision to make**: the capture needs one-time sudo setup (see drv-recorder's plan), and it records traffic
-   produced by the closed SDK, whose licence he has not accepted.
-2. **Nobody yet knows why the glasses drop.** The `0x0007` errors probably follow the drops rather than cause them
-   (`protocol.md`). XRLinuxDriver runs the glasses in 6DoF with the cameras streaming, which plain display use does not.
-   So an IMU-only driver could pass the soak because the cameras are off, not because of anything else it does. That is
-   still a win, but the report must say which it was.
+Written 2026-11-04 on branch `drv-assemble`, with all 17 branches merged and a real capture in hand. **Nothing here has run on
+the glasses yet.** Everything below is Offline level.
+
+What the capture settled (`capture-findings.md`): the IMU's endpoint, packet, rate, scales and axes, and the start command
+the old driver uses.
+
+What blocks the first live run: nothing. What it has to find out, in stage G of `live-test-plan.md`, in this order:
+
+1. **Whether `FA 55 95` alone starts the IMU.** The timing says it is what opens the stream. Whether the SDK's earlier
+   steps were also needed is unknown.
+2. **Whether the IMU keeps flowing when nobody reads the camera endpoint.** `FA 55 95` very probably starts the cameras
+   too. If the IMU stalls unless `0x82` is drained, the driver needs `--drain-camera`, and the 19 MB/s that may be behind the drops comes
+   back. That would remove the main hoped-for advantage of this driver.
+3. **Why the glasses drop.** Still unknown. An IMU-only driver could pass the soak because the cameras are idle, not because
+   of anything else it does. That is still a win, but the report must say which it was.
+
+### Decisions taken at assembly
+
+Where two pieces disagreed, the safer one won.
+
+| Conflict | Decision | Why |
+|---|---|---|
+| drv-features waited 2 s after connect and blamed a drop within 3 s; drv-display-control waited 5 minutes and 60 s | 5 minutes and 60 s for both | 5 of the 11 dropped sessions fell at 18 to 135 s. A test pins the defaults |
+| Daemon settles 200 ms after a return; Transport holds off 2 s | Both apply, about 2.2 s | 12 of 20 reconnects right after a drop were followed by another. **R1's 1 s target therefore cannot pass yet.** Zero drops outranks reconnect speed. The soak should tune it |
+| S4 said nothing reaches 0x04/0x85 by default | The start must: it lives there | Only the exact frames captured from VITURE's own software pass, enforced in `Transport`. `protocol.md` set that rule in advance. S4 is reworded below |
+| S3 asked for a stop on exit | None is sent | No capture has shown a stop, and guessing at the firmware channel is forbidden. Step K2 can find one |
+| Feature flags that send commands | Refused at the command line | No ids are known (X4) |
+| Display control | In the library, not on the command line | Same reason: `UnmappedWire` refuses everything |
+
+Two pieces are merged but deliberately not wired in:
+
+- **`luma::Predictor`.** Scored on the real session 25 ms ahead, head moving: no prediction 1.35 degrees rms, the renderer's
+  existing finite difference 0.195, a raw gyro step 0.128, Predictor 0.115, with a worse tail than the gyro step (2.3 degrees
+  against 1.3 at p99.99). That is under 0.1 degrees better than what runs today, and wiring it means changing what the feed's
+  history means. `luma_replay_report --predict-ms 25` reruns this.
+- **`rt::Pipeline`, the reader and fusion ring.** The daemon runs inline on one thread. On the real capture, parsing through
+  publishing takes 0.12 µs, so a ring has nothing to shed. The thread policy is applied.
+
+### Criteria, as of assembly
+
+| Group | State |
+|---|---|
+| Z zero drops | Untested. Session level only |
+| C calibration | Replay: 2.60 s from a moving start (C2), tilt 0.30 degrees (C4). C1, C3, C5, C6 need the glasses. The saved bias is wired |
+| L latency, rate | Replay: 0.12 µs CPU per packet, 19 µs worst; no allocation in the hot path; 1 kHz. USB and scheduling not yet measured. L3 needs the shadow run, K1 |
+| D drift | Replay: about 0.5 degrees/min against an offline reference, tilt held. **Heading is the known weakness**: see `capture-findings.md` |
+| P resources | Offline only |
+| R reconnect | Fakes only. R1 cannot pass as configured, see above |
+| S safety | S1, S2, S5, S6 offline by `contract_test`. S4, S7 by tests. S3 changed. S8, S9 fakes |
+| F fit | F1 to F6, F8, F9 pass offline. F10 passes: no stand-ins left |
+| X features | X1, X2, X4 pass. The rest need glasses |
 
 ## Baselines, measured
 
@@ -156,7 +197,7 @@ The contract's "within about 1 s" cannot be counted from the disconnect, because
 
 | Id | Criterion | Target | Measured by | Level |
 |---|---|---|---|---|
-| R1 | Kernel's `usb 5-2.1: New USB device found` to first fresh pose | 1 s or less in at least 19 of 20 events | Kernel log against daemon log | Bench |
+| R1 | Kernel's `usb 5-2.1: New USB device found` to first fresh pose | 1 s or less in at least 19 of 20 events. As configured it takes about 2.2 s, on purpose: see the decisions above | Kernel log against daemon log | Bench |
 | R2 | The test runs inside the real isolation | Done in `unshare --user --net`, never only outside it. See the note below. | `tracking.py` launch | Bench |
 | R3 | Calibration kept when the glasses return within the keep window | `luma: calibrated restored`, no new still period | Daemon log | Bench |
 | R4 | Renderer stays alive | Session survives, tracking returns, nothing needs restarting. The feed's shared memory stays the same segments, because a running renderer holds them. | Session | Session |
@@ -176,9 +217,9 @@ file and return by other means. R2 keeps it honest. A test outside the namespace
 | Id | Criterion | Target | Measured by | Level |
 |---|---|---|---|---|
 | S1 | No network | No network code in the sources; running process has only a down `lo` and no internet sockets | `contract_test`; `/proc/<pid>/net`, `/proc/<pid>/fd` | Offline, Bench |
-| S2 | No device resets | No reset, set-configuration, set-interface or clear-halt in the sources or on the wire; no `reset high-speed USB device` in the kernel log | `contract_test`, usbmon, journal | Offline, Bench |
-| S3 | Minimal commands | By default the wire shows start once per connection, stop once on exit, **nothing else**, and 0 of MsgID `0x0007` | usbmon report | Bench |
-| S4 | No unknown opcodes | Only built commands reach the device, and none reaches 0x04/0x85 by default | Code review, usbmon | Offline, Bench |
+| S2 | No device resets | No reset, set-configuration, set-interface or clear-halt in the sources or on the wire; no `reset high-speed USB device` in the kernel log. VITURE's SDK does send CLEAR_HALT at start, 4 in the capture. Ours must not | `contract_test`, usbmon, journal | Offline, Bench |
+| S3 | Minimal commands | By default the wire shows the start once per connection, **nothing else**, and 0 of MsgID `0x0007`. No stop, until a capture shows one | usbmon report | Bench |
+| S4 | No unknown opcodes | Only built commands reach the device. On 0x04, only the exact frames in `allowed_mcu_frame`, each captured from VITURE's own software, and `Transport` refuses anything else before it reaches the wire | `transport_test`, usbmon | Offline, Bench |
 | S5 | No VITURE SDK, no new dependencies | `ldd` shows only the C and C++ runtime | `contract_test`, `ldd` | Offline |
 | S6 | Cannot move the mouse | No uinput | `contract_test` | Offline |
 | S7 | Optional features are off | Display control, firmware readout, brightness and the rest send nothing unless asked for | Tests with a fake transport, S3 | Offline, Bench |
@@ -221,19 +262,20 @@ The list and flags are in `spike/driver/docs/features.md`. Most features there a
 ## Seams the contract does not pin
 
 The contract fixes `types.hpp`, `parse_imu` and `Fusion::update` exactly. These links between threads it leaves open, so
-`contract_test` does not check them. Each needs one agreed answer before the matching step of the merge.
+`contract_test` does not check them. How each ended up:
 
-| Seam | Between | State at writing | Action |
-|---|---|---|---|
-| Device access | contract, transport | The contract says hidraw first, but the Luma Ultra has no HID interface. Usbfs is the only path. | Update the contract text. |
-| Hotplug | contract, transport | Contract's libudev or netlink cannot work (see R). Transport already avoids them. | Update the contract text. |
-| Log lines | daemon, integration, soak monitor | The daemon prints `luma: calibrated restored=0\|1`; integration matches the prefix `luma: calibrated`, which fits. A later `fresh` or `stale` line has no match yet. | One test should feed real daemon output to integration's parser. |
-| Daemon flags | daemon, integration | Daemon has `--ipc-prefix`, `--replay`, `--stale-ms`, `--reopen-ms`, `--keep-calibration-ms`. | Integration's fake driver must take the same flags. |
-| Capture format | recorder, daemon `--replay` | `load_capture` exists; `capture-format.md` is not written yet. | One file replayed end to end before merging the daemon. |
-| Angular velocity | fusion, prediction, publisher | `PoseOut` has no field for it and `contract_test` refuses extras. | Keep it beside `PoseOut`, as `FusionStatus` and `predict.hpp` do. The feed cannot carry it anyway. |
-| Seqlock | performance, publisher | The task asks for a seqlock in shared memory, but `pose.cpp` reads under the robust mutex. | The compatible feed keeps the mutex. A seqlock is for the later clean IPC or between internal threads only. |
-| Bias saved between sessions | fusion, daemon | `FusionConfig::warm_start_bias` takes one; nothing stores it. C5 cannot pass until the daemon does. | drv-daemon saves it on exit and loads it at start, under the user's state directory. |
-| Which features the daemon wires in | features, display, daemon | `features.md` has a section on wiring it in; the daemon does not yet. | Wired in at step 13 with every flag at its default. |
+| Seam | Between | How it ended up |
+|---|---|---|
+| Device access | contract, transport | usbfs only: the Luma Ultra has no HID interface |
+| Hotplug | contract, transport | No libudev or netlink: uevents never reach the sandbox. See R |
+| Axes | protocol, fusion, prediction | `parse_imu` returns forward, left, up, measured from the capture |
+| Log lines | daemon, integration, soak monitor | The daemon prints `luma: calibrated restored=0\|1`; integration matches the prefix. `tests/luma_soak` and `tests/native_spike` cover their sides |
+| Daemon flags | daemon, integration | Integration launches with no flags, so defaults are the live behaviour |
+| Capture format | recorder, daemon `--replay` | The daemon reads `.lcap` through `load_replay`, one endpoint. Replayed end to end on the real session |
+| Angular velocity | fusion, prediction, publisher | Beside `PoseOut`, not in it. The feed cannot carry it |
+| Seqlock | performance, publisher | The compatible feed keeps the mutex |
+| Bias saved between sessions | fusion, daemon | `luma-gyro-bias` under the state directory, read at start, written at exit |
+| Which features the daemon wires in | features, display, daemon | Those that send nothing, at their defaults. Temperature now has a real source |
 
 ## Merge plan
 
@@ -265,6 +307,9 @@ The brief named nine branches, but seventeen are running. All are placed below.
 | 15 | Set `LUMA_CONTRACT_REQUIRED=1` | Everything is in, so a missing header must now fail, not skip | `spike/driver/CMakeLists.txt` | One line |
 
 ### Expected conflicts
+
+The plan below was followed, with drv-review-qa first as asked, and all 15 steps are done on `drv-assemble`. Kept as the
+record of what was expected.
 
 **`spike/driver/CMakeLists.txt`.** Four branches add this file, and more add `*.cmake` beside it. Keep drv-transport's. It
 globs `src/*.cpp` and `tests/*_test.cpp`, so most pieces need no entry. Take none of the other versions blindly, because
@@ -340,9 +385,9 @@ the pieces will fit together, not that tracking works.
 
 Each step needs Cody's go-ahead and is run by the orchestrator. `spike/driver/docs/live-test-plan.md` has the exact steps.
 
-1. Cody decides on the USB capture (blocker 1). Take it, then fill in `parse_imu` and the start command.
-2. Offline: replay the capture through the whole driver.
-3. Bench: read-only detection, then 60 s of stream, then S1 to S4, then C, D, R.
+1. Done: the USB capture, `parse_imu` and the start command.
+2. Done: the capture replayed through the whole driver.
+3. Bench: read-only detection, then stage G to find the start that works, then 60 s of stream, then S1 to S4, then C, D, R.
 4. Session: 30-minute soak (Z1). Any drop stops the series.
 5. Session: up to 3 h in total (Z2), then L3, P1, F7.
 6. Session: features, one flag at a time (X5), then the chosen set together (X6).

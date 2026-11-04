@@ -111,6 +111,12 @@ int main(int argc, char** argv) {
                       &log_line, wiring::start_for(options->start), options->stop_command ? wiring::stop_command() : std::vector<std::uint8_t>{},
                       wiring::before_start(options->start)};
     if (options->start == Options::Start::listen) parts.stop_command.clear();
+    auto features = wiring::FeatureHost::make(options->feature_flags, &log_line, why);
+    if (!features) return fail(2, "feature " + why);
+    if (!replay) {
+        parts.on_link = [host = features.get()](bool up, std::uint64_t now) { host->link(up, now); };
+        parts.on_tick = [host = features.get(), d = decoder.get()](std::uint64_t now) { host->tick(now, d->temperature_c()); };
+    }
     {
         Daemon daemon(std::move(parts), options->config);
         daemon.run(g_stop);

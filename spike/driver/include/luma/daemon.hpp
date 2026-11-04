@@ -97,6 +97,7 @@ public:
     virtual std::uint64_t lost_samples() const { return 0; }
     // The last packet decode() turned down was a repeat of an earlier one, not junk. The Ultra sends the first 60 or so twice.
     virtual bool last_was_repeat() const { return false; }
+    virtual std::optional<float> temperature_c() const { return std::nullopt; }  // from the newest packet, when it has one
 };
 
 using Logger = std::function<void(std::string_view)>;
@@ -140,6 +141,9 @@ struct DaemonParts {
     // Sent in order ahead of start_command, start_spacing apart. A sample arriving meanwhile cancels the rest. An empty
     // start_command with nothing here only listens.
     std::vector<std::vector<std::uint8_t>> before_start{};
+    // Off the hot path: link changes, and about ten times a second while running. Empty: nothing is called.
+    std::function<void(bool up, std::uint64_t now)> on_link{};
+    std::function<void(std::uint64_t now)> on_tick{};
 };
 
 enum class DaemonEnd { stop_requested, replay_ended };
@@ -202,7 +206,7 @@ private:
     // A new calibration's heading is the world it happened to face: see carry_heading.
     bool heading_pending_ = false, heading_fixed_ = false, heading_kept_ = false, have_last_q_ = false;
     Quatf heading_fix_{}, last_q_{};
-    std::uint64_t next_stats_ = 0, stats_samples_ = 0, stats_since_ = 0;
+    std::uint64_t next_stats_ = 0, stats_samples_ = 0, stats_since_ = 0, next_tick_ = 0;
 };
 
 // A recording to run instead of the glasses. load_capture reads a real capture, .lcap (docs/capture-format.md), keeping one
@@ -252,6 +256,7 @@ struct Options {
     std::string state_dir;       // where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state
     std::optional<std::string> pose_log;  // --replay only: write every Nth pose here, for tools
     unsigned pose_log_every = 10;
+    std::vector<std::string> feature_flags;  // --feature-* and --no-feature-*, passed on as they are
     DaemonConfig config{};
 };
 // nullopt: `why` says what is wrong with the command line. A replay must name its --ipc-prefix: run with the default it

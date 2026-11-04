@@ -556,6 +556,16 @@ void test_stream_packets_that_are_not_imu_are_refused() {
     CHECK(!parse_imu(hex("aa 8f 00 88 3c 15 0f 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00")));
 }
 
+void test_temperature_word() {
+    // captured: 0x06e8 at the start of the session, 0x0a98 after 8 minutes.
+    const auto cold = luma_temperature_c(hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00"));
+    const auto warm = luma_temperature_c(hex("aa 8f 00 88 eb b8 10 00 f0 89 4d 00 00 00 f4 ff 04 00 09 ff 96 02 17 20 98 0a 00 00"));
+    CHECK(cold && warm);
+    CHECK(*cold > 38 && *cold < 39);
+    CHECK(*warm > 45 && *warm < 46);
+    CHECK(!luma_temperature_c(hex("aa 8f 00 91 00 00 00 00 58 1e 01 00 00 00 00 00")));
+}
+
 void test_luma_encoder_is_the_parser_inverse() {
     const auto real = hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00");
     const auto s = parse_imu(real);
@@ -795,6 +805,7 @@ int main() {
         T(test_captured_imu_packet_decodes_to_the_body_frame),
         T(test_captured_mid_session_packets),
         T(test_stream_packets_that_are_not_imu_are_refused),
+        T(test_temperature_word),
         T(test_luma_encoder_is_the_parser_inverse),
         T(test_captured_envelope_frames_match_our_builder),
         T(test_tracker_widens_the_16_bit_sequence),

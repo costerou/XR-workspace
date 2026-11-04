@@ -1,5 +1,6 @@
 // The one file that knows the real Transport, parse_imu, Fusion and Publisher.
 #include "luma/wiring.hpp"
+#include "luma/features.hpp"
 #include "luma/fusion.hpp"
 #include "luma/protocol.hpp"
 #include "luma/publish.hpp"
@@ -78,6 +79,7 @@ public:
         repeat_ = false;
         std::optional<ImuSample> sample = parse_imu(packet);
         if (!sample) return std::nullopt;
+        temperature_ = luma_temperature_c(packet);
         if (tracker_.observe(*sample).verdict == SequenceTracker::Verdict::accepted) return sample;
         repeat_ = true;
         return std::nullopt;
@@ -85,10 +87,68 @@ public:
     void new_connection() override { tracker_.reset(); }
     std::uint64_t lost_samples() const override { return tracker_.lost_total(); }
     bool last_was_repeat() const override { return repeat_; }
+    std::optional<float> temperature_c() const override { return temperature_; }
 private:
     SequenceTracker tracker_ = luma_sequence_tracker();
+    std::optional<float> temperature_;
     bool repeat_ = false;
 };
+}
+
+struct FeatureHost::Impl {
+    features::Manager manager;
+    Logger log;
+    std::uint64_t next_temperature = 0;
+    explicit Impl(features::Config config, Logger logger) : manager(std::move(config)), log(std::move(logger)) {}
+    void drain() {
+        while (const auto event = manager.pop_event()) {
+            std::array<char, 256> line{};
+            const std::size_t n = features::format_event(*event, line);
+            if (log) log("luma: feature " + std::string(line.data(), n));
+        }
+    }
+};
+
+FeatureHost::FeatureHost() = default;
+FeatureHost::~FeatureHost() = default;
+
+std::unique_ptr<FeatureHost> FeatureHost::make(const std::vector<std::string>& flags, Logger log, std::string& why) {
+    features::Config config;
+    for (const std::string& flag : flags) {
+        if (features::parse_flag(config, flag, &why) != features::FlagResult::Ok) {
+            if (why.empty()) why = "unknown feature flag " + flag;
+            return nullptr;
+        }
+        const std::string_view name = std::string_view(flag).substr(flag.starts_with("--no-") ? 13 : 10);
+        for (const features::FlagInfo& info : features::flag_table()) {
+            if (!info.sends_usb || !name.starts_with(info.name) || flag.starts_with("--no-")) continue;
+            why = flag + " would send a command, and no capture has shown its id";
+            return nullptr;
+        }
+    }
+    std::unique_ptr<FeatureHost> host(new FeatureHost());
+    host->impl_ = std::make_unique<Impl>(std::move(config), std::move(log));
+    return host;
+}
+
+void FeatureHost::link(bool up, std::uint64_t now) {
+    if (up) {
+        impl_->manager.on_connect(now);
+        if (const auto identity = features::find_usb_identity(features::kSysfsUsbDevices, kVitureVendorId, kLumaUltraProductId))
+            impl_->manager.on_identity(*identity, now);
+    } else {
+        impl_->manager.on_disconnect(now);
+    }
+    impl_->drain();
+}
+
+void FeatureHost::tick(std::uint64_t now, std::optional<float> temperature_c) {
+    if (temperature_c && now >= impl_->next_temperature) {
+        impl_->next_temperature = now + 60'000'000'000ull;
+        impl_->manager.on_temperature(*temperature_c, now);
+    }
+    impl_->manager.tick(now);
+    impl_->drain();
 }
 
 void BiasStore::load() {

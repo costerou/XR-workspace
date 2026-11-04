@@ -84,6 +84,7 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
     while (!stop.load(std::memory_order_relaxed) && !ended) {
         const std::uint64_t now = parts_.now_ns();
         if (now >= next_stats_) { log_stats(); next_stats_ = now + ns(config_.stats_every); }
+        if (parts_.on_tick && now >= next_tick_) { parts_.on_tick(now); next_tick_ = now + 100 * kMs; }
         if (up_) {
             const ReadResult r = parts_.link.read(buffer_, config_.read_timeout);
             const std::uint64_t after = parts_.now_ns();
@@ -151,6 +152,7 @@ void Daemon::connect(std::uint64_t now) {
     device_left_ = false;
     parts_.decoder.new_connection();
     if (!ever_connected_) { ever_connected_ = true; logf("luma: connected"); }
+    if (parts_.on_link) parts_.on_link(true, now);
 }
 
 void Daemon::send_start(std::uint64_t now) {
@@ -173,6 +175,7 @@ void Daemon::send_start(std::uint64_t now) {
 void Daemon::go_down(const char* reason, bool silent, std::uint64_t now) {
     parts_.link.close();
     up_ = false;
+    if (parts_.on_link) parts_.on_link(false, now);
     const bool healthy = connection_has_sample_ && watch_from_ - connection_first_sample_ >= ns(config_.healthy_after);
     if (healthy) retries_ = silent_retries_ = settle_level_ = 0;
     else if (!silent && start_sent_) ++settle_level_;  // it died soon after we spoke to it: speak later next time
@@ -423,6 +426,7 @@ const char* const kUsage =
     "  --state-dir PATH         where the gyro bias is kept between runs\n"
     "  --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose\n"
     "  --pose-log-every N       default 10\n"
+    "  --feature-NAME, --no-feature-NAME  optional features that send nothing; see spike/driver/docs/features.md\n"
     "  --help\n";
 
 namespace {
@@ -480,6 +484,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--reopen-ms") { if (!number(o.config.silent_reopen_after)) return std::nullopt; }
         else if (arg == "--keep-calibration-ms") { if (!number(o.config.calibration_keep)) return std::nullopt; }
         else if (arg == "--settle-ms") { if (!number(o.config.settle_first)) return std::nullopt; }
+        else if (arg.starts_with("--feature-") || arg.starts_with("--no-feature-")) o.feature_flags.emplace_back(arg);
         else { why = "unknown option: " + std::string(arg); return std::nullopt; }
     }
     if (o.ipc_prefix.empty()) { why = "--ipc-prefix must not be empty"; return std::nullopt; }

@@ -26,6 +26,20 @@ private:
 };
 std::string default_state_dir();
 
+// The optional features, on the same thread as the daemon. Everything reachable from here sends nothing: flags that would
+// send a command are refused, because no capture has shown their ids (spike/driver/docs/features.md, acceptance X4).
+class FeatureHost {
+public:
+    static std::unique_ptr<FeatureHost> make(const std::vector<std::string>& flags, Logger log, std::string& why);
+    ~FeatureHost();
+    void link(bool up, std::uint64_t now);
+    void tick(std::uint64_t now, std::optional<float> temperature_c);
+private:
+    FeatureHost();
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
 std::unique_ptr<Link> live_link(std::string& why, const Options& options = {}, Logger log = {});
 // private_segments: create and remove our own segments and never attach to any that exist. A replay must set it: ftok keys
 // hold only 16 bits of the inode, so even a private prefix can land on the live feed's key.
