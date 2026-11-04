@@ -28,6 +28,18 @@ constexpr std::size_t kCounterOffset = 6;
 constexpr std::size_t kMsgIdOffset = 14;
 constexpr std::size_t kBodyOffset = 18;
 
+// One lookup per byte: a full packet is checked 1000 times a second.
+constexpr std::array<std::uint16_t, 256> kCrcTable = [] {
+    std::array<std::uint16_t, 256> table{};
+    for (std::size_t i = 0; i < table.size(); ++i) {
+        auto crc = std::uint16_t(i << 8);
+        for (int bit = 0; bit < 8; ++bit)
+            crc = (crc & 0x8000) ? std::uint16_t((crc << 1) ^ 0x1021) : std::uint16_t(crc << 1);
+        table[i] = crc;
+    }
+    return table;
+}();
+
 std::uint16_t read_le16(const std::uint8_t* p) {
     return std::uint16_t(p[0] | (p[1] << 8));
 }
@@ -104,23 +116,19 @@ Command v2_imu_control(std::uint8_t stream, std::uint8_t rate) {
 
 }  // namespace
 
-std::uint16_t crc16_xmodem(Bytes bytes) {
+std::uint16_t crc16_xmodem(Bytes bytes) noexcept {
     std::uint16_t crc = 0;
-    for (const std::uint8_t byte : bytes) {
-        crc ^= std::uint16_t(byte << 8);
-        for (int bit = 0; bit < 8; ++bit)
-            crc = (crc & 0x8000) ? std::uint16_t((crc << 1) ^ 0x1021) : std::uint16_t(crc << 1);
-    }
+    for (const std::uint8_t byte : bytes) crc = std::uint16_t((crc << 8) ^ kCrcTable[(crc >> 8) ^ byte]);
     return crc;
 }
 
-std::uint16_t byte_sum16(Bytes bytes) {
+std::uint16_t byte_sum16(Bytes bytes) noexcept {
     std::uint16_t sum = 0;
     for (const std::uint8_t byte : bytes) sum = std::uint16_t(sum + byte);
     return sum;
 }
 
-std::optional<DataFrame> parse_data_frame(Bytes p) {
+std::optional<DataFrame> parse_data_frame(Bytes p) noexcept {
     const FrameKind kind = data_kind(p);
     if (kind == FrameKind::unknown) return std::nullopt;
     const std::size_t pklen = read_le16(p.data() + 4);
@@ -132,7 +140,7 @@ std::optional<DataFrame> parse_data_frame(Bytes p) {
     return DataFrame{kind, read_le16(p.data() + kMsgIdOffset), counter, p.subspan(kBodyOffset, end - kBodyOffset)};
 }
 
-FrameInfo classify(Bytes p) {
+FrameInfo classify(Bytes p) noexcept {
     if (is_v2(p)) {
         const auto frame = intact_v2(p);
         return {FrameKind::v2, read_le16(p.data() + 2), frame.has_value()};
@@ -142,11 +150,11 @@ FrameInfo classify(Bytes p) {
     return {kind, read_le16(p.data() + kMsgIdOffset), parse_data_frame(p).has_value()};
 }
 
-std::optional<ImuSample> parse_imu(Bytes packet) {
-    return parse_imu(packet, ParseOptions{});
+std::optional<ImuSample> parse_imu(Bytes packet) noexcept {
+    return parse_imu_with(packet, ParseOptions{});
 }
 
-std::optional<ImuSample> parse_imu(Bytes packet, const ParseOptions& options) {
+std::optional<ImuSample> parse_imu_with(Bytes packet, const ParseOptions& options) noexcept {
     if (const auto v2 = intact_v2(packet)) {
         if (v2->msg_id != options.v2.msg_id) return std::nullopt;
         return decode(v2->payload, options.v2);
@@ -187,7 +195,7 @@ std::optional<Command> stop_imu(Device device) {
     return std::nullopt;  // Luma Ultra: see start_imu
 }
 
-SequenceTracker::Result SequenceTracker::observe(ImuSample& sample) {
+SequenceTracker::Result SequenceTracker::observe(ImuSample& sample) noexcept {
     Result result;
     if (!have_last_) {
         ticks_ = have_ticks_ ? ticks_ + 1 : sample.seq;

@@ -10,9 +10,9 @@
 //   Luma Ultra, data envelope (FF FE / FF FD), endpoints 0x06 / 0x87:
 //     github.com/go-viture/luma (BSD-3-Clause, cc37e96), info.go. Measured on
 //     a Luma Ultra for read-only requests. That project read the layout out of
-//     the vendor's library, then confirmed it on hardware.
-//     Not established: that replies carry a valid CRC (go-viture never checks
-//     one), and which messages exist beyond its five reads.
+//     the vendor's library, then confirmed it on hardware. A real reply from
+//     its tests passes the CRC below, and so does VITURE's own updater's frames.
+//     Not established: any message beyond its five reads.
 //
 //   Luma Ultra, IMU stream: UNKNOWN. The pipe, the start command and the packet
 //     layout are all unpublished. The descriptors of 35ca:1104 show interrupt
@@ -27,7 +27,8 @@
 //     only gyro and accelerometer packet with a public byte layout, and no
 //     Luma Ultra has been shown to speak it.
 //
-// So until a capture of a real session settles it:
+// So until a capture of a real session settles it (recording a session running
+// the SDK is Cody's call, see spike/driver/docs/protocol.md):
 //   - parse_imu() returns nothing for every Luma Ultra frame, because
 //     kLumaUltraImuFields is empty. It never guesses, since a wrong guess would
 //     turn into plausible head motion.
@@ -37,9 +38,11 @@
 // and one start message, not a new parser. Tests prove that path with a
 // synthetic layout.
 //
-// Commands deliberately absent, all optional for a head-tracking stream:
-// display mode (message 0x0007 in the current driver's log, the one that was
-// timing out), brightness, volume, film, serial and version reads. The FA 55
+// Every command sent is a chance to upset the firmware, and zero USB drops comes
+// first, so a stream gets one start, one stop and no polling. Deliberately absent,
+// all optional for head tracking: display mode (message 0x0007, the one timing
+// out in the current driver's log), status reports (0x100B, whose effect is
+// unknown), brightness, volume, film, serial and version reads. The FA 55
 // envelope on endpoints 0x04 / 0x85 is absent too: go-viture reports it as the
 // channel the vendor's updater flashes through.
 #pragma once
@@ -62,10 +65,10 @@ inline constexpr std::uint8_t kV2EndpointOut = 0x01;
 // CRC-16/XMODEM: polynomial 0x1021, initial value 0, no reflection, no final
 // xor. Check value: "123456789" gives 0x31C3. Older VITURE write-ups disagree
 // (bfvogel/viture-webxr-extension says initial 0xFFFF, big-endian); this is the
-// one go-viture sent to a Luma Ultra and got answers with.
-std::uint16_t crc16_xmodem(std::span<const std::uint8_t> bytes);
+// one a real Luma Ultra uses in both directions.
+std::uint16_t crc16_xmodem(std::span<const std::uint8_t> bytes) noexcept;
 // Sum of the bytes modulo 2^16: the check of protocol V2, which is not a CRC.
-std::uint16_t byte_sum16(std::span<const std::uint8_t> bytes);
+std::uint16_t byte_sum16(std::span<const std::uint8_t> bytes) noexcept;
 
 enum class FrameKind {
     unknown,       // no known framing, or a data frame too short to hold a header
@@ -82,7 +85,7 @@ struct FrameInfo {
     std::uint16_t msg_id = 0;
     bool intact = false;
 };
-FrameInfo classify(std::span<const std::uint8_t> packet);
+FrameInfo classify(std::span<const std::uint8_t> packet) noexcept;
 
 // One intact data-envelope frame. All multi-byte fields are little-endian:
 //   0..1   sync
@@ -98,7 +101,7 @@ struct DataFrame {
     std::uint64_t counter = 0;
     std::span<const std::uint8_t> body;  // views the packet passed in
 };
-std::optional<DataFrame> parse_data_frame(std::span<const std::uint8_t> packet);
+std::optional<DataFrame> parse_data_frame(std::span<const std::uint8_t> packet) noexcept;
 
 // Where the fields of one IMU message live. Offsets count from the first byte
 // of the payload (protocol V2) or of the body (data envelope). The timestamp
@@ -151,9 +154,12 @@ inline constexpr float kMaxAccelMs2 = 320.0f;
 // Decodes one packet into a sample, or returns nothing if the packet is
 // malformed, fails its check, is another message, is not a known IMU layout, or
 // holds a non-finite, out-of-range or all-zero reading. Trailing bytes past the
-// frame's own length are padding and are ignored. Never throws or allocates.
-std::optional<ImuSample> parse_imu(std::span<const std::uint8_t> packet);
-std::optional<ImuSample> parse_imu(std::span<const std::uint8_t> packet, const ParseOptions& options);
+// frame's own length are padding and are ignored. Safe on the real-time thread:
+// it cannot throw and makes no allocation, and a test measures that.
+std::optional<ImuSample> parse_imu(std::span<const std::uint8_t> packet) noexcept;
+// Same, with other layouts. A separate name, because the daemon stores parse_imu
+// as a plain function pointer, which an overload would make ambiguous.
+std::optional<ImuSample> parse_imu_with(std::span<const std::uint8_t> packet, const ParseOptions& options) noexcept;
 
 // A command, and the endpoint it goes to.
 struct Command {
@@ -199,10 +205,10 @@ public:
 
     explicit SequenceTracker(std::uint64_t tick_ns = kV2RawFields.tick_ns) : tick_ns_(tick_ns) {}
 
-    Result observe(ImuSample& sample);
+    Result observe(ImuSample& sample) noexcept;
     // Call after a reconnect: the next sample starts a fresh count.
-    void reset() { have_last_ = false; }
-    std::uint64_t lost_total() const { return lost_total_; }
+    void reset() noexcept { have_last_ = false; }
+    std::uint64_t lost_total() const noexcept { return lost_total_; }
 
 private:
     std::uint64_t tick_ns_;

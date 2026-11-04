@@ -2,6 +2,8 @@
 //   - bytes printed in a public source: viture-v2 PROTOCOL.md, go-viture frames;
 //   - bytes computed by an independent script from a published layout, using
 //     published sensor values, so they check this code against the layout.
+//   - bytes a real device or VITURE's own code produced, kept in go-viture's
+//     tests: the strongest kind, marked as such where used.
 // No vector here is a real Luma Ultra IMU packet: none has been published.
 #include "luma/protocol.hpp"
 #include <algorithm>
@@ -10,19 +12,52 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <new>
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
+
+// Counts every allocation in this program, so the real-time path's claim to make
+// none is measured rather than promised.
+static std::size_t g_allocations = 0;
+void* operator new(std::size_t size) {
+    ++g_allocations;
+    if (void* p = std::malloc(size ? size : 1)) return p;
+    throw std::bad_alloc();
+}
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(std::string(__func__) + ":" + std::to_string(__LINE__) + ": " #x); } while (0)
 using namespace luma;
 using Bytes = std::vector<std::uint8_t>;
 
+// The daemon stores the parser as this plain pointer (daemon.hpp, Parser), so
+// the name must not be overloaded. The hot path must not be able to throw.
+using ParserPointer = std::optional<ImuSample> (*)(std::span<const std::uint8_t>);
+[[maybe_unused]] constexpr ParserPointer kParserPointerFits = &luma::parse_imu;
+static_assert(noexcept(parse_imu(std::span<const std::uint8_t>{})));
+static_assert(noexcept(parse_imu_with(std::span<const std::uint8_t>{}, std::declval<const ParseOptions&>())));
+static_assert(noexcept(classify(std::span<const std::uint8_t>{})));
+static_assert(noexcept(parse_data_frame(std::span<const std::uint8_t>{})));
+static_assert(noexcept(crc16_xmodem(std::span<const std::uint8_t>{})));
+static_assert(noexcept(byte_sum16(std::span<const std::uint8_t>{})));
+static_assert(noexcept(std::declval<SequenceTracker&>().observe(std::declval<ImuSample&>())));
+
 namespace {
+
+Bytes from_hex(const std::string& hex) {
+    Bytes out;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2)
+        out.push_back(std::uint8_t(std::stoi(hex.substr(i, 2), nullptr, 16)));
+    return out;
+}
 
 bool near(float a, float b, float eps = 1e-5f) { return std::fabs(a - b) <= eps; }
 void put_le16(Bytes& b, std::size_t at, std::uint16_t v) {
@@ -129,6 +164,72 @@ void test_data_request_golden() {
     CHECK(std::equal(head2.begin(), head2.end(), with_body->bytes.begin()));
 }
 
+void test_data_request_matches_vendor_frames() {
+    // Real frames from VITURE's own updater, kept in go-viture info_test.go.
+    const struct { std::uint16_t msg; const char* head; } frames[] = {
+        {0x0001, "fffe7a600c0000000000000000000100"},
+        {0x0010, "fffe690d0c0000000000000000001000"},
+        {0x0011, "fffedd7b0c0000000000000000001100"},
+        {0x000b, "fffed1080c0000000000000000000b00"},
+        {0x0063, "fffec0d40c0000000000000000006300"},
+    };
+    for (const auto& f : frames) {
+        const auto r = data_request(f.msg);
+        CHECK(r);
+        const Bytes want = from_hex(f.head);
+        CHECK(std::equal(want.begin(), want.end(), r->bytes.begin()));
+        CHECK(classify(r->bytes).intact);
+    }
+}
+
+void test_real_luma_ultra_reply_passes_every_check() {
+    // Sent by a real Luma Ultra on 2026-09-07, kept in go-viture info_test.go. It
+    // proves that device replies carry the CRC this code checks: go-viture
+    // itself never tests it.
+    const Bytes reply =
+        from_hex("fffdaf0f210000000000763e42000100000000" "31322e302e30312e3130315f3230323630363035");
+    const auto info = classify(reply);
+    CHECK(info.kind == FrameKind::data_reply);
+    CHECK(info.msg_id == 0x0001);
+    CHECK(info.intact);
+    const auto frame = parse_data_frame(reply);
+    CHECK(frame);
+    CHECK(frame->body.size() == 21);
+    CHECK(frame->body[0] == 0x00);  // status: success
+    const std::string text(frame->body.begin() + 1, frame->body.end());
+    CHECK(text == "12.0.01.101_20260605");
+    // Padded to the packet size, as it arrives on the wire.
+    Bytes padded = reply;
+    padded.resize(kDataPacketSize, 0);
+    CHECK(parse_data_frame(padded));
+}
+
+void test_hot_path_never_allocates() {
+    const auto options = synthetic_options();
+    const Bytes good = kV2Golden;
+    Bytes bad = kV2Golden;
+    bad[20] ^= 1;
+    const Bytes data = device_frame(0xfc, kSyntheticFields.msg_id, synthetic_body(true));
+    const Bytes* const packets[] = {&good, &bad, &data};
+    SequenceTracker tracker;
+    const std::size_t before = g_allocations;
+    std::uint64_t seen = 0;
+    for (int i = 0; i < 1000; ++i) {
+        for (const Bytes* packet : packets) {
+            auto sample = parse_imu_with(*packet, options);
+            (void)classify(*packet);
+            (void)parse_data_frame(*packet);
+            if (sample) seen += tracker.observe(*sample).lost;
+        }
+    }
+    const std::size_t during = g_allocations - before;
+    CHECK(during == 0);
+    // A command does allocate, which shows the counter can see one.
+    CHECK(data_request(1));
+    CHECK(g_allocations > before);
+    (void)seen;
+}
+
 void test_data_request_refuses_oversize_payload() {
     CHECK(data_request(1, Bytes(512 - 18, 0)));
     CHECK(!data_request(1, Bytes(512 - 18 + 1, 0)));
@@ -212,7 +313,7 @@ void test_v2_padding_is_ignored() {
 void test_v2_tick_length_is_configurable() {
     ParseOptions o;
     o.v2.tick_ns = 8'333'333;  // 120 Hz
-    CHECK(parse_imu(kV2Golden, o)->t_ns == 8'333'333'000ull);
+    CHECK(parse_imu_with(kV2Golden, o)->t_ns == 8'333'333'000ull);
 }
 
 void test_every_truncation_is_rejected() {
@@ -288,7 +389,7 @@ void test_luma_ultra_frames_decode_to_nothing_until_a_capture_settles_them() {
 }
 
 void test_data_envelope_decoder_big_endian() {
-    const auto s = parse_imu(device_frame(0xfc, kSyntheticFields.msg_id, synthetic_body(true)), synthetic_options());
+    const auto s = parse_imu_with(device_frame(0xfc, kSyntheticFields.msg_id, synthetic_body(true)), synthetic_options());
     CHECK(s);
     CHECK(s->seq == 12345);
     CHECK(s->t_ns == 24'690'000'000ull);
@@ -299,7 +400,7 @@ void test_data_envelope_decoder_big_endian() {
 void test_data_envelope_decoder_little_endian() {
     auto o = synthetic_options();
     o.luma_ultra->big_endian = false;
-    const auto s = parse_imu(device_frame(0xfd, kSyntheticFields.msg_id, synthetic_body(false)), o);
+    const auto s = parse_imu_with(device_frame(0xfd, kSyntheticFields.msg_id, synthetic_body(false)), o);
     CHECK(s);
     CHECK(s->seq == 12345);
     CHECK(s->accel_m_s2 == (std::array<float, 3>{0.25f, 9.5f, -1.0f}));
@@ -307,17 +408,17 @@ void test_data_envelope_decoder_little_endian() {
 
 void test_data_envelope_decoder_rejections() {
     const auto o = synthetic_options();
-    CHECK(!parse_imu(device_frame(0xfc, 0x0abd, synthetic_body(true)), o));  // another message
+    CHECK(!parse_imu_with(device_frame(0xfc, 0x0abd, synthetic_body(true)), o));  // another message
     Bytes short_body = synthetic_body(true);
     short_body.resize(39);
-    CHECK(!parse_imu(device_frame(0xfc, kSyntheticFields.msg_id, short_body), o));
+    CHECK(!parse_imu_with(device_frame(0xfc, kSyntheticFields.msg_id, short_body), o));
     auto damaged = device_frame(0xfc, kSyntheticFields.msg_id, synthetic_body(true));
     damaged[20] ^= 0x10;
-    CHECK(!parse_imu(damaged, o));
+    CHECK(!parse_imu_with(damaged, o));
     // A host request is ours, never a reading, even with the right message id.
     auto ours = device_frame(0xfe, kSyntheticFields.msg_id, synthetic_body(true));
     CHECK(parse_data_frame(ours));
-    CHECK(!parse_imu(ours, o));
+    CHECK(!parse_imu_with(ours, o));
 }
 
 void test_classify() {
@@ -468,7 +569,7 @@ void test_fuzz_random_bytes() {
         for (std::size_t k = 0; k < n; ++k) buf[k] = std::uint8_t(rng());
         const auto packet = std::span<const std::uint8_t>(buf).first(n);
         check_sane(parse_imu(packet));
-        check_sane(parse_imu(packet, o));
+        check_sane(parse_imu_with(packet, o));
         (void)classify(packet);
         (void)parse_data_frame(packet);
     }
@@ -490,7 +591,7 @@ void test_fuzz_past_the_checks() {
 
         Bytes body(40);
         for (auto& b : body) b = std::uint8_t(rng());
-        const auto b = parse_imu(device_frame(0xfc, kSyntheticFields.msg_id, body, 64), o);
+        const auto b = parse_imu_with(device_frame(0xfc, kSyntheticFields.msg_id, body, 64), o);
         check_sane(b);
         decoded += b.has_value();
     }
@@ -507,7 +608,7 @@ void test_fuzz_mutations_of_valid_frames() {
         Bytes f = rng() % 2 ? kV2Golden : data;
         for (unsigned m = 0; m < 1 + rng() % 4; ++m) f[rng() % f.size()] = std::uint8_t(rng());
         f.resize(rng() % (f.size() + 1));
-        check_sane(parse_imu(f, o));
+        check_sane(parse_imu_with(f, o));
         (void)classify(f);
     }
 }
@@ -536,6 +637,9 @@ int main() {
 #define T(n) {#n, n}
         T(test_checks_match_published_values),
         T(test_data_request_golden),
+        T(test_data_request_matches_vendor_frames),
+        T(test_real_luma_ultra_reply_passes_every_check),
+        T(test_hot_path_never_allocates),
         T(test_data_request_refuses_oversize_payload),
         T(test_data_frame_round_trip),
         T(test_data_frame_rejects_damage),
