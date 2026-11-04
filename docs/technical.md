@@ -840,6 +840,8 @@ anything, and it reads no logs while no session runs.
 | Kind | Seen from |
 | --- | --- |
 | `renderer-crash`, `renderer-exit` | The run's result: a crash signal, another signal, or a nonzero exit code. `coredumpctl` supplies the backtrace. |
+| `control-closed` | A renderer that exited by itself with `control: supervisor channel closed` as its own last word, in the run's journal. Exit code 1 alone says nothing. |
+| `control-refused`, `supervisor-fault` | A session that carried on: the exit report's `control_stream.refused` above 0, or `faults` in the result. Reported when the run ends, even after a clean Stop, as each is a bug. See [One bad frame, one bad key](#one-bad-frame-one-bad-key). |
 | `run-killed`, `run-failed` | No result file for a dead unit (its end comes from its journal, as `--collect` removes a failed unit from `systemctl show`), or a result with an error or an unfinished recovery. |
 | `watchdog` | `stop_reason` in the result: the supervisor ended the renderer (no heartbeat for 2 s, a bad heartbeat, the guard failing or late, a send failing on a live renderer). Or the unit stayed up with its control socket silent for 15 s. |
 | `video-lost` | The connector's sysfs `status`, the output leaving Hyprland for 3 s, or its mode differing from the session's for 5 s. |
@@ -860,6 +862,11 @@ disconnect line names none: a game controller on `1-4` dropped in the very secon
 `KINDS`, and a crash outranks the USB drop that may have set it off, as the crash is what software can fix. A desktop
 resize fails a capture or two (21 failures over 39 desktop resizes in `capture_e2e_churn_resize`), so failures only count
 in a row, and the renderer reports that as `capture_failure_run`.
+
+**What 2026-11-04 decided.** Run 15cd0dc8 ended at 03:21 with rc 1 and a tidy result. The renderer had quit on a bad control
+frame, 284 ms later the driver logged `luma: stale`, and that made the report `tracking-lost`, low confidence. So
+`control-closed` ranks right under `renderer-crash`: what tracking says after that moment follows from it. The signal takes
+its time from the journal line, so the timeline reads in order though the monitor hears of the end a moment later.
 
 **What is not an incident.** Stop, also Stop during a start, and the renderer's SIGTERM or SIGKILL from Stop's own grace
 period. Recover that finishes. A controller restart under a live session, which the panel's restart is. A reboot:
@@ -899,6 +906,40 @@ exists, runs as `on-incident <report.json>`: no shell, its own session, 30 s, th
 be a regular executable that only you or root can change, or it is refused. It runs on its own thread, so a slow hook
 holds nothing up. Its exit code and the first 64 KB of its output go to `incidents/hook.log` (0600, rolled to `hook.log.1`
 past 256 KB). The repo never creates the hook.
+
+### One bad frame, one bad key
+
+The supervisor and the renderer share one socket, and neither side's mistake may end a session.
+
+**Frames go out in the order they were built.** Every frame takes the next `request_id` when it is built, and the renderer
+treats an id at or below the last as a replay. So a handler must not build one frame and send it after a later one.
+`_on_menu` did: R built its `roll` frame first, so that bumping counts the roll, and sent it last, which ended a session on
+2026-11-04 whenever R changed the desktop's roll and anything else.
+
+**A bad frame costs that frame.** `xr::ControlStream` (ipc.hpp) is the renderer's read loop. A frame it refuses has no effect
+and does not move the replay floor, whatever is wrong with it: out of order, malformed, someone else's run, an unknown op,
+one with no end. It logs `control: refused frame ID (OP): CODE, N so far` (the first 20, then every 1000th, never the
+payload) and the exit report's `control_stream` counts it. A refused `video` frame also gives up a waiting descriptor: only
+its own `open` would take it, and left there the next `open` would play this file. The session ends only when the socket
+really closes: `control: supervisor channel closed`.
+
+**Tests do not get that mercy.** `--control-errors fatal` restores the old rule and `capture_e2e_bench` passes it unless told
+otherwise, and `--check` also fails on any refusal in the exit report, so every `capture_e2e_*` proves the renderer took
+everything it was sent. `capture_e2e_bad_control` runs the real renderer as it ships through each kind of bad frame, and
+`capture_e2e_bad_control_fatal` proves the strict rule does stop it. `test_control_wire.py` puts the real supervisor's frames
+through the renderer's own `ControlStream` (ctest `control_wire`), for the scenarios and for a random walk over every op
+whose reach `test_the_walk_gets_everywhere` checks. The `frames()` helpers of the Python suites check the ids too
+(`control_wire.in_order`).
+
+**A bad key costs that key.** The run's handlers share the supervisor's loop: a key, a Hyprland event, a renderer status line,
+`poll`. `Supervisor._contained` catches what one raises, so a bug costs that call. The watchdog's own work does not go
+through it, and neither does KeyboardInterrupt, which is Stop. `faults.py` logs the whole traceback to the run's journal, once
+for each place, and keeps a short form for `faults` in the result, which the report carries. The form is short on purpose:
+`read_private_json` refuses a result over 16 KiB, and a run with no readable result looks killed. An exception that does end
+the run gets the same treatment in `runner.execute`, which used to keep only its text.
+
+Nothing on the wire changed, so either side works with the other's old build. The fix to R is in the supervisor alone; what
+a bad frame costs is the renderer's, and `control-closed` reads the old renderer's words as well as the new.
 
 ### Sending windows to the glasses
 
@@ -2165,6 +2206,9 @@ reading the source, so a wrong reading would pass there: the glasses steps W1–
 `test_leftover_rule.py` (tests/native_spike) and `test_recovery_report.py` (tests/xr_controller) cover a recovery past a
 monitor rule and every place its reasons reach. Their compositor is a double, and every config they edit is in a scratch
 directory: `monitor_rules` only touches the file a client names, and no double names the real one.
+
+`test_control_wire.py` and `test_supervisor_faults.py` (tests/native_spike) cover [One bad frame, one bad key](#one-bad-frame-one-bad-key), with ctest
+`control_wire` and `capture_e2e_bad_control*`.
 
 Incident reports add four files in `tests/xr_controller`: `test_incident_detect.py` (every detector and its false
 positives, with the real kernel, driver and unit lines of 2026-11-03), `test_incident_report.py` (redaction, the guess, the
