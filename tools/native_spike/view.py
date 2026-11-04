@@ -876,7 +876,7 @@ def session_mode(monitor):
     """The approved output's placement if it is in the granted session mode, else None."""
     if not isinstance(monitor, dict) or not PHYSICAL.match(str(monitor.get('name', ''))): return None
     if (monitor.get('width'), monitor.get('height')) != SESSION_MODE[:2]: return None
-    if not isinstance(monitor.get('refreshRate'), (int, float)) or abs(monitor['refreshRate'] - SESSION_MODE[2]) > 0.5: return None
+    if type(monitor.get('refreshRate')) not in (int, float) or not math.isfinite(monitor['refreshRate']) or abs(monitor['refreshRate'] - SESSION_MODE[2]) > 0.5: return None
     x, y, scale = monitor.get('x'), monitor.get('y'), monitor.get('scale')
     if type(x) is not int or type(y) is not int or not isinstance(scale, (int, float)) or not 0.25 <= scale <= 4: return None
     return {'name': monitor['name'], 'x': x, 'y': y, 'scale': float(scale)}
