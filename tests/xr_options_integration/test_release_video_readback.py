@@ -10,9 +10,9 @@ from test_menu_end_to_end import MenuDriver
 
 def report():
     return dict(opened=1,player=dict(state='playing'),
-                format_applied=dict(projection='360',stereo='tb',fov=360),
-                quality_readback=dict(filter_requested='linear',deband_requested=False,
-                                      filter_applied='linear',deband_applied=False),
+                format_applied=dict(projection=360,stereo='tb',fov=360),
+                quality_readback=dict(filter_requested='catmull-rom',deband_requested=False,
+                                      filter_applied='catmull-rom',deband_applied=False),
                 playback=dict(state='playing',paused=False,position_s=20,duration_s=100,
                               revision=1,command_replies=0,command_errors=0,command_error='',error=''))
 
@@ -48,7 +48,7 @@ def test_video_owner_reports_only_after_observed_native_result(op,outcome):
     finally:f.join_binds();f.doCleanups()
 
 
-@pytest.mark.parametrize('setting,value',[('filter','nearest'),('deband',True)])
+@pytest.mark.parametrize('setting,value',[('filter','sharp'),('deband',True)])
 def test_quality_change_waits_for_applied_property_and_propagates_error(setting,value):
     f=legacy_video.ControlTests();f.setUp();calls=[]
     try:
