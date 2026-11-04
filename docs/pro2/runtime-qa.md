@@ -1,8 +1,8 @@
 # Independent PRO 2 runtime QA
 
-Current RQ7 status: canonical type/pickle fix189fc93 passes independent
-checks and42-case QA suite; full genuine packaged-CLI wire lifecycle acceptance
-remains pending. Earlier artifact green is historical, not retry authorization.
+Current RQ7 status: canonical fix189fc93,42-case QA suite and independently
+executed4-case genuine packaged-CLI wire lifecycle matrix PASS. Final replacement
+artifact freeze/extraction validation remains pending. Earlier artifact green is historical, not retry authorization.
 
 Latest artifact: corrected source `910cabc198e14b5e18910ebb5005bf0c9b74127a`
 independently audited with307 manifest file hashes and a fresh extraction.
@@ -550,3 +550,54 @@ its endpoints. It uses real RPC/peer identity and no execute/run/client-factory
 substitution. Full committed harness and final rebuilt extraction must pass before
 RQ7 overall acceptance is closed. Previous source-module/mocked-run acceptance
 was insufficient for this entrypoint defect; preserve the red evidence.
+
+## Genuine packaged CLI matrix — independently executed PASS
+
+Lead committed full-wire harness240c8ff; independently audited and incorporated
+through actual integration head `ee73b29159961b2e431a5e0208b9668f6eb52ade`.
+Integration HEAD unchanged after run. Exact command:
+
+```
+PRO2_QA_CLI_BUNDLE=/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-cli-fixed-ready python tests/pro2_cli/run.py
+# 4 tests passed,11.803s,exit0
+```
+
+QA does not duplicate or alter lead-owned endpoint files. Audit confirms actual
+packaged shell and packaged Python source, no source overlays, and interpreter
+shim limited to synthetic SDK hash/path/identity/command and host-access guards.
+No execute/run/clientfactory/managed/journal/view_controls/_launch replacement.
+This is distinct from the earlier minimal QA entrypoint checkpoint.
+
+Audited boundary chain:
+
+* Copied Python executable named Hyprland serves private real Unix RPC/event/
+  Wayland sockets. Actual canonical BundleClient constructor, SO_PEERCRED,
+  exe-name/lock/start-tick/session checks and wire requests run. This is a fake
+  endpoint, never the user's compositor or plugin loader.
+* Actual SDK owner/wrapper/native worker uses locally compiled C SDK fixture and
+  synthetic-only worker flags in a disposable re-pinned TESTbundle. CPU renderer
+  endpoint runs actual native Publisher/PoseFeed/PoseState probe, capability/start
+  frames, capture/projection/private-prefix validation and heartbeats.
+* Actual managed output intents are journaled before fake broker create; real
+  view controls/bind generation and _launch execute. Success asserts broker
+  inspection from distinct spawned guard process PID, not an in-process mock.
+* Renderer exit9 returns truthful failure and cleanup. Partial create failure
+  conservatively retains plugin authority, then an actual second packaged CLI
+  --recover completes/unloads; fixture SDK trace remains byte-for-byte unchanged
+  through recovery. SDK-open failure confirms no plugin/journal startup and
+  destroy/disabled/no-feed cleanup. Journal operations finish done as appropriate.
+
+Safety audit: fresh user/IPC/network namespaces, temporary HOME/runtime/config/
+state and explicit fake display; private nonexistent D-Bus and notify-send stub
+prevent host notification access. Python audit hooks disallow vendor CDLL,
+USB/HID/GPU paths and non-private socket requests. No real SDK, hardware, GPU,
+Hyprland/Lua renderer, live compositor hooks or controller/unit/service changes.
+Only fixture API action trace is read; no parent's private SDK log is inspected.
+
+Result: RQ7 type/entrypoint failure and analogous canonical pickle/startup/rollback
+boundaries pass within this synthetic wire scope. The code fix is accepted;
+final frozen replacement bundle and fresh archive/extraction still require
+matching source/hash/entrypoint validation and this exact CLI matrix. This is
+not physical XR/window-comfort acceptance or authorization to retry either older
+release. The earlier mocked client/source-module tests were not sufficient;
+future acceptance must retain this genuine packaged entrypoint coverage.
