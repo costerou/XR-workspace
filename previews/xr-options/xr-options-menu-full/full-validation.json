@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "variants": [
+    "F1",
+    "F2",
+    "F3"
+  ],
+  "checks": [
+    "scope filtering",
+    "signed units/ranges",
+    "state persistence across categories/scope",
+    "all six send routes",
+    "quality/filter/deband",
+    "read-only diagnostics",
+    "source presets",
+    "no named Save/Restore",
+    "category arrow focus",
+    "scroll/Escape/reopen"
+  ],
+  "pageErrors": []
+}
