@@ -1001,6 +1001,7 @@ int main(int argc, char** argv) {
     }
 
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
+    nlohmann::json last_status;  // the newest measured status (not the geometry lines the same socket carries)
     std::string stderr_text;
     const int vblank_fd = make_timer(opt.hz, 0.0);
     const int capture_fd = capture ? make_timer(opt.capture_hz > 0 ? opt.capture_hz : opt.hz, 0.37) : -1;
@@ -1028,6 +1029,10 @@ int main(int argc, char** argv) {
                                                 std::uint32_t(t[2].get<double>()), std::uint32_t(t[3].get<double>())});
                 } catch (const std::exception&) {}
             }
+            try {
+                auto j = nlohmann::json::parse(line);
+                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry")) last_status = std::move(j);
+            } catch (const std::exception&) {}
         }
         for (ssize_t n; (n = ::read(err_pipe[0], buf, sizeof buf)) > 0;) if (stderr_text.size() < (1 << 20)) stderr_text.append(buf, std::size_t(n));
     };
@@ -1115,6 +1120,7 @@ int main(int argc, char** argv) {
     if (malloc_count && !shim_loaded) std::fprintf(stderr, "warning: the malloc shim did not load in the renderer; no allocation count\n");
     if (shim_loaded && counters) out["allocations_per_s"] = std::round(double(mallocs1 - mallocs0) / secs * 10) / 10;
     out["status_datagrams"] = status_lines; out["overview_geometry_lines"] = geometry_lines;
+    out["last_status"] = last_status;
     // The renderer's own exit reports (timing JSON, capture JSON with path/fallback), bounded.
     std::istringstream lines(stderr_text); std::string line; std::vector<nlohmann::json> reports; std::vector<std::string> other;
     while (std::getline(lines, line)) {
@@ -1166,6 +1172,14 @@ int main(int argc, char** argv) {
             if (server.dest_w != std::int32_t(kOutW) || server.dest_h != std::int32_t(kOutH)) fail("viewport destination is not the logical size");
         }
         if (capture && !opt.maximize && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
+        // What the incident monitor reads while a session runs (incident_detect.py). The status needs a frame to measure.
+        if (capture && !last_status.is_object()) fail("no status datagram");
+        // A resize fails a capture or two, each ended by the next frame; only a stuck capture keeps failing (CAPTURE_STUCK there).
+        if (capture && !(last_status.contains("capture_failure_run") && last_status["capture_failure_run"].is_number_unsigned())) fail("status has no count of consecutive capture failures");
+        if (capture && opt.churn.empty() && last_status.value("capture_failure_run", 0) != 0) fail("a healthy run is failing captures");
+        if (capture && last_status.value("capture_failure_run", 0) >= 30) fail("a healthy run looks like a stuck capture");
+        if (opt.tracking && !(last_status.contains("tracking") && last_status["tracking"].is_boolean())) fail("a tracked run's status does not say if it is tracking");
+        if (!opt.tracking && last_status.contains("tracking")) fail("an untracked run's status mentions tracking");
         if (opt.maximize) {  // the gap between the desktops crosses the middle while the zoom runs, so only after it landed
             const auto want = std::size_t(opt.maximize - 1);
             if (!server.centre_frames[want]) fail("the maximized desktop never reached the middle of the view");

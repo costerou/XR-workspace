@@ -78,6 +78,28 @@ class SupervisorGuardTests(unittest.TestCase):
                     self.assertLess(time.monotonic() - started, 1)
                 self.assert_clean()
 
+    def test_a_failed_guard_says_so(self):
+        for mode, reason in (('fail', 'guard-failed'), ('crash', 'guard-failed')):
+            with self.subTest(mode=mode):
+                child = self.child()
+                parent, peer = socket.socketpair()
+                with parent, peer:
+                    watchdog = Supervisor(child, lambda: child.poll(), guard=Guard(self.path, mode), grace=0.1)
+                    watchdog.run(parent)
+                self.assertEqual(watchdog.stop_reason, reason)
+
+    def test_a_hung_guard_says_so(self):
+        child = self.child()
+        parent, peer = socket.socketpair()
+        with parent, peer:
+            watchdog = Supervisor(child, lambda: child.poll(), guard=Guard(self.path, 'hung'), grace=0.1)
+            watchdog.heartbeat(time.monotonic() + 3600)  # the heartbeat stays fresh; only the guard is late
+            watchdog._guard_deadline = 0.0
+            watchdog._guard_worker, watchdog._guard_receiver, watchdog._guard_ready = _Alive(), object(), None
+            watchdog._check_guard(1.0)
+            watchdog._guard_worker = watchdog._guard_receiver = None
+        self.assertEqual(watchdog.stop_reason, 'guard-timeout')
+
     def test_launcher_interrupt_and_error_reap_renderer_and_started_worker(self):
         from tools.native_spike import supervisor as s
         from test_hyprland import RawFixture
@@ -172,6 +194,120 @@ class SupervisorGuardTests(unittest.TestCase):
                 stop.set(); thread.join(1)
         self.assert_clean()
 
+class _Alive:
+    def is_alive(self): return True
+    def join(self): pass
+    def close(self): pass
+    pid = None
+
+
+class _Renderer:
+    """A child that is up until told otherwise."""
+    def __init__(self, code=None): self.code = code
+    def poll(self): return self.code
+    def terminate(self): self.code = 0
+    def kill(self): self.code = -signal.SIGKILL
+
+
+class StopReasonTests(unittest.TestCase):
+    """Why the supervisor ended the renderer. Without it a watchdog's kill looks like any other exit (incident_detect)."""
+    def test_no_heartbeat_for_two_seconds(self):
+        w = Supervisor(_Renderer(), lambda: 0, now=0)
+        w.tick(2.0)
+        self.assertEqual(w.stop_reason, 'heartbeat-timeout')
+
+    def test_a_healthy_run_has_no_reason(self):
+        w = Supervisor(_Renderer(), lambda: 0, now=0)
+        w.tick(1.0)
+        self.assertIsNone(w.stop_reason)
+
+    def test_the_first_reason_stands(self):
+        w = Supervisor(_Renderer(), lambda: 0, now=0)
+        w.disconnect(0, 'interrupted')
+        w.disconnect(0, 'heartbeat-timeout')
+        self.assertEqual(w.stop_reason, 'interrupted')
+
+    def test_a_renderer_already_gone_was_not_stopped_by_anyone(self):
+        # A send to a renderer that died by itself fails too: that is its exit code's story, not a watchdog's.
+        w = Supervisor(_Renderer(code=1), lambda: 1, now=0)
+        w.disconnect(0, 'send-failed')
+        self.assertIsNone(w.stop_reason)
+
+    def test_a_disconnect_with_no_reason_still_works(self):
+        w = Supervisor(_Renderer(), lambda: 0, now=0)
+        w.disconnect(0)
+        self.assertIsNone(w.stop_reason)
+
+    def run_on(self, data):
+        parent, peer = socket.socketpair()
+        w = Supervisor(_Renderer(), lambda: 'done')
+        if data: peer.sendall(data)
+        peer.shutdown(socket.SHUT_WR)
+        with parent, peer: w.run(parent)
+        return w.stop_reason
+
+    def test_a_bad_heartbeat(self):
+        self.assertEqual(self.run_on(b'HHX'), 'heartbeat-invalid')
+
+    def test_the_renderer_closing_its_end(self):
+        self.assertEqual(self.run_on(b''), 'renderer-closed')
+
+    def test_a_failed_send(self):
+        parent, peer = socket.socketpair()
+        peer.close()
+        w = Supervisor(_Renderer(), lambda: 0, now=0)
+        with parent: w._send(b'x' * 8, parent)
+        self.assertEqual(w.stop_reason, 'send-failed')
+
+    def launch(self, child, report):
+        from tools.native_spike import supervisor as s
+        _, wayland = socket.socketpair()
+        class Client: _peer = (*__import__('struct').unpack('3i', wayland.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)), 'x')
+        def spawn(argv, **kw):
+            self.addCleanup(os.close, os.dup(kw['pass_fds'][0]))  # a renderer holds its end of the control socket
+            return child
+        return s._launch(Client, 'run', 'session', 'DP-2', wayland, None, popen=spawn, report=report)
+
+    def test_launch_hands_the_reason_back(self):
+        report = {}
+        with patch.object(Supervisor, 'run', lambda w, *a, **k: (w.disconnect(0, 'heartbeat-timeout'), 0)[1]):
+            self.launch(_Renderer(), report)
+        self.assertEqual(report['stop_reason'], 'heartbeat-timeout')
+
+    def test_an_interrupt_is_named(self):
+        report = {}
+        def interrupted(w, *a, **k): raise KeyboardInterrupt
+        with patch.object(Supervisor, 'run', interrupted):
+            self.launch(_Renderer(), report)
+        self.assertEqual(report['stop_reason'], 'interrupted')
+
+    def test_a_run_ends_with_the_reason_in_its_result(self):
+        from tools.native_spike import managed
+        seen = {}
+        def launch(*a, report=None, **k):
+            report['stop_reason'] = 'guard-failed'
+            return -15
+        class Wayland:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        class Client:
+            instance = 'i'
+            def connect_wayland(self, session): return Wayland()
+        class Journal:
+            run_id, session, operations, broker, path = 'run', 's', [], None, 'j'
+            def transaction(self):
+                import contextlib
+                return contextlib.nullcontext()
+            def bind_broker(self, context): pass
+        class Recovered: complete, remaining = True, []
+        class Broker: epoch, fallback = 1, 'DP-1'
+        with patch.object(managed, '_launch', launch), patch.object(managed, 'create_outputs', lambda *a: None), \
+                patch.object(managed, 'recover_restoring', lambda *a: Recovered()):
+            seen = managed._run_owned(Client(), Journal(), Broker(), 'DP-2', 'DP-1', [], guard=lambda: None)
+        self.assertEqual(seen['stop_reason'], 'guard-failed')
+        self.assertEqual(seen['renderer_returncode'], -15)
+
+
 class StatusTests(unittest.TestCase):
     def test_status_lines_kept_latest(self):
         from tools.native_spike.supervisor import Supervisor
@@ -184,6 +320,17 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(w.status, {'missed':3})
         w.status_bytes(b'x'*17000+b'\n{"missed":4}\n')
         self.assertEqual(w.status, {'missed':4})
+
+    def test_tracking_and_capture_failures_are_measured_values(self):
+        w = Supervisor(None, None, now=0)
+        w.status_bytes(b'{"presented_hz":120,"tracking":false,"capture_failure_run":2}\n')
+        self.assertEqual(w.status, {'presented_hz': 120, 'tracking': False, 'capture_failure_run': 2})
+
+    def test_their_types_are_checked(self):
+        for bad in (b'{"tracking":1}\n', b'{"tracking":"yes"}\n', b'{"capture_failure_run":-1}\n', b'{"capture_failure_run":1.5}\n', b'{"capture_failure_run":true}\n'):
+            w = Supervisor(None, None, now=0)
+            w.status_bytes(bad)
+            self.assertEqual(w.status, {}, bad)
 
     def test_heartbeat_channel_still_H_only(self):
         class Child:

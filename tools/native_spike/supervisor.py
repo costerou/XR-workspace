@@ -49,6 +49,7 @@ class Supervisor:
         self.finished = False
         self.kill_sent = False
         self.result = None
+        self.stop_reason = None  # why the supervisor ended the renderer, for the run's result; None if it ended by itself
         self.guard = guard
         self.status_socket = status_socket
         self.status = {}
@@ -65,17 +66,18 @@ class Supervisor:
     def heartbeat(self, now):
         if self.stopping_at is None and math.isfinite(now) and now >= self.last_heartbeat:
             self.last_heartbeat = now
-    def disconnect(self, now):
+    def disconnect(self, now, reason=None):
         if self.finished or self.stopping_at is not None: return
         self.stopping_at = now
         if self.child.poll() is None:
+            self.stop_reason = reason  # a renderer already gone was not stopped by anyone: its exit code tells that story
             try: self.child.terminate()
             except ProcessLookupError: pass
     def tick(self, now):
         if self.finished: return
         if self.child.poll() is None:
             if self.stopping_at is None and now - self.last_heartbeat >= 2:
-                self.disconnect(now)
+                self.disconnect(now, 'heartbeat-timeout')
             if self.stopping_at is not None and not self.kill_sent and now - self.stopping_at >= self.grace:
                 self.kill_sent = True
                 try: self.child.kill()
@@ -114,12 +116,13 @@ class Supervisor:
                         except ValueError: geometry = None  # never hit-test a stale card; the renderer sends it again
                         if handler is not None: handler(geometry)
                     else:
-                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
+                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video','tracking','capture_failure_run'}:
                             raise ValueError('invalid status')
                         for k,v in value.items():
                             if k == 'capture_path': valid = v in ('dmabuf','shm')
                             elif k == 'video': valid = v in ('off','loading','playing','paused','ended','error')  # video.VIDEO_STATES
-                            elif k == 'missed': valid = type(v) is int and v >= 0
+                            elif k == 'tracking': valid = type(v) is bool
+                            elif k in ('missed', 'capture_failure_run'): valid = type(v) is int and v >= 0
                             else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
                             if not valid: raise ValueError('invalid measured value')
                         self.status = value
@@ -178,12 +181,12 @@ class Supervisor:
     def _check_guard(self, now):
         worker, receiver = self._guard_worker, self._guard_receiver
         if worker is None or receiver is None or self.stopping_at is not None: return
-        if now >= self._guard_deadline or not worker.is_alive():
-            self.disconnect(now)
+        if now >= self._guard_deadline: self.disconnect(now, 'guard-timeout')
+        elif not worker.is_alive(): self.disconnect(now, 'guard-failed')
         elif self._guard_ready.poll(0):
             try: valid = receiver.recv_bytes(1) == b'V'
             except (EOFError, OSError): valid = False
-            if not valid: self.disconnect(now)
+            if not valid: self.disconnect(now, 'guard-failed')
             else: self._guard_deadline = now + GUARD_PERIOD + GUARD_DEADLINE
 
     def _control_ready(self, renderer_socket):
@@ -235,7 +238,7 @@ class Supervisor:
                 if data is None: _send_frame(renderer_socket, frame)
                 else: renderer_socket.sendall(data[sent:])
             except OSError:
-                self.disconnect(time.monotonic())
+                self.disconnect(time.monotonic(), 'send-failed')
             finally:
                 if timed: renderer_socket.settimeout(None)
         finally:
@@ -290,7 +293,7 @@ class Supervisor:
                         except OSError: data = b''  # reset (renderer gone with unread frames) == disconnect
                         if data and all(byte == ord("H") for byte in data): self.heartbeat(now)
                         else:
-                            self.disconnect(now)
+                            self.disconnect(now, 'heartbeat-invalid' if data else 'renderer-closed')
                             selector.unregister(heartbeat_socket)
                     self.tick(time.monotonic())
                     poll = getattr(self.control, 'poll', None)  # free pointer, debounced panel save, overlay idle close
@@ -377,8 +380,8 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False, renderer=None):
-    """Shared child lifetime only; authorization remains in distinct callers."""
+            capture=None, control=None, pose_feed=False, renderer=None, report=None):
+    """Shared child lifetime only; authorization remains in distinct callers. `report`: a dict that gets the stop reason."""
     import json
     import os
     from pathlib import Path
@@ -425,10 +428,10 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
                 if control is not None: parent.sendall(control.initial_frame())  # saved spacing, overview
                 parent.settimeout(None)
             except OSError:
-                watchdog.disconnect(time.monotonic())
+                watchdog.disconnect(time.monotonic(), 'send-failed')
             return watchdog.run(parent)
         except KeyboardInterrupt:
-            watchdog.disconnect(time.monotonic())
+            watchdog.disconnect(time.monotonic(), 'interrupted')
             while not watchdog.finished:
                 watchdog.tick(time.monotonic())
                 if not watchdog.finished: time.sleep(0.05)
@@ -441,3 +444,4 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
                 while not watchdog.finished:
                     watchdog.tick(time.monotonic())
                     if not watchdog.finished: time.sleep(0.05)
+            if report is not None: report['stop_reason'] = watchdog.stop_reason
