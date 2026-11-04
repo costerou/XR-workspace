@@ -6,7 +6,10 @@
 //    a direction (the supervisor always gives one: linear in the pointer, round you in anchor mode), the same disc turned
 //    to that direction round you;
 //  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention);
-//  * its look (`look`, what a press would do there) is marks round the disc, part of the same dot.
+//  * its look (`look`, what a press would do there) is marks round the disc, part of the same dot;
+//  * over text its look is the Serif Beam instead of the disc, vertex for vertex the mockup Cody picked, centred on the
+//    click point, and the same rigid shape anywhere round you (measured on pointer_raster.hpp, gl_bench compares the GL).
+#include "pointer_raster.hpp"
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
 #include <nlohmann/json.hpp>
@@ -33,10 +36,11 @@ std::pair<float, float> pixel(const Canvas& c, const Vec3& v) {
 }
 
 int main(int argc, char** argv) try {
-    if (argc != 2) { std::cerr << "usage: free_pointer_test FIXTURE.json\n"; return 2; }
-    std::ifstream in(argv[1]);
-    if (!in) { std::cerr << "cannot open " << argv[1] << "\n"; return 2; }
+    if (argc != 3) { std::cerr << "usage: free_pointer_test FIXTURE.json SERIF_BEAM.json\n"; return 2; }
+    std::ifstream in(argv[1]), beam_file(argv[2]);
+    if (!in || !beam_file) { std::cerr << "cannot open " << argv[1] << " or " << argv[2] << "\n"; return 2; }
     const auto cases = nlohmann::json::parse(in);
+    const auto beam_shape = nlohmann::json::parse(beam_file);
     std::uint64_t id = 1;
     for (const auto& p : cases.at("valid")) {
         auto d = decode_control(frame(p, id++));
@@ -54,8 +58,9 @@ int main(int argc, char** argv) try {
         else CHECK(v->target == -1 && v->ghost_w == 0 && v->ghost_h == 0);
         const std::pair<const char*, PointerLook> looks[] = {  // the dot's look over a handle (absent: plain)
             {"resize_ew", PointerLook::resize_ew}, {"resize_ns", PointerLook::resize_ns}, {"resize_nwse", PointerLook::resize_nwse},
-            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}};
+            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}, {"text", PointerLook::text}};
         if (!p.contains("look")) CHECK(v->look == PointerLook::plain);
+        else CHECK(std::any_of(std::begin(looks), std::end(looks), [&](const auto& l) { return p.at("look") == l.first; }));
         for (const auto& [name, look] : looks) if (p.contains("look") && p.at("look") == name) CHECK(v->look == look);
     }
     for (const auto& c : cases.at("invalid")) {
@@ -224,6 +229,63 @@ int main(int argc, char** argv) try {
         };
         CHECK(area(fat) > area(thin) * 1.5f);
         CHECK(direction_marks({0, 0, 0.36f, 0.225f}, 1, 1, 0, 0, PointerLook::move).empty());
+    }
+
+    // The Serif Beam (look `text`): option 1 of the mockups, vertex for vertex at both passes. It stands in for the dot, so
+    // it is centred on the click point, and a rigid shape turned with it anywhere round you.
+    {
+        const auto own = [&](float x, float y) {  // the direction of a canvas point: turns nothing
+            const double wx = (2.0 * x / canvas.view_w - 1) * canvas.half_w, wy = (1 - 2.0 * y / canvas.view_h) * canvas.half_h;
+            return std::pair{float(std::atan2(wx, 1.0)), float(std::atan2(wy, std::hypot(wx, 1.0)))};
+        };
+        const auto [own_az, own_el] = own(700, 500);
+        for (const auto& [key, grow] : {std::pair{"ring", kFreePointerRingPx}, std::pair{"ink", 0.f}}) {
+            const auto& want = beam_shape.at(key);
+            const auto got = direction_marks(canvas, 700, 500, own_az, own_el, PointerLook::text, grow);
+            CHECK(got.size() == want.size() && got.size() % 3 == 0);
+            for (std::size_t i = 0; i < got.size(); ++i) {
+                const auto [px, py] = pixel(canvas, got[i]);
+                CHECK(std::fabs(got[i].z + 1.f) < 1e-3f);
+                CHECK(std::fabs(px - 700 - want[i][0].get<float>()) < 0.01f && std::fabs(py - 500 - want[i][1].get<float>()) < 0.01f);
+            }
+        }
+        // As the rasteriser sees it: 14 x 28 px with its ring, 10 x 24 without, centred on the click point, a stem 2 px wide.
+        const auto ring = direction_marks(canvas, 700, 500, own_az, own_el, PointerLook::text, kFreePointerRingPx);
+        const auto ink = direction_marks(canvas, 700, 500, own_az, own_el, PointerLook::text);
+        const auto ring_mask = pointer_mask(canvas, ring, 680, 480, 40, 40), ink_mask = pointer_mask(canvas, ink, 680, 480, 40, 40);
+        auto extent = [](const PointerMask& m) {
+            int lo_x = 1 << 20, hi_x = -(1 << 20), lo_y = 1 << 20, hi_y = -(1 << 20);
+            for (int y = m.y0; y < m.y0 + m.h; ++y) for (int x = m.x0; x < m.x0 + m.w; ++x) if (m.at(x, y)) {
+                lo_x = std::min(lo_x, x); hi_x = std::max(hi_x, x); lo_y = std::min(lo_y, y); hi_y = std::max(hi_y, y);
+            }
+            return std::tuple{lo_x, hi_x + 1, lo_y, hi_y + 1};  // pixel edges
+        };
+        CHECK(extent(ring_mask) == std::tuple(693, 707, 486, 514));
+        CHECK(extent(ink_mask) == std::tuple(695, 705, 488, 512));
+        for (int y = 495; y < 505; ++y) {
+            int wide = 0;
+            for (int x = 680; x < 720; ++x) wide += ink_mask.at(x, y);
+            CHECK(wide == 2 && ink_mask.at(699, y) && ink_mask.at(700, y));
+        }
+        // Mirror symmetric both ways: the middle of what is drawn is the click point on either axis.
+        for (int y = 480; y < 520; ++y) for (int x = 680; x < 720; ++x) {
+            CHECK(ring_mask.at(x, y) == ring_mask.at(1399 - x, y));
+            CHECK(ring_mask.at(x, y) == ring_mask.at(x, 999 - y));
+        }
+        // A rigid shape, the dot's turn: every vertex keeps its angle from the click point, anywhere round you.
+        const auto hub = canvas_disc(canvas, 700, 500, kFreePointerRadiusPx);
+        const auto spun = direction_disc(canvas, 700, 500, 2.1f, 0.5f, kFreePointerRadiusPx);
+        const auto turned = direction_marks(canvas, 700, 500, 2.1f, 0.5f, PointerLook::text, kFreePointerRingPx);
+        CHECK(turned.size() == ring.size());
+        for (std::size_t i = 0; i < turned.size(); ++i) CHECK(std::fabs(angle(spun[0], turned[i]) - angle(hub[0], ring[i])) < 1e-5);
+        // Past the view's edge it is clamped with the dot, and an empty canvas draws nothing.
+        const auto [edge_az, edge_el] = own(1920, 600);
+        const auto clamped = direction_marks(canvas, 2100, 600, edge_az, edge_el, PointerLook::text);
+        CHECK(clamped.size() == ink.size());
+        for (std::size_t i = 0; i < clamped.size(); ++i) { const auto [px, py] = pixel(canvas, clamped[i]); CHECK(std::fabs(px - 1920) <= 5.01f && std::fabs(py - 600) <= 12.01f); }
+        CHECK(direction_marks({0, 0, 0.36f, 0.225f}, 1, 1, 0, 0, PointerLook::text).empty());
+        // The dot's grey and held grey stay under the OLED cap, so the beam does (gl.cpp draws it in the dot's own level).
+        CHECK(int(kFreePointerHeldLevel * 255 + 0.5f) <= 191);
     }
 
     // Window drag ghost: a closed rectangular outline strip round the dot, w x h on the canvas plane with its inner edge

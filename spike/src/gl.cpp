@@ -818,7 +818,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLES, 0, n);
         }
-        for (int k = 0; k < 2; ++k) {
+        if (s.free_look != PointerLook::text) for (int k = 0; k < 2; ++k) {  // the Serif Beam stands in for the disc
             const float radius = k ? kFreePointerRadiusPx : kFreePointerRadiusPx + kFreePointerRingPx, level = k ? s.free_level : 0.f;
             const GLsizei n = s.build_disc(s.disc_mesh[k], canvas, s.free_x, s.free_y, radius, s.free_directed, s.free_az, s.free_el);
             glUniform4f(s.color, level, level, level, 1.f);

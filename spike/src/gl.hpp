@@ -73,7 +73,8 @@ public:
     // Overview free pointer (view.hpp canvas_disc): a grey dot of `level` (capped at kFreePointerHeldLevel) in a black ring at
     // canvas (x, y) on the overview's plane, drawn over the desktops and under the cards; visible false: none.
     // `directed`: the dot is drawn in direction (az, el) degrees instead (view.hpp direction_disc), anywhere round you.
-    // `look`: marks round the dot (view.hpp direction_marks) in its grey, each with a black outline as the disc has its ring.
+    // `look`: marks round the dot (view.hpp direction_marks) in its grey, each with a black outline as the disc has its ring;
+    // text is the Serif Beam, drawn the same way, with no disc under it.
     void set_free_pointer(bool visible, float x, float y, float level, bool directed = false, float az = 0, float el = 0,
                           PointerLook look = PointerLook::plain);
     // Window drag (free_pointer.py): a grey w x h canvas px outline (view.hpp direction_outline) round the free pointer,
