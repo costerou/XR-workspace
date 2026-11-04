@@ -69,3 +69,31 @@ class Pro2ProviderTests(unittest.TestCase):
             with self.assertRaises(tracking.UnsupportedTrackingProvider):
                 tracking.ensure_ready_luma(self.root, '/test/luma')
             self.assertEqual(ready.call_count, 1)
+
+    def test_incomplete_or_conflicting_identity_rejects_before_provider_work(self):
+        cases = [('idProduct', False), ('idProduct', True), ('product', False),
+                 ('product', True), ('conflicting-pid', False), ('conflicting-product', False)]
+        for field, unreadable in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); device = root / '1-1'; device.mkdir()
+                for name, value in [('idVendor', '35ca'), ('idProduct', '1301'),
+                                    ('product', 'VITURE PRO 2 XR Glasses')]:
+                    (device / name).write_text(value)
+                if field.startswith('conflicting'):
+                    (device / ('idProduct' if field == 'conflicting-pid' else 'product')).write_text('1104' if field == 'conflicting-pid' else 'Other model')
+                else:
+                    (device / field).unlink()
+                    if unreadable: (device / field).mkdir()  # read_text raises OSError even as root
+                for method in ('start', 'ensure_ready', 'ensure_ready_luma'):
+                    with self.subTest(field=field, unreadable=unreadable, method=method), \
+                         patch.object(tracking, 'SYS_USB', root), \
+                         patch.object(tracking, 'status') as status, \
+                         patch.object(tracking, '_check_config') as config, \
+                         patch.object(tracking, '_open_luma_log') as log, \
+                         patch.object(tracking, 'stop') as stop, \
+                         patch.object(tracking.subprocess, 'Popen') as spawn:
+                        with self.assertRaises(tracking.UnsupportedTrackingProvider):
+                            if method == 'ensure_ready_luma': tracking.ensure_ready_luma(root, '/test/luma')
+                            else: getattr(tracking, method)(root)
+                        status.assert_not_called(); config.assert_not_called(); log.assert_not_called()
+                        stop.assert_not_called(); spawn.assert_not_called()

@@ -264,9 +264,10 @@ def _check_provider_compatibility():
         try:
             vendor = (device / 'idVendor').read_text().strip().lower()
             if vendor != '35ca': continue
-            product_id = (device / 'idProduct').read_text().strip().lower()
         except OSError:
             continue
+        try: product_id = (device / 'idProduct').read_text().strip().lower()
+        except OSError: product_id = ''
         try: product = (device / 'product').read_text().strip()
         except OSError: product = ''
         if product_id == '1301' or product == 'VITURE PRO 2 XR Glasses':
