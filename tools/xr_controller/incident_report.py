@@ -21,7 +21,7 @@ import tempfile
 import time
 
 from tools.native_spike.ipc import private_dir, read_private_json
-from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED
+from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED, USB_DENIED
 from .incident_detect import is_exit_report, signal_name
 
 MAX_BUNDLE = 256 * 1024
@@ -163,9 +163,9 @@ def guess_cause(episode, ev):
 
     def guess(text, confidence): return dict(text=text, confidence=confidence)
 
-    # Before the core and USB rules: both are symptoms of this one, and this one says what to do.
-    if TRACKING_CRASHED in (result.get('error') or ''):
-        return guess(TRACKING_CRASHED, 'high')
+    # Before the core and USB rules: both are symptoms of these, and these say what to do.
+    for known in (USB_DENIED, TRACKING_CRASHED):
+        if known in (result.get('error') or ''): return guess(known, 'high')
     for core in ev.get('cores') or []:
         top = _top_frame(core)
         text = f"{core.get('exe')} crashed with {core.get('signal')}" + (f' in {top}' if top else '') + '. The backtrace is in core_dumps.'

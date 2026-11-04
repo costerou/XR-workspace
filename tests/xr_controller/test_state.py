@@ -87,15 +87,17 @@ class StateTests(unittest.TestCase):
             setup,reason=store.setup('beast')
             self.assertEqual(setup,profiles.default_setup()); self.assertIn('saved desktops are invalid',reason)
 
-    def test_tracking_crash_reaches_the_panel_word_for_word(self):
+    def test_tracking_start_failures_reach_the_panel_word_for_word(self):
         import json
-        from tools.native_spike.tracking import CRASHED
-        self.confirm(); run_id=self.c.run['run_id']
-        result=self.path/(run_id+'.result.json')
-        result.write_text(json.dumps(dict(run_id=run_id,phase='tracking',complete=False,renderer_returncode=None,remaining=None,error=CRASHED)))
-        result.chmod(0o600)
-        self.now=10; self.c.tick()
-        self.assertEqual(self.c.snapshot()['reason'],CRASHED)
+        from tools.native_spike.tracking import CRASHED,USB_DENIED
+        for message in (CRASHED,USB_DENIED):
+            with self.subTest(message):
+                self.confirm(); run_id=self.c.run['run_id']
+                result=self.path/(run_id+'.result.json')
+                result.write_text(json.dumps(dict(run_id=run_id,phase='tracking',complete=False,renderer_returncode=None,remaining=None,error=message)))
+                result.chmod(0o600)
+                self.now+=10; self.c.tick()
+                self.assertEqual(self.c.snapshot()['reason'],message)
 
     def test_runner_failure_stays_visible_until_next_start(self):
         import json
