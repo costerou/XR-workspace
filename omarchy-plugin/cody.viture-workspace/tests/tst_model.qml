@@ -14,6 +14,13 @@ TestCase {
     Component { id:placementComponent; Workspace.PlacementEditor {} }
     SignalSpy { id:placementSpy; signalName:"save" }
     SignalSpy { id:confirmationSpy; signalName:"confirm" }
+    function test_release_has_no_equivalence_approval() {
+        compare(Model.OPTIONS_EQUIVALENCE, null);
+        for (const snapshot of [null, {}, {capabilities:["options_menu"]},
+                {capabilities:["options_runtime_complete"]},
+                {capabilities:["options_runtime_complete"], options_equivalence:{qa_commit:"a".repeat(40),lead_commit:"b".repeat(40),inventory_rows:116}}])
+            verify(!Model.optionsRuntimeComplete(snapshot));
+    }
     function test_confirmationControls() {
         const dialog=createTemporaryObject(confirmationComponent,testCase,{width:640,pending:{action:"start",scope_id:"test",scope:{model:"luma-ultra",output:"DP-2",recovery_output:"DP-1",desktops:[{width:1920,height:1080,scale:1}],tracking:"xrlinuxdriver",mode_switch:{width:1920,height:1200,refresh_hz:120}}}});
         verify(dialog !== null);

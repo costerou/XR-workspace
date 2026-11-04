@@ -18,8 +18,8 @@ ColumnLayout {
     readonly property var placements: snapshot.placements || settings.placements || []
     readonly property var immersive: snapshot.immersive || ({})  // the run's 3D (Model.immersiveOn), {} before the first status
     readonly property var immersiveSetting: immersive.setting || settings.immersive || ({global:false,desktops:{},preset:"desktop",strength:100,convergence:92})
-    // Lead enables this only after equivalent XR routes pass migration acceptance.
-    readonly property bool xrRuntimeComplete: (snapshot.capabilities || []).indexOf("options_runtime_complete") >= 0
+    // Runtime support and reviewed build equivalence are both required.
+    readonly property bool xrRuntimeComplete: Model.optionsRuntimeComplete(snapshot)
     property int placing: 0
     onDesktopsChanged: if (placing >= desktops.length) placing = 0  // a desktop removed in the glasses
     signal request(var message)
