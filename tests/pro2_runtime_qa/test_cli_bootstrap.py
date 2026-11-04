@@ -13,6 +13,7 @@ REPO=HERE.parents[1]
 
 
 class PackagedBootstrapQA(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('PRO2_QA_CLI_BUNDLE'),'explicit fresh packaged artifact required; standalone CLI acceptance remains mandatory')
     def test_actual_packaged_cli_does_not_create_main_scope_class(self):
         bundle=Path(os.environ['PRO2_QA_CLI_BUNDLE'])
         with tempfile.TemporaryDirectory(prefix='pro2-cli-qa-') as tmp:

@@ -500,3 +500,13 @@ exercise actual execute/managed/journal/view_controls/_launch with simulated SDK
 and fake external transport, plus fresh-process pickle checks for scope, guard,
 and BundleClient. RQ7 remains open until that stronger route passes on committed
 source and a new extraction. Prior artifact green is not retry authorization.
+
+Independent canonical-module regressions added: strict structural-impostor scope
+rejection before managed/client calls; real scope+ScopedGuard(ManagedGuard with
+BundleClient transport) pickle into a fresh isolated Python interpreter; exact
+class aliases belong to tools.pro2_runtime.scope; and actual Supervisor spawn
+worker can deserialize/invoke a scoped guard and return V, then is reaped.
+No SDK or external client is needed for these four cases. On pre-fix code,
+4 tests run:2 pass,2 fail (canonical module absent/old class origin),0.115s.
+The exact packaged CLI test requires PRO2_QA_CLI_BUNDLE explicitly and is skipped
+in ordinary discovery without that artifact; that skip is not acceptance.
