@@ -22,6 +22,10 @@ tracking running all session. We only use orientation, so that work may be for n
 off (see [Experiment](#experiment-3dof-versus-6dof)). If the drops stop, the cause is load from the
 6DoF session, and it also backs the plan for our own IMU-only driver.
 
+**Against Cody's bar, two things need a decision.** IMU-only cannot give zero yaw drift, and the
+glasses themselves take a median 3.7 s to return after a drop, so the contract's 1 s reconnect cannot
+be met as written. See [Against Cody's bar](#against-codys-bar).
+
 ## Comparing 2.11.9 with everything newer
 
 | Thing | Version | Commit | VITURE SDK | Differs for Luma Ultra? |
@@ -251,6 +255,78 @@ a deliberate step for Cody to approve.
 - **Other public Luma Ultra users exist.** VitureBD uses the SDK and polls pose about 1000 times a
   second. Its README does not mention drops. Its 3DOF or 6DOF note says the choice is fixed at start.
 
+## Against Cody's bar
+
+Cody's bar: zero drops first, then lowest latency, highest sample rate, no drift, instant calibration
+and rock-solid reconnect, then as many features as the hardware safely allows. This is what upstream
+evidence says about each. Performance, prediction, features, 6DoF and soak work belong to their own
+threads; this section is only input for them.
+
+| Goal | What is known | Verdict |
+|---|---|---|
+| **Zero drops** | No public fix or cause. See the ranking above | **Not promised by research.** Only a soak can show it. The A/B test says first whether an IMU-only design can reach it |
+| **Lowest latency** | No published Luma Ultra motion-to-photon or sensor-to-host figure found. The driver calls `get_gl_pose_carina` once per IMU sample with no prediction (`predict_time` 0.0) | Unknown baseline. Measure ours rather than quote anyone |
+| **Highest rate** | SDK reports all six rates up to 1000 Hz for `0x1104`, and the driver runs Carina at 1 kHz. Whether the wire really carries 1 kHz is unconfirmed | 1 kHz is the working ceiling until a capture shows otherwise |
+| **No drift** | See below | **Conflicts with the likely zero-drop design** |
+| **Instant calibration** | The 11.5 s wait (median of 69 runs, range 10.9-15.5) is mostly a constant: `viture_calibration_wait_s` is 10 for Luma Ultra and 1 for most other models | Nearly all of it is removable, subject to gyro-bias accuracy. Beating 1 s needs a saved bias or fast still detection. VITURE says the Luma Ultra "doesn't require IMU calibration" (user step) |
+| **Rock-solid reconnect** | See below | **The contract's 1 s target is below what the glasses allow** |
+
+### Drift: the real conflict
+
+The installed SDK's Carina IMU callback gives accelerometer and gyro only, `[ax, ay, az, gx, gy, gz]`,
+with no magnetometer. I found no public source showing the Luma Ultra has one, so expect
+`ImuSample::mag` to stay empty.
+
+- **Pitch and roll** can be held against gravity for as long as we like.
+- **Yaw has no absolute reference without cameras.** An IMU-only driver can make yaw drift slow, but
+  it cannot make it zero.
+- **Cameras are not a clean answer either.** In [Breezy #186](https://github.com/wheaney/breezy-desktop/issues/186)
+  a Luma Ultra in the SDK's 6DoF path needed recentering about every 60 s in places, and logged
+  quaternions showed about 2 degrees of yaw over 19 s. The maintainer blames plain walls and poor
+  light. That analysis came from a user's AI assistant and was not confirmed.
+
+So if the cameras cause the drops, zero drops and zero yaw drift cannot both come from the same
+simple design. Cody's order puts zero drops first, which means IMU-only with low yaw drift and easy
+recentering. Getting yaw to true zero would need our own use of the cameras, which is a question for
+`drv-6dof-research` and would have to prove it does not bring the drops back.
+
+### Reconnect: the 1 s target
+
+In the previous boot's kernel log, the glasses (`35ca:1104`) reappeared after a hub drop at a median
+of **3.7 s**, fastest 0.9 s, 90th percentile 11.7 s, slowest 28.8 s across 44 drops. Another 10 had
+no return within 60 s, which may be real unplugs. Some of the slow ones are probably cascades.
+
+The design contract says reconnect within about 1 s. Our code can only start once the device is back,
+so a fairer target is **streaming within about 100 ms of the device reappearing**, with the renderer
+holding the last pose and predicting through the gap. For comparison, today's driver then needs a
+1 s `sleep` in `viture_start_stream_locked` plus its roughly 11 s calibration wait on each return.
+
+Zero drops remains the real goal: a fast reconnect only hides a drop, and the display and audio
+hub go with it.
+
+### Features: what upstream suggests
+
+For `drv-features`. These come from the SDK's public headers and docs, not hardware tests, and any
+command we add is new USB traffic, so each one should stay off until the soak passes without it.
+
+| Feature | Evidence for Luma Ultra | Status |
+|---|---|---|
+| Electrochromic dimming | SDK lists Luma series film range `[0, 1]`. VITURE's docs mention the film on blank-screen recovery | Likely. Wire format on Ultra unknown |
+| Brightness, volume | SDK has get/set, and state callbacks exist. `viture-v2` read these on a Pro 2 | Likely. Note the driver's comment that the SDK "doesn't actually reliably call" its state callback |
+| Duty cycle (OLED dimming) | SDK values 98, 42, 30 | Possible, unverified on Ultra |
+| Hardware buttons | Brightness and volume changes arrive as state events. No separate button event in the public header | Possibly only inferred from those changes |
+| Wear detection | VITURE docs: Luma Ultra returns `NOT_SUPPORTED`. [vrarwiki](https://vrarwiki.com/wiki/Viture_Luma_Ultra) lists wear detection as hardware | **Conflict.** Do not plan on it until a capture shows it on the wire |
+| Display mode read | Luma Ultra is the only device with a display-mode callback, per VITURE | Prefer listening over polling, if it arrives |
+| Refresh rate set | VitureBD switches modes via the SDK, and says 1200p at 120 Hz never comes up on its unit | Risky. A mode change may trigger the same reconnect we want to avoid |
+| 6DoF position | Needs cameras and a tracker on the host | Out of scope unless the A/B test clears cameras |
+
+### What would settle most of this
+
+A single `usbmon` capture of a normal driver session answers the wire questions: bulk or HID, real
+IMU rate, the 1 Hz poll, any wear or button traffic, and what is on the bus in the last seconds before
+a drop. It is passive, so it adds no USB commands. It needs `sudo modprobe usbmon` and Cody's
+go-ahead, and it records whatever crosses that bus, including serial numbers.
+
 ## What I could not check
 
 - **r/VITURE.** Reddit refused the direct fetch, and searches returned no Luma Ultra disconnect
@@ -261,6 +337,7 @@ a deliberate step for Cody to approve.
 - **VITURE support, Discord and other private forums** were not reachable.
 - **Cody's firmware version.** It is not in `driver.log`, and reading it means talking to the device.
 - **Exact power draw** in 3DoF, 6DoF and plain-display use. VITURE publishes none that I could find.
+- **Latency and drift figures.** I found no published Luma Ultra numbers for either.
 
 ## Sources
 
@@ -285,6 +362,9 @@ Breezy Desktop
 Vendor: [SDK docs](https://www.viture.com/developer/glasses-sdk/glasses),
 [firmware update](https://www.viture.com/firmware/update),
 [Luma series](https://www.viture.com/academy/xr-glasses/luma-series).
+
+Specs: [vrarwiki Luma Ultra](https://vrarwiki.com/wiki/Viture_Luma_Ultra) (community wiki, treat with
+care).
 
 Other projects: [viture-v2](https://github.com/elasticjava/viture-v2),
 [VitureBD](https://github.com/zerobitfulladder/VitureBD),
