@@ -2042,6 +2042,7 @@ python -m unittest discover -s tests/probe -v
 python -m unittest discover -s tests/native_spike -v
 python -m unittest discover -s tests/xr_controller -v
 python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
+python -m unittest discover -s tests/depth_engine -v
 QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input omarchy-plugin/cody.viture-workspace/tests
 ctest --test-dir build/release --output-on-failure
 ```

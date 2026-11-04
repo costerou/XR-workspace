@@ -64,3 +64,12 @@ libmpv is missing, CMake warns and the renderer builds with a stub that reports 
 its desktops. No downloads. The `video_render` test also uses the local `ffmpeg` CLI (when present) to generate its
 sample clips at test time; nothing is fetched or committed. At run time the supervisor uses `/usr/bin/ffprobe` (if
 present) to read the chosen file's format, and the Ctrl+Alt+O bind uses `/usr/bin/zenity` as the file picker.
+
+## Depth engine (docs/depth-engine.md)
+
+The renderer side (`xr/depth.hpp`, `src/depth_feed.*`) needs nothing new: EGL, GLES and GBM, as capture already does. The
+engine in `tools/depth_engine` is a separate Python process with its own environment in `~/.cache/viture-depth`, made by
+`tools/depth_engine/setup.sh` without sudo: PyTorch 2.9.1 with ROCm 6.4 (BSD-3, ROCm mostly MIT), Depth Anything V2 Small
+(Apache-2.0, pinned weights and code; the Base and Large weights are CC-BY-NC and must not be swapped in), ncnn (BSD-3),
+OpenCV (Apache-2.0), numpy (BSD-3). No configuration path of the CMake build downloads any of it. The Python tests of the
+filter, engine and contract need only numpy. Verified here: Python 3.12.16 in the engine environment, RX 7800 XT.
