@@ -84,6 +84,14 @@ class FakeHost:
         if holds is not None:
             (d / 'fd' / '7').symlink_to(holds)
 
+    def limits(self, rtprio='0', nice='0'):
+        (self.roots.proc / 'self').mkdir(exist_ok=True)
+        (self.roots.proc / 'self/limits').write_text(
+            'Limit                     Soft Limit           Hard Limit           Units\n'
+            f'Max nice priority         {nice}                    {nice}\n'
+            f'Max realtime priority     {rtprio}                    {rtprio}\n'
+            'Max realtime timeout      unlimited            unlimited            us\n')
+
     def glasses_on_hub(self):
         """The live layout: hub 5-2, glasses 5-2.1, camera 5-2.2, microphone 5-2.3, shipped rules."""
         self.device('5-2', '1a86', '8091', 'USB HUB', devnum=3, control='auto')

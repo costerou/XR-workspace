@@ -28,6 +28,12 @@ _MAX_NORM_ERROR = 0.05
 _MIN_ROWS = 10
 _END_WINDOW_S = 5.0
 _GAP_NS = 100_000_000
+# Cody's bar is absolute, so the old driver being as bad is no excuse. Proposed limits, see step F6.
+_MAX_HITCH_MS = 20.0
+_MAX_DRIFT_DEG_PER_MIN = 0.5
+_DRIFT_NOISE = 0.1
+_PLACEMENT_NOISE_DEG = 0.5
+_RATE_NOISE = 0.98  # the recorder polls from Python and can miss the odd sample, on either driver
 
 
 class Row(NamedTuple):
@@ -143,12 +149,15 @@ def analyse(rows):
 
 
 def compare(old, new):
-    """Whether `new` is at least as good as `old`. The margins are in live-test-plan.md, step F6."""
-    checks = (('rate', 'rate_hz', new['rate_hz'] >= 0.9 * old['rate_hz']),
+    """Whether `new` matches `old` within measuring noise and meets the bar. Limits: live-test-plan.md, step F6."""
+    drift = new['still_drift_deg_per_min']
+    checks = (('rate', 'rate_hz', new['rate_hz'] >= _RATE_NOISE * old['rate_hz']),
               ('gaps over 100 ms', 'gaps_over_100ms', new['gaps_over_100ms'] == 0),
+              ('longest hitch, ms', 'max_gap_ms', new['max_gap_ms'] <= _MAX_HITCH_MS),
               ('still drift, deg/min', 'still_drift_deg_per_min',
-               new['still_drift_deg_per_min'] <= old['still_drift_deg_per_min'] + 0.5),
-              ('return error, deg', 'return_error_deg', new['return_error_deg'] <= old['return_error_deg'] + 1.0))
+               drift <= old['still_drift_deg_per_min'] + _DRIFT_NOISE and drift <= _MAX_DRIFT_DEG_PER_MIN),
+              ('return error, deg', 'return_error_deg',
+               new['return_error_deg'] <= old['return_error_deg'] + _PLACEMENT_NOISE_DEG))
     lines = [f"{'PASS' if ok else 'FAIL'}  {label}: old {old[key]:.2f}, new {new[key]:.2f}" for label, key, ok in checks]
     return all(ok for _, _, ok in checks), lines
 

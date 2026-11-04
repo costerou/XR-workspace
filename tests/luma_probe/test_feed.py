@@ -84,24 +84,43 @@ class AnalyseTests(unittest.TestCase):
 
 
 class CompareTests(unittest.TestCase):
-    OLD = {'rate_hz': 1000, 'max_gap_ms': 5, 'gaps_over_100ms': 0, 'still_drift_deg_per_min': 1.0, 'return_error_deg': 2.0}
+    OLD = {'rate_hz': 1000, 'max_gap_ms': 5, 'gaps_over_100ms': 0, 'still_drift_deg_per_min': 0.3, 'return_error_deg': 2.0}
+
+    def verdict(self, **changes):
+        return compare(self.OLD, {**self.OLD, **changes})[0]
 
     def test_equal_runs_pass(self):
         passed, lines = compare(self.OLD, self.OLD)
         self.assertTrue(passed)
-        self.assertEqual(len(lines), 4)
+        self.assertEqual(len(lines), 5)
 
     def test_any_gap_fails(self):
-        self.assertFalse(compare(self.OLD, {**self.OLD, 'gaps_over_100ms': 1})[0])
+        self.assertFalse(self.verdict(gaps_over_100ms=1))
 
-    def test_low_rate_fails(self):
-        self.assertFalse(compare(self.OLD, {**self.OLD, 'rate_hz': 800})[0])
+    def test_rate_within_recorder_noise_passes(self):
+        self.assertTrue(self.verdict(rate_hz=985))
+
+    def test_rate_below_the_old_driver_fails(self):
+        self.assertFalse(self.verdict(rate_hz=975))
+
+    def test_a_hitch_over_twenty_milliseconds_fails(self):
+        self.assertFalse(self.verdict(max_gap_ms=21))
+
+    def test_drift_within_noise_passes(self):
+        self.assertTrue(self.verdict(still_drift_deg_per_min=0.38))
 
     def test_worse_drift_fails(self):
-        self.assertFalse(compare(self.OLD, {**self.OLD, 'still_drift_deg_per_min': 1.6})[0])
+        self.assertFalse(self.verdict(still_drift_deg_per_min=0.45))
+
+    def test_drift_over_the_absolute_limit_fails_even_if_the_old_driver_is_as_bad(self):
+        old = {**self.OLD, 'still_drift_deg_per_min': 0.7}
+        self.assertFalse(compare(old, old)[0])
+
+    def test_return_error_within_placement_noise_passes(self):
+        self.assertTrue(self.verdict(return_error_deg=2.4))
 
     def test_worse_return_error_fails(self):
-        self.assertFalse(compare(self.OLD, {**self.OLD, 'return_error_deg': 3.1})[0])
+        self.assertFalse(self.verdict(return_error_deg=2.6))
 
 
 class SegmentTests(unittest.TestCase):

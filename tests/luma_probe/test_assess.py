@@ -143,6 +143,26 @@ class LinkTests(Case):
         self.assertEqual(result.status, 'ready')
 
 
+class RealtimeTests(Case):
+    def test_no_realtime_priority_is_noted_without_blocking(self):
+        self.host.glasses_on_hub().limits(rtprio='0')
+        result = self.verdict()
+        self.assertEqual(result.status, 'ready')
+        self.assertIn('no-realtime', self.codes('info'))
+
+    def test_realtime_priority_allowed_says_nothing(self):
+        self.host.glasses_on_hub().limits(rtprio='50')
+        self.assertNotIn('no-realtime', self.codes())
+
+    def test_unlimited_counts_as_allowed(self):
+        self.host.glasses_on_hub().limits(rtprio='unlimited')
+        self.assertNotIn('no-realtime', self.codes())
+
+    def test_unreadable_limits_say_nothing(self):
+        self.host.glasses_on_hub()
+        self.assertNotIn('no-realtime', self.codes())
+
+
 class RenderTests(Case):
     def test_text_report_names_the_node_and_endpoints(self):
         self.host.glasses_on_hub()

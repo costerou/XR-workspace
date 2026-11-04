@@ -324,6 +324,15 @@ def _open_paths(proc, pid):
     return paths
 
 
+def realtime_limit(proc):
+    """This process's realtime priority limit, which a driver started from it inherits. None if unknown."""
+    for line in (read_text(proc / 'self/limits') or '').splitlines():
+        if line.startswith('Max realtime priority'):
+            soft = line.split()[3]
+            return 99 if soft == 'unlimited' else int(soft) if soft.isdigit() else None
+    return None
+
+
 def scan(roots):
     devices_dir = roots.sys / 'bus/usb/devices'
     try:

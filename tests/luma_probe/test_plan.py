@@ -8,7 +8,7 @@ from tools.luma_probe.udev import RULE_TEXT
 PLAN = Path(__file__).parents[2] / 'spike/driver/docs/live-test-plan.md'
 STEP = re.compile(r'^\*\*([A-Z])(\d+)\.', re.M)
 BLOCK = re.compile(r'```sh\n(.*?)```', re.S)
-STAGES = 'PDIFSCRLXB'
+STAGES = 'PDIFSCRLEXB'
 NEEDS_NO_PASS_LINE = {'L3', 'X1'}  # L3 says plainly it is not measured; X1 is an instruction, X2 judges it
 
 
@@ -63,6 +63,26 @@ class PlanTests(unittest.TestCase):
         for block in self.blocks:
             for line in re.findall(r'kill [^\n;]*', block):
                 self.assertIn('"$PID"', line)
+
+    def test_every_part_of_codys_bar_names_a_step(self):
+        table = self.text[self.text.index('## Cody\'s bar'):self.text.index('## Two findings')]
+        for want in ('Zero USB drops', 'latency', 'sample rate', 'drift', 'calibration', 'reconnect', 'features'):
+            row = next((r for r in table.splitlines() if r.startswith('|') and want.lower() in r.lower()), None)
+            self.assertIsNotNone(row, want)
+            self.assertRegex(row, r'\b[A-Z]\d\b', want)
+
+    def test_steps_named_in_the_bar_exist(self):
+        table = self.text[self.text.index('## Cody\'s bar'):self.text.index('## Two findings')]
+        steps = {a + b for a, b in STEP.findall(self.text)}
+        for name in re.findall(r'\b([A-Z]\d)\b', table):
+            self.assertIn(name, steps)
+
+    def test_command_sending_features_wait_for_the_three_hour_gate(self):
+        self.assertLess(self.text.index('## Stage X'), self.text.index('## Stage E'))
+        stage = self.text[self.text.index('## Stage E'):self.text.index('## Stage B')]
+        self.assertIn('3 h', stage)
+        for flag in ('--feature-firmware-query', '--feature-wear-query'):
+            self.assertIn(flag, stage)
 
     def test_compare_margins_step_matches_the_code(self):
         source = (PLAN.parents[3] / 'tools/luma_probe/feed.py').read_text()

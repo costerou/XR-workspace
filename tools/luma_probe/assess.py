@@ -1,7 +1,7 @@
 """Turns a scan into a verdict: can our driver be tried right now, and if not, what is in the way?"""
 from dataclasses import dataclass, field
 
-from .sysfs import GLASSES_PRODUCT
+from .sysfs import GLASSES_PRODUCT, realtime_limit
 from .udev import add_only, covers, install_commands, scan_rules
 
 
@@ -82,6 +82,10 @@ def assess(scan, roots):
     for peer in (glasses, *glasses.upstream):
         if peer.power_control == 'auto':
             findings.append(Finding('warning', 'autosuspend', f'{peer.name} may autosuspend (power/control is auto).'))
+
+    if realtime_limit(roots.proc) == 0:
+        findings.append(Finding('info', 'no-realtime', 'This login may not use realtime priority, so a busy machine can '
+                                'delay the driver\'s reader. spike/driver/docs/performance.md has the one-time setup.'))
 
     levels = {f.level for f in findings}
     status, code = ('busy', 1) if 'blocker' in levels else ('action', 1) if 'action' in levels else ('ready', 0)

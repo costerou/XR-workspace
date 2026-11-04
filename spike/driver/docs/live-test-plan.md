@@ -26,6 +26,26 @@ To stop: `kill -TERM "$PID"`, wait 3 s, and only if it is still there `kill -KIL
 the pid this plan started. If the glasses do not come back, Cody replugs them. That is the only
 recovery.
 
+## Cody's bar
+
+"The most high-performance driver for us, with ZERO dropping and the most features." Beating the
+old driver is not enough on its own: each row below is a limit of its own. Most limits are proposals,
+because no real numbers exist yet, and only Cody can loosen one.
+
+| In order of importance | Target | Old driver | Step |
+|---|---|---|---|
+| Zero USB drops | 0 in 30 min, then 0 in 3 h total | About 1 to 3 per hour | S2, X2 |
+| Lowest latency | Under 0.5 ms added, arrival no less steady than the old driver | Not measured | L1, L2 |
+| Highest sample rate | 1000 Hz, the SDK's top rate, at least 995 published per second | 1000 Hz, from its source | I3 |
+| No drift | At most 0.5 deg/min when still, warm, over 10 min | To be measured in F6 | F6, S3 |
+| Instant calibration | Usable within 3 s, on a desk or on a moving head | 11 to 12 s | I2, I6 |
+| Rock-solid reconnect | Within about 1 s of the kernel's device line, every time, calibration kept | Not measured | R1, R2, R6 |
+| Light on the machine | Under 1% of one core | To be measured in S1 | C1 |
+| Most features | Every flag proven on real glasses before it counts | Not applicable | E1, E2, E3, E4 |
+
+Commands are the main suspect for the drops, so traffic is judged as strictly as the drops: one
+start command per connection, and no polling, ever (I3, I5).
+
 ## Two findings that shape this plan
 
 **The glasses have no hidraw node.** `35ca:1104` has one interface, class 00, with no kernel driver
@@ -63,7 +83,8 @@ first. If it does not drop, S2 is only a smoke test, and stage X is the real pro
 
 **A second catch:** XRLinuxDriver runs the glasses with their cameras on, and our driver reads only
 the IMU. If drops stop, that may be the reason, not anything clever in our driver. It would still
-be a good result, but say so when reporting it.
+be a good result, but say so when reporting it. The A/B test in `6dof-feasibility.md`, three session
+hours of XRLinuxDriver in 3DoF, would settle it. If that test has run, use its result here.
 
 ## What this plan needs from other pieces
 
@@ -77,6 +98,10 @@ Checked against the sibling worktrees on 2026-11-03. None of it is on master yet
 | usbfs transport, no reset, hotplug without netlink | drv-transport | Works inside the network namespace |
 | Soak gate | drv-soak-monitor | `python3 -m tools.luma_soak gate` |
 | Wire capture (optional) | drv-recorder | `python3 -m tools.luma_capture` |
+| Calibration within 2.5 s | drv-fusion | `coarse_timeout_s`, then `calibrated` turns true |
+| Realtime reader and bench | drv-performance | Setup in `performance.md`, not written yet |
+| Pose prediction | drv-prediction | Flag not published yet, so not tested in this plan yet |
+| Feature flags | drv-features | `--feature-*`, listed in `features.md`, wired into the daemon |
 | `tracking_driver: luma` | drv-integration | Stage X only |
 
 If a flag or log line has changed, fix this file before running it, not during.
@@ -119,7 +144,9 @@ Pass: `ninja=0`, and `--help` lists `--ipc-prefix`.
 python3 -m tools.luma_probe
 ```
 
-Pass: the report names `35ca:1104` at 480 Mbit/s. Set `HUB` to the name on its `behind` line.
+Pass: the report names `35ca:1104` at 480 Mbit/s. Set `HUB` to the name on its `behind` line. If it
+says this login may not use realtime priority, Cody does the one-time setup in `performance.md`, or
+agrees to measure stage L without it.
 
 **P3. XR off, no driver.** Cody turns XR off from the panel. The orchestrator only checks.
 
@@ -192,16 +219,19 @@ luma; echo "pid=$PID"
 Pass: `luma: connected` in `$RUN/driver.log` within 5 s. If no samples arrive within 5 s, stop. The
 start command or endpoint is wrong, and that goes back to the protocol thread.
 
-**I2. Calibration.** Pass: `luma: calibrated` within 30 s, with the glasses untouched.
+**I2. Calibration.** Compare the times of `luma: connected` and `luma: calibrated` in the log.
+Pass: under 3 s, with the glasses untouched. The old driver takes 11 to 12 s.
 
-**I3. Read for 60 s.** Wait 60 s, then read the newest `luma: stats` line.
+**I3. Read for 60 s, at the full rate.** Wait 60 s, then read the two newest `luma: stats` lines.
+These count every sample, so they are more exact than the recorder in stage F.
 
 ```sh
 tail -n 20 "$RUN/driver.log"; drops "$T0" | wc -l
 ```
 
-Pass: `samples` grew by about 60 000 in the 60 s (1 kHz), `bad_packets=0`, `bad_poses=0`,
-`commands` at the number the protocol thread expects, and `0` drops.
+Pass: at least 995 samples per second between the two lines, `published` keeping up with `samples`,
+`bad_packets=0`, `bad_poses=0`, `commands=1`, and `0` drops. Anything below 995 means either the
+wrong rate was asked for or samples are being lost. Stop and find out which.
 
 **I4. Clean stop.**
 
@@ -217,6 +247,12 @@ Pass: `luma: stopped reason=signal`, and the probe says `READY`, with interface 
 `python3 -m tools.luma_capture check --bus 5`. Repeat I1 to I4 with the recorder running.
 
 Pass: the capture shows the start command once and no display-mode command (`0x0007`).
+
+**I6. Calibration on a moving head.** Cody puts the glasses on and keeps looking around. Run `luma`,
+keep moving for 10 s, then stop it with `kill -TERM "$PID"; wait "$PID"`.
+
+Pass: `luma: calibrated` within 3 s of `luma: connected`, with no stillness at all. The pose may
+drift a little until the first pause. That is the cost of not waiting, and S3 checks it recovers.
 
 ## Stage F: compare with XRLinuxDriver
 
@@ -281,12 +317,16 @@ python3 -m tools.luma_probe.feed report "$RUN/old.csv"; python3 -m tools.luma_pr
 python3 -m tools.luma_probe.feed compare "$RUN/old.csv" "$RUN/new.csv"; echo "exit=$?"
 ```
 
-Pass: `exit=0`, which means rate at least 90% of the old driver's, no gap over 100 ms, still drift
-no more than 0.5 deg/min worse, and return error no more than 1 degree worse. These margins are
-first guesses, because no real numbers exist yet. Keep them unless Cody agrees to change them.
+Pass: `exit=0`, which means all of these:
 
-The recorder polls from Python, so it can lag by a millisecond or so. Rates near 1 kHz read a little
-low for both drivers alike.
+- Rate at least 98% of the old driver's.
+- No gap over 100 ms, and no hitch over 20 ms.
+- Still drift no more than 0.1 deg/min worse than the old driver, and at most 0.5 deg/min outright.
+- Return error no more than 0.5 degrees worse.
+
+The extra margins only allow for measuring noise: the recorder polls from Python, and a book only
+puts the glasses back so accurately. These limits are proposals. A failure is a result to report.
+Only Cody can loosen a limit, and no limit gets changed to make a run pass.
 
 ## Stage S: soak, counting drops
 
@@ -319,6 +359,18 @@ Pass: `gate=0` and `0` drops, the target. `gate=2` means the soak proved nothing
 repeat it. A drop ends the run: keep `$RUN`, and do not rerun until the cause is looked at.
 
 If `luma_soak` is not merged yet, `sleep 1800` and the final `drops` count still answer the question.
+
+**S3. Drift when warm, 10 min.** Straight after S2, so the glasses are warm. They go flat on the
+desk, untouched.
+
+```sh
+luma; sleep 15
+python3 -m tools.luma_probe.feed record --seconds 600 --feed "$RUN/feed_pose_orientation" --out "$RUN/still.csv"
+kill -TERM "$PID"; wait "$PID"; python3 -m tools.luma_probe.feed report "$RUN/still.csv"
+```
+
+Pass: `still_drift_deg_per_min` at most 0.5. It looks at the first third of the run, and
+`return_error_deg` covers the whole 10 min, so divide that by 10 for the same unit. Both must pass.
 
 **C1. CPU and memory.** Read from the S2 output.
 
@@ -359,7 +411,11 @@ plugs in. Pass: it waits without errors or crashes, then connects and calibrates
 **R5. Stop during an outage.** Unplug with the driver running, then `kill -TERM "$PID"`.
 Pass: it exits within 1 s, status 0. Plug back in.
 
-**R6. Afterwards.** Pass: `python3 -m tools.luma_probe` says `READY`, `coredumpctl list xr-luma-driver`
+**R6. Ten in a row.** Start `luma`, wait for `luma: calibrated`. Cody does ten quick replugs, about
+20 s apart. Pass: ten `luma: reconnected` lines, each within about 1 s of its kernel line, and no
+round needs a driver restart. One miss fails the stage.
+
+**R7. Afterwards.** Pass: `python3 -m tools.luma_probe` says `READY`, `coredumpctl list xr-luma-driver`
 shows nothing new, and `luma: stats` shows `reconnects` matching the plugs.
 
 An error on the first open after a replug would suggest the driver got there before udev set the
@@ -403,6 +459,37 @@ that the problem is fixed, even at the lower rate.
 **X4. Going back.** Set `tracking_driver: xrdriver`. Nothing else changes. Pass: the next XR start
 uses `xrDriver`, seen with `pgrep -x xrDriver`.
 
+## Stage E: features, one at a time
+
+Most features were written against a stand-in, and none has run on real glasses. A feature is only
+counted once it passes here, on real hardware. Everything stays behind its flag, off by default.
+
+Run this stage only after stage X reaches 3 h with no drop, because a change during the series
+restarts the count. Add one flag at a time, on the same build. Any drop: stop, remove that flag,
+and report it.
+
+**E1. Listening features, no USB traffic.** Add these to `luma`, one run each, 10 min each:
+`--feature-discovery`, then `--feature-still-wear`, then `--feature-ipc`. With discovery on, Cody
+presses each button, uses the rocker, and takes the glasses off and on.
+
+Pass: `commands=1`, unchanged by the flag, and no drops. Discovery logs each new message once.
+Hand those messages to drv-features: this is how wear and button ids get found without guessing.
+
+**E2. Acting on wear.** `--feature-auto-pause` and `--feature-oled-saver`, with a working wear
+signal only. Pass: taking the glasses off pauses and putting them on resumes, 10 times out of 10,
+and it never triggers while worn over 30 min.
+
+**E3. Features that send commands.** `--feature-firmware-query`, `--feature-wear-query`, and later
+`--feature-brightness=N` and `--feature-dimming=N`. Only ids that came from a capture, never a
+guess. Each flag alone gets a 3 h soak of its own, as in X2, because commands are the prime suspect.
+
+Pass: 0 drops in 3 h, and `commands` no higher than the flag promises in `features.md`. The driver
+already stops commands itself after a timeout or a nearby drop. If it does that even once, the
+flag fails.
+
+**E4. Prediction.** When drv-prediction publishes its flag, repeat L2 with it on. Pass: no worse
+steadiness, and Cody prefers how it feels in stage X.
+
 ## Stage B: the next reboot
 
 Do not reboot for this. The next time the machine restarts anyway, with the glasses plugged in:
@@ -424,7 +511,11 @@ Fill in as stages finish. Keep `$RUN` for each run.
 | S1 old driver, drops in 60 min | | | |
 | S2 our driver, drops in 30 min | | | |
 | C CPU %, memory growth | | | |
-| R | | | |
+| R reconnects, misses out of 16 | | | |
+| S3 warm drift, deg/min | | | |
+| I2 and I6 calibration time, s | | | |
+| I3 samples per second, commands | | | |
 | L | | | |
+| E | | | |
 | X hours with no drop, out of 3 | | | |
 | B | | | |
