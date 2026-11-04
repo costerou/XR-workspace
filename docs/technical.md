@@ -573,7 +573,14 @@ on the live desktop.
 
 A panel start with *Head tracking* ticked starts the tracking driver itself (`tools.native_spike.tracking.ensure_ready`):
 it reuses an already calibrated, network-isolated driver this app started, or (re)starts its own and waits up to 120 s
-for calibration. It refuses to compete with a tracking driver it did not start, of either kind. For manual and CLI runs:
+for calibration. It refuses to compete with a tracking driver it did not start, of either kind. Before launching, it checks this user can
+read and write the 35ca:1104 usbfs node, because logind's ACL can go missing when the glasses re-enumerate during a
+session crash, and the driver's SDK segfaults on that; a node it cannot open fails at once with "XR can't open the
+glasses (USB permission)", also the incident report's likely cause. Glasses not attached are left to the driver.
+If the driver dies during that wait, the
+log after this start decides the message: `Cannot open device`, `jcx start failed`, `Failed to send USB command - MsgID:
+0x100B` or `Segmentation fault occurred` means the plain "unplug the glasses' USB" text in the panel, which is also the
+incident report's likely cause. "Not network-isolated" is only ever about a process that is alive. For manual and CLI runs:
 
 ```sh
 python -m tools.native_spike tracking start   # also: status, stop

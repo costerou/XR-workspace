@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import socket
 import stat
 import subprocess
@@ -18,6 +19,15 @@ from tools.native_spike.__main__ import load_consent
 from tools.native_spike.supervisor import _launch
 
 INSTANCE = 'a' * 40 + '_123_456'
+# As they appear in the real driver.log of 2026-11-04.
+CRASH_LINES = ('[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1',
+               '[CARINA][TIME]:3044930524\t[PID:474055][TID:474076]\tCannot open device, may not connect',
+               '[CARINA][TIME]:3044930538\t[PID:474055][TID:474076]\tjcx start failed[35ca,1104]',
+               '2026-11-04 00:22:00.932 [ERROR] Segmentation fault occurred')
+CRASH_MESSAGE = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
+                 'Unplug the glasses\' USB, wait 10 seconds, plug it back in and try again.')
+
+USB_MESSAGE = "XR can't open the glasses (USB permission). Unplug and replug the glasses' USB, then try again."
 
 
 class TrackingConsentTests(unittest.TestCase):
@@ -91,11 +101,13 @@ class DriverLifecycleTests(unittest.TestCase):
             while True: time.sleep(0.1)
             '''))
         self.driver.chmod(0o700)
-        self.usb = Path(self.tmp.name) / 'usb'; self.nodes = Path(self.tmp.name) / 'nodes'; self.usb.mkdir()
         self.patches = [patch.object(tracking, 'DRIVER', str(self.driver)), patch.object(tracking, 'DRIVER_LOG', self.log),
-                        patch.object(tracking, 'DRIVER_CONFIG', self.config), patch.object(tracking, 'USB_SYSFS', self.usb),
-                        patch.object(tracking, 'USB_NODES', self.nodes)]
+                        patch.object(tracking, 'DRIVER_CONFIG', self.config)]
         for p in self.patches: p.start(); self.addCleanup(p.stop)
+        self.sys_usb, self.dev_usb = root / 'sys', root / 'dev'  # a fake tree: real glasses must not change these tests
+        self.sys_usb.mkdir(); self.dev_usb.mkdir()
+        for name, path in (('SYS_USB', self.sys_usb), ('DEV_USB', self.dev_usb)):
+            usb = patch.object(tracking, name, path); usb.start(); self.addCleanup(usb.stop)
 
     def test_cancel_during_calibration_stops_owned_driver(self):
         with (
@@ -229,16 +241,16 @@ class DriverLifecycleTests(unittest.TestCase):
             self.assertEqual(tracking._other_drivers(exclude=12), [10, 11])
 
     def glasses(self, name='5-2.1', vendor='35ca', product='1104', mode=0o600, node=True):
-        device = self.usb / name; device.mkdir()
+        device = self.sys_usb / name; device.mkdir()
         for leaf, value in (('idVendor', vendor), ('idProduct', product), ('busnum', '5'), ('devnum', '4')):
             (device / leaf).write_text(value + '\n')
         if node:
-            path = self.nodes / '005' / '004'; path.parent.mkdir(parents=True, exist_ok=True); path.touch(); path.chmod(mode)
+            path = self.dev_usb / '005' / '004'; path.parent.mkdir(parents=True, exist_ok=True); path.touch(); path.chmod(mode)
 
     def test_node_we_may_not_open_stops_the_start_before_the_driver_runs(self):
         self.glasses(mode=0o000)
         with patch.object(tracking, '_other_drivers', return_value=[]), patch.object(tracking.subprocess, 'Popen') as popen, \
-                self.assertRaisesRegex(ValueError, 'unplug them'):
+                self.assertRaisesRegex(ValueError, 'USB permission'):
             tracking.start(self.runtime, timeout=5)
         popen.assert_not_called()
 
@@ -255,7 +267,7 @@ class DriverLifecycleTests(unittest.TestCase):
         tracking._check_usb_access()
 
     def test_a_device_leaving_during_the_scan_is_no_failure(self):
-        device = self.usb / '5-2.1'; device.mkdir(); (device / 'idVendor').write_text('35ca\n')
+        device = self.sys_usb / '5-2.1'; device.mkdir(); (device / 'idVendor').write_text('35ca\n')
         tracking._check_usb_access()
 
     def test_driver_that_crashes_at_start_is_not_called_unisolated(self):
@@ -265,6 +277,114 @@ class DriverLifecycleTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, 'exited during startup \\(status 139\\)'):
             tracking.start(self.runtime, timeout=5)
         self.assertFalse(tracking.status(self.runtime)['running'])
+
+    def fake_driver(self, *lines, then='sys.exit(1)'):
+        """A driver that writes these log lines, then does `then`."""
+        text = ''.join(line + '\n' for line in lines)
+        self.driver.write_text(textwrap.dedent(f'''\
+            #!{sys.executable}
+            import signal, sys, time
+            signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+            open({str(self.log)!r}, 'a').write({text!r})
+            {then}
+            '''))
+
+    def failure(self):
+        self.addCleanup(tracking.stop, self.runtime)  # a start that wrongly succeeds must not leave its fake driver running
+        with self.assertRaises(ValueError) as caught: tracking.start(self.runtime, timeout=10)
+        return str(caught.exception)
+
+    def test_driver_that_crashes_at_start_gets_the_plain_message(self):
+        self.fake_driver(*CRASH_LINES)
+        started = time.monotonic()
+        self.assertEqual(self.failure(), CRASH_MESSAGE)
+        self.assertLess(time.monotonic() - started, 4)  # at once, not after waiting for a process already gone
+        self.assertFalse(tracking._state(self.runtime).exists())
+
+    def test_any_one_crash_line_is_enough(self):
+        for line in CRASH_LINES:
+            with self.subTest(line):
+                self.fake_driver(line)
+                self.assertEqual(self.failure(), CRASH_MESSAGE)
+
+    def test_a_crash_logged_before_this_start_is_not_this_start(self):
+        self.log.write_text(''.join(line + '\n' for line in CRASH_LINES))
+        self.fake_driver('Starting up XR driver')
+        self.assertIn('tracking driver exited during startup (status 1); see ', self.failure())
+
+    def test_exit_with_no_crash_in_the_log_blames_no_usb(self):
+        self.fake_driver('Starting up XR driver')
+        self.assertIn('tracking driver exited during startup (status 1); see ', self.failure())
+
+    def test_live_driver_outside_the_namespace_is_still_refused(self):
+        # The crash lines must not excuse it: the process is alive, so isolation is the failure.
+        self.fake_driver(*CRASH_LINES, then='while True: time.sleep(0.1)')
+        with patch.object(tracking, '_network_isolated', return_value=False):
+            self.assertEqual(self.failure(), 'tracking driver is not network-isolated; stopped')
+        self.assertFalse(tracking.status(self.runtime)['running'])
+
+    def usb_device(self, name='5-2.2', vendor='35ca', product='1104', bus=5, dev=7, mode=0o600):
+        """A device as sysfs lists it, and its usbfs node with these permissions."""
+        entry = self.sys_usb / name; entry.mkdir()
+        for field, value in (('idVendor', vendor), ('idProduct', product), ('busnum', bus), ('devnum', dev)):
+            (entry / field).write_text(f'{value}\n')
+        node = self.dev_usb / f'{bus:03d}' / f'{dev:03d}'
+        node.parent.mkdir(exist_ok=True); node.touch(); node.chmod(mode)
+
+    def launches(self):
+        """A driver that marks that it ran. Exits at once: only whether it got launched matters here."""
+        marker = self.driver.parent / 'launched'
+        self.fake_driver(then=f'open({str(marker)!r}, "w").close(); sys.exit(1)')
+        return marker
+
+    def test_glasses_this_user_cannot_open_stop_the_start_before_the_driver_runs(self):
+        for mode in (0o000, 0o400, 0o200):  # no access, read only, write only
+            with self.subTest(oct(mode)):
+                marker = self.launches()
+                self.usb_device(mode=mode)
+                try:
+                    self.assertEqual(self.failure(), USB_MESSAGE)
+                    self.assertFalse(marker.exists())
+                    self.assertFalse(tracking._state(self.runtime).exists())
+                finally:
+                    shutil.rmtree(self.sys_usb / '5-2.2'); shutil.rmtree(self.dev_usb / '005')
+                    marker.unlink(missing_ok=True)
+
+    def test_glasses_this_user_can_open_go_on_to_the_driver(self):
+        self.usb_device()
+        status = tracking.start(self.runtime, timeout=10)
+        self.addCleanup(lambda: tracking.stop(self.runtime))
+        self.assertTrue(status['calibrated'])
+
+    def test_no_glasses_in_sysfs_is_left_to_the_driver(self):
+        marker = self.launches()
+        self.failure()
+        self.assertTrue(marker.exists())
+
+    def test_no_usb_in_sysfs_at_all_is_left_to_the_driver(self):
+        self.sys_usb.rmdir()  # a VM with no USB bus
+        marker = self.launches()
+        self.failure()
+        self.assertTrue(marker.exists())
+
+    def test_only_the_glasses_node_counts(self):
+        # Root's other USB devices, and the glasses' other id, are not ours to open.
+        (self.sys_usb / '5-0:1.0').mkdir()  # an interface: sysfs lists these beside the devices, with no ids
+        self.usb_device('usb5', vendor='1d6b', product='0002', bus=5, dev=1, mode=0o000)
+        self.usb_device('5-2', vendor='05e3', product='0610', bus=5, dev=2, mode=0o000)
+        self.usb_device('5-2.1', vendor='35ca', product='1102', bus=5, dev=3, mode=0o000)
+        marker = self.launches()
+        self.failure()
+        self.assertTrue(marker.exists())
+
+    def test_ids_in_capitals_are_the_same_ids(self):
+        self.usb_device(vendor='35CA', mode=0o000)
+        self.assertEqual(self.failure(), USB_MESSAGE)
+
+    def test_a_listed_device_with_no_node_cannot_be_opened(self):
+        self.usb_device()
+        (self.dev_usb / '005' / '007').unlink()
+        self.assertEqual(self.failure(), USB_MESSAGE)
 
     def test_refuses_config_that_could_drive_the_mouse(self):
         self.config.write_text('disabled=false\noutput_mode=mouse\n')

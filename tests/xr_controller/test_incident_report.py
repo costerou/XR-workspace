@@ -12,6 +12,9 @@ from tools.xr_controller import incident_report as r
 from tools.xr_controller.incident_detect import Episode, Signal
 from tools.xr_controller.incident_report import RateLimit, Reports, Scrubber, build_bundle, fit, guess_cause, markdown, notify_text, run_hook, summary_line
 
+TRACKING_CRASH = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
+                  "Unplug the glasses' USB, wait 10 seconds, plug it back in and try again.")
+USB_DENIED = "XR can't open the glasses (USB permission). Unplug and replug the glasses' USB, then try again."
 RUN = '2298c7a18df736b9b6c4bde5b5877031'
 HOME = '/home/testuser'
 
@@ -189,6 +192,24 @@ class GuessTests(unittest.TestCase):
 
     def test_a_frozen_renderer(self):
         self.assertIn('froze', guess_cause(episode('watchdog', ended='ended'), evidence(result=dict(stop_reason='heartbeat-timeout')))['text'])
+
+    def test_tracking_driver_crash_at_start_says_what_to_do(self):
+        # Its core dump and its failed USB commands are symptoms: the report leads with what Cody can do about it.
+        crash = dict(exe='/usr/bin/xrDriver', signal='SIGSEGV', frames=['#0  0x00007f0000000000 n/a (libglasses.so)'])
+        result = dict(run_id=RUN, renderer_returncode=None, complete=False, phase='tracking', error=TRACKING_CRASH)
+        e = episode('usb-drop', 'start-failed', ended='ended')
+        guess = guess_cause(e, evidence(result=result, cores=[crash]))
+        self.assertEqual(guess, dict(text=TRACKING_CRASH, confidence='high'))
+        bundle = build_bundle(e, evidence(result=result, cores=[crash]), 1010.0, scrubber(RUN))
+        self.assertEqual(bundle['cause']['text'], TRACKING_CRASH)  # as written, after the scrubber
+        self.assertEqual(bundle['renderer']['error'], TRACKING_CRASH)
+        self.assertIn(f'Likely cause (high confidence): {TRACKING_CRASH}', markdown(bundle))
+
+    def test_no_usb_permission_at_start_says_what_to_do(self):
+        result = dict(run_id=RUN, renderer_returncode=None, complete=False, phase='tracking', error=USB_DENIED)
+        e = episode('usb-drop', 'start-failed', ended='ended')
+        self.assertEqual(guess_cause(e, evidence(result=result)), dict(text=USB_DENIED, confidence='high'))
+        self.assertEqual(build_bundle(e, evidence(result=result), 1010.0, scrubber(RUN))['cause']['text'], USB_DENIED)
 
     def test_when_it_cannot_tell_it_says_so(self):
         guess = guess_cause(episode('tracking-lost'), evidence())

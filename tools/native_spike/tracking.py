@@ -56,6 +56,12 @@ FALLBACK_TIMEOUT = 90.0
 LUMA_SETTLE = 5.0
 # LumaWatch: a crashed driver comes back this many times in this many seconds. Past that it is not a one-off.
 RESTARTS, RESTART_WINDOW = 3, 300.0
+# Shown to Cody as written, in the panel and as an incident report's likely cause.
+CRASHED = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
+           "Unplug the glasses' USB, wait 10 seconds, plug it back in and try again.")
+USB_DENIED = "XR can't open the glasses (USB permission). Unplug and replug the glasses' USB, then try again."
+# What the driver logs when it dies trying to reach the glasses; any one of them is enough.
+CRASH_LINES = ('Cannot open device', 'jcx start failed', 'Failed to send USB command - MsgID: 0x100B', 'Segmentation fault occurred')
 # Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
 # on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
 # interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
@@ -69,11 +75,12 @@ FAKE_ADDRESS = '192.0.2.1/32'
 # driver gets no id, never tries the licence server, and just starts 30 s later.
 RESOLVED_DIR = '/run/systemd/resolve'
 # The Luma Ultra's control device. The system's udev rule grants it only on ACTION=="add", which a boot with the glasses
-# already plugged in does not give, so the node stays root's. The SDK then fails to open it and segfaults in
-# carina_a1088_read_custom_data instead of reporting that. A replug fixes it.
+# already plugged in does not give, and logind can miss the ACL when the glasses re-enumerate during a session crash. The
+# node then stays root's, and the SDK fails to open it and segfaults in carina_a1088_read_custom_data instead of reporting
+# that. A replug fixes it, so look before launching a driver.
 GLASSES_USB = ('35ca', '1104')
-USB_SYSFS = Path('/sys/bus/usb/devices')
-USB_NODES = Path('/dev/bus/usb')
+SYS_USB = Path('/sys/bus/usb/devices')
+DEV_USB = Path('/dev/bus/usb')
 
 
 def _start_tick(pid):
@@ -172,20 +179,6 @@ def _luma_argv(binary):
     return ['unshare', '--user', '--map-current-user', '--net', '--', binary, *_luma_flags()]
 
 
-def _check_usb_access():
-    """Refuse before the driver crashes on a node we may not open. Sysfs and access(2) only: this never opens the
-    device, so it sends nothing to the glasses. No glasses at all is fine: the driver waits for them."""
-    for device in USB_SYSFS.glob('*'):
-        try:
-            if (device / 'idVendor').read_text().strip() != GLASSES_USB[0] or (device / 'idProduct').read_text().strip() != GLASSES_USB[1]: continue
-            node = USB_NODES / f"{int((device / 'busnum').read_text()):03d}" / f"{int((device / 'devnum').read_text()):03d}"
-        except (OSError, ValueError):
-            continue
-        if not os.access(node, os.R_OK | os.W_OK):
-            raise ValueError(f'no permission to open the glasses ({node}), which happens after booting with them plugged in: '
-                             'unplug them, plug them back in, and start again')
-
-
 def _open_luma_log():
     """(where this start begins in the log, the log open for appending)."""
     LUMA_LOG.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -206,11 +199,38 @@ def _network_isolated(pid):
     except OSError: return False
 
 
+def _glasses_nodes():
+    """The usbfs node of each attached 35ca:1104. Interfaces and hubs without these files are skipped."""
+    nodes = []
+    for device in SYS_USB.glob('*'):
+        try:
+            ids = tuple((device / name).read_text().strip().lower() for name in ('idVendor', 'idProduct'))
+            if ids == GLASSES_USB:
+                nodes.append(DEV_USB / f"{int((device / 'busnum').read_text()):03d}" / f"{int((device / 'devnum').read_text()):03d}")
+        except (OSError, ValueError):
+            continue
+    return nodes
+
+
+def _check_usb_access():
+    """Refuse before the driver crashes on a node we may not open. Sysfs and access(2) only: this never opens the device,
+    so it sends nothing to the glasses. Glasses that are not attached are left to the driver, which waits for them."""
+    if not all(os.access(node, os.R_OK | os.W_OK) for node in _glasses_nodes()): raise ValueError(USB_DENIED)
+
+
 def _check_config():
     try: lines = dict(l.split('=', 1) for l in DRIVER_CONFIG.read_text().splitlines() if '=' in l and not l.startswith('#'))
     except OSError: raise ValueError('XRLinuxDriver config missing')
     if lines.get('output_mode', '').strip() != 'external_only' or lines.get('disabled', '').strip() != 'false':
         raise ValueError('XRLinuxDriver config must be disabled=false and output_mode=external_only (no mouse/joystick)')
+
+
+def _exit_failure(offset, log, code=None):
+    """Why a driver that is gone failed, from what it logged since this start. Bytes first: the log is not plain text."""
+    text = log.read_bytes() if log.exists() else b''
+    current = text[offset:].decode(errors='replace')
+    if any(line in current for line in CRASH_LINES): return CRASHED
+    return 'tracking driver exited during startup' + (f' (status {code}); see {log}' if code is not None else '')
 
 
 def status(runtime):
@@ -282,24 +302,27 @@ def start(runtime, timeout=120.0, luma=None, binary=None):
     path = _state(runtime)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset, 'driver': LUMA if luma else XRDRIVER, 'binary': luma or binary or DRIVER}, f)
+    log = LUMA_LOG if luma else DRIVER_LOG
     try:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             # First: a crashed driver is a zombie until reaped, so what follows would say only "exited", or, with no namespace
             # left to read, "not network-isolated". This says how it ended.
-            if child.poll() is not None:
-                raise ValueError(f'tracking driver exited during startup (status {child.returncode}); see {LUMA_LOG if luma else DRIVER_LOG}')
+            if child.poll() is not None: raise ValueError(_exit_failure(offset, log, child.returncode))
             now = status(runtime)
-            if not now['running']:
-                raise ValueError('tracking driver exited during startup')
+            if not now['running']: raise ValueError(_exit_failure(offset, log, child.poll()))
             if not now['network_isolated']:
-                raise ValueError('tracking driver is not network-isolated; stopped')
+                # Its namespaces go just before it can be waited on, so a process caught dying gets a moment to show it.
+                try: child.wait(timeout=0.2)
+                except subprocess.TimeoutExpired: raise ValueError('tracking driver is not network-isolated; stopped') from None
+                raise ValueError(_exit_failure(offset, log, child.returncode))
             if now['calibrated']: return now
             time.sleep(0.2)
         raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
     except BaseException:
         # Cancellation must not leave a child keeping the transient unit alive.
         stop(runtime)
+        _state(runtime).unlink(missing_ok=True)  # stop() leaves the record of a driver that is already gone
         raise
 
 

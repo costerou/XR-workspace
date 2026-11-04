@@ -49,7 +49,7 @@ The hub came back at 00:22:43, the node then had `user:cody:rw-`, and the same s
 permissions, not load, caused those crashes, and they say nothing about what causes the drops. Whether the 3DoF build would crash
 the same way on a failed open is unknown.
 
-A start now refuses with "unplug them, plug them back in" instead of crashing (`tracking._check_usb_access`). The lasting fix is
+A start now refuses with "XR can't open the glasses (USB permission)" instead of crashing (`tracking._check_usb_access`). The lasting fix is
 PR #147, which grants access on every event but `remove`. It lives in the system's udev rule, needs sudo, and this build does not
 install it.
 
