@@ -1,16 +1,16 @@
 #pragma once
 // luma::Transport: the byte pipe to the glasses, with no knowledge of what the bytes mean.
 //
-// What the hardware looks like (read from sysfs on 2026-11-03, cached by the kernel, device untouched):
-//   35ca:1104 "VITURE Luma Ultra XR GLASSES", high speed: ONE vendor interface (class 00), no kernel
-//     driver and so NO hidraw node. Endpoints: interrupt IN 0x81 (1024) and 0x83 (512), bulk IN 0x82,
-//     0x85, 0x87 (512), bulk OUT 0x04, 0x06 (512). Reachable through usbfs only.
-//   35ca:1102 "VITURE Microphone", full speed: interfaces 3 and 4 are 64-byte interrupt HID
-//     (hidraw), vendor-undefined reports with no report id.
-// Which of these carries the IMU is the protocol's question, so both backends are first class:
-// Hidraw for a HID interface, Usbfs (raw /dev/bus/usb URBs, no libusb) for the rest. Auto takes a
-// matching hidraw node, otherwise the USB device. The driver log's "returned -7" is LIBUSB_ERROR_TIMEOUT,
-// which shows the vendor SDK talks to the 1104 through usbfs too.
+// Primary path: usbfs bulk on the Ultra's data channel, raw /dev/bus/usb URBs with no libusb. The 35ca:1104
+// has one vendor interface and no kernel driver, so no hidraw node exists for it. Sysfs, read 2026-11-03
+// with the device untouched:
+//   bulk OUT 0x06, bulk IN 0x87 (512): the data channel, 512-byte frames (spike/driver/docs/protocol.md)
+//   bulk OUT 0x04, bulk IN 0x85 (512): the MCU channel, which also flashes firmware. Refused on this device.
+//   interrupt IN 0x81 (1024, 500 us), 0x83 (512, 1 ms), bulk IN 0x82: unused by any open source
+// Which endpoint carries the IMU stream is still unknown until a usbmon capture; 0x83 is the first
+// candidate. Listing it in in_endpoints is all it takes: URB type and size come from sysfs per endpoint.
+// Backend::Hidraw remains for the HID interfaces on the 35ca:1102 mic device, on request only.
+// docs/transport.md has the reasoning and what has not been proven on real hardware.
 //
 // Hotplug uses neither libudev nor netlink, on purpose. tracking.py runs the driver in a network
 // namespace owned by a non-initial user namespace, and the kernel only delivers uevents to namespaces
@@ -22,9 +22,9 @@
 //   re-arrival: rescan sysfs every rescan_interval while down. Reads attributes the kernel caches,
 //              so it puts nothing on the USB bus.
 //
-// Open errors are retried like absence, since EACCES is normal for a moment after arrival. It can also
-// last: a device present since boot may have no user ACL (the udev rule matches ACTION=="add" only).
-// last_error() then keeps saying "Permission denied".
+// Open errors do not end anything: read() keeps retrying, with a doubling interval, because EACCES is
+// normal for a moment after arrival. It can also last: a device present since boot may have no user ACL
+// (the udev rule matches ACTION=="add" only). last_error() then says what to do.
 //
 // Safety: this class never resets the device, never sets a configuration or alternate setting,
 // never clears a halt, never detaches a kernel driver and never touches the Ultra's firmware endpoints. Every ioctl goes through an allowlist,
@@ -33,7 +33,11 @@
 //
 // Threading: one thread drives read(), write(), open(), close(), next_event() and stats(). Only
 // interrupt() may be called from another thread or a signal handler. There are no internal threads:
-// reconnecting happens inside read().
+// reconnecting and refilling the read queue happen inside read(), so keep calling it. If eventfd
+// fails at construction, interrupt() does nothing; signals still wake a read.
+//
+// Timeouts and interrupt() bound the wait in poll(), not the kernel's device lock: usbfs ioctls, open
+// and close block while the device is being reset or removed, usually for milliseconds.
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -64,24 +68,33 @@ struct TransportConfig {
     std::uint16_t vendor_id = kVitureVendorId;
     std::uint16_t product_id = kLumaUltraProductId;
     int interface_number = 0;
-    Backend backend = Backend::Auto;
+    Backend backend = Backend::Usbfs;
 
     // Usbfs only. Addresses as the descriptor gives them (IN has 0x80 set). Every IN endpoint listed
     // is read at once and read() says which one a packet came from; out_endpoint 0 means no writes.
-    std::vector<std::uint8_t> in_endpoints;
-    std::uint8_t out_endpoint = 0;
-    // Upper limit per transfer. A URB is the endpoint's own packet size or this, whichever is smaller: USB
-    // ends a transfer on a short packet or a full buffer, so a bigger URB would hold back a frame of
-    // exactly one packet (the 512-byte data channel) until the next frame came. Longer messages arrive
-    // as one read() per packet.
+    // List only the endpoints in use: a queued read keeps the host polling that endpoint, and
+    // reads on a camera endpoint could keep sensors busy.
+    std::vector<std::uint8_t> in_endpoints{kLumaUltraDataIn};
+    std::uint8_t out_endpoint = kLumaUltraDataOut;
+    // Room for one packet. Every URB is exactly the endpoint's wMaxPacketSize, because USB ends a transfer
+    // on a short packet or a full buffer: a bigger URB would hold back a frame of exactly one packet
+    // until the next arrived, and a smaller one would be babble. An endpoint larger than this is refused.
     std::size_t packet_size = 1024;
-    // In flight per IN endpoint. Packets keep landing while we are off the CPU: 4 URBs ride out a 2 ms
-    // stall on the 500 us endpoint 0x81. List only the endpoints in use: an idle bulk IN URB keeps
-    // the host controller polling that endpoint.
-    int urbs_per_endpoint = 4;
+    // Reads kept queued per IN endpoint, so the glasses always have somewhere to put a frame. Each
+    // completed read is resubmitted before read() returns. While our thread is off the CPU the host
+    // keeps collecting frames until these run out: 8 URBs ride out an 8 ms stall on a 1 kHz stream.
+    int urbs_per_endpoint = 8;  // At least 2.
     std::size_t queue_frames = 256;  // Received packets held until read() takes them; the oldest goes first.
-    int max_urb_errors = 8;          // Consecutive failed transfers on one endpoint before the link is reopened.
-    std::chrono::milliseconds urb_retry_delay{10};  // Wait after a failed transfer, doubling up to 16 times this.
+    // After losing the link, wait this long from first seeing the device before touching it: no open,
+    // no claim, and no queued reads, which start the host polling. It restarts if the device vanishes
+    // meanwhile. 2 s is protocol.md's starting value: 12 of 20 reconnects right after a drop were
+    // followed by another drop, against 0 of 160 fresh starts (usb-drop-fix). A soak should tune it. A
+    // first open never waits. If links keep dying with no packet while the device stays, the hold
+    // doubles per link, up to 16 times this and at least open_retry_max.
+    std::chrono::milliseconds arrival_settle{2000};
+    // A device that is there but will not open (busy, no permission) is retried at a doubling
+    // interval up to this, not at the rescan rate. Looking for an absent device stays at rescan_interval.
+    std::chrono::milliseconds open_retry_max{1000};
 
     // Sysfs rescan period while disconnected. One scan takes about 0.3 ms on this machine, so 25 ms is
     // about 1% of a core, only while the glasses are gone.
@@ -108,16 +121,16 @@ struct FoundDevice {
 std::optional<FoundDevice> find_device(const TransportConfig& config);
 
 enum class IoStatus {
-    Ok,            // read: a packet is in the buffer. write: everything went out.
+    Ok,            // read: a packet is in the buffer. write: the device acknowledged it (see write()).
     Timeout,       // Nothing within the timeout. The link is as it was.
     Interrupted,   // interrupt() was called, or a signal arrived.
-    Connected,     // read only: the link just came up (first time or again). Send start-stream now.
+    Connected,     // read only: the link just came up (first time or again). Reset any parser.
     Disconnected,  // read: the link just went down, reported once. write: there is no link now.
     Closed,        // close() was called, or open() never was.
-    Error,         // write only: the transfer failed but the link stands (detail in last_error()).
+    Error,         // write only: not sent, wrong for the configuration (detail in last_error()). Link stands.
 };
 
-struct ReadResult {
+struct TransportRead {
     IoStatus status = IoStatus::Timeout;
     std::size_t bytes = 0;       // Copied into the caller's buffer.
     std::uint8_t endpoint = 0;   // Usbfs: IN endpoint it came from. Hidraw: 0.
@@ -135,8 +148,7 @@ struct TransportEvent {
     std::uint64_t downtime_ms = 0;  // Connected after a drop: how long the link was down.
     // Disconnected: what led up to it, for working out why it dropped.
     std::uint64_t ms_since_last_packet = 0;   // A stream that stopped before the drop reads high.
-    std::uint32_t consecutive_urb_errors = 0;  // On the worst endpoint.
-    int last_urb_status = 0;                   // Newest failed transfer this session (-EPROTO etc), 0 if none.
+    int last_urb_status = 0;                  // Newest failed transfer this session (-EPROTO etc), 0 if none.
 };
 
 struct TransportStats {
@@ -144,9 +156,10 @@ struct TransportStats {
     std::uint64_t disconnects = 0;
     std::uint64_t packets = 0;          // Handed to read().
     std::uint64_t dropped_packets = 0;  // Pushed out of a full queue.
-    std::uint64_t urb_errors = 0;       // Failed transfers that did not by themselves end the link.
+    std::uint64_t urb_errors = 0;       // Failed transfers, reads and writes. Any one of them ends the link.
     std::uint64_t open_failures = 0;    // Found the device but could not open or claim it.
     std::uint64_t last_downtime_ms = 0;
+    int last_open_errno = 0;  // Why the device will not open now (EACCES, EBUSY); 0 if it opened or is absent.
 };
 
 // The system calls Transport makes, so tests can stand in for the kernel. Same return conventions as
@@ -173,17 +186,24 @@ public:
     Transport& operator=(const Transport&) = delete;
 
     // Starts the link. True if the device is up right now. False is not fatal: read() keeps looking
-    // (see last_error()). Either way read() reports Connected once the link is up.
+    // (see last_error()). Either way read() reports Connected once the link is up. Once started, this
+    // only says whether the link is up: reconnecting belongs to read(). A link lost by write() before
+    // read() saw it come up is reported as Disconnected alone.
     bool open();
 
     // Waits up to timeout for a packet or a link change. Timeout 0 polls. Hidraw returns one report;
     // a report longer than the buffer is cut by the kernel with no notice, so pass a big enough one.
-    ReadResult read(std::span<std::uint8_t> buffer, std::chrono::milliseconds timeout);
+    TransportRead read(std::span<std::uint8_t> buffer, std::chrono::milliseconds timeout);
 
     // Sends one packet, once: no retries and nothing is queued for later. Packets arriving meanwhile
-    // are kept for read(). Usbfs waits up to timeout, then cancels the transfer. Hidraw sends the bytes
-    // as they are, so the first byte is the report id (0 on the VITURE HID interfaces, then 64 bytes),
-    // and the kernel may block for up to 5 s (usbhid's output timeout) whatever timeout says.
+    // are kept for read(). Usbfs waits up to timeout, then cancels the transfer and returns Timeout, and
+    // the link stays up. A transfer that fails ends the link and returns Disconnected, and read()
+    // reports it too. Hidraw sends the bytes as they are, so the first byte is the report id (0 on the
+    // VITURE HID interfaces, then 64 bytes), and the kernel may block for up to 5 s (usbhid's output
+    // timeout) whatever timeout says.
+    // Ok means the device acknowledged the packet. After a failed transfer, the host's data toggle can
+    // be out of step until the next one (nothing here may send CLEAR_HALT), and a device in that state
+    // acknowledges a packet and drops it. Anything that must arrive needs a reply or a sequence check.
     IoStatus write(std::span<const std::uint8_t> data, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000});
 
     // Cancels transfers, releases the interface and closes. No reset. open() may be called again.

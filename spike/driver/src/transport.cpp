@@ -1,12 +1,14 @@
 // See transport.hpp for why this looks the way it does (usbfs and hidraw, no uevents, no resets).
 //
-// Kernel behaviour relied on, all from drivers/usb/core/devio.c and drivers/hid/hidraw.c:
+// Kernel behaviour relied on, checked against the source (drivers/usb/core/devio.c, drivers/hid/hidraw.c):
 //  - usbfs poll: EPOLLOUT when a URB completed, EPOLLHUP once disconnected, EPOLLERR when the file
-//    has no device left.
-//  - REAPURBNDELAY: EAGAIN when nothing is ready, ENODEV when disconnected with nothing left.
+//    has no device left. A hang-up can show while URBs are still pending.
+//  - REAPURBNDELAY: EAGAIN when nothing is ready, ENODEV when disconnected with nothing left. Completed
+//    URBs stay reapable after a disconnect. Status, length and data reach user memory at reap, not before.
 //  - closing a usbfs file kills its URBs and releases its interfaces, and writes nothing to user
 //    memory afterwards, so URB buffers may be freed once close() returns.
 //  - hidraw poll: EPOLLERR|EPOLLHUP after removal; queued reports stay readable, then EIO.
+//  - open, claim, submit on bulk or interrupt, reap, discard, release and close send no control transfer.
 #include "luma/transport.hpp"
 
 #include <algorithm>
@@ -101,9 +103,7 @@ std::vector<EndpointInfo> read_endpoints(const fs::path& interface_dir) {
         auto address = parse(name.substr(3), 16);
         std::string type = read_line(entry / "type");
         if (!address || (type != "Bulk" && type != "Interrupt")) continue;
-        // Bits 11-12 are extra transactions per microframe on high-bandwidth interrupt endpoints.
-        unsigned long raw = read_number(entry / "wMaxPacketSize", 16).value_or(0);
-        std::size_t max_packet = (raw & 0x7ff) * (1 + ((raw >> 11) & 3));
+        std::size_t max_packet = read_number(entry / "wMaxPacketSize", 16).value_or(0);
         endpoints.push_back({static_cast<std::uint8_t>(*address), type == "Bulk", max_packet});
     }
     return endpoints;
@@ -134,6 +134,23 @@ std::optional<FoundDevice> find_usb(const TransportConfig& config) {
 }
 
 bool is_gone_errno(int error) { return error == ENODEV || error == ESHUTDOWN || error == EIO || error == ENXIO; }
+
+// A negative poll timeout means wait for ever, so everything that reaches poll() comes through here.
+int poll_ms(Clock::duration wait) {
+    return static_cast<int>(std::clamp<long long>(std::chrono::ceil<milliseconds>(wait).count(), 0, 1'000'000));
+}
+
+// Adding a huge timeout to now would overflow. A year is as good as for ever here.
+Clock::time_point deadline_after(milliseconds timeout) {
+    return Clock::now() + std::clamp(timeout, milliseconds{0}, milliseconds{std::chrono::hours{24 * 365}});
+}
+
+std::string transfer_failure(std::uint8_t endpoint, int status) {
+    if (status == -EPIPE) return "endpoint " + hex(endpoint) + " halted: only a re-enumeration clears that";
+    if (status == -ENODEV || status == -ESHUTDOWN) return "transfer shut down on endpoint " + hex(endpoint) + ": device gone or reset";
+    if (status == -ENOENT || status == -ECONNRESET) return "transfer on endpoint " + hex(endpoint) + " cancelled by the kernel";
+    return "transfer failed on endpoint " + hex(endpoint) + ": " + std::strerror(-status);
+}
 
 }  // namespace
 
@@ -173,11 +190,9 @@ int Sys::poll(pollfd* fds, nfds_t count, int timeout_ms) { return ::poll(fds, co
 struct Transport::Impl {
     struct Urb {
         std::vector<std::uint8_t> buffer;
-        int length = 0;  // What an IN transfer asks for.
+        int length = 0;  // One packet: the most a transfer on this endpoint moves.
         std::uint8_t endpoint = 0;
-        bool busy = false;    // With the kernel.
-        bool parked = false;  // Failed: resubmits at retry_at.
-        Clock::time_point retry_at{};
+        bool busy = false;  // With the kernel.
         std::unique_ptr<usbdevfs_urb> urb = std::make_unique<usbdevfs_urb>();  // Own allocation: it ends in a flexible array.
     };
     struct Slot {
@@ -196,14 +211,16 @@ struct Transport::Impl {
     std::optional<IoStatus> pending;  // Link change that read() still has to report.
     std::optional<std::string> lost;  // Set during reaping: the link ended; finish the batch first.
     Clock::time_point next_scan{};
+    std::optional<Clock::time_point> first_seen;  // When the device came back, for arrival_settle.
+    int open_attempts = 0;                        // Failures in a row on a device that is there.
+    int failed_sessions = 0;                      // Links in a row that ended with no packet, with the device still there.
+    bool session_had_packet = false;
     std::optional<Clock::time_point> down_since;
     std::string last_error;
     std::deque<TransportEvent> events;
     TransportStats stats;
 
     std::deque<Urb> urbs;  // Deque: the kernel keeps pointers to these.
-    std::array<int, 256> endpoint_errors{};  // Consecutive failures, by endpoint: several URBs share one.
-    int parked = 0;
     int last_urb_status = 0;
     Clock::time_point last_packet{};
     Urb* out_urb = nullptr;
@@ -217,8 +234,8 @@ struct Transport::Impl {
     Impl(TransportConfig c, std::shared_ptr<Sys> s) : config(std::move(c)), sys(s ? std::move(s) : std::make_shared<Sys>()) {
         config.queue_frames = std::max<std::size_t>(config.queue_frames, 1);
         config.packet_size = std::max<std::size_t>(config.packet_size, 1);
-        config.urbs_per_endpoint = std::max(config.urbs_per_endpoint, 1);
-        config.max_urb_errors = std::max(config.max_urb_errors, 1);
+        config.urbs_per_endpoint = std::max(config.urbs_per_endpoint, 2);
+        config.rescan_interval = std::max(config.rescan_interval, milliseconds{1});
         ring.resize(config.queue_frames * config.packet_size);
         slots.resize(config.queue_frames);
         wake_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -256,8 +273,11 @@ struct Transport::Impl {
             if (static_cast<bool>(address & 0x80) != in)
                 return fail_open("endpoint " + hex(address) + (in ? " is not an IN endpoint" : " is not an OUT endpoint"));
             auto known = [&](const EndpointInfo& e) { return e.address == address; };
-            if (std::none_of(found.endpoints.begin(), found.endpoints.end(), known))
-                return fail_open("device has no bulk or interrupt endpoint " + hex(address));
+            auto endpoint = std::find_if(found.endpoints.begin(), found.endpoints.end(), known);
+            if (endpoint == found.endpoints.end()) return fail_open("device has no bulk or interrupt endpoint " + hex(address));
+            // A packet larger than its URB is babble, an error on the wire, not a shorter read.
+            if (endpoint->max_packet > config.packet_size)
+                return fail_open("packet_size is below the " + std::to_string(endpoint->max_packet) + " bytes of endpoint " + hex(address));
             return true;
         };
         for (std::uint8_t address : config.in_endpoints)
@@ -273,7 +293,7 @@ struct Transport::Impl {
         for (const EndpointInfo& e : found.endpoints) {
             if (e.address != endpoint) continue;
             bulk = e.bulk;
-            if (e.max_packet > 0) length = std::min(length, e.max_packet);
+            if (e.max_packet > 0) length = e.max_packet;
         }
         u.length = static_cast<int>(length);
         u.urb->type = bulk ? USBDEVFS_URB_TYPE_BULK : USBDEVFS_URB_TYPE_INTERRUPT;
@@ -296,6 +316,7 @@ struct Transport::Impl {
         if (guarded_ioctl(USBDEVFS_CLAIMINTERFACE, &interface_number) != 0) {
             int error = errno;
             ++stats.open_failures;
+            stats.last_open_errno = error;
             return fail_open(error == EBUSY ? "interface busy: another program or kernel driver holds it"
                                             : std::string("claim failed: ") + std::strerror(error));
         }
@@ -306,6 +327,7 @@ struct Transport::Impl {
                 if (!submit(u, u.length)) {
                     int error = errno;
                     ++stats.open_failures;
+                    stats.last_open_errno = error;
                     return fail_open(std::string("URB submit failed: ") + std::strerror(error));
                 }
             }
@@ -317,20 +339,54 @@ struct Transport::Impl {
         return true;
     }
 
+    bool retry_later() {
+        auto delay = config.rescan_interval * (1 << std::min(++open_attempts, 10));
+        next_scan = Clock::now() + std::max(config.rescan_interval, std::min<milliseconds>(delay, config.open_retry_max));
+        return false;
+    }
+
+    // Reopening cannot clear a halt, so a link that keeps dying with the device still present must not
+    // cycle: each such session doubles the hold. The device leaving and returning clears it.
+    bool settling() {
+        if (!down_since) return false;
+        auto hold = config.arrival_settle * (1 << std::min(failed_sessions, 4));
+        if (failed_sessions > 0) hold = std::max(hold, config.open_retry_max);
+        if (hold <= milliseconds{0}) return false;
+        const auto now = Clock::now();
+        if (!first_seen) first_seen = now;
+        return now < *first_seen + hold;
+    }
+
     bool try_open() {
         auto found = find_device(config);
-        if (!found) return fail_open("device not found");
-        if (found->backend == Backend::Usbfs && !check_endpoints(*found)) return false;
+        if (!found) {
+            first_seen.reset();
+            open_attempts = 0;
+            failed_sessions = 0;
+            stats.last_open_errno = 0;
+            return fail_open("device not found");
+        }
+        if (settling()) return false;  // last_error() keeps saying why the link went down.
+        if (found->backend == Backend::Usbfs && !check_endpoints(*found)) return retry_later();
         fd = sys->open(found->node.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
         if (fd < 0) {
             int error = errno;  // EACCES is normal for a moment: udev is still applying the ACL.
             ++stats.open_failures;
-            return fail_open("open " + found->node.string() + ": " + std::strerror(error));
+            stats.last_open_errno = error;
+            std::string why = "open " + found->node.string() + ": " + std::strerror(error);
+            // Lasting EACCES: a device present since boot can have no user ACL (see transport.md).
+            if (error == EACCES || error == EPERM) why += " (no user access to the glasses: replug them, or install the udev rule)";
+            fail_open(std::move(why));
+            return retry_later();
         }
         if (found->backend == Backend::Usbfs && !start_usbfs(*found)) {
             teardown();
-            return false;
+            return retry_later();
         }
+        first_seen.reset();
+        open_attempts = 0;
+        stats.last_open_errno = 0;
+        session_had_packet = false;
         auto now = Clock::now();
         last_packet = now;
         last_urb_status = 0;
@@ -370,20 +426,16 @@ struct Transport::Impl {
         fd = -1;
         urbs.clear();
         out_urb = nullptr;
-        endpoint_errors.fill(0);
-        parked = 0;
     }
 
     void lose_link(std::string reason) {
         Backend backend = current ? current->backend : Backend::Usbfs;
         std::string node = current ? current->node.string() : std::string();
-        const int errors_before = *std::max_element(endpoint_errors.begin(), endpoint_errors.end());
         teardown();
         current.reset();
         auto now = Clock::now();
         TransportEvent event;
         event.kind = TransportEvent::Kind::Disconnected;
-        event.consecutive_urb_errors = static_cast<std::uint32_t>(errors_before);
         event.last_urb_status = last_urb_status;
         event.ms_since_last_packet = static_cast<std::uint64_t>(std::chrono::duration_cast<milliseconds>(now - last_packet).count());
         event.backend = backend;
@@ -393,12 +445,20 @@ struct Transport::Impl {
         push_event(std::move(event));
         ++stats.disconnects;
         down_since = now;
+        first_seen.reset();
+        if (!session_had_packet) ++failed_sessions;
         next_scan = now + config.rescan_interval;
         pending = IoStatus::Disconnected;
         last_error = std::move(reason);
     }
 
     // ------------------------------------------------------------- packets
+
+    void note_packet() {
+        last_packet = Clock::now();
+        session_had_packet = true;
+        failed_sessions = 0;
+    }
 
     void enqueue(const Urb& u) {
         std::size_t index = (head + count) % slots.size();
@@ -409,14 +469,14 @@ struct Transport::Impl {
         }
         std::size_t bytes = std::min(static_cast<std::size_t>(u.urb->actual_length), config.packet_size);
         std::memcpy(ring.data() + index * config.packet_size, u.buffer.data(), bytes);
-        last_packet = Clock::now();
+        note_packet();
         slots[index] = {bytes, u.endpoint, now_ns(last_packet)};
         ++count;
     }
 
-    ReadResult dequeue(std::span<std::uint8_t> buffer) {
+    TransportRead dequeue(std::span<std::uint8_t> buffer) {
         const Slot& slot = slots[head];
-        ReadResult result;
+        TransportRead result;
         result.status = IoStatus::Ok;
         result.bytes = std::min(slot.bytes, buffer.size());
         result.truncated = slot.bytes > buffer.size();
@@ -429,52 +489,24 @@ struct Transport::Impl {
         return result;
     }
 
+    void mark_lost(std::string why) {
+        if (!lost) lost = std::move(why);  // The first cause is the one worth keeping.
+    }
+
+    // Any failed read ends the link (protocol.md: close everything after a failed transfer). The host
+    // has already used its own retries by now, every other queued read tends to fail with it, and
+    // nothing here may clear a halt or resynchronise a data toggle. Closing is also what actually gets
+    // the host to stop polling. The queue is therefore always either full or gone.
     void handle_in(Urb& u) {
-        int status = u.urb->status;
-        if (status == -ENOENT || status == -ECONNRESET) return;  // We discarded it.
-        if (status == -ENODEV || status == -ESHUTDOWN) {
-            lost = "transfer failed: device gone";
-            return;
-        }
+        const int status = u.urb->status;
         if (status != 0) {
-            // A stall would take a CLEAR_HALT to fix, a control request we refuse to send. Reopen instead.
-            // Transfer errors often come just before a drop, so give the link room (usbhid backs off too).
             ++stats.urb_errors;
             last_urb_status = status;
-            int& errors = endpoint_errors[u.endpoint];
-            if (++errors >= config.max_urb_errors) {
-                lost = "repeated transfer errors on endpoint " + hex(u.endpoint) + ": " + std::strerror(-status);
-                return;
-            }
-            u.parked = true;
-            u.retry_at = Clock::now() + config.urb_retry_delay * (1 << std::min(errors - 1, 4));
-            ++parked;
+            mark_lost(transfer_failure(u.endpoint, status));
             return;
         }
-        endpoint_errors[u.endpoint] = 0;
         if (u.urb->actual_length > 0) enqueue(u);
-        if (lost) return;
-        if (!submit(u, u.length)) lost = std::string("URB resubmit failed: ") + std::strerror(errno);
-    }
-
-    void resubmit_due() {
-        if (parked == 0) return;
-        const auto now = Clock::now();
-        for (Urb& u : urbs) {
-            if (!u.parked || now < u.retry_at) continue;
-            u.parked = false;
-            --parked;
-            if (!lost && !submit(u, u.length)) lost = std::string("URB resubmit failed: ") + std::strerror(errno);
-        }
-        finish_reap();
-    }
-
-    // How long a poll may sleep before a parked URB is due.
-    Clock::time_point next_wake(Clock::time_point deadline) const {
-        if (parked == 0) return deadline;
-        for (const Urb& u : urbs)
-            if (u.parked) deadline = std::min(deadline, u.retry_at);
-        return deadline;
+        if (!lost && !submit(u, u.length)) mark_lost(std::string("URB resubmit failed: ") + std::strerror(errno));
     }
 
     void reap_all() {
@@ -482,7 +514,7 @@ struct Transport::Impl {
             void* done = nullptr;
             if (guarded_ioctl(USBDEVFS_REAPURBNDELAY, &done) != 0) {
                 if (errno == EINTR) continue;
-                if (errno != EAGAIN) lost = std::string("reap: ") + std::strerror(errno);
+                if (errno != EAGAIN) mark_lost(std::string("reap: ") + std::strerror(errno));
                 break;
             }
             Urb& u = *static_cast<Urb*>(static_cast<usbdevfs_urb*>(done)->usercontext);
@@ -508,44 +540,52 @@ struct Transport::Impl {
     }
 
     // One step of waiting for the device. Empty means look again; try_open() leaves Connected in pending.
-    std::optional<ReadResult> wait_while_down(Clock::time_point deadline) {
+    std::optional<TransportRead> wait_while_down(Clock::time_point deadline) {
         auto now = Clock::now();
         if (now >= next_scan) {
             next_scan = now + config.rescan_interval;
             if (try_open()) return std::nullopt;
             now = Clock::now();
         }
-        if (now >= deadline) return ReadResult{IoStatus::Timeout};
+        if (now >= deadline) return TransportRead{IoStatus::Timeout};
         auto wait = std::min(deadline, next_scan) - now;
         pollfd p{wake_fd, POLLIN, 0};
-        int ready = sys->poll(&p, 1, static_cast<int>(std::chrono::ceil<milliseconds>(wait).count()));
-        if (ready < 0 && errno == EINTR) return ReadResult{IoStatus::Interrupted};
-        if (ready > 0 && drain_wake()) return ReadResult{IoStatus::Interrupted};
+        int ready = sys->poll(&p, 1, poll_ms(wait));
+        if (ready < 0 && errno == EINTR) return TransportRead{IoStatus::Interrupted};
+        if (ready > 0 && drain_wake()) return TransportRead{IoStatus::Interrupted};
         return std::nullopt;
     }
 
-    std::optional<ReadResult> read_hidraw(std::span<std::uint8_t> buffer) {
+    std::optional<TransportRead> read_hidraw(std::span<std::uint8_t> buffer) {
         ssize_t n = sys->read(fd, buffer.data(), buffer.size());
         if (n > 0) {
             ++stats.packets;
-            last_packet = Clock::now();
-            ReadResult result;
+            note_packet();
+            TransportRead result;
             result.status = IoStatus::Ok;
             result.bytes = static_cast<std::size_t>(n);
             result.t_ns = now_ns(last_packet);
             return result;
         }
         if (n < 0 && errno == EAGAIN) return std::nullopt;
-        if (n < 0 && errno == EINTR) return ReadResult{IoStatus::Interrupted};
+        if (n < 0 && errno == EINTR) return TransportRead{IoStatus::Interrupted};
         lose_link(n == 0 ? std::string("read: end of file") : std::string("read: ") + std::strerror(errno));
         return std::nullopt;
     }
 
-    ReadResult read(std::span<std::uint8_t> buffer, milliseconds timeout) {
-        const auto deadline = Clock::now() + std::max(timeout, milliseconds{0});
+    TransportRead read(std::span<std::uint8_t> buffer, milliseconds timeout) {
+        const auto deadline = deadline_after(timeout);
         for (;;) {
             if (!opened) return {IoStatus::Closed};
-            if (count > 0) return dequeue(buffer);
+            if (count > 0) {
+                // A backed-up device is when the ring holds packets, and its queue must not run dry
+                // while the caller works through them, so handing one over refills it too.
+                if (fd >= 0 && current->backend == Backend::Usbfs) {
+                    reap_all();
+                    finish_reap();
+                }
+                return dequeue(buffer);
+            }
             if (pending) {
                 IoStatus status = *pending;
                 pending.reset();
@@ -556,13 +596,9 @@ struct Transport::Impl {
                 continue;
             }
 
-            resubmit_due();
-            if (fd < 0) continue;
-
-            const bool hidraw = current && current->backend == Backend::Hidraw;
-            auto remaining = std::chrono::ceil<milliseconds>(next_wake(deadline) - Clock::now());
+            const bool hidraw = current->backend == Backend::Hidraw;
             pollfd fds[2] = {{fd, static_cast<short>(hidraw ? POLLIN : POLLOUT), 0}, {wake_fd, POLLIN, 0}};
-            int ready = sys->poll(fds, 2, static_cast<int>(std::clamp<long long>(remaining.count(), 0, 1'000'000)));
+            int ready = sys->poll(fds, 2, poll_ms(deadline - Clock::now()));
             if (ready < 0) {
                 if (errno == EINTR) return {IoStatus::Interrupted};
                 lose_link(std::string("poll: ") + std::strerror(errno));
@@ -571,7 +607,7 @@ struct Transport::Impl {
             if ((fds[1].revents & POLLIN) && drain_wake()) return {IoStatus::Interrupted};
             if (ready == 0) {
                 if (Clock::now() >= deadline) return {IoStatus::Timeout};
-                continue;  // A parked URB is due; the caller's wait goes on.
+                continue;  // Only a very long wait, split up by poll_ms().
             }
 
             if (hidraw) {
@@ -584,7 +620,7 @@ struct Transport::Impl {
                 continue;
             }
             reap_all();
-            if (!lost && (fds[0].revents & (POLLHUP | POLLERR | POLLNVAL))) lost = "poll: device removed";
+            if (fds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) mark_lost("poll: device removed");
             finish_reap();
         }
     }
@@ -611,15 +647,13 @@ struct Transport::Impl {
 
     // One poll-and-reap. Packets that arrive go to the queue.
     void pump(int timeout_ms) {
-        resubmit_due();
-        if (fd < 0) return;
         pollfd p{fd, POLLOUT, 0};
         int ready = sys->poll(&p, 1, timeout_ms);
         if (ready < 0) {
-            if (errno != EINTR) lost = std::string("poll: ") + std::strerror(errno);
+            if (errno != EINTR) mark_lost(std::string("poll: ") + std::strerror(errno));
         } else if (ready > 0) {
             reap_all();
-            if (!lost && (p.revents & (POLLHUP | POLLERR | POLLNVAL))) lost = "poll: device removed";
+            if (p.revents & (POLLHUP | POLLERR | POLLNVAL)) mark_lost("poll: device removed");
         }
         finish_reap();
     }
@@ -629,31 +663,22 @@ struct Transport::Impl {
             last_error = "no OUT endpoint configured";
             return IoStatus::Error;
         }
-        if (data.size() > config.packet_size) {
-            last_error = "packet larger than packet_size";
+        if (data.size() > static_cast<std::size_t>(out_urb->length)) {
+            last_error = "write is larger than one packet (" + std::to_string(out_urb->length) + " bytes)";
             return IoStatus::Error;
         }
         if (!data.empty()) std::memcpy(out_urb->buffer.data(), data.data(), data.size());
         if (!submit(*out_urb, static_cast<int>(data.size()))) {
-            int error = errno;
-            if (is_gone_errno(error)) {
-                lose_link(std::string("URB submit: ") + std::strerror(error));
-                return IoStatus::Disconnected;
-            }
-            last_error = std::string("URB submit: ") + std::strerror(error);
-            return IoStatus::Error;
+            lose_link(std::string("URB submit: ") + std::strerror(errno));
+            return IoStatus::Disconnected;
         }
-        const auto deadline = Clock::now() + std::max(timeout, milliseconds{0});
-        while (out_urb->busy) {
-            auto remaining = std::chrono::ceil<milliseconds>(deadline - Clock::now()).count();
-            if (remaining <= 0) break;
-            auto wake = std::chrono::ceil<milliseconds>(next_wake(deadline) - Clock::now()).count();
-            pump(static_cast<int>(std::clamp<long long>(wake, 1, 1'000'000)));
+        const auto deadline = deadline_after(timeout);
+        do {
+            pump(poll_ms(deadline - Clock::now()));
             if (fd < 0) return IoStatus::Disconnected;
-        }
+        } while (out_urb->busy && Clock::now() < deadline);
         if (out_urb->busy) {
-            // The caller decides whether to try again. A cancelled transfer is not a reason to touch the link.
-            last_error = "write timed out";
+            // A cancelled transfer is no reason to touch the link: the caller logs it and does not retry.
             guarded_ioctl(USBDEVFS_DISCARDURB, out_urb->urb.get());
             const auto give_up = Clock::now() + milliseconds{100};
             while (out_urb->busy && Clock::now() < give_up) {
@@ -664,16 +689,22 @@ struct Transport::Impl {
                 lose_link("write would not cancel");
                 return IoStatus::Disconnected;
             }
+        }
+        const int status = out_urb->urb->status;
+        if (status == 0) {
+            // It may have finished just as the timeout fired. Calling that a failure invites a duplicate.
+            if (out_urb->urb->actual_length == static_cast<int>(data.size())) return IoStatus::Ok;
+            last_error = "short write";
+            return IoStatus::Error;
+        }
+        if (status == -ENOENT || status == -ECONNRESET) {
+            last_error = "write timed out";
             return IoStatus::Timeout;
         }
-        int status = out_urb->urb->status;
-        if (status == 0 && out_urb->urb->actual_length == static_cast<int>(data.size())) return IoStatus::Ok;
-        if (status == -ENODEV || status == -ESHUTDOWN) {
-            lose_link("write: device gone");
-            return IoStatus::Disconnected;
-        }
-        last_error = status == 0 ? "short write" : std::string("write: ") + std::strerror(-status);
-        return IoStatus::Error;
+        ++stats.urb_errors;
+        last_urb_status = status;
+        lose_link(transfer_failure(out_urb->endpoint, status));
+        return IoStatus::Disconnected;
     }
 
     void reset_queue() {
@@ -688,13 +719,13 @@ Transport::~Transport() { close(); }
 
 bool Transport::open() {
     Impl& i = *impl_;
-    if (i.fd >= 0) return true;
+    if (i.opened) return i.fd >= 0;  // Already started: reconnecting belongs to read().
     i.opened = true;
     i.next_scan = Clock::now() + i.config.rescan_interval;
     return i.try_open();
 }
 
-ReadResult Transport::read(std::span<std::uint8_t> buffer, std::chrono::milliseconds timeout) { return impl_->read(buffer, timeout); }
+TransportRead Transport::read(std::span<std::uint8_t> buffer, std::chrono::milliseconds timeout) { return impl_->read(buffer, timeout); }
 
 IoStatus Transport::write(std::span<const std::uint8_t> data, std::chrono::milliseconds timeout) {
     Impl& i = *impl_;
@@ -712,6 +743,9 @@ void Transport::close() {
     i.pending.reset();
     i.lost.reset();
     i.down_since.reset();
+    i.first_seen.reset();
+    i.open_attempts = 0;
+    i.failed_sessions = 0;
     i.reset_queue();
 }
 
