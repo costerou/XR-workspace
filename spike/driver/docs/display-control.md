@@ -5,8 +5,17 @@ the DisplayPort mode, and XRLinuxDriver has never told a Luma Ultra to change mo
 `xr-luma-driver` with none of the `--display-*` flags, which is the default.
 
 `spike/driver/include/luma/display.hpp` exists as a safe place to put a command if one turns out to be
-needed. Today it cannot send anything: the Luma Ultra's real frames are not public, so `UnmappedWire`
-refuses every command.
+needed. Today it cannot send anything: the Luma Ultra's set commands are not publicly known, so
+`UnmappedWire` refuses every command.
+
+## Against the bar: zero drops first, then latency, then features
+
+| Goal | What this piece does |
+|---|---|
+| Zero USB drops | The safest display command is none, so the default sends zero display bytes, ever. The flagged path waits 5 minutes after every connect and steps back for good after a drop |
+| Lowest latency | Off the pose path entirely. `tick()` does no I/O until the one command is due, and with no flag it returns at once |
+| Highest refresh | 120 Hz comes from DisplayPort, the panel's top mode, with no USB involved |
+| Features | Mode choice works today without USB: Hyprland offers 1920x1200 at 60, 90 and 120 and 1920x1080 at 60 and 90. Brightness and dimming are in `drv-features` |
 
 ## What XRLinuxDriver does on a Luma Ultra
 
@@ -20,7 +29,7 @@ the Beast.
 | Read display mode | `xr_device_provider_get_display_mode`, seen on the wire as MsgID `0x0007` | **Yes.** Once at every connect, then **once a second for as long as connected** (`manage_state_thread_func` in `src/driver.c`, `update_state_from_device` in `src/state.c`, `viture_device_is_sbs_mode`), plus once before any SBS change | Yes: `execute_usb_command_with_response` | None of its own; the 1 Hz loop simply asks again, with no backoff | Highest of the four, see below. There is no config option to turn it off |
 | Set 120 Hz / 1920x1200 | `xr_device_provider_set_display_mode` (`0x44`) | **Never called, by any device path** | Unknown. Its documented errors omit `NO_DATA` and `DEVICE_REJECTED`, which suggests it may not wait for one | n/a | High and unmeasured: changes the DisplayPort signal under a running session |
 | SBS / 3D off | `xr_device_provider_switch_dimension(0)` | Only if a user asks for SBS through the control file. XR Workspace does not | Unknown | None. The stream is stopped and restarted around it | High: the header says 2D here means **1920x1080@60**, so it would knock us off 120 Hz. It also fails while the IMU streams (`viture.c:929`), and the driver warns "glasses can be sensitive to rapid mode changes" (`driver.c:565`) |
-| Brightness | `xr_device_provider_set_brightness_level` (0 to 8 on Luma), `set_duty_cycle` | **Never called** | Unknown | n/a | Low in principle, but no known frame and no need: the glasses have buttons |
+| Brightness | `xr_device_provider_set_brightness_level` (0 to 8 on Luma), `set_duty_cycle` | **Never called** | Unknown | n/a | Low in principle, but no known frame and no need: the glasses have buttons. Now owned by `drv-features` |
 
 `set_default_display_mode` is documented as not supported on the Luma Ultra, so a mode cannot be saved in
 the glasses either.
@@ -60,31 +69,28 @@ tested. `DisplayControl` does all three.
 
 ## What is known about the wire format
 
-Very little, for this device. Facts below come from cached sysfs descriptors; nothing opened the device.
+`docs/protocol.md` from `drv-protocol-research` is the reference, and it corrects an earlier version of this
+section. In short:
 
-- `35ca:1104` is **not HID**. It has one vendor-class interface (class 00) with bulk OUT `0x04`, `0x06`, bulk
-  IN `0x82`, `0x85`, `0x87`, interrupt IN `0x81` (1024 bytes, 500 us) and `0x83` (512 bytes, 1 ms). The kernel
-  binds it to `usbfs` while `xrDriver` runs, so **a hidraw transport cannot reach it**. The shared contract
-  says "hidraw or usbfs"; `drv-transport` and `drv-protocol-*` need to know.
-- Two public protocols exist, and neither has been shown to work on a `1104`:
+- `35ca:1104` is not HID. It has one vendor interface with bulk and interrupt endpoints, so only usbfs can
+  reach it. No hidraw node exists.
+- `0x0007` travels in a 512-byte `FF FE` frame on bulk pipes `0x06` out and `0x87` in, with CRC-16/XMODEM.
+  That layout comes from [go-viture/luma](https://github.com/go-viture/luma) and the driver log. The log calls
+  this "V1", so the V2 ids such as `0x3141` do not apply here.
+- **Knowing the frame shape does not give us the commands.** No message id for setting mode, 3D or brightness
+  on this device is public. The only ids seen in use are `0x0007` and `0x100B`.
+- **Guessing ids is off the table.** The neighbouring pipes `0x04`/`0x85` also carry firmware flashing, and 25
+  further command bytes are known to exist with unknown effects. Trying ids against glasses that already drop
+  off USB could do far worse than a drop. So `UnmappedWire` refuses, and `protocol.md`'s "Never send" list
+  bans all of these commands.
 
-| Protocol | Frame | Display IDs | Tested on |
-|---|---|---|---|
-| Classic | `FF FE`, CRC-16, command ID at 0x0E | IMU `0x15` only | up to Pro `0x101D` |
-| V2 | `10 00`, MsgID, length, byte-sum | Reads: brightness `0x3122`, duty `0x3125`, mode `0x3141`. Setters "not mapped yet" | Pro 2 `0x1301` |
-
-- V2's get_display_mode is `0x3141`, not the `0x0007` in our log, and the V2 author calls Carina and the Luma
-  Ultra "a different matter". So those IDs must not be assumed to apply here.
-- **No set command's bytes are public for any recent VITURE glasses.** Guessing would mean firing unknown
-  bytes at the device that keeps dropping off USB, so `UnmappedWire` refuses instead.
-
-Sources, as read on 2026-11-03: [viture-v2](https://github.com/elasticjava/viture-v2) `8b29df0` (MIT),
+Other sources, as read on 2026-11-03: [viture-v2](https://github.com/elasticjava/viture-v2) `8b29df0` (MIT),
 [viture-webxr-extension](https://github.com/bfvogel/viture-webxr-extension) `7b27af0`,
 [go-macos/iokit](https://github.com/go-macos/iokit) `ad6ef75`,
 [viture_virtual_display](https://github.com/mgschwan/viture_virtual_display) `6d50d39` (MIT).
-The mode bytes and brightness range in `display.hpp` come from the constants headers in the XRLinuxDriver
-repo. Those headers are marked VITURE copyright, so if the licence decision covers them too, those few numbers
-need a second look. No VITURE library was linked, run or disassembled for this work.
+The mode bytes in `display.hpp` come from the constants headers in the XRLinuxDriver repo. Those headers are
+marked VITURE copyright, so if the licence decision covers them too, those few numbers need a second look.
+No VITURE library was linked, run or disassembled for this work.
 
 ## What XR should do
 
@@ -102,24 +108,28 @@ need a second look. No VITURE library was linked, run or disassembled for this w
 | Flag | Effect |
 |---|---|
 | `--display-mode=1920x1200@120` | Also 1920x1200@60/90 and 1920x1080@60/90, the modes the glasses advertise |
-| `--display-exit-3d` | Ignored when a mode is given, since a 2D mode already leaves SBS |
-| `--display-brightness=N` | 0 to 8 |
+| `--display-exit-3d` | Ignored when a mode is given, since a 2D mode already leaves SBS. Last resort: tracking has to wait with it, see below |
 
 Rules, each with a test in `spike/driver/tests/display_test.cpp`:
 
-- Three commands exist, and all of them set something. There is no get to call.
+- At most one command is in play, and it sets something. There is no get to call.
 - `DisplaySink` can only write. Nothing reads a reply, so nothing can time out and retry.
-- Each command gets one attempt per connection, even if the write fails.
-- Nothing goes out for 30 s after connecting, so a drop loop never sees a command, and commands are 2 s apart.
-- If a drop comes within 10 s of a command, this process never sends that command again.
-- `exit_3d` is never sent while the stream runs; `holds_stream()` tells the daemon to wait.
+- It gets one attempt per connection, even if the write fails.
+- Nothing goes out until the link has been up for **5 minutes**. On 2026-11-03, 5 of the 11 sessions that
+  dropped did so sooner, at 18, 30, 33, 87 and 135 s. The first version waited 30 s, and replaying those
+  sessions showed it firing in three of them. XR restarts the driver after a drop, so the process cannot
+  remember a bad spell, and the wait has to apply to every connect.
+- If a drop comes within 60 s of a command, this process never sends it again. A false block only costs an
+  optional command that nothing needs.
+- `exit_3d` is never sent while the stream runs, and `holds_stream()` tells the daemon to wait. That would
+  hold tracking back for the whole 5 minutes, which is why a mode is the better choice if one is ever needed.
 
 Daemon wiring (`drv-daemon`):
 
 ```cpp
 luma::DisplayOptions display;                       // parse_display_flag() on each argv entry
 luma::UnmappedWire wire;
-luma::DisplayControl control(display, wire, sink);  // sink wraps Transport::write
+luma::DisplayControl control(display, wire, sink);  // sink wraps Transport::write, on the bulk OUT pipe
 // on connect: control.on_connected(now);  on drop: control.on_disconnected(now);
 // in the main loop: if (auto e = control.tick(now, stream_running)) log(format_display_event(*e));
 // start the IMU stream only once !control.holds_stream()
@@ -135,8 +145,12 @@ luma::DisplayControl control(display, wire, sink);  // sink wraps Transport::wri
    the glasses for a clean picture.
 2. **How do the glasses leave SBS by hand on a Luma Ultra?** The button-lock call is "Luma / Luma Pro only",
    which does not say whether the Ultra has such a button. Nor is it known what mode list Hyprland shows in SBS.
-3. **Real frames.** A passive `usbmon` capture of an `xrDriver` session would show 0x0007 and the IMU start, and
-   `drv-protocol-research` is the place for that. It would **not** show mode or brightness sets, because
-   XRLinuxDriver never sends them, and triggering them means running the SDK, which is not licensed for us.
-4. **Who else needs to know:** the once-a-second read has no off switch, and the driver reuses a dead handle
-   after a drop. Both are for `usb-drop-fix`.
+3. **Real set commands.** The `usbmon` capture in `protocol.md` would show `0x0007` and how tracking starts. It
+   would **not** show mode or brightness sets, because XRLinuxDriver never sends them, and triggering them
+   means running the SDK, which is not licensed for us. So unless a public source appears, `UnmappedWire` stays.
+4. **Who else needs to know:**
+   - `usb-drop-fix`: the once-a-second read has no off switch, and the driver reuses a dead handle after a drop.
+   - `drv-features`: its command gate waits 2 s after connect and blames a drop within 3 s. The timeline here
+     argues for far longer: follow-up drops came 3 to 22 s after the glasses returned, and 5 of 11 sessions
+     dropped inside 5 minutes. Under a zero-drop bar, brightness should use the same 5 minutes and 60 s.
+   - `drv-daemon`: the module only needs linking if a flag is ever wanted. Leaving it out is also fine.

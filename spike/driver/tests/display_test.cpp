@@ -43,15 +43,14 @@ public:
 template <class T>
 concept CanRead = requires(T& t, std::span<std::uint8_t> b) { t.read(b); };
 static_assert(!CanRead<DisplaySink>, "a reply can never be waited for");
-static_assert(kDisplayCommandCount == 3, "adding a command needs the risk table in docs/display-control.md");
+static_assert(kDisplayCommandCount == 2, "adding a command needs the risk table in docs/display-control.md");
 
-const DisplayTiming kTiming{.settle = milliseconds(30'000), .gap = milliseconds(2'000), .blame_window = milliseconds(10'000)};
+const DisplayTiming kTiming{.settle = milliseconds(30'000), .blame_window = milliseconds(10'000)};
 constexpr milliseconds s(long long seconds) { return milliseconds(seconds * 1000); }
 
-DisplayOptions all_three() {
+DisplayOptions mode_120() {
     DisplayOptions o;
     o.mode = DisplayMode::wuxga_120;
-    o.brightness = 5;
     return o;
 }
 
@@ -70,7 +69,7 @@ void every_flag_is_off_by_default() {
 void nothing_is_sent_while_the_link_settles() {
     FakeWire wire;
     FakeSink sink;
-    DisplayControl c(all_three(), wire, sink, kTiming);
+    DisplayControl c(mode_120(), wire, sink, kTiming);
     c.on_connected(s(100));
     CHECK(!c.tick(s(100), true));
     CHECK(!c.tick(s(129), true));
@@ -82,7 +81,7 @@ void nothing_is_sent_while_the_link_settles() {
 void nothing_is_sent_without_a_connection() {
     FakeWire wire;
     FakeSink sink;
-    DisplayControl c(all_three(), wire, sink, kTiming);
+    DisplayControl c(mode_120(), wire, sink, kTiming);
     CHECK(!c.tick(s(1000), true));
     c.on_connected(s(0));
     c.on_disconnected(s(1));
@@ -90,30 +89,71 @@ void nothing_is_sent_without_a_connection() {
     CHECK(sink.frames.empty());
 }
 
-void commands_go_out_in_order_and_spaced_apart() {
+void the_mode_frame_comes_from_the_wire_untouched() {
     FakeWire wire;
     FakeSink sink;
-    DisplayControl c(all_three(), wire, sink, kTiming);
+    DisplayControl c(mode_120(), wire, sink, kTiming);
     c.on_connected(s(0));
-    CHECK(c.tick(s(30), true).has_value());
-    CHECK(!c.tick(s(31), true));
-    auto second = c.tick(s(32), true);
-    CHECK(second && second->command == DisplayCommand::set_brightness);
-    CHECK(sink.frames.size() == 2);
-    if (sink.frames.size() != 2) return;
+    auto event = c.tick(s(30), true);
+    CHECK(event && event->command == DisplayCommand::set_mode && event->value == 0x44);
+    CHECK(sink.frames.size() == 1);
+    if (sink.frames.size() != 1) return;
     CHECK((sink.frames[0] == std::vector<std::uint8_t>{0xEE, 1, 0x44}));
-    CHECK((sink.frames[1] == std::vector<std::uint8_t>{0xEE, 2, 5}));
+}
+
+// Seconds from "Device connected" to the kernel disconnect, for the 11 sessions on
+// 2026-11-03 that dropped into a retry loop. XR restarts the driver after a drop, so
+// each is a fresh process with no memory of the last one.
+constexpr std::array<int, 11> kSessionsThatDropped{330, 1182, 33, 135, 1351, 4257, 1350, 30, 18, 2036, 87};
+
+void the_defaults_wait_out_the_sessions_that_dropped_early() {
+    int early = 0;
+    for (int seconds : kSessionsThatDropped) {
+        FakeWire wire;
+        FakeSink sink;
+        DisplayControl c(mode_120(), wire, sink);
+        c.on_connected(s(0));
+        for (int t = 0; t < seconds; ++t) c.tick(s(t), true);
+        if (seconds < 300) {
+            ++early;
+            CHECK(sink.frames.empty());
+        } else {
+            CHECK(sink.frames.size() == 1);
+        }
+    }
+    CHECK(early == 5);
+}
+
+void a_new_process_waits_just_as_long() {
+    FakeWire wire;
+    FakeSink sink;
+    DisplayControl c(mode_120(), wire, sink);
+    c.on_connected(s(0));
+    CHECK(!c.tick(s(299), true));
+    CHECK(c.tick(s(300), true).has_value());
+}
+
+void the_default_blame_window_covers_a_drop_a_minute_later() {
+    FakeWire wire;
+    FakeSink sink;
+    DisplayControl c(mode_120(), wire, sink);
+    c.on_connected(s(0));
+    CHECK(c.tick(s(300), true).has_value());
+    c.on_disconnected(s(360));
+    c.on_connected(s(400));
+    auto event = c.tick(s(700), true);
+    CHECK(event && event->outcome == DisplayOutcome::blocked);
 }
 
 // The heart of it: however long a connection lasts, the count never moves again.
 void never_polls_after_the_commands_are_done() {
     FakeWire wire;
     FakeSink sink;
-    DisplayControl c(all_three(), wire, sink, kTiming);
+    DisplayControl c(mode_120(), wire, sink, kTiming);
     c.on_connected(s(0));
     for (int t = 0; t < 7 * 24 * 3600; ++t) c.tick(s(t), true);
-    CHECK(sink.frames.size() == 2);
-    CHECK(wire.encoded == 2);
+    CHECK(sink.frames.size() == 1);
+    CHECK(wire.encoded == 1);
 }
 
 void a_failed_write_is_not_retried() {
@@ -121,7 +161,7 @@ void a_failed_write_is_not_retried() {
     FakeSink sink;
     sink.ok = false;
     DisplayOptions o;
-    o.brightness = 3;
+    o.mode = DisplayMode::wuxga_90;
     DisplayControl c(o, wire, sink, kTiming);
     c.on_connected(s(0));
     auto event = c.tick(s(30), true);
@@ -134,7 +174,7 @@ void each_new_connection_gets_one_more_attempt() {
     FakeWire wire;
     FakeSink sink;
     DisplayOptions o;
-    o.brightness = 3;
+    o.mode = DisplayMode::wuxga_90;
     DisplayControl c(o, wire, sink, kTiming);
     c.on_connected(s(0));
     CHECK(c.tick(s(30), true).has_value());
@@ -149,7 +189,7 @@ void a_repeated_connect_event_cannot_double_send() {
     FakeWire wire;
     FakeSink sink;
     DisplayOptions o;
-    o.brightness = 3;
+    o.mode = DisplayMode::wuxga_90;
     DisplayControl c(o, wire, sink, kTiming);
     c.on_connected(s(0));
     CHECK(c.tick(s(30), true).has_value());
@@ -162,7 +202,7 @@ void a_repeated_connect_event_cannot_double_send() {
 void a_drop_loop_never_sees_a_command() {
     FakeWire wire;
     FakeSink sink;
-    DisplayControl c(all_three(), wire, sink, kTiming);
+    DisplayControl c(mode_120(), wire, sink, kTiming);
     milliseconds t = s(0);
     for (int i = 0; i < 100; ++i) {
         c.on_connected(t);
@@ -211,13 +251,11 @@ void a_drop_long_after_a_command_blames_nothing() {
 void the_real_wire_refuses_everything_and_never_touches_the_device() {
     UnmappedWire wire;
     FakeSink sink;
-    DisplayOptions o = all_three();
+    DisplayOptions o = mode_120();
     DisplayControl c(o, wire, sink, kTiming);
     c.on_connected(s(0));
     auto first = c.tick(s(30), true);
-    auto second = c.tick(s(30), true);
     CHECK(first && first->outcome == DisplayOutcome::refused_unmapped);
-    CHECK(second && second->outcome == DisplayOutcome::refused_unmapped);
     CHECK(!c.tick(s(31), true));
     CHECK(sink.frames.empty());
 }
@@ -274,20 +312,13 @@ void flags_parse_strictly() {
     CHECK(o.mode == DisplayMode::fhd_60);
     CHECK(parse_display_flag("--display-exit-3d", o) == DisplayFlag::accepted);
     CHECK(o.exit_3d);
-    CHECK(parse_display_flag("--display-brightness=0", o) == DisplayFlag::accepted);
-    CHECK(o.brightness == 0);
-    CHECK(parse_display_flag("--display-brightness=8", o) == DisplayFlag::accepted);
-    CHECK(o.brightness == 8);
+    // Brightness belongs to drv-features (--feature-brightness), so one gate guards it.
+    CHECK(parse_display_flag("--display-brightness=3", o) == DisplayFlag::not_ours);
 
     DisplayOptions bad;
     CHECK(parse_display_flag("--display-mode=3840x1200@60", bad) == DisplayFlag::invalid);
     CHECK(parse_display_flag("--display-mode=1920x1080@120", bad) == DisplayFlag::invalid);
     CHECK(parse_display_flag("--display-mode=", bad) == DisplayFlag::invalid);
-    CHECK(parse_display_flag("--display-brightness=9", bad) == DisplayFlag::invalid);
-    CHECK(parse_display_flag("--display-brightness=-1", bad) == DisplayFlag::invalid);
-    CHECK(parse_display_flag("--display-brightness=3x", bad) == DisplayFlag::invalid);
-    CHECK(parse_display_flag("--display-brightness=", bad) == DisplayFlag::invalid);
-    CHECK(parse_display_flag("--display-brightness=256", bad) == DisplayFlag::invalid);
     CHECK(parse_display_flag("--display-exit-3d=1", bad) == DisplayFlag::invalid);
     CHECK(!bad.any());
 }
@@ -297,10 +328,10 @@ void events_format_as_one_structured_line() {
           "display command=set_mode value=68 outcome=sent");
     CHECK(format_display_event({DisplayCommand::exit_3d, 0, DisplayOutcome::refused_unmapped}) ==
           "display command=exit_3d value=0 outcome=refused_unmapped");
-    CHECK(format_display_event({DisplayCommand::set_brightness, 5, DisplayOutcome::blocked}) ==
-          "display command=set_brightness value=5 outcome=blocked");
-    CHECK(format_display_event({DisplayCommand::set_brightness, 5, DisplayOutcome::write_failed}) ==
-          "display command=set_brightness value=5 outcome=write_failed");
+    CHECK(format_display_event({DisplayCommand::set_mode, 0x44, DisplayOutcome::blocked}) ==
+          "display command=set_mode value=68 outcome=blocked");
+    CHECK(format_display_event({DisplayCommand::set_mode, 0x44, DisplayOutcome::write_failed}) ==
+          "display command=set_mode value=68 outcome=write_failed");
 }
 
 }  // namespace
@@ -309,7 +340,10 @@ int main() {
     every_flag_is_off_by_default();
     nothing_is_sent_while_the_link_settles();
     nothing_is_sent_without_a_connection();
-    commands_go_out_in_order_and_spaced_apart();
+    the_mode_frame_comes_from_the_wire_untouched();
+    the_defaults_wait_out_the_sessions_that_dropped_early();
+    a_new_process_waits_just_as_long();
+    the_default_blame_window_covers_a_drop_a_minute_later();
     never_polls_after_the_commands_are_done();
     a_failed_write_is_not_retried();
     each_new_connection_gets_one_more_attempt();
