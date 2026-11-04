@@ -70,7 +70,8 @@ def main():
         env={k:v for k,v in os.environ.items() if not k.startswith(('WAYLAND_','HYPRLAND_','DBUS_')) and k not in ('DISPLAY','XAUTHORITY')}
         env.update(HOME=str(private/'home'),XDG_CONFIG_HOME=str(private/'config'),XDG_RUNTIME_DIR=str(private/'runtime'),
                    DRI_PRIME='pci-0000_12_00_0!',XR_BENCH_RENDER_NODE='/dev/dri/renderD129',XR_DEPTH_TEST_NODE='/dev/dri/renderD129',
-                   CONTROL_WIRE_CHECK=str(build/'control_wire_check'),XR_RESTORE_GEOMETRY_BINARY=str(build/'restore_app_bound_test'),PYTHONPATH=str(ROOT)+':'+str(ROOT/'tests/native_spike'))
+                   CONTROL_WIRE_CHECK=str(build/'control_wire_check'),XR_RESTORE_GEOMETRY_BINARY=str(build/'restore_app_bound_test'),
+                   XR_NATIVE_REPORT_BINARY=str(out/'native_report'),PYTHONPATH=str(ROOT)+':'+str(ROOT/'tests/native_spike'))
         commands=[]
         if not args.skip_build:
             commands += [('configure',['cmake','-S','spike','-B',str(build),'-DCMAKE_BUILD_TYPE=Release','-DXR_ENABLE_OWNERSHIP_PLUGIN=ON']),
@@ -82,6 +83,11 @@ def main():
         passed=True
         for name,command in commands:
             if args.suite and name.split('-')[0] not in args.suite: continue
+            if name.startswith('python-') and not (out/'native_report').exists():
+                good=execute('native-report-build',[str(python),str(ROOT/'tools/xr_options_evidence/build_native_report.py'),
+                             '--build',str(build),'--output',str(out/'native_report')],env,out,manifest)
+                passed &= good
+                if not good:break
             good=execute(name,command,env,out,manifest)
             passed &= good
             if name in ('configure','build') and not good:break

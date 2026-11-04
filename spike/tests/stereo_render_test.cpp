@@ -399,7 +399,8 @@ void whole_view() {
     set.desktops = {true, false, true};
     gl->set_stereo(set);
     settle(*gl, scene.tiles, scene.placements, depth);
-    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==true);CHECK(observed["available"]==true);CHECK(observed["desktops"][1]["depth_ready"]==true);CHECK(observed["desktops"][1]["drawing"]==true);CHECK(observed["desktops"][1]["gain"].get<float>()>0);CHECK(observed["depth_updates"].get<unsigned>()>0);CHECK(observed["params"]["strength"]==set.params.strength);}
+    // XR-2 is explicitly disabled above: ready depth is not active drawing.
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==true);CHECK(observed["available"]==true);CHECK(observed["desktops"][1]["depth_ready"]==true);CHECK(observed["desktops"][1]["configured"]==false);CHECK(observed["desktops"][1]["drawing"]==false);CHECK(observed["desktops"][1]["gain"].get<float>()==0);CHECK(observed["depth_updates"].get<unsigned>()>0);CHECK(observed["params"]["strength"]==set.params.strength);}
     sbs = read(0, 0, 2 * W, H); left = half(sbs, 0); right = half(sbs, 1);
     CHECK(std::fabs(match(left, right, 640, 330, 8, 44)) < 0.6f);
     set.desktops.clear();
