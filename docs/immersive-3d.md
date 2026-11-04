@@ -184,12 +184,14 @@ checkout, install and restart in one step.
 # Once, if ~/.cache/viture-depth is not there. No sudo. It is there on this machine.
 tools/depth_engine/setup.sh
 
-# In the merge worktree. The renderer changed; the ownership plugin and the Luma driver did not.
+# In the merge worktree. Only the renderer changed: the ownership plugin (9587ca18) and the Luma driver (66028d8c) build to the bytes
+# already installed, so Start asks for no new plugin accept.
 cmake -S spike -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF -DXR_ENABLE_OWNERSHIP_PLUGIN=ON
 ninja -C build/release
+STAGE=$(mktemp -d); cp build/release/xr-native-spike build/release/libxr-ownership.so build/release/driver/xr-luma-driver build/release/libxr-quiet-driver.so "$STAGE"/
 
-# In the live checkout, because the launcher it writes names that checkout. Stage the new renderer beside the pinned plugin and driver:
-python3 -m tools.xr_controller install --build STAGE
+# In the live checkout, because the launcher install writes names that checkout:
+python3 -m tools.xr_controller install --build "$STAGE"
 systemctl --user restart viture-workspace-controller.service
 omarchy-restart-shell   # the panel's new 3D section is QML: rescanPlugins does not reload it
 ```
