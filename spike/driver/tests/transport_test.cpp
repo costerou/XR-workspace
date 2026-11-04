@@ -8,6 +8,7 @@
 // behaviour, read from the kernel source: drivers/usb/core/devio.c, driver.c, message.c and xhci-ring.c.
 // See the class comment for what it models.
 #include "luma/transport.hpp"
+#include "luma/transport_link.hpp"
 #include "luma/protocol.hpp"
 #include "luma/wiring.hpp"
 
@@ -1723,6 +1724,99 @@ void test_usbfs_a_failed_read_closes_everything_once() {
     CHECK(e && e->reason.find("0x87") != std::string::npos);
 }
 
+// Regression: valid IMU traffic followed by MCU EPROTO must not erase the cooldown.
+// Exercise the real wrapper too: daemon go_down() calls close() after read() reports gone.
+void check_short_error_sessions(std::chrono::milliseconds healthy_after) {
+    FakeTree tree;
+    auto config = live_config(tree);
+    config.urbs_per_endpoint = 8;
+    config.arrival_settle = 20ms;
+    config.healthy_after = healthy_after;
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    fake->arrive(101);
+    luma::TransportLink<Transport, IoStatus> link(config, fake);
+    link.set_stream_endpoint(0x81);
+    std::string why;
+    CHECK(link.open(why));  // First open is immediate.
+    Buffer buffer;
+    const std::vector<std::uint8_t> imu{0xaa, 0x8f, 0x00, 0x88, 0x3c, 0x15, 0x10, 0x00,
+        0xdd, 0x1e, 0x01, 0x00, 0xf4, 0xff, 0x05, 0x00, 0x24, 0x00, 0x15, 0xff,
+        0x11, 0xf8, 0x74, 0x1f, 0xe8, 0x06, 0x00, 0x00};
+    auto packet = [&] {
+        CHECK(fake->deliver(0x81, imu));
+        CHECK(link.read(buffer, 50ms).status == luma::ReadStatus::data);
+    };
+    auto fail_and_recover = [&](std::chrono::milliseconds hold, int error = -EPROTO) {
+        CHECK(fake->deliver(0x85, {}, error));
+        CHECK(link.read(buffer, 50ms).status == luma::ReadStatus::gone);
+        link.close();
+        const int opens = fake->opens(), claims = fake->claims();
+        const auto submits = fake->submitted_endpoints().size();
+        CHECK(!link.wait_for_device(hold - 15ms));
+        CHECK(fake->opens() == opens);
+        CHECK(fake->claims() == claims);
+        CHECK(fake->submitted_endpoints().size() == submits);
+        CHECK(fake->inflight() == 0);
+        // Finite upper bound also catches an unbounded counter/multiplier or quarantine.
+        CHECK(link.wait_for_device(200ms));
+        CHECK(link.open(why));
+        CHECK(fake->opens() == opens + 1);
+        CHECK(fake->claims() == claims + 1);
+        CHECK(fake->inflight() == 16);
+    };
+    for (auto hold : {40ms, 80ms, 160ms, 320ms, 320ms, 320ms}) {
+        packet();
+        fail_and_recover(hold);
+    }
+
+    // A long idle gap between two payloads is not sustained healthy traffic.
+    packet();
+    CHECK(link.read(buffer, healthy_after + 150ms).status == luma::ReadStatus::timeout);
+    packet();
+    fail_and_recover(320ms);
+
+    // Continuous traffic for the configured duration clears the accumulated penalty.
+    auto start = Clock::now();
+    do {
+        packet();
+        CHECK(link.read(buffer, 20ms).status == luma::ReadStatus::timeout);
+    } while (Clock::now() - start < healthy_after + 100ms);
+    fail_and_recover(20ms);
+    packet();
+    fail_and_recover(40ms, -EPIPE);  // Same-device retry remains allowed; no clear-halt.
+
+    // Stop still interrupts a long cooldown without opening/claiming/queuing anything.
+    packet();
+    CHECK(fake->deliver(0x85, {}, -EPROTO));
+    CHECK(link.read(buffer, 50ms).status == luma::ReadStatus::gone);
+    link.close();
+    const int opens = fake->opens();
+    link.transport().interrupt();
+    start = Clock::now();
+    CHECK(!link.wait_for_device(5000ms));
+    CHECK(ms_since(start) < 100);
+    CHECK(fake->opens() == opens);
+
+    // Observed disappearance clears the penalty; fresh arrival gets only the base hold.
+    fake->yank();
+    CHECK(!link.wait_for_device(30ms));
+    fake->arrive(150);
+    start = Clock::now();
+    CHECK(link.wait_for_device(100ms));
+    CHECK(ms_since(start) < 70);
+    CHECK(link.open(why));
+    CHECK(fake->inflight() == 16);
+    for (auto request : fake->requests()) CHECK(luma::is_allowed_ioctl(request));
+}
+
+void test_short_error_sessions_keep_backoff_through_transport_link() {
+    check_short_error_sessions(TransportConfig{}.healthy_after);
+}
+
+void test_configurable_healthy_interval_clears_backoff() {
+    check_short_error_sessions(60ms);
+}
+
 // Nothing here may clear a halt, so a reopen cannot fix one. Without a limit that is a reconnect storm:
 // 79 connects in 2 s, measured against an earlier version. Only a new enumeration heals it.
 void test_a_stall_cannot_become_a_reopen_storm() {
@@ -2056,6 +2150,8 @@ int main() {
         T(test_huge_timeouts_mean_a_long_wait),
         T(test_usbfs_reads_refill_while_the_ring_drains),
         T(test_usbfs_a_failed_read_closes_everything_once),
+        T(test_short_error_sessions_keep_backoff_through_transport_link),
+        T(test_configurable_healthy_interval_clears_backoff),
         T(test_a_stall_cannot_become_a_reopen_storm),
         T(test_a_foreign_reset_is_noticed_and_the_interface_reclaimed),
         T(test_a_disconnect_in_real_order),

@@ -146,7 +146,7 @@ Clock::time_point deadline_after(milliseconds timeout) {
 }
 
 std::string transfer_failure(std::uint8_t endpoint, int status) {
-    if (status == -EPIPE) return "endpoint " + hex(endpoint) + " halted: only a re-enumeration clears that";
+    if (status == -EPIPE) return "endpoint " + hex(endpoint) + " halted: reopening does not clear the halt";
     if (status == -ENODEV || status == -ESHUTDOWN) return "transfer shut down on endpoint " + hex(endpoint) + ": device gone or reset";
     if (status == -ENOENT || status == -ECONNRESET) return "transfer on endpoint " + hex(endpoint) + " cancelled by the kernel";
     return "transfer failed on endpoint " + hex(endpoint) + ": " + std::strerror(-status);
@@ -222,8 +222,9 @@ struct Transport::Impl {
     Clock::time_point next_scan{};
     std::optional<Clock::time_point> first_seen;  // When the device came back, for arrival_settle.
     int open_attempts = 0;                        // Failures in a row on a device that is there.
-    int failed_sessions = 0;                      // Links in a row that ended with no packet, with the device still there.
-    bool session_had_packet = false;
+    int failed_sessions = 0;                      // Links that ended before sustained traffic, capped at the maximum hold.
+    bool session_healthy = false;
+    std::optional<Clock::time_point> healthy_since;
     std::optional<Clock::time_point> down_since;
     std::string last_error;
     std::deque<TransportEvent> events;
@@ -246,6 +247,7 @@ struct Transport::Impl {
         config.packet_size = std::max<std::size_t>(config.packet_size, 1);
         config.urbs_per_endpoint = std::max(config.urbs_per_endpoint, 2);
         config.rescan_interval = std::max(config.rescan_interval, milliseconds{1});
+        config.healthy_after = std::max(config.healthy_after, milliseconds{1});
         ring.resize(config.queue_frames * config.packet_size);
         slots.resize(config.queue_frames);
         wake_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -422,7 +424,8 @@ struct Transport::Impl {
         first_seen.reset();
         open_attempts = 0;
         stats.last_open_errno = 0;
-        session_had_packet = false;
+        session_healthy = false;
+        healthy_since.reset();
         auto now = Clock::now();
         last_packet = now;
         last_urb_status = 0;
@@ -483,7 +486,7 @@ struct Transport::Impl {
         ++stats.disconnects;
         down_since = now;
         first_seen.reset();
-        if (!session_had_packet) ++failed_sessions;
+        if (!session_healthy) failed_sessions = std::min(failed_sessions + 1, 4);
         next_scan = now + config.rescan_interval;
         pending = IoStatus::Disconnected;
         last_error = std::move(reason);
@@ -492,9 +495,15 @@ struct Transport::Impl {
     // ------------------------------------------------------------- packets
 
     void note_packet() {
-        last_packet = Clock::now();
-        session_had_packet = true;
-        failed_sessions = 0;
+        const auto now = Clock::now();
+        // Receipt time, not device timestamps: a pair of packets separated by silence is not health.
+        if (!healthy_since || now - last_packet > std::min(config.healthy_after, milliseconds{100}))
+            healthy_since = now;
+        last_packet = now;
+        if (now - *healthy_since >= config.healthy_after) {
+            session_healthy = true;
+            failed_sessions = 0;
+        }
     }
 
     void enqueue(const Urb& u) {
