@@ -1,0 +1,2 @@
+PASS: 11 grouped offline checks: exact identity/presence, interface count, endpoints, USB descriptor framing/length, cached HID length, input/audio absence, EDID size/numeric serial/checksums, text serial sanitization, compositor privacy/session, dimensions, no QinHeng hub.
+No live device, compositor or protocol test was performed by this validation; only saved fixtures read.
