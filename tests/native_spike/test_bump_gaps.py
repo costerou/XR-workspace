@@ -82,12 +82,14 @@ class Baseline(unittest.TestCase):
         self.assertEqual(2 * orbit.CLEARANCE_PX, 2)
 
     def test_the_frame_needs_no_more_than_that(self):
-        # Only the selected desktop has a frame (one `highlight`) and it is drawn before every desktop's picture, so a
-        # neighbour covers it: it can neither meet another frame nor show over the neighbour, however close they are.
+        # Only the selected desktop has a frame (one `highlight`, and for a moment in an edge pan's landing the one it left, fading out)
+        # and it is drawn before every desktop's picture, so a neighbour covers it: it can neither meet another frame nor
+        # show over the neighbour, however close they are.
         source = (ROOT / 'spike/src/gl.cpp').read_text()
         frame, pictures = source.index('n = s.build(s.border_mesh'), source.index('s.build(s.tile_meshes[i]')
         self.assertLess(frame, pictures)
-        self.assertIn('const auto h = std::size_t(highlight);', source)
+        self.assertLess(source.index('frame_of(std::size_t(highlight), highlight_alpha);'), pictures)
+        self.assertLess(source.index('frame_of(pan->left, pan->left_alpha);'), pictures)
         self.assertGreater(BORDER_PX, 2 * orbit.CLEARANCE_PX)  # it still shows, thinner, in the gap
 
 

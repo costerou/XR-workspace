@@ -233,11 +233,11 @@ struct Presentation::Impl : SurfaceRequests {
     bool sizes_easing() const {
         return std::any_of(captures.begin(), captures.end(), [](const auto& c) { return c->shape.animating(); });
     }
-    // Layouts are pure functions of the capture sizes, the surface size and three view floats: remembered with those
+    // Layouts are pure functions of the capture sizes, the surface size and a few view floats: remembered with those
     // inputs (bit for bit) and recomputed only when one changes, so a settled view lays nothing out per frame or wake.
     static constexpr std::size_t kKeySizes = 2 * kMaxDesktops;
-    using LayoutKey = std::array<std::uint32_t, kKeySizes + 6>;
-    LayoutKey layout_key(const Sizes& z, float a, float b, float c) const {
+    using LayoutKey = std::array<std::uint32_t, kKeySizes + 8>;
+    LayoutKey layout_key(const Sizes& z, float a, float b, float c, float d = 0, std::uint32_t e = 0) const {
         LayoutKey k{};
         for (std::size_t i = 0; i < z.v.size(); ++i) {
             k[2 * i] = i < z.n ? std::bit_cast<std::uint32_t>(z.v[i].w) : 0u;
@@ -245,7 +245,7 @@ struct Presentation::Impl : SurfaceRequests {
         }
         k[kKeySizes] = std::uint32_t(z.n); k[kKeySizes + 1] = width; k[kKeySizes + 2] = height;
         k[kKeySizes + 3] = std::bit_cast<std::uint32_t>(a); k[kKeySizes + 4] = std::bit_cast<std::uint32_t>(b);
-        k[kKeySizes + 5] = std::bit_cast<std::uint32_t>(c);
+        k[kKeySizes + 5] = std::bit_cast<std::uint32_t>(c); k[kKeySizes + 6] = std::bit_cast<std::uint32_t>(d); k[kKeySizes + 7] = e;
         return k;
     }
     std::optional<LayoutKey> draw_tiles_key, overview_key, cpu_tiles_key;
@@ -310,14 +310,14 @@ struct Presentation::Impl : SurfaceRequests {
         // jump from the fit to its overview size as the zoom out starts, instead of easing there with the zoom.
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
-                                     modes.mode() == ViewMode::anchor && maximized);
+                                     modes.mode() == ViewMode::anchor && maximized, view.left_zoom(), view.left());
         return resolved;
     }
     // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
     // focus_weight; pose.hpp ModeController::set_aim): the canvas turns, never a placement. 0 in the overview.
-    // An edge pan (view.hpp EdgePan) aims by itself: from the desktop being left, turned with the dot. Its landing runs from
-    // there to the target as the switch's turn runs, on the same way round, so the target lands in front of you in follow
-    // and on the view in locked; the switch then hands over to the plain aim with nothing moving.
+    // An edge pan (view.hpp EdgePan) aims by itself: one rotation from the desktop being left to the target, the hand driving it and
+    // the landing finishing it, so the target lands in front of you in follow and on the view in locked and the plain aim
+    // takes over with nothing moving.
     Quat focus_aim() const {
         const float w = focus_weight(view);
         if ((!(w > 0.f) && !view.pan_active()) || !half_w) return Quat{};
@@ -329,10 +329,7 @@ struct Presentation::Impl : SurfaceRequests {
         const Canvas c{float(width), float(height), half_w, half_h};
         if (view.pan_active()) {
             const auto from = focus_direction(c, overview, ps, view.pan().from), to = focus_direction(c, overview, ps, view.pan().to);
-            Quat aim = aim_rotation(from[0], from[1]);
-            if (const auto path = edge_pan_path(c, capture_sizes().span(), view.spacing(), overview, ps, view.pan()))
-                aim = aim_turned(aim, {path->axis.x, path->axis.y, path->axis.z}, view.pan_turn());
-            return view.pan_landing() ? quat_slerp(aim, aim_rotation(to[0], to[1]), view.turn()) : aim;
+            return aim_along(aim_rotation(from[0], from[1]), aim_rotation(to[0], to[1]), view.pan().way, view.pan_turn(), view.pan().side);
         }
         const auto d = focus_direction(c, overview, ps, view.focus());
         return aim_rotation(w * d[0], w * d[1]);
@@ -1474,9 +1471,9 @@ Status Presentation::draw_test_pattern() {
         if (!s.half_w) s.update_fov();  // the feed just opened: the driver's FOV
         {  // the settled view keeps its layout; only a change (zoom, switch, spacing, size) lays the tiles out again
             const auto sizes = s.capture_sizes();
-            const auto key = s.layout_key(sizes, s.view.spacing(), s.view.zoom(), s.view.position());
+            const auto key = s.layout_key(sizes, s.view.spacing(), s.view.zoom(), s.view.position(), s.view.left_zoom(), s.view.left());
             if (s.draw_tiles_key != key) {
-                s.draw_tiles = blended_layout(sizes.span(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
+                s.draw_tiles = blended_layout(sizes.span(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position(), s.view.left_zoom(), s.view.left());
                 s.draw_tiles_key = key;
             }
         }
@@ -1562,7 +1559,8 @@ Status Presentation::draw_test_pattern() {
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
         s.last_drawn = glass_view_shift(s.turned(head), panel_shift);
-        if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), 1.f - s.view.zoom(), s.last_drawn, s.half_w, s.half_h))
+        const auto pan_layers = s.view.pan_layers();
+        if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};

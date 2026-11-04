@@ -80,17 +80,18 @@ int main() {
     require(std::holds_alternative<xr::Error>(xr::decode_control(view(R"({"zoomed":true,"selected":0,"spacing":0,"mode":"follow","cursor_follow":false,"prediction":false,"typing":false,"pan":1})"))));
     {  // The hand's pan (edge_pan.py): every key required, integers 0..10000, or the end of it alone.
         auto frame = [](const std::string& payload) { return R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"edge_pan","payload":)" + payload + "}\n"; };
-        auto ok = xr::decode_control(frame(R"({"active":true,"from":0,"to":3,"side":"up","exit":3000,"entry":2500,"peek":10000,"cross":5000,"turn":10000,"zoom":2000})"));
+        auto ok = xr::decode_control(frame(R"({"active":true,"from":0,"to":3,"side":"up","exit":3000,"entry":2500,"peek":10000,"cross":5000,"turn":10000,"way":7500,"zoom":2000})"));
         require(std::holds_alternative<xr::ControlMessage>(ok));
         const auto& pan = std::get<xr::EdgePan>(std::get<xr::ControlMessage>(ok).payload);
         require(pan.active && pan.from == 0 && pan.to == 3 && pan.side == 2 && pan.exit == 0.3f && pan.entry == 0.25f && pan.peek == 1 && pan.cross == 0.5f && pan.zoom == 0.2f);
         require(pan.turn > 3.14f && pan.turn < 3.15f);
+        require(pan.way > 4.71f && pan.way < 4.72f);  // a share of a whole turn: past half of one is the long way round
         auto off = xr::decode_control(frame(R"({"active":false})"));
         require(std::holds_alternative<xr::ControlMessage>(off) && !std::get<xr::EdgePan>(std::get<xr::ControlMessage>(off).payload).active);
         for (const char* bad : {R"({"active":true})", R"({})", R"({"active":false,"from":0})",
-                                R"({"active":true,"from":4,"to":0,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
-                                R"({"active":true,"from":0,"to":1,"side":"in","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
-                                R"({"active":true,"from":0,"to":1,"side":"up","exit":10001,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
+                                R"({"active":true,"from":4,"to":0,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"way":0,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"in","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"way":0,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"up","exit":10001,"entry":0,"peek":0,"cross":0,"turn":0,"way":0,"zoom":0})",
                                 R"({"active":true,"from":0,"to":1,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0.5,"zoom":0})",
                                 R"({"active":true,"from":0,"to":1,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0})"})
             require(std::holds_alternative<xr::Error>(xr::decode_control(frame(bad))));

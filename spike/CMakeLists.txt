@@ -339,7 +339,7 @@ if(XR_ENABLE_PRESENTATION)
   target_link_libraries(glass_geometry_dump PRIVATE xr_hud)
   # The orbit placement (view.cpp place_point on wire units), renderer side to supervisor side (tools/native_spike/orbit.py mirrors it).
   add_executable(placement_geometry_dump tests/placement_geometry_dump.cpp)
-  target_link_libraries(placement_geometry_dump PRIVATE xr_hud)
+  target_link_libraries(placement_geometry_dump PRIVATE xr_hud xr_pose)
   # What the edge pan draws, frame by frame, on the real animator and geometry, with no GL (tools/edge_pan_clips/motion.py reads it).
   add_executable(edge_pan_trace tests/edge_pan_trace.cpp)
   target_link_libraries(edge_pan_trace PRIVATE xr_view xr_pose)
@@ -349,6 +349,8 @@ if(XR_ENABLE_PRESENTATION)
       "$<TARGET_FILE:glass_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
     add_test(NAME placement_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/placement_contract_test.py"
       "$<TARGET_FILE:placement_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    add_test(NAME edge_pan_motion COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/edge_pan_motion_test.py"
+      "$<TARGET_FILE:edge_pan_trace>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
     if(TARGET level_frame_test)  # the level bar pressed with the tilts level_frame_test reports
       add_test(NAME level_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/level_contract_test.py"
         "$<TARGET_FILE:level_frame_test>" "${CMAKE_CURRENT_SOURCE_DIR}/..")

@@ -2,7 +2,8 @@
 """Render the edge pan on the real compositor for every layout in motion.named_layouts, with its per-frame metrics.
 
     make_clips.py --tag before --pan-clip PATH --trace PATH     seamless-before-<layout>.mp4 and .json
-    make_clips.py --compare                                     seamless-compare-<layout>.mp4 (before beside after) and the plots
+    make_clips.py --compare                                     seamless-compare-<layout>.mp4 (before beside after), seamless-metrics.png,
+                                                                seamless-metrics.md, seamless-frames.csv and seamless.html
 
 Runs on llvmpipe, so a render uses neither GPU; run it under `nice -n 19`. Touches nothing on the desktop: the desktops in the frames
 are synthetic, nothing is captured, and nothing here starts, stops or talks to a run. See README.md.
@@ -85,10 +86,11 @@ def render(name, layout, home, side, along, args, out):
     if plan is None: raise SystemExit(f'{name}: no pan that way')
     lines = motion.script(layout, plan, fps=FPS, lead=0.35, tail=1.05)
     frames = motion.trace(lines, args.trace)
-    summary = motion.Motion(motion.trace(motion.script(layout, plan, fps=120), args.trace), home, target).summary()
-    data = {'name': name, 'home': home, 'target': target, 'plan': {k: getattr(plan, k) for k in ('zoom', 'rate', 'peek_px', 'gap_px', 'total_px')}, 'summary': summary,
-            'frames': [{k: f[k] for k in ('t', 'zoom', 'landing')} | {'aim': f['aim'], 'home_h': f['desktops'][home]['seen'][1], 'target_h': f['desktops'][target]['seen'][1],
-                                                                      'home_roll': f['desktops'][home]['roll'], 'target_roll': f['desktops'][target]['roll']} for f in frames]}
+    measured = motion.Motion(motion.trace(motion.script(layout, plan, fps=120), args.trace), home, target)
+    data = {'name': name, 'home': home, 'target': target, 'side': side, 'plan': {k: getattr(plan, k) for k in ('zoom', 'rate', 'peek_px', 'gap_px', 'total_px')},
+            'summary': measured.summary() | {'dip': measured.dip()},
+            'frames': [{'t': t, 'zoom': f['zoom'], 'landing': f['landing'], 'home_h': h, 'target_h': g, 'speed': math.degrees(v)}
+                       for t, f, h, g, v in zip(measured.t, measured.frames, measured.home_h, measured.target_h, measured.speed)]}
     (out / f'seamless-{args.tag}-{name}.json').write_text(json.dumps(data))
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -112,6 +114,69 @@ def render(name, layout, home, side, along, args, out):
     print(f'{name}: {count} frames', flush=True)
 
 
+def plots(out, names):
+    """Small multiples: for each layout the desktop being left, the target, and the view's speed. One axis each, before and after."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    surface, ink, muted, grid = '#1a1a19', '#f0efec', '#c3c2b7', '#3a3a37'
+    before, after = '#d95926', '#3987e5'
+    shown = [n for n in ('cody', 'cody-down', 'row', 'big-3x', 'mixed', 'curved') if n in names]
+    fig, axes = plt.subplots(len(shown), 3, figsize=(13, 2.5 * len(shown) + 0.9), facecolor=surface, sharex=True, squeeze=False)
+    heads = ('Desktop being left: seen height (px)', 'Target: seen height (px)', 'View speed (deg/s)')
+    for r, name in enumerate(shown):
+        a, b = (json.loads((out / f'seamless-{tag}-{name}.json').read_text()) for tag in ('before', 'after'))
+        for c, key in enumerate(('home_h', 'target_h', 'speed')):
+            ax = axes[r][c]
+            ax.set_facecolor(surface)
+            for data, colour, label in ((a, before, 'Before'), (b, after, 'After')):
+                start = next(f['t'] for f in data['frames'] if f['landing']) - 0.62
+                ax.plot([f['t'] - start for f in data['frames']], [f[key] for f in data['frames']], color=colour, linewidth=2, label=label, solid_capstyle='round')
+            ax.set_xlim(-0.05, 1.45)
+            ax.grid(True, color=grid, linewidth=0.6)
+            ax.tick_params(colors=muted, labelsize=9, length=0)
+            for spine in ax.spines.values(): spine.set_visible(False)
+            if r == 0: ax.set_title(heads[c], color=ink, fontsize=11, loc='left', pad=10)
+            if r == len(shown) - 1: ax.set_xlabel('Seconds since the hand reached the edge', color=muted, fontsize=9)
+        axes[r][0].set_ylabel(name, color=ink, fontsize=11, labelpad=10)
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', ncol=2, frameon=False, labelcolor=ink, fontsize=11)
+    fig.suptitle('The edge pan, frame by frame', color=ink, fontsize=14, x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
+    fig.savefig(out / 'seamless-metrics.png', dpi=140, facecolor=surface)
+    plt.close(fig)
+
+
+def tables(out, names):
+    rows = ['| Layout | Push | | Time (s) | Being left, seen height | Target, seen height | Size reversals | Past its ends | Speed lost mid-way | Peak view speed | Largest size step |',
+            '|---|---|---|---:|---|---|---:|---:|---:|---:|---:|']
+    lines = ['layout,version,t,zoom,landing,home_seen_h,target_seen_h,view_deg_s']
+    for name in names:
+        for tag in ('before', 'after'):
+            path = out / f'seamless-{tag}-{name}.json'
+            if not path.exists(): continue
+            d = json.loads(path.read_text())
+            s = d['summary']
+            path_of = lambda v: f'{v[0]:.0f} → {v[1]:.0f} → {v[3]:.0f}' if v[1] < min(v[0], v[3]) - 2 else f'{v[0]:.0f} → {v[2]:.0f} → {v[3]:.0f}' if v[2] > max(v[0], v[3]) + 2 else f'{v[0]:.0f} → {v[3]:.0f}'
+            rows.append(f"| {name} | XR-{d['home'] + 1} to XR-{d['target'] + 1}, {d['side']} | {tag} | {s['seconds']:.2f} | {path_of(s['home'])} | {path_of(s['target'])} | {s['home_turns'] + s['target_turns']} | "
+                        f"{max(s['home_past'], s['target_past']) * 100:.1f}% | {s['dip'] * 100:.0f}% | {s['peak_deg_s']:.0f} deg/s | {s['size_jolt'] * 100:.1f}% |")
+            for f in d['frames']:
+                lines.append(f"{name},{tag},{f['t']:.4f},{f['zoom']:.4f},{f['landing']},{f['home_h']:.2f},{f['target_h']:.2f},{f['speed']:.2f}")
+    (out / 'seamless-metrics.md').write_text('\n'.join(rows) + '\n')
+    (out / 'seamless-frames.csv').write_text('\n'.join(lines) + '\n')
+
+
+def page(out, names):
+    cards = ''.join(f'<figure><video src="seamless-compare-{n}.mp4" autoplay loop muted playsinline></video><figcaption>{n}</figcaption></figure>' for n in names)
+    (out / 'seamless.html').write_text(f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Edge pan seamless</title>
+<style>:root{{--surface:#1a1a19;--ink:#f0efec;--muted:#c3c2b7}}body{{margin:0;padding:24px 16px;background:var(--surface);color:var(--ink);font:16px/1.5 system-ui,sans-serif}}
+main{{max-width:1500px;margin:auto}}h1{{font-size:22px;margin:0 0 4px}}p{{color:var(--muted);margin:0 0 20px}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,680px),1fr));gap:20px}}figure{{margin:0}}video,img{{width:100%;display:block;border-radius:6px}}figcaption{{padding:6px 2px;color:var(--muted)}}</style>
+<main><h1>Edge pan: before and after</h1><p>Left of each clip: today's. Right: the fix. Real renderer, offline. Numbers: seamless-metrics.md.</p>
+<img src="seamless-metrics.png" alt="Seen size of both desktops and view speed, before and after, for six layouts" style="margin-bottom:20px"><div class="grid">{cards}</div></main></html>
+""")
+
+
 def compare(out, names):
     for name in names:
         a, b = out / f'seamless-before-{name}.mp4', out / f'seamless-after-{name}.mp4'
@@ -121,6 +186,9 @@ def compare(out, names):
                         '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-tune', 'animation', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
                         str(out / f'seamless-compare-{name}.mp4')], check=True)
         print('compared', name, flush=True)
+    plots(out, names)
+    tables(out, names)
+    page(out, names)
 
 
 def main():

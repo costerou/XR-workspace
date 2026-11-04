@@ -29,8 +29,8 @@ struct SelectPayload { OutputId output_id; };
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false;
                      bool typing = false; bool center = false; bool cut = false; bool pan = false; };
 // The hand's pan past a maximized desktop's edge (tools/native_spike/edge_pan.py, view.hpp EdgePan), display only:
-// {"active":bool,"from":int,"to":int,"side":"right"|"left"|"up"|"down","exit":n,"entry":n,"peek":n,"cross":n,"turn":n,"zoom":n}, each n an
-// integer 0..10000 (1 = 10000; `turn` is a share of half a turn), or {"active":false} alone. Malformed: dropped, the session goes on.
+// {"active":bool,"from":int,"to":int,"side":"right"|"left"|"up"|"down","exit":n,"entry":n,"peek":n,"cross":n,"turn":n,"way":n,"zoom":n}, each n an
+// integer 0..10000 (1 = 10000; `turn` is a share of half a turn, `way` of a whole one), or {"active":false} alone. Malformed: dropped, the session goes on.
 constexpr const char* kInvalidEdgePanCode = "invalid_edge_pan";
 // Theme accent for the highlight border/glow: {"border":[r,g,b]}, each 0..255.
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };

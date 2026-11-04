@@ -1,6 +1,6 @@
 #pragma once
 // A run's view with a still head, for measuring and drawing the edge pan offline: what wayland.cpp's Impl keeps for its frame
-// loop, for any desktops, placements, spacing and FOV. ViewAnimator, blended_layout, zoomed_placements, edge_pan_path and
+// loop, for any desktops, placements, spacing and FOV. ViewAnimator, blended_layout, zoomed_placements, edge_pan_path, aim_along and
 // ModeController are the real ones. focus_aim and pan_dot are wayland.cpp's, word for word (private to its Impl).
 #include <algorithm>
 #include <array>
@@ -49,10 +49,7 @@ struct Run {
         const auto ps = placements();
         if (view.pan_active()) {
             const auto from = focus_direction(l.canvas, over, ps, view.pan().from), to = focus_direction(l.canvas, over, ps, view.pan().to);
-            Quat aim = aim_rotation(from[0], from[1]);
-            if (const auto path = edge_pan_path(l.canvas, l.sources, view.spacing(), over, ps, view.pan()))
-                aim = aim_turned(aim, {path->axis.x, path->axis.y, path->axis.z}, view.pan_turn());
-            return view.pan_landing() ? quat_slerp(aim, aim_rotation(to[0], to[1]), view.turn()) : aim;
+            return aim_along(aim_rotation(from[0], from[1]), aim_rotation(to[0], to[1]), view.pan().way, view.pan_turn(), view.pan().side);
         }
         const auto d = focus_direction(l.canvas, over, ps, view.focus());
         return aim_rotation(w * d[0], w * d[1]);
@@ -81,18 +78,16 @@ struct Run {
         modes.set_aim(focus_aim());
         return view_from(Quat{}, modes.update(Quat{}, t));
     }
-    std::vector<FRect> tiles() const { return blended_layout(l.sources, l.canvas.view_w, l.canvas.view_h, view.spacing(), view.zoom(), view.position()); }
+    std::vector<FRect> tiles() const { return blended_layout(l.sources, l.canvas.view_w, l.canvas.view_h, view.spacing(), view.zoom(), view.position(), view.left_zoom(), view.left()); }
     std::vector<Placement> drawn(const std::vector<FRect>& t) const {  // wayland.cpp resolved_placements: follow or locked, so no keep_size
-        return zoomed_placements(l.canvas, overview(), t, placements(), view.zoom(), view.position(), false);
+        return zoomed_placements(l.canvas, overview(), t, placements(), view.zoom(), view.position(), false, view.left_zoom(), view.left());
     }
-    int highlight() const { return int(view.focus()); }
-    float highlight_alpha() const { return 1.f - view.zoom(); }
 };
 
 // One line of the protocol below, whatever needs no drawing. False if it is not one of these.
 //   layout <view w> <h> <half w> <half h> <spacing> <mode: 1 locked, 2 follow, 0 untracked> <n> { <source w> <h> <x> <y> <distance> <curvature> <roll> } x n
 //   start <selected>
-//   pan <from> <to> <side> <exit> <entry> <peek> <cross> <turn> <zoom> <t ms>     ViewAnimator::set_pan, in EdgePan's units
+//   pan <from> <to> <side> <exit> <entry> <peek> <cross> <turn> <way> <zoom> <t ms>   ViewAnimator::set_pan, in EdgePan's units
 //   off <t ms>                                                                    set_pan with no pan: the hand let go
 //   target <zoomed> <selected> <center> <cut> <pan> <t ms>                        ViewAnimator::set_target
 //   tick <t ms>                                                                   one step of everything
@@ -115,7 +110,7 @@ inline bool control(const std::string& op, std::istringstream& in, Layout& layou
     } else if (op == "pan") {
         EdgePan p; p.active = true;
         int side = 0; double t = 0;
-        in >> p.from >> p.to >> side >> p.exit >> p.entry >> p.peek >> p.cross >> p.turn >> p.zoom >> t;
+        in >> p.from >> p.to >> side >> p.exit >> p.entry >> p.peek >> p.cross >> p.turn >> p.way >> p.zoom >> t;
         p.side = std::uint8_t(side);
         run->view.set_pan(p, t + 30000);
     } else if (op == "off") {

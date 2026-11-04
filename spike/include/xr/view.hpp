@@ -24,10 +24,17 @@ std::vector<FRect> overview_layout(std::span<const Size> sources, float view_w, 
 // Zoomed: the tile at `position` fits the view; neighbours share its height, `spacing` apart. A fractional
 // position blends the height and puts lerp(center[floor p], center[ceil p], frac p) at the view centre.
 std::vector<FRect> zoomed_layout(std::span<const Size> sources, float view_w, float view_h, float spacing, float position);
-// Linear blend between the two (ViewAnimator supplies eased values); `zoom` clamped to [0,1].
-std::vector<FRect> blended_layout(std::span<const Size> sources, float view_w, float view_h, float spacing, float zoom, float position);
+// Linear blend between the two (ViewAnimator supplies eased values); `zoom` clamped to [0,1]. `left_zoom`: during an edge pan's
+// landing desktop `left`, the one being left, is on its own way out at that zoom (ViewAnimator::left_zoom): its tile is as though
+// the zoom were on it, and every other tile is untouched.
+std::vector<FRect> blended_layout(std::span<const Size> sources, float view_w, float view_h, float spacing, float zoom, float position,
+                                  float left_zoom = 0, std::size_t left = 0);
 float smoothstep(float t);
 float smootherstep(float t);  // quintic: zero velocity and acceleration at both ends
+// smootherstep starting at speed `v` instead of at rest (v in units of the whole way per the whole time, clamped to 0..kSettleMaxSpeed):
+// 0 to 1 over t = 0..1, at rest with no acceleration at t = 1, never past 1 and never going back. v = 0 is smootherstep exactly.
+constexpr float kSettleMaxSpeed = 2.5f;
+float settle_curve(float t, float v);
 
 // Per-desktop placement in the glasses view (wire/profile units: tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 // Relative to the desktop's slot in the overview/zoom layout; the default places it at its slot.
@@ -79,12 +86,17 @@ std::vector<MeshVertex> glass_mesh(const Canvas& canvas, const FRect& tile, cons
 // part of its shape and is kept). zoom_weight is zoom times closeness of `position` to `index`.
 float zoom_weight(float zoom, float position, std::size_t index);
 Placement faded(const Placement& placement, float weight);
+// How much bigger a desktop is seen at zoom weight `w` than in the overview, `grown` being that at weight 1 (maximized seen height over
+// placed seen height): g / lerp(g, 1, w) with g = lerp(1, grown, w). One curve for every size, so a resized desktop moves just
+// as a default one does, scaled to its own two sizes. It only ever goes from 1 toward `grown`, whichever is bigger.
+float zoom_growth(float w, float grown);
 // The placements the desktops are drawn with at `zoom` / `position` (ViewAnimator's eased values), `overview` being the
 // overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. Zooming never moves a
 // desktop round you, in every viewing mode (anchor, locked, follow) and however far it was dragged:
 //   - every desktop keeps its overview direction (slot plus orbit) at every zoom: its orbit is corrected for its slot's
 //     motion between the overview and `tiles`;
-//   - the zoomed desktop's distance fades to 1 (zoom_weight), so it grows where it is until it fills the view there;
+//   - the zoomed desktop's distance goes to 1 (zoom_weight), so it grows where it is until it fills the view there, its seen
+//     size following zoom_growth all the way: never past either end, however it was resized;
 //   - its roll fades to 0 with it, so maximized it sits level, square to the glasses with the aim (focus_direction), in
 //     every mode. Only what is drawn levels: `placements` keep the roll, so the overview gets it back exactly and a
 //     saved layout never holds a levelled one. Every other desktop keeps its roll;
@@ -96,12 +108,17 @@ Placement faded(const Placement& placement, float weight);
 // size, as every other one does, so it is never shrunk back to the fit. Any other zoomed desktop still grows to fill the
 // view as above (zooming in must zoom: regression 2026-11-03, keeping every size made overview -> zoom a no-op).
 // Follow and locked pass false: the zoomed desktop always fits the glasses as above.
+// left_zoom, left: blended_layout's. That desktop is drawn as a zoomed one at that weight, whatever `zoom` and `position` say.
 std::vector<Placement> zoomed_placements(const Canvas& canvas, std::span<const FRect> overview, std::span<const FRect> tiles,
                                          std::span<const Placement> placements, float zoom, float position,
-                                         bool keep_size = false);
+                                         bool keep_size = false, float left_zoom = 0, std::size_t left = 0);
 // Back-to-front draw order with the zoom target last (on top) once zoomed in past halfway (zoom >= 0.5): a desktop
 // dragged nearer than the zoomed one never covers it. Below that, `order` unchanged. `target` outside it: unchanged.
 std::vector<std::size_t> zoom_draw_order(std::vector<std::size_t> order, float zoom, std::size_t target);
+// The two desktops of an edge pan in front of every other, whatever the zoom: `over` on top of `under` (ViewAnimator::pan_layers).
+// Their second border is `left` at `left_alpha`, its fade out as the other's comes up.
+struct PanLayers { std::size_t over = 0, under = 0, left = 0; float left_alpha = 0; };
+std::vector<std::size_t> pan_draw_order(std::vector<std::size_t> order, const PanLayers& pan);
 // Back-to-front draw order by distance of each desktop's centre (painter's algorithm; intersecting desktops
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
@@ -208,22 +225,24 @@ constexpr float kViewEaseMs = 220.f;
 // The edge pan (tools/native_spike/edge_pan.py, the `edge_pan` frame, ipc.hpp): maximized, the hand pushing the cursor past
 // `side` of desktop `from` toward `to`. All of it is the supervisor's measure of the hand; this side only draws it.
 //   turn   radians the view has turned toward `to`, 1:1 with the hand from start to end of the pan.
-//   peek   0..1: the first stretch of the push. The zoom falls toward `zoom` and the dot rides the desktop's edge.
-//   cross  0..1: the rest. The dot leaves the edge at exit point E (`exit` along `side` of `from`, drawn at zoom `zoom`) along the
-//          great circle to entry point P (`entry` along the opposite edge of `to`, in its placed overview position), at the
-//          rate it had on the desktop. The zoom goes on down to 0, which is where the landing can move on to `to`.
-// `zoom` is as far as this pair needs (edge_pan.py pan_zoom). side: 0 right, 1 left, 2 up, 3 down.
-struct EdgePan { bool active = false; std::uint32_t from = 0, to = 0; std::uint8_t side = 0; float exit = 0, entry = 0, peek = 0, cross = 0, turn = 0, zoom = 0; };
+//   way    radians from the view on `from` to the view on `to`, the way the push goes (pose.hpp aim_along). The whole pan, hand
+//          and landing, is this one turn.
+//   peek   0..1 of the hand's whole way. The zoom falls from 1 to `zoom` with it.
+//   cross  0..1: the dot, which has ridden the desktop's edge until now, leaves it at exit point E (`exit` along `side` of `from`,
+//          drawn at zoom `zoom`) along the great circle to entry point P (`entry` along the opposite edge of `to`, in its placed
+//          overview position), at the rate it had on the desktop.
+// `zoom` is as far as this pair needs (edge_pan.py pan_zoom), and that is as far as the hand takes it. side: 0 right, 1 left, 2 up, 3 down.
+struct EdgePan { bool active = false; std::uint32_t from = 0, to = 0; std::uint8_t side = 0; float exit = 0, entry = 0, peek = 0, cross = 0, turn = 0, way = 0, zoom = 0; };
 constexpr float kPanEaseMs = 30.f;      // time constant taking the hand's ~250 Hz samples to the display's frames
-constexpr float kPanAxisMinRad = 0.1f;
+constexpr float kPanEaseRest = 1e-5f;   // this near it has arrived: well under one wire step, or a gentle hand's lag would count as arrived and the ease would do nothing
 constexpr float kPanStaleMs = 2000.f;   // no frame for this long (the supervisor stopped): the view goes back to the desktop
+constexpr float kPanSettleMs = 520.f;   // the landing, from the hand's last frame to the target maximized: the size of it, and the longest the view's turn takes
+constexpr float kPanBorderShare = 0.25f;  // of the landing: the border goes over from the desktop being left to the target
 // The pixel `f` (0..1, left / top first) along `side` of `tile`.
 std::array<float, 2> edge_point(const FRect& tile, std::uint8_t side, float f);
-// The dot's way across (canvas frame, unit vectors): `from` E, `to` P, `angle` how far apart, radians, and `axis` the unit axis the
-// view turns about: the one turning E to P the short way. When those two are closer than kPanAxisMinRad (a row's gap) it is
-// the one from the same point of the desktop's far edge to P, which runs the same way and is well defined.
-// nullopt if an index is out of range, the canvas is empty or E and P oppose.
-struct EdgePanPath { Vec3 from, to, axis; float angle = 0; };
+// The dot's way across (canvas frame, unit vectors): `from` E, `to` P, `angle` how far apart, radians.
+// nullopt if an index is out of range or the canvas is empty.
+struct EdgePanPath { Vec3 from, to; float angle = 0; };
 std::optional<EdgePanPath> edge_pan_path(const Canvas& canvas, std::span<const Size> sources, float spacing, std::span<const FRect> overview,
                                          std::span<const Placement> placements, const EdgePan& pan);
 // The unit direction `cross` of the way from `start` to the path's P, along the great circle.
@@ -268,8 +287,11 @@ private:
 // the view's turn from the supervisor's frames, and pulling back undoes them. They are eased by kPanEaseMs so the pointer's
 // sample rate does not show, and the zoom moves no faster than the whole range in duration_ms. switching() is true for all
 // of it, so nothing of the overview's (pills, the dot's own frames) shows. set_target's `pan` lands one that reached its
-// target: phases 2 and 3 above from where the hand left it (phase 1 too if the zoom has not got to 0), about 0.52 s, 0.74 s at
-// most. `pan` with no pan under way is a cut. A cut or a return to the overview drops a pan where it is.
+// target. That is the rest of one motion, not a switch: from where the hand left them, in kPanSettleMs, the view's turn goes on to the
+// target from the hand's own speed (settle_curve, sooner for a hand too fast for that to end at rest), the desktop being left
+// goes on down to its placed size (left_zoom) and the target comes up from its own (zoom), all at once, none of it waiting
+// for the rest. `pan` with no pan under way is a cut. A cut or a return to the overview drops a pan where it is, but a desktop
+// still on its way out finishes that.
 class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
@@ -283,11 +305,19 @@ public:
     bool pan_landing() const { return pan_landing_; }
     const EdgePan& pan() const { return pan_; }
     float pan_cross() const { return pan_cross_; }   // eased EdgePan::cross
-    float pan_turn() const { return pan_turn_; }     // eased EdgePan::turn
+    float pan_turn() const { return pan_turn_; }     // eased EdgePan::turn; through a landing, on to EdgePan::way
+    // A landing's desktop being left and its own zoom on the way out (blended_layout, zoomed_placements). left_zoom 0: none.
+    float left_zoom() const { return land_.active ? land_.left_now : 0.f; }
+    std::uint32_t left() const { return land_.left; }
+    // During a pan, who is in front of whom and the second border; nullopt otherwise. Until the desktop being left is down
+    // to the pair's EdgePan::zoom it stays on top: there, and only there, they do not overlap, so they change places unseen.
+    std::optional<PanLayers> pan_layers() const;
+    // The border's strength on focus(). 1 - zoom() but for a landing, where it shares what the pan had drawn with the target's fade in.
+    float highlight_alpha() const;
     void advance(double now_ms);
-    bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active || pan_on_; }
-    bool switching() const { return switch_.active || pan_on_; }
-    float zoom() const;      // eased current zoom in [0,1]
+    bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active || pan_on_ || land_.active; }
+    bool switching() const { return switch_.active || pan_on_ || land_.active; }
+    float zoom() const;      // eased current zoom in [0,1]; during a landing, the target's
     float position() const { return float(shown_); }  // the desktop the zoom is on (the one being left in phase 1)
     std::uint32_t focus() const { return shown_; }
     float look() const;      // [0,1]: how far the view is turned from look_from() toward look_to()
@@ -314,12 +344,23 @@ public:
 private:
     void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center);
     void step_pan(double now_ms);
-    void end_pan() { pan_on_ = pan_landing_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; }
+    void land_pan(std::uint32_t to, double now_ms);
+    void step_landing(double now_ms);
+    void end_pan() { pan_on_ = pan_landing_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; pan_zoom_speed_ = 0; }
     float duration_, turn_;
     EdgePan pan_{};
     bool pan_on_ = false, pan_landing_ = false;
-    float pan_peek_ = 0, pan_cross_ = 0, pan_turn_ = 0, pan_zoom_ = 1;
+    float pan_peek_ = 0, pan_cross_ = 0, pan_turn_ = 0, pan_zoom_ = 1, pan_zoom_speed_ = 0;  // speed: per ms, falling positive
     double pan_ms_ = 0, pan_seen_ms_ = 0;
+    struct Landing {
+        bool active = false;
+        double start_ms = 0;
+        std::uint32_t left = 0;
+        float way_from = 0, way_speed = 0, way_ms = kPanSettleMs;  // the view's turn: from, settle_curve's v, how long
+        float left_from = 0, left_speed = 0, left_now = 0;         // the desktop being left: its zoom's from, v, now
+        float until = 0;                                           // it stays on top until it is down to this
+        float border = 0, border_now = 0;                          // what the pan's border had reached; how far it has gone over (0..1)
+    } land_;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
     float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;

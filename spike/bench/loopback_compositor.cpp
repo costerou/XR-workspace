@@ -1099,7 +1099,7 @@ int main(int argc, char** argv) {
             if (pan_frames < 10 && since >= kMaximizeSettleMs + pan_frames * 20.0) {
                 const int share = (pan_frames + 1) * 1000;
                 send_frame(next_request++, "edge_pan", "{\"active\":true,\"from\":0,\"to\":" + std::to_string(to) + ",\"side\":\"right\",\"exit\":5000,\"entry\":5000,\"peek\":" +
-                           std::to_string(share) + ",\"cross\":" + std::to_string(share) + ",\"turn\":500,\"zoom\":2000}");
+                           std::to_string(share) + ",\"cross\":" + std::to_string(share) + ",\"turn\":500,\"way\":1000,\"zoom\":2000}");
                 ++pan_frames;
             } else if (pan_frames == 10 && since >= kMaximizeSettleMs + 500) {
                 send_frame(next_request++, "view", "{\"zoomed\":true,\"selected\":" + std::to_string(to) +

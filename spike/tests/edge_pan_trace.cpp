@@ -3,7 +3,7 @@
 //
 // For each desktop: `seen` its width and height as seen (canvas px at unit distance: tile over distance from the eye), `at` where its
 // centre is in the view ({azimuth, elevation} radians from straight ahead), `roll` its turn about the line of sight as seen
-// (radians, counter-clockwise), `corners` its four corners in eye space. The view: `aim` the canvas direction straight ahead.
+// (radians, counter-clockwise), `own_roll` the levelling roll it is drawn with, `corners` its four corners in eye space. The view: `aim` the canvas direction straight ahead.
 #include "edge_pan_run.hpp"
 
 using namespace xr;
@@ -29,8 +29,8 @@ void desktop(const Run& run, const FRect& r, const Placement& p, const Mat3& vie
     const Vec3 own = minus(up, Vec3{n.x * along, n.y * along, n.z * along});
     const Vec3 sky = minus(Vec3{0, 1, 0}, Vec3{n.x * up_y, n.y * up_y, n.z * up_y});
     const float roll = std::atan2(dot(cross(own, sky), n), dot(own, sky));
-    std::printf("{\"seen\":[%.4f,%.4f],\"at\":[%.6f,%.6f],\"roll\":%.6f,\"tile\":[%.3f,%.3f,%.3f,%.3f],\"distance\":%.5f,\"corners\":[", r.width / far, r.height / far,
-                std::atan2(middle.x, -middle.z), std::atan2(middle.y, std::sqrt(middle.x * middle.x + middle.z * middle.z)), roll, r.x, r.y, r.width, r.height, p.distance);
+    std::printf("{\"seen\":[%.4f,%.4f],\"at\":[%.6f,%.6f],\"roll\":%.6f,\"tile\":[%.3f,%.3f,%.3f,%.3f],\"distance\":%.5f,\"own_roll\":%.6f,\"corners\":[", r.width / far, r.height / far,
+                std::atan2(middle.x, -middle.z), std::atan2(middle.y, std::sqrt(middle.x * middle.x + middle.z * middle.z)), roll, r.x, r.y, r.width, r.height, p.distance, p.roll);
     const float xs[] = {r.x, r.x + r.width, r.x + r.width, r.x}, ys[] = {r.y, r.y, r.y + r.height, r.y + r.height};
     for (int i = 0; i < 4; ++i) {
         const Vec3 q = eye(view, place_point(c, r, p, xs[i], ys[i]));
@@ -43,12 +43,13 @@ void frame(Run& run, double t, const Mat3& view) {
     const auto tiles = run.tiles();
     const auto drawn = run.drawn(tiles);
     const Canvas& c = run.l.canvas;
-    auto order = zoom_draw_order(draw_order(c, tiles, drawn), 1.f - run.highlight_alpha(), std::size_t(run.highlight()));
+    const auto pan = run.view.pan_layers();  // gl.cpp draw_and_swap's order
+    auto order = pan ? pan_draw_order(draw_order(c, tiles, drawn), *pan) : zoom_draw_order(draw_order(c, tiles, drawn), run.view.zoom(), run.view.focus());
     // The canvas direction straight ahead: the view's inverse on (0, 0, -1).
     const Vec3 ahead{-view[6], -view[7], -view[8]};
-    std::printf("{\"t\":%.3f,\"zoom\":%.5f,\"focus\":%u,\"switching\":%d,\"pan\":%d,\"landing\":%d,\"animating\":%d,\"turn\":%.5f,\"alpha\":%.4f,\"highlight\":%d,\"aim\":[%.6f,%.6f,%.6f],\"order\":[",
+    std::printf("{\"t\":%.3f,\"zoom\":%.5f,\"focus\":%u,\"switching\":%d,\"pan\":%d,\"landing\":%d,\"animating\":%d,\"turn\":%.5f,\"left_zoom\":%.5f,\"alpha\":%.4f,\"left_alpha\":%.4f,\"aim\":[%.6f,%.6f,%.6f],\"order\":[",
                 t, run.view.zoom(), run.view.focus(), run.view.switching(), run.view.pan_active(), run.view.pan_landing(), run.view.animating(), run.view.pan_turn(),
-                run.highlight_alpha(), run.highlight(), ahead.x, ahead.y, ahead.z);
+                run.view.left_zoom(), run.view.highlight_alpha(), pan ? pan->left_alpha : 0.f, ahead.x, ahead.y, ahead.z);
     for (std::size_t i = 0; i < order.size(); ++i) std::printf("%s%zu", i ? "," : "", order[i]);
     std::printf("],\"dot\":");
     if (const auto dot = run.pan_dot(tiles, drawn)) std::printf("[%.6f,%.6f]", (*dot)[0], (*dot)[1]); else std::printf("null");

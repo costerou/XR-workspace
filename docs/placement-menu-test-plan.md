@@ -662,13 +662,14 @@ Record any failure with the step number and what you saw. Keep it apart from aut
 
 ## The push past an edge: automated coverage and glasses test script
 
-Automated, offline only: `tests/native_spike/test_edge_pan.py`, `test_directional_switch.py` and the ctests `view`, `focus_center`,
-`ipc` and `placement_contract`. None of it has run in the glasses, and the feel can only be judged there. Needs the renderer and
-Python from the same build, three desktops at least, and head tracking on.
+Automated, offline only: `tests/native_spike/test_edge_pan.py`, `test_directional_switch.py` and the ctests `edge_pan_motion`, `view`,
+`focus_center`, `ipc` and `placement_contract`. None of it has run in the glasses, and the feel can only be judged there. Needs the
+renderer and Python from the same build, three desktops at least, and head tracking on. Steps P15 to P20 are the layouts that used to
+bounce: the clips in `~/.hermes/profiles/coder/previews/switch-anim/seamless.html` show what to expect.
 
 | # | Do | Expect |
 |---|----|--------|
-| P1 | Maximize a desktop with a neighbour to its right. Push the mouse past the right edge slowly and keep going | Nothing for the first moment. Then the picture zooms out as you push, a dot takes over from the pointer and the view turns right with your hand, faster if you push faster. When the dot reaches the next desktop it settles in smoothly and fills the view. |
+| P1 | Maximize a desktop with a neighbour to its right. Push the mouse past the right edge slowly and keep going | Nothing for the first moment. Then the picture zooms out as you push, a dot takes over from the pointer and the view turns right with your hand, faster if you push faster. When the dot reaches the next desktop the view carries straight on, with no pause, while it grows to fill the view. |
 | P2 | The same, leaving about a third of the way down the edge | The mouse comes in on the new desktop's left edge at about that height, not its middle. |
 | P3 | Push part way, then pull the mouse back | The view comes back with your hand, zooms in, and you are on the same desktop with the mouse at the edge. |
 | P4 | Push part way and stop moving | After about half a second the view goes back to the desktop. |
@@ -682,6 +683,12 @@ Python from the same build, three desktops at least, and head tracking on.
 | P12 | Press Ctrl+Alt+Right, use the panel, send with Ctrl+Alt+G, switch in the overview, in typing mode | All instant: no zoom, no turn, no dot. |
 | P13 | On a scrolling-layout workspace with columns past the edge, push right | The columns scroll first; only then does the pan start. |
 | P14 | During a push part way across, press Ctrl+Alt+Down, then repeat with Ctrl+Alt+Right | Un-maximizes from where it is with no jump; the key is an instant cut. |
+| P15 | With your own layout (desktops resized big and placed off the row), maximize XR-1 and push right to XR-2, slowly | One smooth pan. Neither desktop shrinks and comes back: XR-1 only gets a little smaller as it leaves, XR-2 only a little bigger as it arrives. No bright border flash. |
+| P16 | The same, at a brisk push and at a flick | The view keeps its speed as your hand finishes and glides to a stop on XR-2. No pause where your hand stops, no surge after it. |
+| P17 | Push the other way, back to XR-1, then from XR-1 down to XR-3 from the bottom right corner of the edge | The same each way. The size of a desktop you leave and arrive at never goes past either of its two sizes. |
+| P18 | Resize one desktop small and the next one big, and the other way round. Push between them | The small one grows straight to full, the big one comes straight down to full. No dip on the way. |
+| P19 | During a landing, press Ctrl+Alt+Down | The new desktop zooms out from where it is, and the one you left finishes coming down with no jump. |
+| P20 | Put two desktops apart at very different heights, push between them with your head still, then again turning your head | The view goes straight from one to the other. On a big diagonal it leans a few degrees half way (about 8° on an 80° turn with 55° of height in it) and comes back level. Say if that shows. Follow lands in front of you, locked on the view. |
 
 Say how much mouse travel feels right: a row neighbour takes about a fifth of a desktop's width of mouse past the edge, and a
 desktop far round you several desktop widths, as the view turns at the mouse's speed.

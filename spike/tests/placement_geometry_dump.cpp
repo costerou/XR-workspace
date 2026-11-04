@@ -3,6 +3,7 @@
 // supervisor's pill drag, hit testing and no-overlap guard) mirrors them: every canvas x tile x wire placement x point.
 // Every desktop always faces you (a billboard toward the eye), so off-centre tiles are where the two could differ most.
 #include "xr/glass.hpp"
+#include "xr/pose.hpp"
 #include "xr/view.hpp"
 #include <cmath>
 #include <cstdio>
@@ -120,7 +121,9 @@ int main() {
                                ",\"distance\":" + std::to_string(set[i][2]) + ",\"curvature\":" + std::to_string(set[i][3]) + "}";
                     out += "],\"side\":\"" + std::string(side_names[side]) + "\",\"zoom\":" + num(zoom) + ",\"exit\":" + num(p.exit) + ",\"entry\":" + num(p.entry);
                     out += ",\"e\":[" + num(path->from.x) + "," + num(path->from.y) + "," + num(path->from.z) + "]";
-                    out += ",\"p\":[" + num(path->to.x) + "," + num(path->to.y) + "," + num(path->to.z) + "]}";
+                    out += ",\"p\":[" + num(path->to.x) + "," + num(path->to.y) + "," + num(path->to.z) + "]";
+                    const auto a = focus_direction(c, overview, placed, 0), b = focus_direction(c, overview, placed, 2);
+                    out += ",\"way\":" + num(quat_angle(aim_rotation(a[0], a[1]), aim_rotation(b[0], b[1]))) + "}";
                 }
         }
     }

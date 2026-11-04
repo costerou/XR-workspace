@@ -71,7 +71,8 @@ int render(const std::array<std::uint8_t, 3>& hex, const std::string& dir) {
             } else {
                 gl->set_free_pointer(false, 0, 0, 0);
             }
-            if (!gl->draw_and_swap(tiles, drawn, run->highlight(), run->highlight_alpha(), view, layout.canvas.half_w, layout.canvas.half_h)) { std::fputs("draw failed\n", stderr); return 1; }
+            const auto pan = run->view.pan_layers();
+            if (!gl->draw_and_swap(tiles, drawn, int(run->view.focus()), run->view.highlight_alpha(), view, layout.canvas.half_w, layout.canvas.half_h, pan ? &*pan : nullptr)) { std::fputs("draw failed\n", stderr); return 1; }
             if (!send(std::uint32_t(w), std::uint32_t(h))) return 1;
         } else if (control(op, in, layout, run, view)) {
             if (op != "layout") continue;

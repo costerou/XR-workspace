@@ -2,7 +2,7 @@
 desktop really that way, measured from the edge point on the desktops as placed; travel 1:1 with the view's turn; the entry
 point at the height the cursor left; pulling back undoes it; every other switch stays a cut.
 
-The renderer's half: ctest view (ViewAnimator's pan, edge_pan_path) and focus_center (aim_turned, follow and locked landing);
+The renderer's half: ctest view (ViewAnimator's pan, edge_pan_path) and focus_center (aim_along, follow and locked landing);
 the two compared: ctest placement_contract. Offline only: the fixture's overview layout, fake clocks, a fake compositor.
 """
 import json
@@ -140,13 +140,40 @@ class MappingTests(unittest.TestCase):
         for px in (10, 100, 500):  # each px of hand past the peek is `r` radians along the path, at any point of it
             f = pl.frame(pl.peek_px + px)
             self.assertAlmostEqual(f['cross'] / 10000 * angle, px * r, places=3)
-            self.assertEqual(f['peek'], 10000)
 
     def test_the_view_turns_1_to_1_every_px_of_the_way(self):
         for p in (flat(), bearing_placement(60, 0)):
             pl = plan(p)
             for px in (5, 40, pl.total_px / 2, pl.total_px):
-                self.assertAlmostEqual(pl.frame(px)['turn'] / 10000 * math.pi, px * pl.rate, places=3)
+                self.assertAlmostEqual(pl.frame(px)['turn'] / 10000 * math.pi, px * pl.rate * pl.spin, places=3)
+
+    def test_the_view_has_one_way_from_end_to_end(self):
+        # The whole turn, on the desktops as placed: the rotation from the view on one to the view on the other.
+        for p, target in ((flat(), 1), (bearing_placement(60, 0), 1), (bearing_placement(30, 20), 1), (bearing_placement(150, 0), 1)):
+            pl = plan(p, target=target)
+            a, b = nb.frame(G, G['tiles'][0], p[0])[0], nb.frame(G, G['tiles'][target], p[target])[0]
+            self.assertGreaterEqual(pl.way, ep._angle(a, b) - 1e-9)
+            self.assertLess(pl.way, ep._angle(a, b) * 1.1)
+            self.assertLessEqual(pl.total_px * pl.rate * pl.spin, pl.way + 1e-6)  # the hand never asks for more than the way
+            self.assertEqual(pl.frame(0)['way'], round(pl.way / (2 * math.pi) * 10000))
+
+    def test_the_hand_moves_the_views_centre_1_to_1_on_a_long_diagonal(self):
+        # A turn between two upright views with different heights also rolls the view, and that part moves its centre less.
+        p = bearing_placement(100, 35)
+        pl = plan(p)
+        self.assertGreater(pl.spin, 1.0)
+        turn, spin = ep.way(G, G['tiles'][0], p[0], G['tiles'][1], p[1], 'right')
+        seen = ep._angle(nb.frame(G, G['tiles'][0], p[0])[0], nb.frame(G, G['tiles'][1], p[1])[0])
+        self.assertAlmostEqual(math.sin(turn / 2) / spin, math.sin(seen / 2), places=9)
+
+    def test_far_round_the_way_the_push_goes_is_the_long_way(self):
+        # Just over half a turn to the right of home's centre, so the short way from there is left, but from the point of the
+        # right edge, which the push picked it from, the short way to it is right.
+        p = bearing_placement(-177, 0)
+        self.assertEqual(nb.pick_at(G, p, 0, 'right', 0.5), 1)
+        turn, _ = ep.way(G, G['tiles'][0], p[0], G['tiles'][1], p[1], 'right')
+        self.assertGreater(turn, math.pi)
+        self.assertLess(ep.way(G, G['tiles'][0], p[0], G['tiles'][1], p[1], 'left')[0], math.pi)
 
     def test_neighbours_in_a_row_are_carried_by_the_hand_too(self):
         # Under a degree apart as placed, and a maximized desktop covers them: the hand still carries the view to where
@@ -167,10 +194,16 @@ class MappingTests(unittest.TestCase):
     def test_a_peek_comes_first_and_is_the_least_that_switches(self):
         pl = plan(flat())
         self.assertEqual(pl.frame(0)['peek'], 0)
-        self.assertEqual(pl.frame(pl.peek_px / 2)['peek'], 5000)
         self.assertEqual(pl.frame(pl.peek_px / 2)['cross'], 0)
         self.assertGreaterEqual(pl.peek_px, ep.PEEK_PX)
         self.assertGreater(pl.total_px, pl.peek_px)
+
+    def test_the_zoom_falls_over_the_hands_whole_way_however_far(self):
+        # So a desktop far off shows the same shrink as a neighbour, over a longer push: not all of it in the first 48 px.
+        for p in (flat(), bearing_placement(60, 0)):
+            pl = plan(p)
+            self.assertEqual(pl.frame(pl.total_px / 2)['peek'], 5000)
+            self.assertEqual(pl.frame(pl.total_px)['peek'], 10000)
 
     def test_touching_desktops_have_only_the_peek(self):
         p = flat()
@@ -196,6 +229,26 @@ class MappingTests(unittest.TestCase):
         t, r = ep.drawn_home(G, G['tiles'][0], p[0], near.zoom)
         self.assertLess(ep._angle(c, ep.point(G, t, r, 'right', near.exit)), reach)  # there is still a way across
 
+    def test_a_desktop_placed_bigger_than_the_view_stays_maximized_by_hand(self):
+        # Coming down the zoom makes it bigger: it only does that on its way out, behind the target.
+        p = bearing_placement(100, 0)
+        p[0] = {**p[0], 'distance': 20}
+        self.assertLess(ep.grown(G, G['tiles'][0], p[0]), 1)
+        self.assertEqual(plan(p).zoom, 1.0)
+
+    def test_the_zoom_clears_the_target_as_it_is_drawn_rolled_and_all(self):
+        # Close enough that only the target's roll brings a corner over home: home has to come down further for that.
+        p = flat()
+        g = G
+        level = ep.plan(g, p, 0, 1, 'right', 0.5, SIZE)
+        rolled = ep.plan(g, p, 0, 1, 'right', 0.5, SIZE, [0, 800, 0])
+        self.assertLess(rolled.zoom, level.zoom)
+        t, q = ep.drawn_home(G, G['tiles'][0], p[0], rolled.zoom)
+        target = orbit.footprint(G, G['tiles'][1], {**p[1], 'roll': 800})
+        self.assertTrue(ep._apart(orbit.footprint(G, t, q), target))
+        t, q = ep.drawn_home(G, G['tiles'][0], p[0], level.zoom)
+        self.assertFalse(ep._apart(orbit.footprint(G, t, q), target))
+
     def test_up_uses_the_view_height(self):
         p = bearing_placement(0, 40)
         self.assertAlmostEqual(ep.rate(G, G['tiles'][0], 'up', SIZE), 2 * math.atan(G['half'][1] * ep.fit_tile(G, G['tiles'][0])[3] / G['h']) / 1080)
@@ -210,7 +263,7 @@ class MappingTests(unittest.TestCase):
     def test_the_frame_is_what_the_renderer_decodes(self):
         out = json.loads(ep.frame_bytes('run', 'session', 7, plan(flat()).frame(60)))
         self.assertEqual(out['op'], 'edge_pan')
-        self.assertEqual(sorted(out['payload']), ['active', 'cross', 'entry', 'exit', 'from', 'peek', 'side', 'to', 'turn', 'zoom'])
+        self.assertEqual(sorted(out['payload']), ['active', 'cross', 'entry', 'exit', 'from', 'peek', 'side', 'to', 'turn', 'way', 'zoom'])
         self.assertTrue(all(type(v) is int and 0 <= v <= 10000 for k, v in out['payload'].items() if k not in ('active', 'side')))
         self.assertEqual(json.loads(ep.frame_bytes('run', 'session', 8, None))['payload'], {'active': False})
 

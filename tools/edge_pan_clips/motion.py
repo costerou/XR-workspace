@@ -64,7 +64,7 @@ class Layout:
         return neighbors.pick_at(self.g, self.placements, home, side, along)
 
     def plan(self, home, target, side, along):
-        return edge_pan.plan(self.g, self.placements, home, target, side, along, self.logical[home])
+        return edge_pan.plan(self.g, self.placements, home, target, side, along, self.logical[home], self.rolls)
 
 
 def placed_at(g, index, az, el, distance=100, curvature=0):
@@ -114,6 +114,9 @@ def named_layouts():
         'moved-up': (scene('moved-up', [(-10, -12, 100, 0), (2, 22, 100, 0), (160, 0, 100, 0)]), 0, 'up', 0.6),
         'moved-down': (scene('moved-down', [(0, 20, 60, 0), (-4, -24, 60, 0), (160, 0, 100, 0)]), 0, 'down', 0.5),
         'behind': (scene('behind', [(0, 0, 100, 0), (150, 8, 100, 0), (-90, 0, 100, 0)]), 0, 'right', 0.5),
+        'far-round': (scene('far-round', [(0, 0, 100, 0), (-177, 0, 100, 0), (60, -50, 100, 0)]), 0, 'right', 0.5),
+        'opposite': (scene('opposite', [(0, 0, 100, 0), (180, 0, 100, 0), (60, -50, 100, 0)]), 0, 'right', 0.5),
+        'opposite': (scene('opposite', [(0, 0, 100, 0), (180, 0, 100, 0), (60, -50, 100, 0)]), 0, 'right', 0.5),
         'curved': (scene('curved', [(-26, 0, 50, 60), (26, 4, 50, 60), (0, -40, 50, 60)]), 0, 'right', 0.4),
         'rolled': (scene('rolled', [(-30, 4, 60, 0), (30, -6, 60, 0), (0, -50, 60, 0)], rolls=[1800, -2500, 0]), 0, 'right', 0.5),
         'mixed': (scene('mixed', [(-16, 0, 150, 0), (30, 6, 30, 0), (0, -40, 100, 0)]), 0, 'right', 0.5),
@@ -128,7 +131,7 @@ def hand(plan, seconds=PUSH_S):
 
 def pan_line(f, t_ms):
     return (f"pan {f['from']} {f['to']} {edge_pan.SIDES.index(f['side'])} {f['exit'] / 1e4} {f['entry'] / 1e4} {f['peek'] / 1e4} "
-            f"{f['cross'] / 1e4} {f['turn'] / 1e4 * math.pi} {f['zoom'] / 1e4} {t_ms:.3f}")
+            f"{f['cross'] / 1e4} {f['turn'] / 1e4 * math.pi} {f['way'] / 1e4 * 2 * math.pi} {f['zoom'] / 1e4} {t_ms:.3f}")
 
 
 def edge_uv(side, f):
@@ -261,8 +264,8 @@ class Motion:
         self.target_h = [f['desktops'][target]['seen'][1] for f in frames]
         self.target_w = [f['desktops'][target]['seen'][0] for f in frames]
         self.zoom = [f['zoom'] for f in frames]
-        self.home_roll = [f['desktops'][home]['roll'] for f in frames]
-        self.target_roll = [f['desktops'][target]['roll'] for f in frames]
+        self.home_roll = [f['desktops'][home]['own_roll'] for f in frames]
+        self.target_roll = [f['desktops'][target]['own_roll'] for f in frames]
         self.first = next((i for i, f in enumerate(frames) if f['switching']), 0)
         self.last = len(frames) - 1
         while self.last > 0 and not frames[self.last - 1]['switching'] and self._same(self.last - 1, self.last): self.last -= 1
@@ -281,9 +284,26 @@ class Motion:
     def span(self, values):
         return values[self.first - 1 if self.first else 0:self.last + 1]
 
+    def turned(self, frame):
+        """How far the view's centre has travelled by `frame`, along its path."""
+        return sum(_angle(self.aim[i], self.aim[i + 1]) for i in range(frame))
+
     def left(self):
         """The angle still to go, frame by frame: from the view's axis to where it ends."""
         return [_angle(a, self.aim[self.last]) for a in self.aim]
+
+    def backtrack(self):
+        """The most the view's centre moves against its own last step, in one step. Works for a turn past half way round, where the
+        angle still to go first rises (left) with the view going straight on."""
+        worst = 0.0
+        step = None
+        for i in range(self.first, self.last):
+            now = tuple(b - a for a, b in zip(self.aim[i], self.aim[i + 1]))
+            size = math.sqrt(sum(c * c for c in now))
+            if size < 1e-6: continue
+            if step is not None and sum(p * q for p, q in zip(step, now)) < 0: worst = max(worst, size)
+            step = now
+        return worst
 
     def seconds(self):
         return self.t[self.last] - self.t[self.first]
@@ -304,16 +324,17 @@ class Motion:
         return best
 
     def dip(self):
-        """How far the view's speed falls between two faster stretches: 0 for one smooth rise and fall, 1 if it stops dead and
-        starts again. The share of the lower of the two peaks lost in the valley between them."""
+        """How far the view's speed falls between two faster stretches: 0 for one smooth rise and fall, near 1 if it stops dead and
+        starts again. The share of the speed it comes back to that was lost in the valley before it. A stretch under a tenth of the
+        peak speed is not a stretch: the end of a landing fades out into rounding."""
         speed = self.speed[self.first:self.last + 1]
-        best = 0.0
-        high = low = speed[0] if speed else 0.0
+        floor = max(speed, default=0.0) * 0.1
+        best, top, valley = 0.0, 0.0, 0.0
         for v in speed:
-            if v > high and high == low: high = low = v
-            elif v < low: low = v
-            elif high > 0 and v > low: best = max(best, (min(high, v) - low) / max(min(high, v), 1e-6) if v > low * 1.5 else 0.0)
-            if v > high: high = low = v
+            if v >= top: top = valley = v
+            else:
+                valley = min(valley, v)
+                if v > floor and v > valley: best = max(best, (v - valley) / v)
         return best
 
     def jolt(self):
@@ -327,6 +348,16 @@ class Motion:
         for v in (self.home_h, self.target_h):
             s = self.span(v)
             out = max(out, max((abs(s[i + 1] / s[i] - 1) for i in range(len(s) - 1)), default=0.0))
+        return out
+
+    def overview_sag(self, rest_home, rest_target, share=1.002):
+        """Seconds with both desktops at their overview size at once, moving or not: the zoom out to the overview between the two.
+        rest_*: their seen heights there."""
+        out, was = 0.0, None
+        for i in range(self.first, self.last + 1):
+            at = max(self.home_h[i] / rest_home, rest_home / self.home_h[i], self.target_h[i] / rest_target, rest_target / self.target_h[i]) <= share
+            if at and was is not None: out += self.t[i] - was
+            was = self.t[i] if at else None
         return out
 
     def order_pops(self):
@@ -349,6 +380,6 @@ class Motion:
             'home': (hs[0], min(hs), max(hs), hs[-1]), 'target': (ts[0], min(ts), max(ts), ts[-1]),
             'home_turns': reversals([math.log(v) for v in hs], floor)[0], 'target_turns': reversals([math.log(v) for v in ts], floor)[0],
             'home_past': outside(hs), 'target_past': outside(ts),
-            'back': reversals(left, math.radians(0.05))[1], 'stall': self.stall(), 'dip': self.dip(), 'jolt': self.jolt(), 'size_jolt': self.size_jolt(),
+            'back': self.backtrack(), 'stall': self.stall(), 'dip': self.dip(), 'jolt': self.jolt(), 'size_jolt': self.size_jolt(),
             'peak_deg_s': math.degrees(max(self.speed[self.first:self.last + 1])), 'pops': self.order_pops(),
         }
