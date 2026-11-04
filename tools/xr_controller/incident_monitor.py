@@ -386,8 +386,9 @@ class IncidentMonitor:
         self.live = None
         run_id = watch.run_id
         live.result = self._safe(self.sources.result, run_id)
-        live.unit = parse_unit_exit(self._safe(self.sources.journal, _unit(run_id), 60, default=[]))
-        signals = classify_end(at, live.result, started=watch.running_since is not None, stopped=watch.stopped, stranded=stranded, unit=live.unit)
+        lines = self._safe(self.sources.journal, _unit(run_id), 60, default=[])
+        live.unit = parse_unit_exit(lines)
+        signals = classify_end(at, live.result, started=watch.running_since is not None, stopped=watch.stopped, stranded=stranded, unit=live.unit, log=lines)
         if signals and live.armed: signals = self._poll(live, at) + signals
         if away and signals:
             signals.append(Signal(at, 'controller-restart', 'controller', 'the controller came back to a session that had ended while it was away'))

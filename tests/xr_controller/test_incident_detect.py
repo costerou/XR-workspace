@@ -446,6 +446,81 @@ UNIT = """\
 """.splitlines()
 
 
+# The real end of run 15cd0dc8 (2026-11-04 03:21), R in the placement panel: the renderer's own last line, then systemd's.
+AT_0321 = 1793780508.089
+CHANNEL_0321 = ['2026-11-04T03:12:54-05:00 costerou python3[1134873]: xr-workspace: run: 6 remembered windows back on their desktops',
+                '2026-11-04T03:21:48-05:00 costerou python3[1135274]: control: supervisor channel closed or invalid',
+                '2026-11-04T03:21:48-05:00 costerou systemd[1302]: viture-xr-15cd.service: Main process exited, code=exited, status=2/INVALIDARGUMENT',
+                "2026-11-04T03:21:48-05:00 costerou systemd[1302]: viture-xr-15cd.service: Failed with result 'exit-code'."]
+RESULT_0321 = dict(run_id=RUN, phase='done', complete=True, remaining=[], error=None, renderer_returncode=1, stop_reason='renderer-closed')
+
+
+def stream_report(refused): return '2026-11-04T03:21:48-05:00 h python3[1]: ' + json.dumps(dict(kind='control_stream', accepted=9, refused=refused))
+
+
+class ControlChannelTests(unittest.TestCase):
+    def end(self, result, **over): return classify_end(AT_0321 + 1, result, **dict(dict(started=True), **over))
+
+    def test_the_0321_incident_is_a_closed_channel_and_says_so(self):
+        out = self.end(RESULT_0321, log=CHANNEL_0321)
+        self.assertEqual(kinds(out), ['control-closed'])
+        self.assertEqual(out[0].source, 'renderer')
+        self.assertIn('control channel', out[0].detail)
+
+    def test_the_new_renderers_words_read_the_same(self):
+        for line in ('control: supervisor channel closed', 'control: supervisor channel closed (heartbeat: Broken pipe)'):
+            with self.subTest(line):
+                self.assertEqual(kinds(self.end(RESULT_0321, log=[f'2026-11-04T03:21:48-05:00 h python3[1]: {line}'])), ['control-closed'])
+
+    def test_it_is_dated_by_the_line_so_the_timeline_reads_in_order(self):
+        # The monitor sees the end a second later, and the driver's stale line (08:21:48.373Z) came 284 ms after the renderer quit.
+        closed = self.end(RESULT_0321, log=CHANNEL_0321)[0]
+        self.assertEqual(closed.at, 1793780508.0)
+        driver = DriverLog().feed('luma: stale ms=100 at=1793780508.373\n', AT_0321)
+        self.assertGreater(driver[0].at, closed.at)
+
+    def test_a_line_with_no_readable_time_still_counts(self):
+        self.assertEqual(self.end(RESULT_0321, log=['control: supervisor channel closed'])[0].at, AT_0321 + 1)
+
+    def test_it_outranks_the_tracking_loss_it_caused(self):
+        e = d.Episode(RUN, AT_0321)
+        for signal in DriverLog().feed('luma: stale ms=100 at=1793780508.373\n', AT_0321) + self.end(RESULT_0321, log=CHANNEL_0321): e.add(signal)
+        self.assertEqual(e.kind, 'control-closed')
+        self.assertEqual(d.KINDS.index('control-closed'), d.KINDS.index('renderer-crash') + 1)
+
+    def test_any_other_exit_is_still_a_renderer_exit(self):
+        for log in ((), ['2026-11-04T03:21:48-05:00 h python3[1]: dispatch: closed, removed or disconnected']):
+            self.assertEqual(kinds(self.end(RESULT_0321, log=log)), ['renderer-exit'])
+
+    def test_stop_closing_the_channel_is_no_incident(self):
+        self.assertEqual(self.end(dict(RESULT_0321, stop_reason='interrupted'), log=CHANNEL_0321), [])
+        self.assertEqual(self.end(RESULT_0321, stopped=True, log=CHANNEL_0321), [])
+
+    def test_a_crash_is_a_crash_whatever_the_log_says(self):
+        self.assertEqual(kinds(self.end(dict(RESULT_0321, renderer_returncode=-11), log=CHANNEL_0321)), ['renderer-crash'])
+
+    def test_frames_refused_in_a_session_that_went_on_are_a_report_at_its_end(self):
+        clean = dict(run_id=RUN, phase='done', complete=True, remaining=[], error=None, renderer_returncode=0)
+        out = self.end(clean, stopped=True, log=[stream_report(3)])
+        self.assertEqual(kinds(out), ['control-refused'])
+        self.assertIn('3', out[0].detail)
+        self.assertEqual(self.end(clean, stopped=True, log=[stream_report(0)]), [])  # the normal end stays no incident
+        self.assertEqual(self.end(clean, stopped=True), [])
+
+    def test_a_supervisor_fault_the_run_carried_on_from_is_a_report_at_its_end(self):
+        clean = dict(run_id=RUN, phase='done', complete=True, remaining=[], error=None, renderer_returncode=0,
+                     faults=[dict(where='key menu_reset', count=2, traceback=['view.py:1 _on_menu', 'KeyError: x'])])
+        out = self.end(clean, stopped=True)
+        self.assertEqual(kinds(out), ['supervisor-fault'])
+        self.assertIn('key menu_reset', out[0].detail)
+        self.assertNotIn('KeyError', out[0].detail)  # a signal's detail is our words, never log text
+
+    def test_a_fault_that_ended_the_run_is_the_runs_failure_not_a_second_kind(self):
+        failed = dict(run_id=RUN, phase='run', complete=False, remaining=[], error='boom', renderer_returncode=None,
+                      faults=[dict(where='the run', count=1, traceback=['ValueError: boom'])])
+        self.assertEqual(kinds(self.end(failed)), ['run-failed'])
+
+
 class UnitExitTests(unittest.TestCase):
     def test_the_units_own_last_words(self):
         self.assertEqual(d.parse_unit_exit(UNIT), dict(code='exited', status='2/INVALIDARGUMENT', result='exit-code'))
@@ -571,7 +646,7 @@ class CorrelatorTests(unittest.TestCase):
         self.assertEqual(len(set(d.KINDS)), len(d.KINDS))
         self.assertTrue({'hyprland-crash', 'renderer-crash', 'usb-drop', 'video-lost', 'present-stall', 'capture-failed', 'tracking-lost',
                          'plugin-failed', 'watchdog', 'run-killed', 'run-failed', 'renderer-exit', 'start-failed', 'recovery-failed',
-                         'controller-restart'} == set(d.KINDS))
+                         'controller-restart', 'control-closed', 'control-refused', 'supervisor-fault'} == set(d.KINDS))
 
     def test_repeats_do_not_grow_without_bound(self):
         c = Correlator()

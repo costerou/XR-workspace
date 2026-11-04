@@ -22,7 +22,7 @@ import time
 
 from tools.native_spike.ipc import private_dir, read_private_json
 from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED, SCOPES, USB_DENIED
-from .incident_detect import is_exit_report, signal_name
+from .incident_detect import faults_of, is_exit_report, signal_name
 
 MAX_BUNDLE = 256 * 1024
 MAX_SUMMARY = 4096
@@ -117,6 +117,9 @@ class Scrubber:
 
 
 _SUMMARIES = {'hyprland-crash': 'Hyprland crashed or restarted', 'renderer-crash': 'the XR renderer crashed',
+              'control-closed': 'the XR renderer lost its control channel to the supervisor',
+              'control-refused': 'the XR renderer refused a control message from the supervisor',
+              'supervisor-fault': 'the XR supervisor hit an internal error',
               'usb-drop': "the glasses' USB connection dropped", 'video-lost': 'the video link to the glasses was lost',
               'plugin-failed': 'the XR Hyprland plugin failed', 'watchdog': 'the XR session stopped responding',
               'controller-restart': 'the XR controller restarted and found an unfinished session', 'run-killed': 'the XR session was killed',
@@ -177,6 +180,10 @@ def guess_cause(episode, ev):
         return guess('The system ran out of memory and killed the session.', 'high')
     if 'hyprland-crash' in kinds:
         return guess('Hyprland went away with no crash record, so a logout or a restart is likely.', 'medium')
+    if 'control-closed' in kinds:
+        return guess('The renderer and the supervisor lost the control channel between them, which ends a session. That is a software fault in '
+                     'XR Workspace: what tracking or the driver log says after that moment follows from it and is not the cause. '
+                     'The run log has the renderer\'s last words.', 'high')
     if usb:
         seen_by_kernel = any(s.source == 'kernel' for s in usb)
         return guess("The glasses' USB hub dropped off the bus. On 2026-11-03 this came before most ended sessions, and it points at the cable, "
@@ -194,6 +201,14 @@ def guess_cause(episode, ev):
         return guess("Hyprland closed the renderer's surface or connection, usually because its output went away.", 'medium')
     if result.get('error'):
         return guess(f"The run stopped with: {result['error']}", 'medium')
+    if 'control-refused' in kinds:
+        refused = (ev.get('metrics') or {}).get('control', {}).get('refused')
+        return guess(f'The renderer refused {refused} control message(s) from the supervisor and dropped them. The session carried on, but '
+                     'that is a bug: the run log says which ones.', 'high')
+    faults = faults_of(result)
+    if faults:
+        last = faults[0]['traceback'][-1] if faults[0]['traceback'] else 'no details'
+        return guess(f"The supervisor hit an internal error in {faults[0]['where']}: {last}. The session carried on; the traceback is under faults.", 'high')
     return guess('No clear cause: read the timeline and the logs.', 'low')
 
 
@@ -249,7 +264,7 @@ def build_bundle(episode, ev, now, scrub):
         display=dict(mode=ev.get('mode'), expected_mode=ev.get('expected_mode'), drm=ev.get('drm')),
         renderer=dict(returncode=rc, signal=signal_name(-rc) if type(rc) is int and rc < 0 else None, stop_reason=result.get('stop_reason'),
                       complete=result.get('complete'), phase=result.get('phase'), error=result.get('error')),
-        recovery=_recovery(ev),
+        recovery=_recovery(ev), faults=faults_of(result),
         unit=ev.get('unit') or {}, metrics=dict(last=ev.get('status') or {}, exit_report=ev.get('metrics') or {}), core_dumps=cores, logs=logs,
         suppressed_since_last=ev.get('suppressed') or {}, truncated=False, privacy=PRIVACY)
     # The id too: a long kind makes it look like a token, and it is the file's name.
@@ -272,6 +287,10 @@ def markdown(bundle):
     out += [f"- {t['at']} ({t['source']}): {t['detail']}" for t in bundle['timeline'][:12]]
     extra = len(bundle['timeline']) - 12
     if extra > 0: out.append(f'- and {extra} more in the JSON report')
+    if bundle.get('faults'):
+        out += ['', '## Supervisor errors', '']
+        for fault in bundle['faults']:
+            out += [f"- {fault['where']} ({fault['count']} time{'' if fault['count'] == 1 else 's'})", *[f'  - {line}' for line in fault['traceback'][-5:]]]
     return '\n'.join(out).encode()[:MAX_SUMMARY].decode(errors='ignore') + '\n'
 
 

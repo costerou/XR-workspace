@@ -452,6 +452,50 @@ class RunEndTests(Case):
         self.assertEqual(len(self.reports()), 2)
 
 
+class ControlChannelTests(Case):
+    def test_the_0321_session_replayed_reports_the_channel_not_tracking(self):
+        # 2026-11-04 03:21: every line as it was, the times moved to this test's clock. Before the fix this report said
+        # tracking-lost, low confidence.
+        self.session()
+        self.host.driver += f'luma: stale ms=100 at={self.now + 0.3:.3f}\nluma: fresh gap_ms=124 at={self.now + 0.32:.3f}\n'
+        self.host.journals[f'viture-xr-{RUN}.service'] = [
+            f'{stamp(self.now)} costerou python3[1135274]: control: supervisor channel closed or invalid',
+            f'{stamp(self.now)} costerou systemd[1302]: viture-xr-{RUN}.service: Main process exited, code=exited, status=2/INVALIDARGUMENT',
+            f"{stamp(self.now)} costerou systemd[1302]: viture-xr-{RUN}.service: Failed with result 'exit-code'."]
+        self.host.results[RUN] = dict(CLEAN, renderer_returncode=1, stop_reason='renderer-closed')
+        self.idle(8)
+        report = self.only()
+        self.assertEqual(report['kind'], 'control-closed')
+        self.assertEqual(report['cause']['confidence'], 'high')
+        self.assertIn('control channel', report['cause']['text'])
+        self.assertEqual(report['session'], 'ended')
+        self.assertEqual(report['timeline'][0]['kind'], 'control-closed')  # first: what tracking said came after
+        self.assertIn('tracking-lost', [t['kind'] for t in report['timeline'][1:]])
+        self.assertEqual(self.reports()[0].stem.split('-', 1)[1], 'control-closed')
+        self.assertIn('control-closed', self.reports()[0].with_suffix('.md').read_text())
+
+    def test_a_session_that_refused_frames_and_ended_well_reports_them(self):
+        self.session()
+        self.host.journals[f'viture-xr-{RUN}.service'] = [
+            f'{stamp(self.now)} h python3[1]: control: refused frame 6 (roll): invalid_control, 1 so far',
+            f'{stamp(self.now)} h python3[1]: ' + json.dumps(dict(kind='control_stream', accepted=40, refused=1))]
+        self.host.results[RUN] = CLEAN
+        self.tick('stopping', status=None, stop_requested=RUN)
+        self.idle(8)
+        report = self.only()
+        self.assertEqual(report['kind'], 'control-refused')
+        self.assertEqual(report['session'], 'stopped')
+        self.assertEqual(report['metrics']['exit_report']['control'], dict(accepted=40, refused=1))
+
+    def test_a_clean_run_is_still_no_incident(self):
+        self.session()
+        self.host.journals[f'viture-xr-{RUN}.service'] = [f'{stamp(self.now)} h python3[1]: ' + json.dumps(dict(kind='control_stream', accepted=40, refused=0))]
+        self.host.results[RUN] = CLEAN
+        self.tick('stopping', status=None, stop_requested=RUN)
+        self.idle(8)
+        self.assertEqual(self.reports(), [])
+
+
 class HyprlandTests(Case):
     def crash(self):
         self.session()
