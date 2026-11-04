@@ -78,7 +78,8 @@ class NativeOwnerTests(unittest.TestCase):
           xkb_compatibility { include "complete" };
           xkb_symbols { include "pc+us+inet(evdev)" };
         };'''
-        c = Mock()
+        c = ViewControl(ViewState(['XR-1']), 'run', 'session', Mock(), Mock(), Mock())
+        c.options_video = Mock()
         editor = NativeEditors(c)
         editor.open('url')
         editor.begin_text(keymap)

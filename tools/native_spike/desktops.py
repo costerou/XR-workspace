@@ -238,23 +238,28 @@ class DesktopManager:
         return self.guard_factory([dict(s) for s in self.specs]) if self.guard_factory is not None else None
 
     # the change itself
-    def start(self, change):
+    def start(self, change, done=None):
         """Run `change` (a Plan) on the worker. False if one is still running or not yet collected."""
         with self._lock:
-            if self._stop or self.busy(): return False
+            if self._stop or self.busy():
+                from .send import complete
+                complete(done,False,'Output transaction busy or stopped'); return False
             if self.threads:
-                self._worker = threading.Thread(target=self._run, args=(change,), daemon=True)
+                self._worker = threading.Thread(target=self._run, args=(change,done), daemon=True)
                 self._worker.start()
                 return True
-        self._run(change)  # inline (tests): the loop thread is the only caller, so nothing starts meanwhile
+        self._run(change,done)  # inline (tests): the loop thread is the only caller, so nothing starts meanwhile
         return True
 
-    def _run(self, change):
+    def _run(self, change, callback=None):
         error = None
+        original = {s['id']:dict(s) for s in self.specs}
+        attempted = []
         done = []
         try:
             for kind, spec in change.steps():
                 if self._stop: raise ValueError('the session is ending')
+                attempted.append((kind,dict(spec)))
                 if kind == 'remove':
                     if self.leaving is not None: self.leaving(spec['name'], change.windows_to)  # never raises: its memory is kept
                     if change.windows_to is not None and self.move_windows is not None:
@@ -275,8 +280,27 @@ class DesktopManager:
             self._fit_windows(change)
         except Exception as exc:  # broker refusals, OwnershipBlocked, transport errors: reported, never fatal here
             error = str(exc) or type(exc).__name__
+            # Only reverse operations whose ownership can be proven again. Removed
+            # workspaces/windows cannot be silently reconstructed; recovery owns them.
+            recovery = False
+            for kind,spec in reversed(attempted):
+                try:
+                    if kind=='reshape' and spec['id'] in original:
+                        previous=original[spec['id']]
+                        self.broker.reshape(previous) # includes separate authoritative inspect
+                        self.specs=sorted([s for s in self.specs if s['id']!=spec['id']]+[previous],key=lambda s:number(s['name']))
+                    elif kind=='create':
+                        observed=self.broker.inspect(spec['id'])
+                        if observed['state']=='live' and self.broker.remove_live(spec['id'],spec['name'],self.journal):
+                            self.specs=[s for s in self.specs if s['id']!=spec['id']]
+                        else: recovery=True
+                    elif kind=='remove': recovery=True
+                except Exception: recovery=True
+            error += '; recovery required for unverified outputs' if recovery else '; previous output specs restored and verified'
         with self._lock:
             self._result = (change, error, done)
+        from .send import complete
+        complete(callback,error is None,error or 'Broker identities/specs verified')
 
     def _fit_windows(self, change):
         """The change went through: floating windows that would stick out of a desktop it shrank go back inside it

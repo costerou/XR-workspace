@@ -429,6 +429,7 @@ class VideoControl:
         self.last_input = self.opened_at = self.error_seen_at = None
         self.supervisor = None
         self.opens = 0
+        self._owner_pending = []
         self._results = queue.SimpleQueue()
         self._worker = None
         self._bind_lock = threading.Lock()
@@ -449,6 +450,7 @@ class VideoControl:
 
     def renderer_restarted(self):
         """The video went with the old renderer (survive.py): its modal keys go too, or Space would stay swallowed."""
+        self._finish_video(False,'Renderer restarted')
         self._close()
         self.view.renderer_restarted()
 
@@ -481,13 +483,22 @@ class VideoControl:
     def _quality_frame(self):
         return self._frame(quality.renderer_payload(self.quality()))
 
-    def _set_quality(self, settings):
+    def _set_quality(self, settings, done=None):
         """Apply live (renderer) and save with the view settings (layout.json / the glasses profile)."""
         settings = quality.validate(settings)
+        if done is not None and len(self._owner_pending)>=32:
+            from .send import complete
+            complete(done,False,'Too many pending video operations'); return b''
+        if done is not None:
+            self._owner_pending.append(dict(op='quality',done=done,before=(getattr(self.view,'owner_readback',None) or {}).get('video'),error=self.error,quality=dict(settings),inactive=not self.active))
         if settings == self.quality(): return b''
         self.view.state.video_quality = settings
         try: self.view.settings.save(self.view.state.settings())
-        except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+        except (OSError, ValueError) as exc:
+            if done is not None:
+                from .send import complete
+                self._owner_pending=[p for p in self._owner_pending if p['done'] is not done]
+                complete(done,False,'Could not save video quality: '+str(exc))
         return self._quality_frame()
 
     def _on_menu_key(self, op):
@@ -520,7 +531,28 @@ class VideoControl:
         return self._controls_frame(not self.menu_hidden) or None
 
     # control socket
-    def on_message(self, message):
+    def on_message(self, message, done=None):
+        op = message.get('op') if isinstance(message,dict) else None
+        if done is None: return self._on_message(message)
+        from .send import complete
+        if len(self._owner_pending)>=32:
+            complete(done,False,'Too many pending video operations'); return None
+        before=(getattr(self.view,'owner_readback',None) or {}).get('video')
+        if op in SEEK_S and (not isinstance(before,dict) or not isinstance(before.get('player'),dict) or type((before.get('playback') or {}).get('position_s')) not in (int,float)):
+            complete(done,False,'Native video position readback unavailable'); return None
+        if op!='video_open' and not self.active:
+            complete(done,False,'No active video'); return None
+        pending=dict(op=op,done=done,before=before,error=self.error)
+        self._owner_pending.append(pending)
+        try:
+            out=self._on_message(message)
+            pending['format']=dict(self.format) if self.format else None
+            pending['quality']=dict(self.quality())
+            return out
+        except Exception as exc:
+            self._owner_pending.remove(pending); complete(done,False,str(exc)); return None
+
+    def _on_message(self, message):
         op = message.get('op') if isinstance(message, dict) else None
         if op == PLAYBACK_MENU_OP: return self._menu_toggle()
         if op in VIDEO_OPS:
@@ -665,6 +697,7 @@ class VideoControl:
             else:
                 self.opening, self.error = False, result[1]
                 self._tell(result[1])
+                self._finish_video(False,result[1])
         dt = now - self.last_poll if self.last_poll is not None else 0.0
         self.last_poll = now
         if self.active and self.stream is not None:
@@ -698,8 +731,49 @@ class VideoControl:
                 self.error_seen_at = None
                 if state in (None, 'off') and now - self.opened_at >= START_GRACE_S:
                     out += self._close('video playback is not available in this session (renderer without video support)')
+        self._poll_owner_readback()
         if fds: return FdFrame(out, fds)
         return out or None
+
+    def _finish_video(self, success, detail):
+        from .send import complete
+        pending,self._owner_pending=self._owner_pending,[]
+        for item in pending: complete(item['done'],success,detail)
+
+    def _poll_owner_readback(self):
+        from .send import complete
+        report=(getattr(self.view,'owner_readback',None) or {}).get('video')
+        playback=(report.get('playback') or {}) if isinstance(report,dict) else {}
+        for item in list(self._owner_pending):
+            if self.error and self.error!=item['error']:
+                self._owner_pending.remove(item); complete(item['done'],False,self.error); continue
+            before=item['before']; old=(before.get('playback') or {}) if isinstance(before,dict) else {}
+            new_error=(playback.get('state')=='error' or playback.get('error')) and (playback.get('revision',0)>old.get('revision',0) or playback.get('error')!=old.get('error') or (isinstance(report,dict) and report.get('opened',0)>(before.get('opened',0) if isinstance(before,dict) else 0)))
+            if new_error:
+                self._owner_pending.remove(item); complete(item['done'],False,playback.get('error') or 'Native video playback failed'); continue
+            if playback.get('command_errors',0)>old.get('command_errors',0):
+                self._owner_pending.remove(item); complete(item['done'],False,playback.get('command_error') or 'Native video command failed'); continue
+            if report is before and item['op'] not in ('quality','video_format'): continue
+            op=item['op']; ok=False
+            state=playback.get('state')
+            fresh=playback.get('revision',0)>old.get('revision',0)
+            if op=='video_exit': ok=report is None or (isinstance(report,dict) and report.get('state')=='off')
+            elif isinstance(report,dict):
+                if op=='video_open': ok=state in ('playing','paused') and report.get('opened',0)>(before.get('opened',0) if isinstance(before,dict) else 0)
+                elif op=='video_pause': ok=fresh and type(old.get('paused')) is bool and type(playback.get('paused')) is bool and playback['paused'] != old['paused']
+                elif op=='quality':
+                    actual=report.get('quality_readback',{})
+                    filter_key='filter_requested' if item.get('inactive') else 'filter_applied'
+                    deband_key='deband_requested' if item.get('inactive') else 'deband_applied'
+                    ok=actual.get(filter_key)==item['quality']['filter'] and type(actual.get(deband_key)) is bool and actual[deband_key]==item['quality']['deband']
+                elif op=='video_format': ok=report.get('format_applied')==item['format']
+                elif op in SEEK_S:
+                    pos=playback.get('position_s')
+                    target=max(0,old['position_s']+SEEK_S[op])
+                    if type(old.get('duration_s')) in (int,float) and old['duration_s']>0: target=min(target,old['duration_s'])
+                    ok=fresh and type(pos) in (int,float) and abs(pos-target)<=2 and playback.get('command_replies',0)>old.get('command_replies',0)
+            if ok:
+                self._owner_pending.remove(item); complete(item['done'],True,'Saved for next video' if item.get('inactive') else 'Native video state verified')
 
     def renderer_state(self):
         status = getattr(self.supervisor, 'status', None)
@@ -750,6 +824,7 @@ class VideoControl:
             self._binds_installed = want
 
     def close(self, timeout=2.5):
+        self._finish_video(False,'Video owner stopped')
         """Run end: no later bind change; remove the video keys if they are up; close descriptors never sent."""
         import time
         deadline = time.monotonic() + timeout

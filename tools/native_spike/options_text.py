@@ -37,14 +37,14 @@ class TextInput:
             if keymap: lib.xkb_keymap_unref(keymap)
             if context: lib.xkb_context_unref(context)
 
-    def hypr_modifiers(self, mods):
+    def hypr_modifiers(self, mods, group=0):
         self.lib.xkb_keymap_mod_get_index.argtypes=[C.c_void_p,C.c_char_p]
         self.lib.xkb_keymap_mod_get_index.restype=C.c_uint32
         mask=0
         for bit,name in ((1,b'Shift'),(2,b'Lock'),(4,b'Control'),(8,b'Mod1'),(16,b'Mod2'),(32,b'Mod3'),(64,b'Mod4'),(128,b'Mod5')):
             index=self.lib.xkb_keymap_mod_get_index(self.keymap,name)
             if mods & bit and index < 32: mask |= 1 << index
-        self.modifiers(mask)
+        self.modifiers(mask,group=group)
 
     def __init__(self, keymap, locale='C.UTF-8'):
         if not isinstance(keymap,str) or len(keymap.encode()) > 1024*1024: raise ValueError('invalid keymap')
@@ -111,20 +111,31 @@ class RuntimeText:
     def __init__(self, control, client):
         self.control, self.client = control, client
 
-    def __call__(self, mods, code):
+    def __call__(self, mods, code, *, state=None):
+        """state: actual XKB depressed/latched/locked masks and effective group.
+
+        Without event state, fail closed: held modifiers and keyboard names
+        cannot prove current compositor lock/latch/group state.
+        Caller runs this on existing input worker, not the supervisor watchdog.
+        """
         import json
         editor = getattr(self.control, 'options_editor', None)
         if editor is None or editor.kind not in ('url','file'): return ''
         if editor.text_field not in ('editor.path','editor.text'): return ''
-        if editor.text_input is None:
-            devices = json.loads(self.client._request('j/devices'))
-            keyboards = devices.get('keyboards', [])
-            keyboard = next((k for k in keyboards if k.get('main')), None)
-            if keyboard is None and len(keyboards) == 1: keyboard = keyboards[0]
-            if keyboard is None: raise ValueError('Active compositor keyboard unavailable')
-            editor.text_input = TextInput.from_names(keyboard)
-            editor.text_field = 'editor.text' if editor.kind=='url' else 'editor.path'
-            editor.text_group = keyboard.get('active_layout_index', 0)
-        editor.text_input.hypr_modifiers(mods)
-        action, text = editor.text_input.key(code)
-        return text if action == 'text' else ''
+        devices=json.loads(self.client._request('j/devices'))
+        keyboards=devices.get('keyboards',[])
+        keyboard=next((k for k in keyboards if k.get('main')),None)
+        if keyboard is None and len(keyboards)==1: keyboard=keyboards[0]
+        if keyboard is None: raise ValueError('Active compositor keyboard unavailable')
+        names=tuple(keyboard.get(k,'') for k in ('rules','model','layout','variant','options'))
+        if editor.text_input is None or getattr(editor,'text_names',None)!=names:
+            if editor.text_input is not None: editor.text_input.close()
+            editor.text_input=TextInput.from_names(keyboard)
+            editor.text_names=names
+        if state is not None:
+            if not isinstance(state,dict) or set(state)!={'depressed','latched','locked','group'}: raise ValueError('Incomplete XKB input state')
+            editor.text_input.modifiers(**state)
+        else:
+            raise ValueError('Authoritative XKB masks/group unavailable; use internal character controls')
+        action,text=editor.text_input.key(code)
+        return text if action=='text' else ''
