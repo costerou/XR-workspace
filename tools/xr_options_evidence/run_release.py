@@ -74,7 +74,7 @@ def main():
                    XR_NATIVE_REPORT_BINARY=str(out/'native_report'),PYTHONPATH=str(ROOT)+':'+str(ROOT/'tests/native_spike'))
         commands=[]
         if not args.skip_build:
-            commands += [('configure',['cmake','-S','spike','-B',str(build),'-DCMAKE_BUILD_TYPE=Release','-DXR_ENABLE_OWNERSHIP_PLUGIN=ON']),
+            commands += [('configure',['cmake','-S','spike','-B',str(build),'-DCMAKE_BUILD_TYPE=Release','-DXR_ENABLE_OWNERSHIP_PLUGIN=ON','-DXR_FAST_BUILD_TOOLS=OFF']),
                          ('build',['cmake','--build',str(build),'--clean-first','-j','4'])]
         commands += [('ctest',['ctest','--test-dir',str(build),'--output-on-failure','--output-junit',str(out/'ctest.xml'),'-j','2'])]
         for directory in sorted((ROOT/'tests').iterdir()):
