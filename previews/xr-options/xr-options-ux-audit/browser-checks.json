@@ -1,0 +1,23 @@
+[
+  {
+    "name": "button",
+    "openAfterEscape": 0
+  },
+  {
+    "name": "compact",
+    "closed": true
+  },
+  {
+    "name": "full",
+    "nav": {
+      "height": 308,
+      "scroll": 416,
+      "overflow": "auto"
+    },
+    "category": "Session"
+  },
+  {
+    "name": "full",
+    "closed": true
+  }
+]
