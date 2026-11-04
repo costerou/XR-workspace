@@ -1,8 +1,10 @@
 # Independent PRO 2 runtime QA
 
-Status: independent offline native/wrapper/controller acceptance GREEN on
-`c31cc3180071fca0feee823273d3a713997b2ff8`; RQ1–RQ5 closed.
-Final rebuilt package review pending. No hardware/runtime activation performed.
+Status: independent offline native/wrapper/controller and final bundle acceptance
+GREEN on `92f01a712da4403a77f6d58b74c842549a4744f8`. RQ1–RQ5 closed;
+117 final tests passed and 287 bundle file hashes verified. No SDK/hardware/GPU
+or live compositor activation performed. Earlier pending/open states below are
+audit history, superseded by the final recheck at the end.
 QA branch safely fast-forwarded to evidence head
 `1d141f87097cf122a7b035f4324b67c747bfd26a`. No source edits outside QA tests/docs.
 
@@ -263,3 +265,58 @@ source_commit=be41233, predating RQ4/RQ5. Lead notified to rebuild after fixes/Q
 merge. That older bundle is **not** the final accepted artifact. Do not install or
 activate it on the strength of code/test acceptance above. Fresh bundle hashes,
 source pin and provenance must be verified before final artifact handoff.
+
+## Final frozen artifact recheck: 92f01a7 — PASS
+
+Final functional and bundle source SHA:
+`92f01a712da4403a77f6d58b74c842549a4744f8`. Integration HEAD read before
+and after checks. QA branch incorporated this exact committed code before testing.
+Changes since c31 inspected: native SDK/status descriptor type/distinctness checks,
+sanitation of identity filesystem error status, private process metadata, SIGTERM
+interrupt path and explicit provisional projection cache invalidation/status label.
+No runtime code authored by QA.
+
+Fresh final results (exit0 for each):
+
+* `python tests/pro2_runtime_qa/run.py`: **28 passed**, 13.021s.
+* `python tests/pro2_runtime/run.py`: **6 passed**, 3.929s.
+* The exact83-case namespaced legacy command above: **83 passed**, 2.319s.
+
+**117 final tests passed** on the actual runtime/controller source, not just the
+replay adapter. No current QA blocker remains from this scope. RQ1–RQ5 red logs
+and green regressions remain inspectable. Rendering/GPU/physical comfort and
+installation are explicitly outside these results; native reader/PoseState
+fixtures and mock compositor orchestration do not prove live XR acceptance.
+
+Read-only actual final bundle audit command:
+
+```
+python tests/pro2_runtime_qa/audit_bundle.py /home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-ready --source 92f01a7
+/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-ready/bin/pro2-supervised-test --help
+```
+
+**PASS:287 manifest file hashes**. Packaged bridge/launcher/controller/managed/
+supervisor sources exactly match git at92f01a7. Bridge and renderer are ELF;
+production bridge contains neither --fixture-root nor --fixture-hash; renderer
+contains both explicit test-route flags. No tests, synthetic .so or vendor
+libglasses.so ships in the manifest. Bundle help exits0 before consent/execution,
+with no SDK load or client construction. Hash audit never executes binaries or
+loads libraries. Help executes only the Python argument-parser path.
+
+Manifest SHA256:
+`38d0b7edc2939b990065a6bbab1a5d1429a00c7944d0f83ccd5cf1df43bc33d3`.
+Production bridge SHA256:
+`359bf8c807b5aef1fcc1ea63bee930ad41f446d88dc7c0328cda2b67d3086a9d`.
+Renderer SHA256:
+`c4af50d0667362f56b71168c8eb7f157b952c78f34452b9a5f4b968a42d07334`.
+Ownership plugin SHA256:
+`45ade12a6af7c80d695d33f8d334ca517b135174e661c7283e786a98b04db7f9`.
+
+This accepts the frozen uninstalled review artifact for parent review under the
+explicit supervised route. It does not authorize installation or SDK/hardware
+activation. Next physical gate remains separate parent consent and the bounded
+supervised XR/window recovery/comfort check described in runtime-runbook.md.
+No extra hardware axis session, forced unplug or mandatory long soak is required
+by this QA work. Normal Pro2 production guard stays closed; HOLD L1 and SBS
+disabled, independent per-model settings, and no guessed optical correction remain
+in effect. Existing runtime hotplug/opaque SDK limits above remain truthful.
