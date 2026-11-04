@@ -23,3 +23,7 @@ If clean and consistent, next work is native private replay/reader contract and 
 ## Current next decision after roll
 
 [Roll evidence](hil-evidence/20261104-155529-roll/README.md) and [native acceptance/integration plan](integration-plan.md) supersede the prior request for another motion session. Allthree signed axes support H1as an offline candidate; isolatednativewriter/reader/PoseState replays pass. No repeated posecapture is currently warranted. Parent reviews projection/FOV/opticalpolicy and the future specific bridgeartifact before any installation or XRgate. Roll physicalpicture confirmation is not yet supplied.15:47:27disconnect was confirmed manualunplug,not SDKinstability. Existingnormalguards remain.
+
+## Runtimebuild complete — authoritative currentstatus
+
+Frozen92f01a7bundle includes realSDK→nativepublisherruntime, boundedwrapper, dedicatedcontrollerstart/recover and explicitprovisionalprojection. IndependentfinalQA117green plus287fileaudit; [runtimeevidence](runtime-evidence/README.md). NormalPro2guards stay. Rollphysicalpicture nowconfirmednormal. Prior recommendations tobuild/runtimeorcollectroll are historical and superseded. Nextapproval is concretebundle review/stagingifdesired and ONE separatelyauthorizedphysicalXRWorkspace test per runtime-runbook.md; no furtherofflinecodeblocker or repeatmotioncapture remains. Installation/physicalprojection/comfort/XRlifecycle are unproved.
