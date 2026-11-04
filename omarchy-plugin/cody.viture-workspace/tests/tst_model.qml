@@ -153,6 +153,22 @@ TestCase {
         compare(Model.operationLabel("zoom_out"), "Overview");
         compare(Model.operationLabel("mode_next"), "Maximized: follow / locked");
         compare(Model.operationLabel("something_new"), "something_new");
+        const off = {global:false, desktops:{}}, names = ["XR-1", "XR-2", "XR-3"];
+        compare(Model.immersiveOn(undefined, "XR-1"), false);
+        compare(Model.immersiveOn({global:true, desktops:{"XR-2":false}}, "XR-1"), true);
+        compare(Model.immersiveOn({global:true, desktops:{"XR-2":false}}, "XR-2"), false);
+        const one = Model.immersiveDesktop(off, "XR-2");
+        compare(one, {global:false, desktops:{"XR-2":true}});
+        compare(Model.immersiveDesktop(one, "XR-2"), off);
+        compare(Model.immersiveDesktop({global:true, desktops:{}}, "XR-1"), {global:true, desktops:{"XR-1":false}});
+        compare(Model.immersiveAll(off, names), {global:true, desktops:{}});
+        compare(Model.immersiveAll(one, names), off);
+        compare(Model.immersiveAll({global:true, desktops:{"XR-1":false}}, names), off);
+        compare(Model.immersiveLabel(undefined), "");
+        compare(Model.immersiveLabel({names:[], stereo:false, failed:false}), "Off");
+        compare(Model.immersiveLabel({names:["XR-1"], stereo:false, failed:false}), "Starting…");
+        compare(Model.immersiveLabel({names:["XR-1"], stereo:true, failed:false}), "3D on");
+        compare(Model.immersiveLabel({names:[], stereo:false, failed:true}), "Fell back to 2D: press again to retry");
         for (const op of ["prev","next","zoom_in","zoom_out","recenter","mode_next","spacing_up","spacing_down","prediction"])
             verify(Model.operationLabel(op).toLowerCase().indexOf("zoom") < 0, op);
     }

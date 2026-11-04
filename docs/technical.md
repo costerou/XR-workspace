@@ -42,6 +42,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Text cursor in the overview (Cody's pick of the mockups on branch `text-cursor-mockups`, 2026-11-03: the Serif Beam, option 1; the dot's look `text` where the app under it asks for a text cursor, on a desktop's content only; see [Over text](#the-unified-overview-cursor)) | Offline tests only: ctest `free_pointer` (the shape against the mockup's own triangles, `serif_beam_shape.json`, and a CPU mirror of the fill rule: 14 x 28 px with its ring, centred on the click point, a stem of 2 px), `gl_frame` (the GL frame against that mirror, pixel for pixel, at both grey levels, under the 191/255 cap), `ownership`, `ownership_pair_boundary` (the production broker and `cursorShape` bodies), `ownership_pair_wire`, and `tests/native_spike/test_text_cursor.py` (the names, the hold, handles first, overview only, the sampler, the reply's strict checks, and contract tests through the real C++ validators). A one-off comparison also found the real renderer's frames identical to the mockup tool's in all 108 pairs tried (three desktops, both greys, fractional head positions, tilted heads); that tool is not on this branch, so that comparison is not a ctest. The read costs about 40 µs in Hyprland (parse, name and reply, measured offline; 0.12% of a core at 30 a second). Not run in an isolated VM or in the glasses, and the plugin with `cursor_shape` has never been loaded: it compiles against the installed headers and every new symbol it needs is exported by the installed Hyprland and hyprutils, which is not a load test. Which app asks for what comes from toolkit source (FEASIBILITY.md on that branch), not from watching apps. Whether a 2 px stem crawls with the head moving, and how the beam reads over text at a third of a desktop's size, can only be judged in the glasses. The ownership plugin, renderer and supervisor must be installed together: an older renderer drops every frame with this look, and an older plugin leaves the plain dot with one refused read a second. It is a new plugin binary, so its earlier acceptance has to be repeated. |
 | Incident reports (`incident-reports`, 2026-11-03: the controller watches every run and writes one private report per incident to `~/.local/state/viture-workspace/incidents/`, with a desktop notification, a line in the panel and an optional `on-incident` hook; see [Incident reports](#incident-reports)) | Offline tests only: `tests/xr_controller/test_incident_detect.py`, `test_incident_report.py`, `test_incident_monitor.py`, `test_incident_wiring.py`, `tests/native_spike/test_supervisor.py` (`StopReasonTests`, the status fields), `test_runner.py`, the panel's `tst_model.qml`, ctest `capture_e2e_*` (the real renderer's new status fields, a resize never looking like a stuck capture), `capture_e2e_tracked`. Also replayed by hand, read-only, over the journals of the 48 runs of 2026-11-01 to 2026-11-03: every normal end stayed silent and all the USB-ended runs came out as `usb-drop`. That replay fed the classifier real logs; it was not the monitor running live. Not installed, not run in a live controller, in an isolated VM or in the glasses: no notification has reached a real desktop from it, and no live USB drop, crash or stall has gone through it. The status fields changed, so install the renderer and the Python supervisor together. |
 | Recovery past a monitor rule (`recover-incomplete-fix`, after run `4468c283` on 2026-11-03: Omarchy's scale control, used with XR-1 focused, left a rule naming XR-1 and the broker could then never remove that output; see [When a recovery cannot finish](#when-a-recovery-cannot-finish)) | Offline tests only: `tests/native_spike/test_leftover_rule.py` (the run's own journal shape through the real journal, broker client and `recover_managed` against a compositor double that blocks as the loaded plugin did, stop to finish), `tests/xr_controller/test_recovery_report.py` (`recover-run`, the panel's reason and confirm box, the incident report), ctest `ownership` (the step a refusal names) and `ownership_offset` (the plugin's real `cleanup`). Not run against a live Hyprland or in the glasses, so what the broker does on the real output is unobserved; the reload's effect on the rule comes from reading the pinned source. The plugin, Python controller and panel must be installed together. Steps R1 to R7 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Immersive 3D, the toggle and its lifecycle (`3d-integration`: Ctrl+Alt+I, the 3D button, the panel's 3D row, per-profile setting, engine and SBS on and off, fall back to 2D; see [Immersive 3D](#immersive-3d)) | Offline tests only: `tests/native_spike/test_immersive.py` and the suites it names. No engine, no SBS command and no stereo drawing exist yet, so a real run always falls back to 2D. Not run on a live compositor or in the glasses. The wire changed: install the renderer, supervisor, controller and panel QML together. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -130,6 +131,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
 | Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
+| Ctrl+Alt+I | run | Immersive 3D for every desktop, on / off (see [Immersive 3D](#immersive-3d)) |
 | Ctrl+Alt+E | run | The background behind the desktops: None / the last one used, with a fade (see [The background](#the-background)) |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
@@ -1857,6 +1859,33 @@ pill key, a free-pointer click or slider press, moving the dot while a panel is 
 settings panel. The help card's footer says so. Typing in a window doesn't count. Ctrl+Alt+L and Ctrl+Alt+H reopen them.
 The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy `kOverlayIdleCloseS` in
 `spike/include/xr/hud.hpp` feeds the footer note, and a test keeps the two equal.
+
+### Immersive 3D
+
+A toggle that makes any desktop stereo 3D from an AI depth map. `tools/native_spike/immersive.py`'s docstring is the design; this is
+what is there and what is missing. **It cannot turn on yet: a real run always falls back to 2D with a toast**, because the
+glasses' 3D mode switch and the depth engine program do not exist in this repo. Nothing is sent to the glasses.
+
+- **Toggle.** Ctrl+Alt+I for every desktop (help card: it shares the background's row, so the card stays at 14), the 3D button right of
+  each desktop's level bar for that desktop (`free_pointer.immersive_button_rect`, `glass.hpp`, compared by `glass_contract`; two
+  rings in a capsule, a placeholder until a look is picked from `3d-button-mockups`), and the running panel's 3D row. There is no
+  row in the glass placement panel.
+- **Saved** as `immersive` `{global, desktops}` with the view settings, per glasses model, off by default.
+- **Power.** The engine process exists only while a desktop is 3D. It stops for a VR video and comes back after.
+- **Order.** On: engine, glasses, renderer. Off: renderer, glasses, engine. All of it runs off the watchdog loop
+  (`ImmersiveRun`), and a run's end and recovery both bring the glasses back to 2D.
+- **Failure.** Engine or glasses failing, at the start or later, ends in 2D with a toast; the saved setting stays, the next press
+  retries, and so does the next XR start, once.
+
+What others must supply, each one small on this side:
+
+| Needed | Where it plugs in |
+| --- | --- |
+| A way into SBS, and the 3840x1200 output mode with its own consent scope (see [vr-video.md](vr-video.md#stereo-output)). The driver work found no public command id and recommends no display commands over USB (`spike/driver/docs/display-control.md` on `drv-display-control`), so the glasses' own 3D button, with XR waiting for Hyprland to report the wide mode, may be the way in; untested | a class with `enter()` / `leave()`, returned by `immersive.make_sbs()`. `after_reload` calls `reassert()`, but `view.session_mode` still expects 1920x1200 and would need to know about 3D; the guard (`validate_physical_pair`) needs checking at 3840x1200 |
+| The depth engine | `xr-depth-engine` beside the pinned renderer, added to `install.py`, following `ProcessEngine`'s contract; or, for an in-renderer stage, another class with the Engine methods |
+| Drawing | `ImmersivePayload.stereo` reaches `Presentation::Impl::immersive`; nothing reads it yet |
+
+Steps I1-I12 in [placement-menu-test-plan.md](placement-menu-test-plan.md) are for when those land.
 
 ## Tests
 

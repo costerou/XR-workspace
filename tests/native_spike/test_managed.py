@@ -392,7 +392,7 @@ class ManagedTests(unittest.TestCase):
         broker = OwnershipBrokerClient(transport, 'run', 'session', 'DP-1'); broker.require_output_ownership()
         store, seen = object(), {}
         class Stop(Exception): pass
-        def controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None, cursor_shape=None):
+        def controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None, cursor_shape=None, renderer=None):
             seen['store'], seen['fallback'], seen['desktops'] = store, fallback, desktops; raise Stop
         transport.connect_wayland = lambda session: open(os.devnull, 'rb')
         with patch.object(managed, 'view_controls', controls), patch.object(managed, 'recover'), self.assertRaises(Stop):

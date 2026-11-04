@@ -127,6 +127,11 @@ float md_icon_distance(MdIcon icon, float x, float y, float size) {
     case MdIcon::rotate_left:  // its mirror image
         d = rotate_right(24 - gx, gy);
         break;
+    case MdIcon::stereo: {  // two overlapping rings, two eyes: the 3D button's placeholder
+        const auto ring = [&](float cx) { return std::fabs(std::hypot(gx - cx, gy - 12) - 6.f) - 1.f; };
+        d = std::min(ring(8.5f), ring(15.5f));
+        break;
+    }
     case MdIcon::level:  // -o-: a dot on a horizon line, broken round it
         d = std::min({capsule(gx, gy, 2, 12, 7.4f, 12, 1), capsule(gx, gy, 16.6f, 12, 22, 12, 1), capsule(gx, gy, 12, 12, 12, 12, 2.4f)});
         break;

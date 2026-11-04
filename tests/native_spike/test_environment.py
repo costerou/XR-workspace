@@ -131,7 +131,7 @@ class BindTests(unittest.TestCase):
         self.assertEqual(len(chords), len(set(chords)) + 1)  # the left button's press / release is the one pair
 
     def test_one_help_row_in_the_modes_section(self):
-        self.assertIn(['Ctrl+Alt+E', 'Background: none / last used'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+E / I', 'Background / immersive 3D: on or off'], view.help_rows())  # the row 3D shares
         self.assertIn(TOGGLE_OP, view.HELP_SECTIONS[1])
 
     def test_the_lua_binds_the_helper_runs(self):

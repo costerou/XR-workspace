@@ -1,0 +1,72 @@
+"""The running panel's 3D row, in the real RunningEditor.qml. It needs the shell's qs.Commons and, through VideoControls.qml,
+Quickshell.Io, which qmltestrunner does not have, so this copies the panel into a temporary directory with stand-ins for those two
+and runs the runner there."""
+from pathlib import Path
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+PLUGIN = Path(__file__).resolve().parents[1]
+RUNNER = shutil.which('qmltestrunner') or '/usr/lib/qt6/bin/qmltestrunner'
+COLOR = 'pragma Singleton\nimport QtQuick\nQtObject { property color background:"black"; property color accent:"blue"; property color muted:"gray" }\n'
+VIDEO = 'import QtQuick\nItem { property var snapshot; property bool busy; signal request(var message) }\n'
+TEST = '''import QtQuick
+import QtTest
+import "panel" as Workspace
+
+TestCase {
+    id: testCase
+    name: "RunningEditor3D"
+    when: windowShown
+    visible: true
+    width: 900; height: 860
+    Component { id: running; Workspace.RunningEditor {} }
+    function test_row() {
+        const snapshot = {model:"luma-ultra", output:"DP-2", names:["XR-1","XR-2"], capabilities:[], view:{}, status:{},
+                          immersive:{setting:{global:false, desktops:{"XR-2":true}}, names:["XR-2"], stereo:true, failed:false}};
+        const editor = createTemporaryObject(running, testCase, {width:900, snapshot:snapshot, settings:{}});
+        verify(editor !== null);
+        const sent = [];
+        editor.request.connect(m => sent.push(m));
+        const all = findChild(editor, "immersiveAll"), one = findChild(editor, "immersive_XR-1"), two = findChild(editor, "immersive_XR-2");
+        verify(all !== null && one !== null && two !== null);
+        verify(!one.highlighted && two.highlighted && !all.highlighted);
+        compare(findChild(editor, "immersiveState").text, "3D on");
+        one.clicked();
+        compare(sent[0], {op:"set_settings", settings:{immersive:{global:false, desktops:{"XR-1":true, "XR-2":true}}}});
+        all.clicked();
+        compare(sent[1], {op:"set_settings", settings:{immersive:{global:false, desktops:{}}}});
+    }
+    function test_no_status_yet_reads_the_saved_setting() {
+        const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{names:["XR-1"], capabilities:[], status:{}},
+                                                                 settings:{immersive:{global:true, desktops:{}}}});
+        const sent = [];
+        editor.request.connect(m => sent.push(m));
+        findChild(editor, "immersive_XR-1").clicked();
+        compare(sent[0].settings.immersive, {global:true, desktops:{"XR-1":false}});
+    }
+}
+'''
+
+
+@unittest.skipUnless(os.path.exists(RUNNER), 'needs qmltestrunner')
+class RunningEditorTests(unittest.TestCase):
+    def test_the_3d_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            commons = Path(tmp) / 'imports' / 'qs' / 'Commons'
+            commons.mkdir(parents=True)
+            (commons / 'qmldir').write_text('module qs.Commons\nsingleton Color 1.0 Color.qml\n')
+            (commons / 'Color.qml').write_text(COLOR)
+            shutil.copytree(PLUGIN, Path(tmp) / 'panel', ignore=shutil.ignore_patterns('tests', '__pycache__'))
+            (Path(tmp) / 'panel' / 'VideoControls.qml').write_text(VIDEO)
+            (Path(tmp) / 'tst_running.qml').write_text(TEST)
+            done = subprocess.run([RUNNER, '-input', tmp, '-import', str(Path(tmp) / 'imports')], capture_output=True, text=True, timeout=60,
+                                  env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'})
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn('Totals: 4 passed', done.stdout)  # initTestCase, the two tests, cleanupTestCase
+
+
+if __name__ == '__main__':
+    unittest.main()

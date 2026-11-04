@@ -26,7 +26,7 @@ float md_corner_distance(float px, float py, float gap, float leg, float bend, f
 // Symbols' optical size) and drawn `size` px across, centred on (cx, cy): add (a plus), remove (a minus), width (a double
 // arrow between two bars: a wider desktop), arrow_drop_down / arrow_drop_up (a dropdown's filled triangle: closed / open),
 // rotate_left / rotate_right (a circular arrow, counter-clockwise / clockwise), level (a dot on a broken horizon line).
-enum class MdIcon : std::uint8_t { add, remove, width, arrow_drop_down, arrow_drop_up, rotate_left, rotate_right, level };
+enum class MdIcon : std::uint8_t { add, remove, width, arrow_drop_down, arrow_drop_up, rotate_left, rotate_right, level, stereo };
 inline constexpr float kMdIconPx = 18.f;  // icons in buttons (M3: 18 dp next to a label)
 void md_icon(HudImage& im, MdIcon icon, float cx, float cy, float size, MdRgb c, float alpha = 1.f);
 // The icon's signed distance (icon px, negative inside) at (x, y) relative to its centre, at `size`: what md_icon fills.

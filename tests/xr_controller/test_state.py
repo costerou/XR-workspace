@@ -182,6 +182,31 @@ class StateTests(unittest.TestCase):
         reply=self.c.request(dict(op='set_settings',settings={'environment':dict(background='none',last='grid',brightness=100)}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(sent,[])  # what it already holds: nothing to send
         self.assertFalse(self.c.request(dict(op='set_settings',settings={'environment':dict(grid,background='red')}))['ok'])
+    def test_running_immersive_forwarded(self):
+        # 3D goes to a run as one absolute message, and the supervisor saves what it applied (immersive.py).
+        self.journal(); self.units.active=True; self.c.tick(); sent=[]
+        self.units.control=lambda r,s,op,payload=None: sent.append((op,payload)) or True
+        one=dict(desktops={'XR-2':True})
+        one['global']=False
+        reply=self.c.request(dict(op='set_settings',settings={'immersive':one}))
+        self.assertTrue(reply['ok'],reply); self.assertEqual(sent,[('immersive',one)])
+        off=dict(desktops={}); off['global']=False
+        sent.clear(); self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':off}))['ok'])
+        self.assertEqual(sent,[])  # the same as saved: nothing to send
+        self.c.live['immersive']=dict(failed=True)
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':off}))['ok'])
+        self.assertEqual(sent,[('immersive',off)])  # after a fall back to 2D the same press is a new try
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'immersive':dict(off,desktops={'DP-1':True})}))['ok'])
+    def test_immersive_in_the_snapshot_only_while_running(self):
+        self.assertIsNone(self.c.snapshot()['immersive'])
+        self.journal(); self.units.active=True; self.c.tick()
+        self.c.live['immersive']=dict(names=['XR-1'],stereo=True,failed=False)
+        self.assertEqual(self.c.snapshot()['immersive']['names'],['XR-1'])
+    def test_immersive_saved_while_idle_and_off_by_default(self):
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],dict(zip(('global','desktops'),(False,{}))))
+        on=dict(zip(('global','desktops'),(True,{})))
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':on}))['ok'])
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],on)
     def test_environment_saved_while_idle(self):
         grid=dict(background='grid',last='grid',brightness=60)
         self.assertTrue(self.c.request(dict(op='set_settings',settings={'environment':grid}))['ok'])

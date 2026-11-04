@@ -34,9 +34,9 @@ OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'rec
        'super_left_press', 'super_right_press', 'super_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back', 'typing_toggle',
        'help_prev', 'help_next', 'privacy_display', 'playback_menu_toggle', 'binds_toggle',
-       'environment_toggle'
+       'environment_toggle', 'immersive_toggle'
        ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS
-                       # + privacy.PRIVACY_OP + view.PLAYBACK_MENU_OP + view.BINDS_PANEL_OP + environment.TOGGLE_OP + LEGACY_OPS
+                       # + privacy.PRIVACY_OP + view.PLAYBACK_MENU_OP + view.BINDS_PANEL_OP + environment.TOGGLE_OP + immersive.TOGGLE_OP + LEGACY_OPS
 # The key bind panel's key subscription (keybinds.py): `binds_key MODS CODE`, Hyprland's modmask and the xkb keycode.
 KEY_OP = 'binds_key'
 # Same text as keybinds.PANEL_OFF_LUA (tests compare): a key with no run listening means the run ended with the panel

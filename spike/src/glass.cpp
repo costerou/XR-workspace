@@ -167,14 +167,32 @@ FRect corner_cap_rect(const FRect& t, std::uint32_t corner) {
     return {right ? t.x + t.width - kCapInner * s : t.x - kCapOuter * s, bottom ? t.y + t.height - kCapInner * s : t.y - kCapOuter * s, size, size};
 }
 
+FRect immersive_button_rect(const FRect& t) {
+    const float s = level_bar_scale(t);
+    if (!(s > 0)) return {};
+    const FRect bar = level_bar_rect(t);
+    const float x = bar.x + bar.width + kImmersiveButtonGap * s, w = kImmersiveButtonW * s;
+    if (x + w > t.x + t.width - kImmersiveButtonClear * s) return {};
+    return {x, bar.y, w, bar.height};
+}
+
+bool on_immersive_button(const FRect& t, float px, float py) {
+    const FRect r = immersive_button_rect(t);
+    if (!(r.width > 0)) return false;
+    const float pad = kLevelBarPad * level_bar_scale(t);
+    return px >= r.x - pad && px <= r.x + r.width + pad && py >= r.y - pad && py <= r.y + r.height + pad;
+}
+
 namespace {
 // The atlas: seven bar cells down the left (idle, then one hot segment each hovered and dragged), and to their right the
-// caps, a column per state and a row per corner. Atlas px, kHandleAtlasGutter between cells and round the edge.
+// caps, a column per state and a row per corner, and right of those the 3D button's four states. Atlas px, kHandleAtlasGutter
+// between cells and round the edge.
 constexpr std::uint32_t kAtlasGap = kHandleAtlasGutter;
 constexpr std::uint32_t kAtlasBarW = std::uint32_t(kLevelBarW) * kHandleAtlasScale, kAtlasBarH = std::uint32_t(kLevelBarH) * kHandleAtlasScale;
 constexpr std::uint32_t kAtlasCap = std::uint32_t(kCapOuter + kCapInner) * kHandleAtlasScale;
 constexpr std::uint32_t kBarCells = 1 + 2 * kLevelSegments, kCapStates = 3, kCapCorners = 4;
-constexpr std::uint32_t kAtlasW = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap);
+constexpr std::uint32_t kAtlasButtonW = std::uint32_t(kImmersiveButtonW) * kHandleAtlasScale, kAtlasButtonX = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap);
+constexpr std::uint32_t kAtlasW = kAtlasButtonX + kAtlasButtonW + kAtlasGap;
 constexpr std::uint32_t kAtlasH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
 struct AtlasCell { std::uint32_t x = 0, y = 0, w = 0, h = 0; };
 AtlasCell bar_cell(std::uint32_t row) { return {kAtlasGap, kAtlasGap + row * (kAtlasBarH + kAtlasGap), kAtlasBarW, kAtlasBarH}; }
@@ -184,6 +202,7 @@ std::uint32_t bar_row(LevelSegment segment, bool active) {
 AtlasCell cap_cell(std::uint32_t corner, std::uint32_t state) {
     return {kAtlasGap + kAtlasBarW + kAtlasGap + state * (kAtlasCap + kAtlasGap), kAtlasGap + corner * (kAtlasCap + kAtlasGap), kAtlasCap, kAtlasCap};
 }
+AtlasCell button_cell(bool on, bool hot) { return {kAtlasButtonX, kAtlasGap + (std::uint32_t(on) * 2 + std::uint32_t(hot)) * (kAtlasBarH + kAtlasGap), kAtlasButtonW, kAtlasBarH}; }
 AtlasBox box_of(const AtlasCell& c) {
     const float w = float(kAtlasW), h = float(kAtlasH);
     return {float(c.x) / w, float(c.y) / h, float(c.x + c.w) / w, float(c.y + c.h) / h};
@@ -201,6 +220,12 @@ void draw_bar(HudImage& im, const AtlasCell& c, const MaterialScheme& m, LevelSe
     for (int seg = 0; seg < int(kLevelSegments); ++seg)
         md_icon(im, kIcons[seg].first, x + (float(seg) + 0.5f) * third, y + h / 2, kIcons[seg].second * k,
                 seg == int(hot) ? m.on_primary : m.on_primary_container);
+}
+void draw_button(HudImage& im, const AtlasCell& c, const MaterialScheme& m, bool on, bool hot) {  // a placeholder look
+    const float k = kHandleAtlasScale, x = float(c.x), y = float(c.y), w = float(c.w), h = float(c.h);
+    md_fill_rounded(im, x, y, x + w, y + h, h / 2, on ? (hot ? m.primary_bright : m.primary) : m.primary_container, 1.f);
+    if (hot && !on) md_fill_rounded(im, x + 2 * k, y + 2 * k, x + w - 2 * k, y + h - 2 * k, (h - 4 * k) / 2, m.primary, 0.5f);
+    md_icon(im, MdIcon::stereo, x + w / 2, y + h / 2, 20.f * k, on ? m.on_primary : m.on_primary_container);
 }
 void draw_cap(HudImage& im, const AtlasCell& c, std::uint32_t corner, float leg, float stroke, MdRgb colour) {
     const float k = kHandleAtlasScale, in = kCapInner * k;
@@ -227,10 +252,13 @@ HudImage render_handle_atlas(std::array<float, 3> accent) {
         draw_cap(im, cap_cell(corner, 1), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
         draw_cap(im, cap_cell(corner, 2), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
     }
+    for (const bool on : {false, true})
+        for (const bool hot : {false, true}) draw_button(im, button_cell(on, hot), m, on, hot);
     return im;
 }
 
 AtlasBox level_bar_box(LevelSegment segment, bool active) { return box_of(bar_cell(bar_row(segment, active))); }
+AtlasBox immersive_button_box(bool on, bool hot) { return box_of(button_cell(on, hot)); }
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active) { return box_of(cap_cell(std::min(corner, kCapCorners - 1), active ? 2 : hot ? 1 : 0)); }
 
 FRect glass_panel_action(std::size_t action) {

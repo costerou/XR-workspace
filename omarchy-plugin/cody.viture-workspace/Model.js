@@ -140,6 +140,32 @@ const OPERATION_LABELS = {prev:"◀ Prev", next:"Next ▶", zoom_in:"Maximize", 
                           prediction:"Pose prediction"};
 function operationLabel(op) { return OPERATION_LABELS[op] || op; }
 
+// Immersive 3D (tools/native_spike/immersive.py, the same rules): {global, desktops}, `desktops` the exceptions by XR-n name.
+// The panel sends the whole setting; the supervisor applies and saves it, and the next status shows it.
+function immersiveOn(setting, name) {
+    if (!setting) return false;
+    const exceptions = setting.desktops || {};
+    return exceptions[name] !== undefined ? exceptions[name] : !!setting.global;
+}
+// All desktops: anything 3D goes flat, all of it; nothing 3D, everything goes 3D.
+function immersiveAll(setting, names) {
+    return {global:!names.some(n => immersiveOn(setting, n)), desktops:{}};
+}
+// One desktop the other way, the rest as they are. An exception that says what `global` says is dropped.
+function immersiveDesktop(setting, name) {
+    const every = !!(setting && setting.global), exceptions = Object.assign({}, (setting && setting.desktops) || {});
+    if (immersiveOn(setting, name) === every) exceptions[name] = !every;
+    else delete exceptions[name];
+    return {global:every, desktops:exceptions};
+}
+// The line beside the 3D buttons, from the run's `immersive` status.
+function immersiveLabel(status) {
+    if (!status) return "";
+    if (status.failed) return "Fell back to 2D: press again to retry";
+    if (status.stereo) return "3D on";
+    return (status.names || []).length ? "Starting…" : "Off";
+}
+
 // Translate a preview click into the existing relative operations. The caller
 // serializes replies, stops on refusal/disconnect, and never changes view locally.
 function selectOperations(selected, target, capabilities) {

@@ -344,6 +344,7 @@ class PointerTests(unittest.TestCase):
         for name in ('scale_box', 'scale_pick', 'scale_close', 'resolution_box', 'resolution_pick', 'resolution_close',
                      'desktop_action', 'pill_close'):
             getattr(control, name).return_value = b''
+        control.immersive_pointer.return_value = b''
         pointer = fp.OverviewPointer(control)
         self.addCleanup(pointer.close)
         pointer.mode, pointer.pointer, pointer.geometry = 'free', (10.0, 10.0), {'w': 100, 'h': 100}

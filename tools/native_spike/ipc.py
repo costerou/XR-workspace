@@ -58,7 +58,7 @@ def decode_control(raw):
                   "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
                   "help_next", "privacy_display", "playback_menu_toggle", "binds_toggle", "binds_key", "environment_toggle",
-                  "environment"):
+                  "environment", "immersive_toggle", "immersive"):
         raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
@@ -66,6 +66,9 @@ def decode_control(raw):
         token(payload["output_id"])
     elif op == "environment":  # the controller: the whole setting, absolute (environment.py)
         from .environment import validate
+        message["payload"] = validate(payload)
+    elif op == "immersive":  # the panel: the whole setting, absolute (immersive.py)
+        from .immersive import validate
         message["payload"] = validate(payload)
     elif op == "placement":
         # Absolute per-desktop placements (1..MAX_DESKTOPS, one per managed output in order); presentation only.

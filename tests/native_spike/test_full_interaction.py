@@ -381,7 +381,7 @@ class HandleTests(Base):
                         self.assertFalse(inside)  # a handle is never on its desktop's content (the border's edge sliver at most)
                     if 0 < fx < 1 and 0 < fy < 1 and h[1] == i:
                         self.fail(f'{h} covers desktop {i} at {(fx, fy)}')
-        self.assertEqual(seen, {'desktop', 'pill', 'corner', 'edge', 'roll'})
+        self.assertEqual(seen, {'desktop', 'pill', 'corner', 'edge', 'roll', 'immersive'})
 
 
 class WindowDragOffTests(Base):

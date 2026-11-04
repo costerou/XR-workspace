@@ -26,7 +26,8 @@ mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': 
           'background_top': fp.PANEL_BACKGROUND_TOP, 'brightness_top': fp.PANEL_BRIGHTNESS_TOP,
           'background_item_h': fp.PANEL_BACKGROUND_ITEM_H, 'background_list_gap': fp.PANEL_BACKGROUND_LIST_GAP,
           'brightness_min': environment.BRIGHTNESS_BOUNDS[0], 'brightness_max': environment.BRIGHTNESS_BOUNDS[1],
-          'brightness_default': environment.DEFAULT_BRIGHTNESS}
+          'brightness_default': environment.DEFAULT_BRIGHTNESS,
+          'button_w': fp.IMMERSIVE_BTN_W, 'button_gap': fp.IMMERSIVE_BTN_GAP, 'button_clear': fp.IMMERSIVE_BTN_CLEAR}
 assert set(mirror) == set(c), (sorted(mirror), sorted(c))
 for name, value in mirror.items():
     assert abs(value - c[name]) < 1e-3, (name, value, c[name])
@@ -78,6 +79,15 @@ for case in data['cases']:
             got = fp.level_bar_segment(tile, (px, py))
             assert got == want, (tile, px, py, got, want)
         probes += 1; hits += want is not None
+    # The 3D button (glass.hpp immersive_button_rect / on_immersive_button): the same rect, and the same answer round it.
+    button = case['button']
+    rect = fp.immersive_button_rect(tile)
+    assert all(abs(a - b) < 1e-3 for a, b in zip(rect, button['rect'])), (tile, rect, button['rect'])
+    x, y, w, h = rect
+    for px, py, want in button['probes']:
+        if w > 0 and min(abs(px - x + pad), abs(px - x - w - pad), abs(py - y + pad), abs(py - y - h - pad)) <= 1e-2: continue
+        got = fp.on_immersive_button(tile, (px, py))
+        assert got == bool(want), (tile, px, py, got, want)
 assert probes > 1000 and 100 < hits < probes, (probes, hits)
 # The corner caps sit in the corners' resize zones, so what you see is what you can press: an idle cap lies inside the band
 # EDGE_OUT_PX outside the edges and within the smallest corner_zone along them.

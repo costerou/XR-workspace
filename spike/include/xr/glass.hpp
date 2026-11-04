@@ -195,6 +195,17 @@ static_assert(kCapGap + kCapStrokeHot / 2 <= kCapOuter && kCapLegHot - kCapGap +
 // corner > 3.
 FRect corner_cap_rect(const FRect& tile, std::uint32_t corner);
 
+// The 3D button (tools/native_spike/immersive.py; free_pointer.py immersive_button_rect / on_immersive_button /
+// IMMERSIVE_BTN_*, compared by the glass_contract ctest): tile px, scaled like the bar, kImmersiveButtonGap right of it, on
+// its line and as tall. Shown with the bar, under the same rules (never takes a press from content, a corner or a pill). A
+// desktop too narrow to hold it kImmersiveButtonClear short of its top-right corner has none: the rect is empty. The look,
+// two rings in a capsule, is a placeholder until one is picked from 3d-button-mockups.
+constexpr float kImmersiveButtonW = 44.f, kImmersiveButtonGap = 10.f, kImmersiveButtonClear = kCapInner;
+static_assert(kImmersiveButtonGap >= 2 * kLevelBarPad + 1, "the bar's hit region and the button's never touch");
+FRect immersive_button_rect(const FRect& tile);
+// True if tile point (px, py) is on the button: as drawn, padded by kLevelBarPad * level_bar_scale, like the bar.
+bool on_immersive_button(const FRect& tile, float px, float py);
+
 // The bar's and the caps' pixels: one premultiplied image per theme colour (`accent`, glass_theme_scheme) holding every
 // state of each, kHandleAtlasScale px per tile px, in cells kHandleAtlasGutter px apart so that bilinear filtering stays in
 // its cell. The bar is the pill's primary container with on-primary-container icons and dividers; a hot segment is a
@@ -207,6 +218,8 @@ HudImage render_handle_atlas(std::array<float, 3> accent);
 struct AtlasBox { float u0 = 0, v0 = 0, u1 = 0, v1 = 0; };
 AtlasBox level_bar_box(LevelSegment segment, bool active);
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active);
+// The 3D button: `on` this desktop is 3D (filled in the primary), `hot` under the dot.
+AtlasBox immersive_button_box(bool on, bool hot);
 
 // --- Look ----------------------------------------------------------------------------------------------------------
 // Pill states (GlassFrame::hover_level). Hover = the pointer is on the pill (or the open panel's header); active = it is
@@ -290,6 +303,9 @@ struct GlassFrame {
     std::array<bool, kPlacementMenuDesktopCount> bars{};
     int bar_hover = -1; LevelSegment bar_segment = LevelSegment::none; bool bar_active = false;
     int cap_hover = -1; std::uint32_t cap_corner = 0; bool cap_active = false;
+    // The 3D buttons, next to the bars and only with them: the desktops that are 3D, and the one under the dot (-1: none).
+    std::array<bool, kPlacementMenuDesktopCount> immersive{};
+    int immersive_hover = -1;
 };
 // Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
 // percent, curvature in degrees) to radians and a distance factor: what set_placements applies.

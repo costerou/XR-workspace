@@ -282,6 +282,10 @@ ROLL_STEP = 200  # a click on a turn segment that does not point toward level tu
 MAX_ROLL = 9000
 LEVEL_SETTLE_S = 0.5  # after R, a desktop's measured tilts this long level it again (OverviewPointer.level)
 ROLL_SIDES = ('ccw', 'cw')  # the level bar's turn segments, left and right
+# The 3D button (glass.hpp kImmersiveButton*: tile px, scaled with the level bar): IMMERSIVE_BTN_GAP right of the bar, on the
+# same line and as tall, the same padding round it. On a desktop too narrow to hold it short of the top-right corner's cap
+# (IMMERSIVE_BTN_CLEAR) there is none: it never sits on a resize corner. The look is a placeholder (immersive.py).
+IMMERSIVE_BTN_W, IMMERSIVE_BTN_GAP, IMMERSIVE_BTN_CLEAR = 44.0, 10.0, 16.0
 LEVEL_SEGMENTS = ('ccw', 'level', 'cw')  # its segments left to right (glass.hpp LevelSegment; ipc.hpp RollPayload side)
 ROLL_ICONS = ('none', 'bar')  # what a desktop shows (ipc.hpp RollPayload icons)
 ROLL_HIDDEN = {'roll': [0] * geometry.MAX_DESKTOPS, 'icons': ['none'] * geometry.MAX_DESKTOPS, 'hover': -1, 'side': 'none',
@@ -350,6 +354,26 @@ def level_bar_segment(tile, q):
     third = w / len(LEVEL_SEGMENTS)
     if q[0] < x + third: return LEVEL_SEGMENTS[0]
     return LEVEL_SEGMENTS[1] if q[0] < x + 2 * third else LEVEL_SEGMENTS[2]
+
+
+def immersive_button_rect(tile):
+    """The 3D button as drawn (glass.hpp immersive_button_rect): (x, y, w, h) tile px, right of the level bar. Empty if
+    the desktop is empty or too narrow for it."""
+    s = level_bar_scale(tile)
+    if not s > 0: return (0.0, 0.0, 0.0, 0.0)
+    bx, by, bw, bh = level_bar_rect(tile)
+    x, w = bx + bw + IMMERSIVE_BTN_GAP * s, IMMERSIVE_BTN_W * s
+    if x + w > tile[0] + tile[2] - IMMERSIVE_BTN_CLEAR * s: return (0.0, 0.0, 0.0, 0.0)
+    return (x, by, w, bh)
+
+
+def on_immersive_button(tile, q):
+    """True if tile point `q` (None: missed) is on the 3D button (glass.hpp on_immersive_button): as drawn, padded by
+    LEVEL_BAR_PAD like the bar. The padding stops short of the bar's, so neither takes the other's press."""
+    x, y, w, h = immersive_button_rect(tile)
+    if q is None or not w > 0: return False
+    pad = LEVEL_BAR_PAD * level_bar_scale(tile)
+    return x - pad <= q[0] <= x + w + pad and y - pad <= q[1] <= y + h + pad
 
 
 def roll_side(tilt, roll):
@@ -785,6 +809,7 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
         if icons is None or i >= len(icons) or icons[i] != 'bar': continue
         segment = level_bar_segment(g['tiles'][i], qs[i])
         if segment is not None: return ('roll', i, segment)
+        if on_immersive_button(g['tiles'][i], qs[i]): return ('immersive', i)  # shows with the bar, under the same rules
     return edge
 
 
@@ -1457,6 +1482,9 @@ class OverviewPointer:
                 self.slides += 1
                 # The value jumps to the pointer; the panel stays drawn on the press-time placement until the release.
                 out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
+            elif h is not None and h[0] == 'immersive':  # the 3D button: this desktop on or off, like the panel's switches
+                self.actions += 1
+                out += self.control.immersive_click(h[1])
             elif h is not None and h[0] == 'action':  # the desktop row: Ultrawide / Add / Remove for the panel's desktop
                 self.actions += 1
                 out += self.control.desktop_action(h[1], h[2])
@@ -1555,7 +1583,13 @@ class OverviewPointer:
         return {'w': w, 'h': h, 'target': t if t is not None and t != i and t < MAX_DESKTOPS else -1}
 
     def _frames(self, idle):
-        return self._handle() + self._pills(idle) + self._pointer_frame(idle) + self._roll_frame(idle)
+        return self._handle() + self._pills(idle) + self._pointer_frame(idle) + self._roll_frame(idle) + self._immersive_hover(idle)
+
+    def _immersive_hover(self, idle):
+        """The 3D button under the dot lights, as a bar's segment does."""
+        h = self.hover if self.drag is None and self.mode == 'free' and not idle and self.overview() else None
+        tell = getattr(self.control, 'immersive_pointer', None)  # (a control without 3D)
+        return tell(h[1] if h is not None and h[0] == 'immersive' else -1) if tell is not None else b''
 
     def _apply_drag(self):
         d = self.drag

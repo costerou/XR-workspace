@@ -14,7 +14,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops, environment, binds, edge_pan };
+                       overview_pointer, roll, desktops, environment, binds, edge_pan, immersive };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -162,9 +162,16 @@ constexpr const char* kInvalidBindsCode = "invalid_binds";
 // kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
 constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
 struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
+// Immersive 3D (tools/native_spike/immersive.py): {"desktops":[bool,...],"stereo":bool,"hover":-1..kMaxDesktops-1} (exactly
+// those keys, kMaxDesktops entries, in managed-output order). desktops: the desktops that are 3D, their buttons lit
+// (glass.hpp immersive_button_rect). stereo: the glasses are in side-by-side and depth is flowing, so those desktops are
+// drawn in 3D now; false, however many are lit, means draw flat. hover: the button under the dot, -1 none. Malformed:
+// rejected with kInvalidImmersiveCode and dropped, like roll.
+constexpr const char* kInvalidImmersiveCode = "invalid_immersive";
+struct ImmersivePayload { std::array<bool, kMaxDesktops> desktops{}; bool stereo = false; std::int32_t hover = -1; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
-                                    EnvironmentPayload, BindPanelState>;
+                                    EnvironmentPayload, BindPanelState, ImmersivePayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -174,12 +181,12 @@ struct ControlMessage {
 };
 Result<ControlMessage> decode_control(std::string_view frame);
 // A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
-// overview_pointer, roll, environment or binds payload. It
+// overview_pointer, roll, environment, binds or immersive payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
            e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode ||
-           e.code == kInvalidBindsCode;
+           e.code == kInvalidBindsCode || e.code == kInvalidImmersiveCode;
 }
 class ControlQueue {
 public:
