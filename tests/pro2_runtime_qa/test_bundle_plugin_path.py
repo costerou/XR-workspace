@@ -103,3 +103,27 @@ class BundlePluginPathQA(unittest.TestCase):
         client = self.client()
         with self.assertRaises((ValueError, OSError)): client.plugin_load(str(self.root / 'bin/libxr-ownership.so'))
         client._request.assert_not_called()
+
+    def test_packager_rejects_bad_location_before_compile(self):
+        from tools.pro2_runtime import package
+        with patch.object(package.subprocess, 'run') as compiler:
+            with self.assertRaises(ValueError): package.build(self.base / 'not-built', self.base / 'unsafe package')
+            compiler.assert_not_called()
+
+    def test_cli_preflight_without_consent_state_sdk_or_client(self):
+        import contextlib
+        import io
+        from tools.xr_controller import pro2_test
+        output = io.StringIO()
+        with patch('sys.argv', ['pro2-test', '--bundle', str(self.root), '--preflight']), \
+             patch.object(pro2_test, 'BundleClient') as client, \
+             patch.object(pro2_test, 'RuntimeSession') as sdk, \
+             patch.object(pro2_test, 'read_private_json') as consent, \
+             contextlib.redirect_stdout(output):
+            self.assertEqual(pro2_test.main(), 0)
+            client.assert_not_called(); sdk.assert_not_called(); consent.assert_not_called()
+        result = json.loads(output.getvalue())
+        self.assertIs(result['sdk_started'], False)
+        self.assertIs(result['compositor_contacted'], False)
+        self.assertEqual(result['plugin_command_path'], 'validated')
+        self.assertFalse((self.root / 'state').exists())
