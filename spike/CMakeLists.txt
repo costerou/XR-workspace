@@ -539,3 +539,8 @@ if(XR_ENABLE_PRESENTATION)
     target_link_libraries(video_bench PRIVATE PkgConfig::MPV)
   endif()
 endif()
+
+option(XR_ENABLE_LUMA_DRIVER "Build our own Luma head-tracking driver and its tests (no SDK, tests touch no device)" ON)
+if(XR_ENABLE_LUMA_DRIVER)
+  add_subdirectory(driver)
+endif()
