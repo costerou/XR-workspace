@@ -119,3 +119,54 @@ Expanded suite result on unchanged committed86e20dd: **16 tests run, 1 failure**
 (known RQ1 firmware_short_length), 8.388s. Missing cleanup symbol, two-sample
 readiness, production flag rejection and full3-second timeout checks passed.
 The lead reports a fix in progress; uncommitted fixes are not treated as closed.
+
+## Actual wrapper/controller audit: fb68ace
+
+Merged actual runtime+controller commit
+`fb68acea1e6f4460cbd39e2791d121604b580496`. **RQ1 CLOSED**: exact firmware
+response length reproduction now rejects. Whole independent suite initially
+**20 passed in11.851s**. This includes real RuntimeSession launching compiled
+synthetic native bridge via inherited pinned SDK/status FDs, current health
+heartbeat/nonce validation, and actual pro2_test.execute using that wrapper with
+only an injected fake compositor client/managed-run function. Inert hash-checked
+renderer/plugin fixture bytes are never loaded/executed. Assertions check explicit
+Pro2 consent/model/profile, mode_switch=False/SBS=None, fake client unload, private
+600 log, native private-file removal, stale/wrong-nonce/future health denial.
+
+Synthetic injection changes only SDK path/digest/inventory/competing fixture and
+adds fixture root/hash args to the actual wrapper Popen command; real wrapper
+lifetime/status monitor/native owner run unchanged in fresh namespaces. No live
+SDK/client/compositor/renderer/GPU call occurs. Native reader H1/nonzero-pose and
+projection/teardown check is separate from mocked managed compositor work.
+
+### RQ2 — ready+done batch falsely returned as ready (open)
+
+RuntimeSession.start polls status, then returns on self.ready without checking
+self.done, child liveness or failure. Synthetic SDK sends three valid samples and
+one nonfinite sample synchronously during open. Worker emits ready then done with
+error=nonfinite and exits. Both arrive in one status read; wrapper start returns
+success and writes healthy. Repro:
+`test_terminal_event_in_same_batch_cannot_return_ready_session`.
+Expected reject terminal session before success/any compositor operations.
+
+### RQ3 — pinned SDK descriptor leaked after executable hash rejection (open)
+
+After RuntimeSession constructor verifies bundle, modify fake executable bytes.
+start pins synthetic SDK descriptor, executable hash fails, SDK FD never closed.
+`test_artifact_rejection_closes_already_pinned_sdk_fd` snapshots live descriptors
+(excluding transient proc-list descriptor), asserts unchanged, and reclaims any
+leak owned by this reproduction. Expected acquisition cleanup on every failure,
+including Popen failure; no actual SDK loaded in this case.
+
+Commands/results on fb68ace:
+
+```
+python tests/pro2_runtime_qa/run.py
+# 22 tests, 2 failures (RQ2/RQ3), 12.534s
+python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_controller_route.py -v
+# 6 tests, same 2 failures, 3.580s (descriptor snapshot tightened)
+```
+
+Lead notified immediately; fixes reported in worktree, awaiting committed SHA.
+Red evidence stored in qa-evidence/runtime/wrapper-rq2-rq3-red.txt. Full route is
+not cleared until these retest green; no hardware activation approval inferred.

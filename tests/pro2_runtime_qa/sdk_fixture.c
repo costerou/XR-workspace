@@ -28,7 +28,7 @@ static void emit(unsigned i, uint64_t origin) {
     float v[7]={0,0,0,0.9950041653f,0,0.0998334166f,0}; uint64_t stamp=origin+(uint64_t)i*16000000ULL;
     if(i>=4 && is("duplicate"))stamp=origin+3*16000000ULL;
     if(i>=4 && is("clock_reverse"))stamp=origin;
-    if(i>=4 && is("nonfinite"))v[3]=NAN;
+    if((i>=4 && is("nonfinite")) || (i==3 && is("ready_then_bad")))v[3]=NAN;
     if(i>=4 && is("bad_norm"))v[3]=2;
     if(pose_cb)pose_cb(is("null_callback")?NULL:v,stamp);
 }
@@ -54,7 +54,8 @@ int xr_device_provider_get_glasses_version(void *h,char *out,int *len) {
 }
 int xr_device_provider_open_imu(void *h,uint8_t mode,uint8_t rate) {
     (void)h;trace("open");if(mode!=1||rate!=0)return -1;
-    if(is("queue_overflow")) { for(unsigned i=0;i<1024;i++)emit(i,now_ns()); }
+    if(is("ready_then_bad")) { for(unsigned i=0;i<4;i++)emit(i,now_ns()); }
+    else if(is("queue_overflow")) { for(unsigned i=0;i<1024;i++)emit(i,now_ns()); }
     else { atomic_store(&running,1); if(pthread_create(&worker,NULL,produce,NULL))return -1;started_thread=1; }
     return is("open")?-37:0;
 }
