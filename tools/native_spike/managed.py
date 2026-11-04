@@ -4,14 +4,14 @@ from pathlib import Path
 from dataclasses import dataclass
 # Up here, not where they are used: a run imports from the worktree, so a module first imported at Stop would be whatever an
 # install has checked out since the session started. Recovery needs nothing more from the disk once the run is up.
-from . import monitor_rules, privacy, restore, send, tracking
+from . import monitor_rules, privacy, restore, send, survive, tracking
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
 from .ownership import OwnershipBrokerClient
 from .environment import environment
 from .quality import video_quality
-from .supervisor import validate_physical_pair, _launch
+from .supervisor import serve_without_renderer, validate_physical_pair, _launch
 
 
 @dataclass
@@ -93,6 +93,15 @@ def _left_on(client, names):
     return [one(c) for c in windows[:8]]
 
 
+def _restore_output(client, consent, output):
+    """What a run did to the glasses' output at its start (runner.py), which a drop undoes: they come back at their preferred
+    mode, placed anywhere. Raises until it reads back, so survive.wait_for_glasses tries again."""
+    def restore():
+        if consent.get('mode_switch') is not False: client.apply_session_mode(output)
+        client.park_presentation(output)
+    return restore
+
+
 def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
@@ -113,7 +122,7 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
-                          adopt=adopting, create_failed=_setup_failed(store, desktops))
+                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output))
 
 
 # The broker's verdicts on an output itself (ownership.OwnershipBrokerClient.verify): it was not made live, or did not
@@ -331,8 +340,48 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None):
+def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify):
+    """Run the renderer; a USB drop of the glasses starts a new one once they are back (survive.py). The renderer's last exit
+    code. `restore_output`: None, the older runs' single renderer and no hold."""
+    while True:
+        usb_before = survive.usb_identity()
+        returncode = launch()
+        if restore_output is None: return returncode
+        try:
+            dropped = survive.should_hold(returncode, report.get('stop_reason'), output_ok=survive.output_ok(client, output),
+                                          usb_before=usb_before, usb_now=survive.usb_identity())
+        except (OSError, ValueError, TimeoutError):
+            return returncode  # the compositor went too: nothing to come back to
+        if not dropped: return returncode
+        if not holds.begin():
+            tell('The glasses keep dropping off USB, so XR stopped. Check the cable.')
+            return returncode
+        tell('The glasses dropped off USB. Your desktops are safe; XR comes back by itself.')
+        def ready():
+            try: return survive.output_ok(client, output) and (usb_before is None or survive.usb_identity() is not None)
+            except (OSError, ValueError, TimeoutError): return False
+        try:
+            back = survive.wait_for_glasses(ready, restore=restore_output, serve=lambda s: serve_without_renderer(control, s))
+            if back:
+                restarted = getattr(control, 'renderer_restarted', None)
+                if restarted is not None: restarted()
+                if not holds.revive():
+                    tell('XR is back without head tracking: the tracking driver did not start.')
+        except KeyboardInterrupt:  # Stop while waiting: the same end as Stop in _launch, which swallows it too
+            holds.finish(False)
+            report['stop_reason'] = 'interrupted'
+            return returncode
+        holds.finish(back)
+        if not back:
+            tell('The glasses did not come back, so XR stopped and your windows are back on the monitor.')
+            return returncode
+        tell('The glasses are back. XR picks up where it was.')
+
+
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None):
     session = journal.session
+    holds = survive.Holds()
+    holds.revive = (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
     snapshot = memory = None
     report = {}  # why the supervisor ended the renderer, if it did (incident_detect.classify_end)
     with journal.transaction():
@@ -374,14 +423,22 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             adopt_windows(client, fallback, names, notify=notify)
             if memory is not None: memory.finish()
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
-        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
-                                                                       memory, cursor_shape=cursor_shape) as control:
-            returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
-                                 control=control, pose_feed=pose_feed, renderer=renderer, report=report)
+        with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
+                           memory, cursor_shape=cursor_shape) as control:
+            def launch():
+                report.clear()
+                # A later renderer: the desktops as they are now, which a pill may have changed since the start.
+                live = manager.specs if manager is not None else specs
+                with client.connect_wayland(session) as wayland:
+                    return _launch(client, journal.run_id, session, output, wayland, None,
+                                   guard=manager.guard() if manager is not None else guard,
+                                   capture=[s['name'] for s in live] if capture else capture,
+                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report)
+            returncode = keep_renderer(launch, client, output, report, control, restore_output, holds)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
         result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
     return {'journal': str(journal.path), 'renderer_returncode': returncode, 'complete': result.complete, 'remaining': result.remaining,
-            'reasons': result.reasons, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}
+            'reasons': result.reasons, 'holds': holds.record, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}

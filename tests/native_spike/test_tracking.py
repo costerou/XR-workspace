@@ -72,6 +72,73 @@ class FeedScopeTests(unittest.TestCase):
         self.assertEqual(tracking.DRIVERS, ('xrdriver', '3dof', 'luma'))
 
 
+class QuietDriverEnvTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.settings = Path(self.tmp.name) / 'quiet-driver.json'
+        patcher = patch.object(tracking, 'QUIET_SETTINGS', self.settings); patcher.start(); self.addCleanup(patcher.stop)
+
+    def env(self, shim='/pinned/libxr-quiet-driver.so'):
+        with patch('tools.xr_controller.install.load_shim', lambda home: shim), patch.dict(os.environ, {}, clear=False):
+            for key in ('LD_PRELOAD', 'XR_QUIET_DOF', 'XR_QUIET_POLLS', 'XR_QUIET_RECONNECT_HOLD_MS'): os.environ.pop(key, None)
+            return tracking._driver_env(Path(self.tmp.name))
+
+    def test_on_by_default_when_installed(self):
+        env = self.env()
+        self.assertEqual(env['LD_PRELOAD'], '/pinned/libxr-quiet-driver.so')
+        self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_POLLS'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '1', '20000'))
+
+    def test_no_shim_is_the_plain_driver(self):
+        self.assertNotIn('LD_PRELOAD', self.env(None))
+
+    def test_a_shim_that_fails_its_pin_is_the_plain_driver(self):
+        def changed(home): raise ValueError('pin mismatch')
+        with patch('tools.xr_controller.install.load_shim', changed):
+            self.assertNotIn('LD_PRELOAD', tracking._driver_env(Path(self.tmp.name)))
+
+    def test_each_setting_undoes_alone(self):
+        self.settings.write_text(json.dumps({'dof3': False}))
+        env = self.env(); self.assertNotIn('XR_QUIET_DOF', env); self.assertEqual(env['XR_QUIET_POLLS'], '1')
+        self.settings.write_text(json.dumps({'reconnect_hold_ms': 0}))
+        env = self.env(); self.assertNotIn('XR_QUIET_RECONNECT_HOLD_MS', env); self.assertEqual(env['XR_QUIET_DOF'], '3')
+
+    def test_enabled_false_is_the_plain_driver(self):
+        self.settings.write_text(json.dumps({'enabled': False}))
+        self.assertNotIn('LD_PRELOAD', self.env())
+
+    def test_a_broken_settings_file_is_the_defaults(self):
+        for text in ('not json', '[1]', json.dumps({'dof3': 'yes', 'reconnect_hold_ms': 'long'})):
+            self.settings.write_text(text)
+            env = self.env()
+            self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '20000'))
+
+
+class DiedDuringStartTests(unittest.TestCase):
+    """2026-11-04: a driver that crashed at once was reported as a network leak, and the incident report believed it."""
+    def start(self, child_exits):
+        class Child:
+            pid = 1
+            returncode = 1
+            def wait(self, timeout):
+                if child_exits: return 1
+                raise subprocess.TimeoutExpired('driver', timeout)
+            def poll(self): return 1 if child_exits else None
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        runtime = Path(tmp.name)
+        with patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
+             patch.object(tracking, '_driver_env', lambda: {}), patch.object(tracking, '_ours', lambda data: False), patch.object(tracking, 'DRIVER_LOG', runtime / 'none.log'), \
+             patch.object(tracking.subprocess, 'Popen', lambda *a, **k: Child()), patch.object(tracking, '_start_tick', lambda pid: 7), \
+             patch.object(tracking, '_state', lambda rt: rt / 'state.json'), patch.object(tracking, 'stop', lambda rt: None), \
+             patch.object(tracking, 'status', lambda rt: {'running': True, 'network_isolated': False, 'calibrated': False}):
+            tracking.start(runtime, timeout=5)
+
+    def test_a_dead_driver_is_called_dead(self):
+        with self.assertRaisesRegex(ValueError, 'exited during startup'): self.start(True)
+
+    def test_a_live_one_on_the_network_is_still_refused(self):
+        with self.assertRaisesRegex(ValueError, 'not network-isolated'): self.start(False)
+
+
 class RecenterTests(unittest.TestCase):
     def test_recenter_op_sends_recenter_frame_without_view_change(self):
         state = view.ViewState(['XR-1', 'XR-2'])
@@ -85,6 +152,8 @@ class RecenterTests(unittest.TestCase):
 class DriverLifecycleTests(unittest.TestCase):
     """Fake driver script stands in for /usr/bin/xrDriver; unshare network isolation is real."""
     def setUp(self):
+        # This machine's install is not part of a test with a fake driver; nor are its glasses (SYS_USB below).
+        patcher = patch.object(tracking, '_driver_env', lambda: dict(os.environ)); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
         self.runtime = root / 'rt'; self.runtime.mkdir(mode=0o700)

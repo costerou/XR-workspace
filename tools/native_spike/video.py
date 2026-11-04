@@ -447,6 +447,11 @@ class VideoControl:
     def initial_frame(self):
         return self.view.initial_frame()
 
+    def renderer_restarted(self):
+        """The video went with the old renderer (survive.py): its modal keys go too, or Space would stay swallowed."""
+        self._close()
+        self.view.renderer_restarted()
+
     # frames
     def _frame(self, payload):
         frame = video_frame(self.view.run_id, self.view.session, self.view.next_id, payload)

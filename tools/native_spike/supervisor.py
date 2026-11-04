@@ -39,6 +39,35 @@ class PhysicalPairGuard:
         validate_physical_pair(self.client, self.session, self.output, self.recovery_output)
 
 
+def control_request(control, status):
+    """Take one op from the run's control socket. A status request is answered here; any other comes back to the caller."""
+    try:
+        conn, _ = control.server.socket.accept()
+    except OSError:
+        return None
+    with conn:
+        try:
+            message = control.server.receive(conn)
+            control.server.queue.pop()
+        except (ValueError, OSError, PermissionError):
+            return None
+        if message['op'] != 'status': return message
+        import json
+        reply = dict(schema=1, request_id=message['request_id'], run_id=message['run_id'], session=message['session'],
+                     **control.status_reply(status))
+        try: conn.sendall((json.dumps(reply, allow_nan=False)+'\n').encode())
+        except OSError: pass
+        return None
+
+
+def serve_without_renderer(control, seconds):
+    """Waiting with no renderer (survive.py): the panel still gets its status; a view op has nothing to act on and is dropped."""
+    if control is None:
+        time.sleep(seconds); return
+    ready, _, _ = select.select([control.server.socket], [], [], seconds)
+    if ready: control_request(control, {})
+
+
 class Supervisor:
     def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None):
         if not math.isfinite(grace) or grace < 0: raise ValueError("invalid grace")
@@ -191,24 +220,8 @@ class Supervisor:
 
     def _control_ready(self, renderer_socket):
         """One bounded user op (peer UID, framing, replay checked by PrivateServer); never fatal."""
-        try:
-            conn, _ = self.control.server.socket.accept()
-        except OSError:
-            return
-        with conn:
-            try:
-                message = self.control.server.receive(conn)
-                self.control.server.queue.pop()
-            except (ValueError, OSError, PermissionError):
-                return
-            if message['op'] == 'status':
-                import json
-                reply = dict(schema=1, request_id=message['request_id'], run_id=message['run_id'], session=message['session'],
-                             **self.control.status_reply(self.status))
-                try: conn.sendall((json.dumps(reply, allow_nan=False)+'\n').encode())
-                except OSError: pass
-                return
-        self._send(self.control.on_message(message), renderer_socket)
+        message = control_request(self.control, self.status)
+        if message is not None: self._send(self.control.on_message(message), renderer_socket)
 
     def _events_ready(self, renderer_socket, selector):
         """Hyprland event bytes (cursor follow). EOF/error just disables it; never fatal."""

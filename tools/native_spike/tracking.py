@@ -81,6 +81,8 @@ RESOLVED_DIR = '/run/systemd/resolve'
 GLASSES_USB = ('35ca', '1104')
 SYS_USB = Path('/sys/bus/usb/devices')
 DEV_USB = Path('/dev/bus/usb')
+QUIET_SETTINGS = DRIVER_CONFIG.parent.parent / 'viture-workspace' / 'quiet-driver.json'
+QUIET_DEFAULTS = {'enabled': True, 'dof3': True, 'quiet_polls': True, 'reconnect_hold_ms': 20000}
 
 
 def _start_tick(pid):
@@ -189,6 +191,32 @@ def _open_luma_log():
     return os.fstat(fd).st_size, fd
 
 
+def _shim_settings():
+    """The quiet driver's settings (docs/usb-drops.md), each one undoable alone. A broken file is the defaults, not the end."""
+    try: saved = json.loads(QUIET_SETTINGS.read_text())
+    except (OSError, ValueError): saved = {}
+    settings = dict(QUIET_DEFAULTS)
+    if isinstance(saved, dict): settings.update({k: saved[k] for k in QUIET_DEFAULTS if type(saved.get(k)) is type(QUIET_DEFAULTS[k])})
+    return settings
+
+
+def _driver_env(data_home=None):
+    """The driver's environment: ours, with the quiet driver preloaded if the install carries one that still matches its
+    pin. No shim or a changed one: the plain driver, as before."""
+    env = dict(os.environ)
+    settings = _shim_settings()
+    if not settings['enabled']: return env
+    from tools.xr_controller.install import load_shim
+    try: shim = load_shim(data_home or Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share'))
+    except (OSError, ValueError): shim = None
+    if shim is None: return env
+    env['LD_PRELOAD'] = shim
+    if settings['dof3']: env['XR_QUIET_DOF'] = '3'
+    if settings['quiet_polls']: env['XR_QUIET_POLLS'] = '1'
+    if settings['reconnect_hold_ms'] > 0: env['XR_QUIET_RECONNECT_HOLD_MS'] = str(settings['reconnect_hold_ms'])
+    return env
+
+
 def _interfaces(pid):
     return [line.split(':')[0].strip() for line in Path(f'/proc/{pid}/net/dev').read_text().splitlines()[2:]]
 
@@ -291,8 +319,11 @@ def start(runtime, timeout=120.0, luma=None, binary=None):
     else:
         argv = _luma_argv(luma)  # first: a bad flags file should open no log
         offset, output = _open_luma_log()
+    # The quiet driver is the standard driver's alone: the Luma driver has no SDK for it to hold back, and in the 3DoF test
+    # it would change what is being measured.
+    env = _driver_env() if luma is None and binary in (None, DRIVER) else None
     try:
-        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output, stderr=output, start_new_session=True, close_fds=True)
+        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output, stderr=output, start_new_session=True, close_fds=True, env=env)
     finally:
         if luma is not None: os.close(output)
     deadline = time.monotonic() + 2

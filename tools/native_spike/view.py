@@ -1063,7 +1063,15 @@ class ViewControl:
         self.supervisor = supervisor
 
     def initial_frame(self):
-        return self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True)
+        out = self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True)
+        return out + self._menu_frame() if self.state.menu_open else out  # open only for a new renderer mid-run (survive.py)
+
+    def renderer_restarted(self):
+        """A new renderer in the same run (survive.py). It starts knowing what initial_frame says; what was only ever sent as
+        a change goes again, and what it would not be showing is shut."""
+        self.help_visible = False
+        pointer = self.overview_pointer
+        if pointer is not None and hasattr(pointer, 'roll_sent'): pointer.roll_sent = None  # the levelling rolls, on the next poll
 
     def _placement_frame(self, initial=False, glide=False):
         from .geometry import DEFAULT_PLACEMENT
