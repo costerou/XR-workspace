@@ -1,0 +1,30 @@
+test_actual_controller_route_uses_real_wrapper_and_only_fake_client (test_controller_route.ControllerRouteQA.test_actual_controller_route_uses_real_wrapper_and_only_fake_client) ... ok
+test_actual_wrapper_native_sdk_health_and_teardown (test_controller_route.ControllerRouteQA.test_actual_wrapper_native_sdk_health_and_teardown) ... ok
+test_artifact_rejection_closes_already_pinned_sdk_fd (test_controller_route.ControllerRouteQA.test_artifact_rejection_closes_already_pinned_sdk_fd) ... FAIL
+test_consent_and_projection_default_deny_before_client (test_controller_route.ControllerRouteQA.test_consent_and_projection_default_deny_before_client) ... ok
+test_scope_stale_wrong_nonce_and_future_receipt_fail_closed (test_controller_route.ControllerRouteQA.test_scope_stale_wrong_nonce_and_future_receipt_fail_closed) ... ok
+test_terminal_event_in_same_batch_cannot_return_ready_session (test_controller_route.ControllerRouteQA.test_terminal_event_in_same_batch_cannot_return_ready_session) ... FAIL
+
+======================================================================
+FAIL: test_artifact_rejection_closes_already_pinned_sdk_fd (test_controller_route.ControllerRouteQA.test_artifact_rejection_closes_already_pinned_sdk_fd)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_controller_route.py", line 161, in test_artifact_rejection_closes_already_pinned_sdk_fd
+    self.assertEqual(after, before, 'SDK fd leaked after executable hash rejection')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Items in the first set but not the second:
+'3' : SDK fd leaked after executable hash rejection
+
+======================================================================
+FAIL: test_terminal_event_in_same_batch_cannot_return_ready_session (test_controller_route.ControllerRouteQA.test_terminal_event_in_same_batch_cannot_return_ready_session)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_controller_route.py", line 147, in test_terminal_event_in_same_batch_cannot_return_ready_session
+    self.assertFalse(returned, 'start returned ready after terminal done event in same batch')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : start returned ready after terminal done event in same batch
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.580s
+
+FAILED (failures=2)
