@@ -38,8 +38,10 @@ Design (3dof-free-placement, 2026-11-02):
     under it down to the bottom of its pill, each as wide as the handle, not the desktop, with sloping ends (_strips),
     taken from free_pointer's own level_bar_rect and pill_rect. So what a desktop keeps is what is really there: the
     pill's grab padding, which is only a convenience, gives way to a neighbour, and a desktop whose handles are not in
-    the way comes right up to it. One whole strip across the desktop would keep room where there is nothing. Desktops
-    that do not share a direction neither intersect nor hide each other.
+    the way comes right up to it. One whole strip across the desktop would keep room where there is nothing. A levelling
+    roll turns all of it, as the renderer draws it (place_point): levelled, a raised desktop off to the side stands
+    upright where unrolled it leans several degrees. Desktops that do not share a direction neither intersect nor hide
+    each other.
   * No overlap (bump.py, monitor-collision-bump, 2026-11-03): a desktop moved or resized in the overview (a pill drag, a
     corner resize, its open panel's sliders and keys) pushes every desktop it runs into out of its way, cascading, and
     they stay where they were pushed; where there is no room it stops, as the guard before it did.
@@ -266,8 +268,8 @@ class PillDrag:
     """One pill drag from the press to the release: the target the pointer asks for, where the desktop gets to and the
     desktops it pushes out of its way on the way there (bump.py). The grabbed point (grab_point, fixed at the press) is
     kept under the dot; x is followed unwrapped and only wrapped for the wire."""
-    def __init__(self, g, index, start, press):
-        self.g, self.index, self.start, self.press = g, index, (start[0], start[1]), press
+    def __init__(self, g, index, start, press, rolls=None):
+        self.g, self.index, self.start, self.press, self.rolls = g, index, (start[0], start[1]), press, rolls
         self.tile = g['tiles'][index]
         self.local = grab_point(g, self.tile, self.start, press)
         self.at = self.near = self.start
@@ -281,7 +283,7 @@ class PillDrag:
         if wrap(self.at[0]) != p['x'] or self.at[1] != p['y']:  # changed meanwhile (a panel key): carry on from there
             self.at = (self.at[0] + _diff(p['x'], wrap(self.at[0])), p['y'])
         self.near, target = _target(self.g, self.tile, self.local, self.near, pointer)
-        if self.pusher is None: self.pusher = bump.Pusher(self.g, self.index)
+        if self.pusher is None: self.pusher = bump.Pusher(self.g, self.index, self.rolls)
         out = self.pusher.move(placements, {'x': target[0], 'y': target[1]}, start={'x': self.at[0], 'y': self.at[1]})
         self.at = (self.pusher.reached['x'], self.pusher.reached['y'])
         return out
@@ -380,19 +382,17 @@ def _hull(points):
 
 
 def footprint(g, tile, p):
-    """What a desktop at `tile` with placement `p` covers as you see it (orbit included)."""
-    flat = {**p, 'x': 0, 'y': 0}
-    key = (g['w'], g['h'], tuple(g['half']), tuple(tile), tuple(flat[k] for k in sorted(flat)))
-    base = _footprint(key)
+    """What a desktop at `tile` with placement `p` covers as you see it, orbit and any levelling 'roll' included."""
+    base = _footprint((g['w'], g['h'], tuple(g['half']), tuple(tile), p['distance'], p['curvature'], p.get('roll', 0)))
     if not p['x'] and not p['y']: return base
     return base.rotated(rotation(slot_azimuth(g, tile), p['x'], p['y']))
 
 
 @functools.lru_cache(maxsize=64)
 def _footprint(key):
-    w, h, half, tile, values = key
+    w, h, half, tile, distance, curvature, roll = key
     g = {'w': w, 'h': h, 'half': half}
-    p = dict(zip(sorted(('x', 'y', 'distance', 'curvature')), values))
+    p = {'x': 0, 'y': 0, 'distance': distance, 'curvature': curvature, 'roll': roll}
     dirs = [d for d in (_norm(q) for q in _outline(g, tile, p)) if d is not None]
     centre = _norm(tuple(sum(d[i] for d in dirs) for i in range(3)))
     if centre is None:  # a huge, close, curved desktop wrapping round the eye: it covers every direction

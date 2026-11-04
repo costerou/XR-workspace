@@ -258,13 +258,15 @@ bumps nothing. Press Super while you are dragging a desktop and the drag stops r
 
 Desktops get close before they bump. Side by side they stop about 2 px apart, and the highlight round the selected
 desktop goes under its neighbour instead of over it, so there it shows as a thin line. Above and below, a desktop keeps
-only the room its pill and its level bar really take: right above each other the two still fit side by side in the gap
-and you can use both, and anywhere else the desktops come just as close as side by side. Everything on a desktop grows
-with it, so on a desktop made bigger these gaps look bigger too, and positions go in steps of a tenth of a degree, which
-can add a few pixels. Two desktops raised above your eyes (or lowered below them) lean toward each other, because each
-one faces you: they meet at their top corners and the gap opens downward, and that's how they really look from where you
-sit. Level with your eyes the gap is even from top to bottom. Right next to a neighbour that side has no room left for
-its resize handle, so use another edge or a corner; a click on the neighbour's picture is always the neighbour's.
+only the room its pill and its level bar really take: right above each other the two still fit in the gap and you can
+use both, and anywhere else the desktops come just as close as side by side. What bumps is each desktop as you see it,
+turned the way its level bar turned it, so two levelled desktops meet along their whole edge. Everything on a desktop
+grows with it, so on a desktop made bigger these gaps look bigger too, and positions go in steps of a tenth of a degree,
+which can add a few pixels. Two desktops raised above your eyes (or lowered below them) that you haven't levelled lean
+toward each other, because each one faces you: they meet at their top corners and the gap opens downward. Click the
+middle of each one's level bar and they stand upright. Turning or levelling a desktop never moves another one, even if
+a corner swings over it. Right next to a neighbour that side has no room left for its resize handle, so use another
+edge or a corner; a click on the neighbour's picture is always the neighbour's.
 
 The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
 While a desktop is maximized, a change there waits: a small notification says so, the panel keeps showing it, and it

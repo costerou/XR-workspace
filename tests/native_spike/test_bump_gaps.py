@@ -282,6 +282,16 @@ class Reachable(unittest.TestCase):
         point = fp.project(G, t1, placements[1], pill[0] + pill[2] / 2, pill[1] + pill[3] / 2)
         self.assertEqual(fp.hit(G, placements, point), ('pill', 1))
 
+    def test_a_desktop_really_in_front_keeps_its_zones_over_the_one_behind(self):
+        # A grown XR-2 lying over flat XR-3 (not bumped: an Apply): it is in front, so its corners, edges and pill zone stay its
+        # own, unlike a desktop that is only beside another.
+        g = G
+        p = [place(), place(distance=61), place()]
+        t = g['tiles'][1]
+        self.assertTrue(fp.in_front_of(g, p, 1, 2, (t[0] + t[2] + 3, t[1] + t[3] / 2)))
+        for q, want in (((t[0] + t[2] + 3, t[1] + t[3] / 2), ('edge', 1, 'r')), ((t[0] + t[2] + 3, t[1] + t[3] + 3), ('corner', 1, 'br'))):
+            self.assertEqual(fp.hit(g, p, fp.project(g, t, p[1], *q))[:3], want)
+
     def test_with_no_neighbour_the_handles_are_as_they_were(self):
         g = dict(G, tiles=[G['tiles'][1]])
         t = g['tiles'][0]
@@ -523,6 +533,96 @@ class Stable(unittest.TestCase):
         out = pusher.move(flat, {'y': 300})
         self.assertEqual(out[1]['y'], 300)
         self.assertEqual((out[0], out[2]), (flat[0], flat[2]))
+
+
+class Levelled(unittest.TestCase):
+    """What collides is the desktop as drawn. Levelling takes the lean out of a raised desktop off to the side, so ignoring
+    the roll (master) had level neighbours bump with 100 px between them, all the way down the seam."""
+    SAVED = [place(x=-87, y=122, distance=32), place(x=261, y=110, distance=34), place(x=-149, y=-119, distance=69)]  # profiles.json, 2026-11-03
+    ROLLS = [436, -406, -84]
+
+    def rolled(self, p, i):
+        return {**p, 'roll': self.ROLLS[i]}
+
+    def seam(self, a, b):
+        """Canvas px between desktop 0's right edge and desktop 1's left edge as drawn, a few points down it."""
+        t0, t1 = REAL['tiles'][:2]
+        left = [direction(REAL, 1, b, t1[0], t1[1] + t1[3] * k / 200) for k in range(201)]
+        return [min(orbit._angle(direction(REAL, 0, a, t0[0] + t0[2], t0[1] + t0[3] * f), d) for d in left) * px_per_radian(REAL)
+                for f in (0.25, 0.5, 0.75)]
+
+    def limit(self, rolls):
+        pusher = bump.Pusher(REAL, 1, rolls)
+        fa = pusher._print(0, (self.SAVED[0]['x'], self.SAVED[0]['y'], self.SAVED[0]['distance'], 0))
+        x = 900
+        while bump.apart(fa, pusher._print(1, (x - 1, self.SAVED[1]['y'], self.SAVED[1]['distance'], 0))): x -= 1
+        return x
+
+    def test_levelled_neighbours_come_right_up_to_each_other_along_the_whole_seam(self):
+        x = self.limit(self.ROLLS)
+        self.assertLess(x, 237)  # 244 on master, 237 ignoring the roll with the closer gap
+        seam = self.seam(self.rolled(self.SAVED[0], 0), {**self.rolled(self.SAVED[1], 1), 'x': x})
+        self.assertLess(max(seam), 35)  # 105..122 px on master
+        self.assertLess(max(seam) - min(seam), 20)  # upright: nearly even, where unrolled it would open by a hundred
+
+    def test_a_footprint_is_the_desktop_as_drawn(self):
+        for roll in (436, -406, 1700, -9000):
+            for tile, p in ((REAL['tiles'][0], place(x=-87, y=122, distance=32, roll=roll)), (G['tiles'][1], place(x=300, y=-200, curvature=60, roll=roll))):
+                g = REAL if tile == REAL['tiles'][0] else G
+                f = orbit.footprint(g, tile, p)
+                for x, y in ((tile[0], tile[1]), (tile[0] + tile[2], tile[1]), (tile[0], tile[1] + tile[3]), (tile[0] + tile[2], tile[1] + tile[3])):
+                    d = orbit._norm(orbit.place_point(g, tile, p, x, y))
+                    self.assertTrue(all(orbit._dot(n, d) >= -1e-9 for n in f.normals), (roll, x, y))
+
+    def test_a_pusher_uses_the_rolls_it_is_given(self):
+        a, b = self.rolled(self.SAVED[0], 0), self.rolled(self.SAVED[1], 1)
+        pusher = bump.Pusher(REAL, 1, self.ROLLS)
+        unrolled = [dict(p) for p in self.SAVED]
+        out = pusher.move(unrolled, {'x': 230})
+        self.assertEqual((out[1]['x'], pusher.pushed), (230, ()))             # as drawn, there is still room
+        plain = bump.Pusher(REAL, 1)
+        out = plain.move(unrolled, {'x': 230})
+        self.assertIn(0, plain.pushed)                                        # ignoring the roll it would have bumped
+        self.assertTrue(apart(REAL, 0, a, 1, {**b, 'x': 230}))
+
+    def test_settling_a_saved_levelled_layout_moves_nothing(self):
+        self.assertEqual(bump.settle(REAL, self.SAVED, rolls=self.ROLLS), (self.SAVED, ()))
+        x = self.limit(self.ROLLS)
+        tight = [self.SAVED[0], {**self.SAVED[1], 'x': x}, self.SAVED[2]]
+        self.assertEqual(bump.settle(REAL, tight, rolls=self.ROLLS), (tight, ()))  # a start keeps them as close as a drag left them
+
+    def test_a_turned_desktop_that_swung_over_a_neighbour_may_only_get_clearer(self):
+        # A roll is not a move: nothing pushed it. The next move of the two starts from there and may not go deeper.
+        a = place(x=-20)
+        b = place()
+        b['x'] = least(REAL, 0, a, 1, b, 'x', 700, -1)
+        rolls = [1200, 0, 0]
+        self.assertFalse(bump.apart(orbit.footprint(REAL, REAL['tiles'][0], {**a, 'roll': 1200}), orbit.footprint(REAL, REAL['tiles'][1], b)))
+        pusher = bump.Pusher(REAL, 0, rolls)
+        out = pusher.move([a, b, place(x=900, y=600)], {'x': a['x'] - 40})
+        self.assertEqual((out[0]['x'], out[1], pusher.pushed), (a['x'] - 40, b, ()))
+
+    def test_each_way_of_moving_a_desktop_counts_the_rolls(self):
+        seen = {}
+        real, settle = bump.Pusher.__init__, bump.settle
+
+        def spy(pusher, g, index, rolls=None):
+            seen['rolls'] = rolls
+            real(pusher, g, index, rolls)
+        with unittest.mock.patch.object(bump.Pusher, '__init__', spy):
+            drag = orbit.PillDrag(G, 0, (0, 0), (100.0, 800.0), self.ROLLS)
+            drag.follow((110.0, 800.0), [place(), place(), place()])
+            self.assertEqual(seen.pop('rolls'), self.ROLLS)
+            bump.push(G, 0, [place(), place(), place()], {'x': 5}, self.ROLLS)
+            self.assertEqual(seen.pop('rolls'), self.ROLLS)
+            bump.settle(G, [place(), place(), place()], rolls=self.ROLLS)
+            self.assertEqual(seen.pop('rolls'), self.ROLLS)
+        free_pointer = (ROOT / 'tools/native_spike/free_pointer.py').read_text()
+        self.assertIn("orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], self.rolls)", free_pointer)
+        self.assertIn("bump.Pusher(self.geometry, d['index'], self.rolls)", free_pointer)
+        view_py = (ROOT / 'tools/native_spike/view.py').read_text()
+        self.assertIn('bump.Pusher(g, i, self._rolls())', view_py)
+        self.assertRegex(view_py, r'bump\.settle\(g, s\.placements, .*self\._rolls\(\)\)')
 
 
 class Strips(unittest.TestCase):

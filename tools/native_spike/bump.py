@@ -41,8 +41,12 @@ Design:
     so they move out of the way together and never cross on screen.
   * Saved like any move. A pushed desktop is a placement like any other: it is in the placements the run's normal save
     path writes (ViewControl.flush, the debounce, at once on release), so it comes back with the layout.
-  * The levelling roll (free_pointer.py's level bar) is ignored here, as it was by the guard: a few degrees of roll
-    change nothing that matters.
+  * The levelling roll (free_pointer.py's level bar) is part of the footprint: what collides is the desktop as drawn. It
+    was ignored until bump-closer as "a few degrees", which is not little on a big desktop: at distance 31, 5.8 degrees
+    up, levelling takes four degrees of lean out of two neighbours, so unrolled their top corners met while on screen they were
+    100 px apart all the way down. A Pusher takes the rolls as they are when it starts. A roll is not a move: turning or
+    levelling a desktop pushes nothing, and a corner it swings over a neighbour is left, like an Apply's overlap, until the
+    next move of the two or layout change.
 """
 import math
 
@@ -112,9 +116,9 @@ class Pusher:
     whole drag, press to release, or one key, slider or panel change. It remembers which way each desktop was last
     pushed (HYSTERESIS), so a drag keeps one Pusher to its end. After each move(): `reached`, the mover's placement it
     got to (x unwrapped, in the frame of the move's `start`); `pushed`, the desktops that move pushed; `blocked`, True
-    if it stopped short of its target (no room)."""
-    def __init__(self, g, index):
-        self.g, self.index = g, index
+    if it stopped short of its target (no room). `rolls`: each desktop's levelling roll, 1/100 degree (none: all level)."""
+    def __init__(self, g, index, rolls=None):
+        self.g, self.index, self.rolls = g, index, list(rolls or ())
         self.memory = {}   # desktop -> index into DIRECTIONS it was last pushed along
         self.reached, self.pushed, self.blocked = None, (), False
         self.steps = 0     # diagnostics: walking steps taken by the last move()
@@ -128,8 +132,9 @@ class Pusher:
         f = self._shapes.get(key)
         if f is None:
             if len(self._shapes) > 256: self._shapes.clear()
+            roll = self.rolls[i] if i < len(self.rolls) else 0
             f = self._shapes[key] = orbit.footprint(self.g, self.g['tiles'][i], {'x': 0, 'y': 0, 'distance': distance,
-                                                                                   'curvature': curvature})
+                                                                                   'curvature': curvature, 'roll': roll})
         return f
 
     def _print(self, i, s):
@@ -354,14 +359,14 @@ class Pusher:
         return (sk[0] + dx * best[2], sk[1] + dy * best[2]) + sk[2:]
 
 
-def settle(g, placements, first=()):
+def settle(g, placements, first=(), rolls=None):
     """(placements, the desktops moved) with no two desktops overlapping, for a layout that changed under them: module
     docstring, the layout changing settles. `first`: the desktops to keep where they are ahead of the others (the rest in
-    order). Without a geometry with one slot per desktop, or alone: unchanged."""
+    order). `rolls`: as for a Pusher. Without a geometry with one slot per desktop, or alone: unchanged."""
     n = len(placements)
     out = [dict(p) for p in placements]
     if g is None or len(g['tiles']) != n or n < 2: return out, ()
-    pusher = Pusher(g, 0)
+    pusher = Pusher(g, 0, rolls)
     pusher._limit = {}
     state = [(p['x'], p['y'], p['distance'], p['curvature']) for p in placements]
     flat = [p == DEFAULT_PLACEMENT for p in placements]
@@ -398,8 +403,8 @@ def _wire(p):
     return {**p, 'x': orbit.wrap(int(p['x'])), 'y': int(p['y']), 'distance': int(p['distance']), 'curvature': int(p['curvature'])}
 
 
-def push(g, index, placements, target):
+def push(g, index, placements, target, rolls=None):
     """One edit with bumping (a key, a slider, an Apply): every desktop's placement after desktop `index` goes to
     `target` (x the short way round), and the Pusher that did it (its `pushed`, `blocked`, `reached`)."""
-    pusher = Pusher(g, index)
+    pusher = Pusher(g, index, rolls)
     return pusher.move(placements, target), pusher
