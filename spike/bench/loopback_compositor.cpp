@@ -91,9 +91,11 @@ struct Options {
     // GL modes only: CPU composition has no zoom (always side_by_side). There is no pose feed, so no aim (set_aim runs only
     // when tracked) and the desktop fills the view from where it sits: SHM frames are stamped whole, as a dmabuf clear is.
     int maximize = 0;
+    bool edge_pan = false;  // --edge-pan, with --maximize N: get to desktop N from desktop 1 by the hand's pan, not a maximize of it
 };
 constexpr double kChurnMs = 150;
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
+constexpr double kEdgePanLandedMs = 2000;  // --edge-pan: the maximize, the hand's frames and the landing (0.74 s at most)
 using Stamps = std::array<std::uint32_t, xr::kMaxDesktops>;  // which capture frame each tile of a buffer shows
 
 // A wl_buffer reference that forgets the buffer when the client destroys it.
@@ -830,7 +832,7 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--check]\n");
+                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--edge-pan] [--check]\n");
 }
 }  // namespace
 
@@ -855,6 +857,7 @@ int main(int argc, char** argv) {
         else if (a == "--open-panel") opt.open_panel = true;
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else if (a == "--maximize") opt.maximize = std::stoi(next());
+        else if (a == "--edge-pan") opt.edge_pan = true;
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -983,6 +986,8 @@ int main(int argc, char** argv) {
     }
     ::close(control[1]); ::close(wl_pair[1]); ::close(status[1]); ::close(err_pipe[1]);
     fcntl(control[0], F_SETFL, O_NONBLOCK); fcntl(status[0], F_SETFL, O_NONBLOCK); fcntl(err_pipe[0], F_SETFL, O_NONBLOCK);
+    std::int64_t pan_started_ns = 0;  // --edge-pan
+    int pan_frames = 0;
     auto send_frame = [&](std::uint64_t request, const char* op, const std::string& payload) {
         const std::string line = std::string("{\"schema\":1,\"request_id\":") + std::to_string(request) +
                                  ",\"run_id\":\"bench1\",\"session\":\"s1\",\"op\":\"" + op + "\",\"payload\":" + payload + "}\n";
@@ -1047,12 +1052,27 @@ int main(int argc, char** argv) {
             cpu0 = process_cpu_ns(measured_pid); ctx0 = process_ctx_switches(measured_pid); hb0 = heartbeats;
             if (malloc_count) { mallocs0 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(1); }
             if (opt.maximize) {
-                const std::string selected = ",\"selected\":" + std::to_string(opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
+                const std::string selected = ",\"selected\":" + std::to_string(opt.edge_pan ? 0 : opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
                 const std::string rest = "\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false}";
                 send_frame(next_request++, "view", "{\"zoomed\":false" + selected + "anchor" + rest);
                 send_frame(next_request++, "view", "{\"zoomed\":true" + selected + "follow" + rest);
                 server.tiles = {xr::Rect{0, 0, kOutW, kOutH}};  // read the middle of the view from here on
-                server.maximized_ns = t + std::int64_t(kMaximizeSettleMs * 1e6);
+                server.maximized_ns = t + std::int64_t((opt.edge_pan ? kEdgePanLandedMs : kMaximizeSettleMs) * 1e6);
+                pan_started_ns = t;
+            }
+        }
+        if (opt.edge_pan && pan_started_ns && !stop_sent) {  // as the supervisor does: frames as the hand goes, then the landing
+            const double since = double(t - pan_started_ns) / 1e6;
+            const int to = opt.maximize - 1;
+            if (pan_frames < 10 && since >= kMaximizeSettleMs + pan_frames * 20.0) {
+                const int share = (pan_frames + 1) * 1000;
+                send_frame(next_request++, "edge_pan", "{\"active\":true,\"from\":0,\"to\":" + std::to_string(to) + ",\"side\":\"right\",\"exit\":5000,\"entry\":5000,\"peek\":" +
+                           std::to_string(share) + ",\"cross\":" + std::to_string(share) + ",\"turn\":500,\"zoom\":2000}");
+                ++pan_frames;
+            } else if (pan_frames == 10 && since >= kMaximizeSettleMs + 500) {
+                send_frame(next_request++, "view", "{\"zoomed\":true,\"selected\":" + std::to_string(to) +
+                           ",\"spacing\":40,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false,\"pan\":true}");
+                ++pan_frames;
             }
         }
         if (server.measuring && t >= end_at && !stop_sent) {
