@@ -1,142 +1,1415 @@
 {
-  "checks": [
+  "inventoryRows": 116,
+  "rowsPerDesign": 116,
+  "checked": [
     {
       "design": 1,
-      "category": "Display stabilization",
-      "rows": 4
-    },
-    {
-      "design": 1,
-      "category": "3D depth",
-      "rows": 4
+      "id": "recenter"
     },
     {
       "design": 1,
-      "category": "Monitor settings",
-      "rows": 5
+      "id": "prediction"
     },
     {
       "design": 1,
-      "category": "Placement & view",
-      "rows": 9
+      "id": "stabilization"
     },
     {
       "design": 1,
-      "category": "Layout & profile",
-      "rows": 3
+      "id": "immersive_toggle"
     },
     {
       "design": 1,
-      "category": "Background",
-      "rows": 3
+      "id": "immersive_all"
     },
     {
       "design": 1,
-      "category": "Input & keybinds",
-      "rows": 4
+      "id": "immersive_preset"
     },
     {
       "design": 1,
-      "category": "VR video",
-      "rows": 11
+      "id": "immersive_strength_presets"
     },
     {
       "design": 1,
-      "category": "Advanced & session",
-      "rows": 6
+      "id": "immersive_strength"
+    },
+    {
+      "design": 1,
+      "id": "immersive_plane"
+    },
+    {
+      "design": 1,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 1,
+      "id": "add_monitor"
+    },
+    {
+      "design": 1,
+      "id": "zoom_out"
+    },
+    {
+      "design": 1,
+      "id": "mode_next"
+    },
+    {
+      "design": 1,
+      "id": "menu_toggle"
+    },
+    {
+      "design": 1,
+      "id": "mode_follow"
+    },
+    {
+      "design": 1,
+      "id": "mode_locked"
+    },
+    {
+      "design": 1,
+      "id": "mode_switch"
+    },
+    {
+      "design": 1,
+      "id": "spacing_down"
+    },
+    {
+      "design": 1,
+      "id": "spacing_up"
+    },
+    {
+      "design": 1,
+      "id": "layout_reset"
+    },
+    {
+      "design": 1,
+      "id": "profile_remember"
+    },
+    {
+      "design": 1,
+      "id": "environment_toggle"
+    },
+    {
+      "design": 1,
+      "id": "background"
+    },
+    {
+      "design": 1,
+      "id": "background_brightness"
+    },
+    {
+      "design": 1,
+      "id": "background_switch"
+    },
+    {
+      "design": 1,
+      "id": "typing_toggle"
+    },
+    {
+      "design": 1,
+      "id": "help"
+    },
+    {
+      "design": 1,
+      "id": "binds_toggle"
+    },
+    {
+      "design": 1,
+      "id": "help_prev"
+    },
+    {
+      "design": 1,
+      "id": "help_next"
+    },
+    {
+      "design": 1,
+      "id": "send_back"
+    },
+    {
+      "design": 1,
+      "id": "bind_change"
+    },
+    {
+      "design": 1,
+      "id": "bind_reset"
+    },
+    {
+      "design": 1,
+      "id": "bind_reset_all"
+    },
+    {
+      "design": 1,
+      "id": "bind_cancel"
+    },
+    {
+      "design": 1,
+      "id": "bind_navigation"
+    },
+    {
+      "design": 1,
+      "id": "video_open"
+    },
+    {
+      "design": 1,
+      "id": "video_paste"
+    },
+    {
+      "design": 1,
+      "id": "playback_menu_toggle"
+    },
+    {
+      "design": 1,
+      "id": "video_pause"
+    },
+    {
+      "design": 1,
+      "id": "video_seek_back"
+    },
+    {
+      "design": 1,
+      "id": "video_seek_fwd"
+    },
+    {
+      "design": 1,
+      "id": "video_seek_back_big"
+    },
+    {
+      "design": 1,
+      "id": "video_seek_fwd_big"
+    },
+    {
+      "design": 1,
+      "id": "video_format"
+    },
+    {
+      "design": 1,
+      "id": "video_up"
+    },
+    {
+      "design": 1,
+      "id": "video_down"
+    },
+    {
+      "design": 1,
+      "id": "video_exit"
+    },
+    {
+      "design": 1,
+      "id": "video_quality"
+    },
+    {
+      "design": 1,
+      "id": "video_controls"
+    },
+    {
+      "design": 1,
+      "id": "video_browse"
+    },
+    {
+      "design": 1,
+      "id": "video_play"
+    },
+    {
+      "design": 1,
+      "id": "video_paste_ui"
+    },
+    {
+      "design": 1,
+      "id": "quality_filter"
+    },
+    {
+      "design": 1,
+      "id": "quality_deband"
+    },
+    {
+      "design": 1,
+      "id": "privacy_display"
+    },
+    {
+      "design": 1,
+      "id": "fallback"
+    },
+    {
+      "design": 1,
+      "id": "tracking"
+    },
+    {
+      "design": 1,
+      "id": "tracking_driver"
+    },
+    {
+      "design": 1,
+      "id": "stop"
+    },
+    {
+      "design": 1,
+      "id": "recover"
+    },
+    {
+      "design": 1,
+      "id": "start"
+    },
+    {
+      "design": 1,
+      "id": "confirm_start"
+    },
+    {
+      "design": 1,
+      "id": "confirm_recover"
+    },
+    {
+      "design": 1,
+      "id": "cancel"
+    },
+    {
+      "design": 1,
+      "id": "status"
+    },
+    {
+      "design": 1,
+      "id": "controller_restart"
+    },
+    {
+      "design": 1,
+      "id": "close_external"
+    },
+    {
+      "design": 1,
+      "id": "plugin_restart"
+    },
+    {
+      "design": 1,
+      "id": "immersive_monitor"
+    },
+    {
+      "design": 1,
+      "id": "immersive_monitor_strength"
+    },
+    {
+      "design": 1,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 1,
+      "id": "resolution"
+    },
+    {
+      "design": 1,
+      "id": "scale"
+    },
+    {
+      "design": 1,
+      "id": "ultrawide"
+    },
+    {
+      "design": 1,
+      "id": "remove_monitor"
+    },
+    {
+      "design": 1,
+      "id": "zoom_in"
+    },
+    {
+      "design": 1,
+      "id": "prev"
+    },
+    {
+      "design": 1,
+      "id": "next"
+    },
+    {
+      "design": 1,
+      "id": "menu_field_prev"
+    },
+    {
+      "design": 1,
+      "id": "menu_field_next"
+    },
+    {
+      "design": 1,
+      "id": "menu_dec"
+    },
+    {
+      "design": 1,
+      "id": "menu_inc"
+    },
+    {
+      "design": 1,
+      "id": "menu_dec_big"
+    },
+    {
+      "design": 1,
+      "id": "menu_inc_big"
+    },
+    {
+      "design": 1,
+      "id": "menu_desktop_next"
+    },
+    {
+      "design": 1,
+      "id": "menu_desktop_prev"
+    },
+    {
+      "design": 1,
+      "id": "menu_reset"
+    },
+    {
+      "design": 1,
+      "id": "menu_back"
+    },
+    {
+      "design": 1,
+      "id": "menu_ultrawide"
+    },
+    {
+      "design": 1,
+      "id": "menu_add"
+    },
+    {
+      "design": 1,
+      "id": "menu_delete"
+    },
+    {
+      "design": 1,
+      "id": "placement_x"
+    },
+    {
+      "design": 1,
+      "id": "placement_y"
+    },
+    {
+      "design": 1,
+      "id": "placement_distance"
+    },
+    {
+      "design": 1,
+      "id": "placement_curvature"
+    },
+    {
+      "design": 1,
+      "id": "placement_apply"
+    },
+    {
+      "design": 1,
+      "id": "placement_flat"
+    },
+    {
+      "design": 1,
+      "id": "roll_ccw"
+    },
+    {
+      "design": 1,
+      "id": "roll_level"
+    },
+    {
+      "design": 1,
+      "id": "roll_cw"
+    },
+    {
+      "design": 1,
+      "id": "drag_move"
+    },
+    {
+      "design": 1,
+      "id": "drag_resize"
+    },
+    {
+      "design": 1,
+      "id": "select_pointer"
+    },
+    {
+      "design": 1,
+      "id": "edge_pan"
+    },
+    {
+      "design": 1,
+      "id": "resize_press"
+    },
+    {
+      "design": 1,
+      "id": "resize_release"
+    },
+    {
+      "design": 1,
+      "id": "resize_cancel"
+    },
+    {
+      "design": 1,
+      "id": "send_glasses"
+    },
+    {
+      "design": 1,
+      "id": "send_glasses_1"
+    },
+    {
+      "design": 1,
+      "id": "send_glasses_2"
+    },
+    {
+      "design": 1,
+      "id": "send_glasses_3"
+    },
+    {
+      "design": 1,
+      "id": "send_glasses_4"
+    },
+    {
+      "design": 1,
+      "id": "super_left_press"
+    },
+    {
+      "design": 1,
+      "id": "super_right_press"
+    },
+    {
+      "design": 1,
+      "id": "super_release"
+    },
+    {
+      "design": 1,
+      "id": "startup_desktops"
     },
     {
       "design": 2,
-      "category": "Display stabilization",
-      "rows": 4
+      "id": "recenter"
     },
     {
       "design": 2,
-      "category": "3D depth",
-      "rows": 4
+      "id": "prediction"
     },
     {
       "design": 2,
-      "category": "Monitor settings",
-      "rows": 5
+      "id": "stabilization"
     },
     {
       "design": 2,
-      "category": "Placement & view",
-      "rows": 9
+      "id": "immersive_toggle"
     },
     {
       "design": 2,
-      "category": "Layout & profile",
-      "rows": 3
+      "id": "immersive_all"
     },
     {
       "design": 2,
-      "category": "Background",
-      "rows": 3
+      "id": "immersive_preset"
     },
     {
       "design": 2,
-      "category": "Input & keybinds",
-      "rows": 4
+      "id": "immersive_strength_presets"
     },
     {
       "design": 2,
-      "category": "VR video",
-      "rows": 11
+      "id": "immersive_strength"
     },
     {
       "design": 2,
-      "category": "Advanced & session",
-      "rows": 6
+      "id": "immersive_plane"
+    },
+    {
+      "design": 2,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 2,
+      "id": "add_monitor"
+    },
+    {
+      "design": 2,
+      "id": "zoom_out"
+    },
+    {
+      "design": 2,
+      "id": "mode_next"
+    },
+    {
+      "design": 2,
+      "id": "menu_toggle"
+    },
+    {
+      "design": 2,
+      "id": "mode_follow"
+    },
+    {
+      "design": 2,
+      "id": "mode_locked"
+    },
+    {
+      "design": 2,
+      "id": "mode_switch"
+    },
+    {
+      "design": 2,
+      "id": "spacing_down"
+    },
+    {
+      "design": 2,
+      "id": "spacing_up"
+    },
+    {
+      "design": 2,
+      "id": "layout_reset"
+    },
+    {
+      "design": 2,
+      "id": "profile_remember"
+    },
+    {
+      "design": 2,
+      "id": "environment_toggle"
+    },
+    {
+      "design": 2,
+      "id": "background"
+    },
+    {
+      "design": 2,
+      "id": "background_brightness"
+    },
+    {
+      "design": 2,
+      "id": "background_switch"
+    },
+    {
+      "design": 2,
+      "id": "typing_toggle"
+    },
+    {
+      "design": 2,
+      "id": "help"
+    },
+    {
+      "design": 2,
+      "id": "binds_toggle"
+    },
+    {
+      "design": 2,
+      "id": "help_prev"
+    },
+    {
+      "design": 2,
+      "id": "help_next"
+    },
+    {
+      "design": 2,
+      "id": "send_back"
+    },
+    {
+      "design": 2,
+      "id": "bind_change"
+    },
+    {
+      "design": 2,
+      "id": "bind_reset"
+    },
+    {
+      "design": 2,
+      "id": "bind_reset_all"
+    },
+    {
+      "design": 2,
+      "id": "bind_cancel"
+    },
+    {
+      "design": 2,
+      "id": "bind_navigation"
+    },
+    {
+      "design": 2,
+      "id": "video_open"
+    },
+    {
+      "design": 2,
+      "id": "video_paste"
+    },
+    {
+      "design": 2,
+      "id": "playback_menu_toggle"
+    },
+    {
+      "design": 2,
+      "id": "video_pause"
+    },
+    {
+      "design": 2,
+      "id": "video_seek_back"
+    },
+    {
+      "design": 2,
+      "id": "video_seek_fwd"
+    },
+    {
+      "design": 2,
+      "id": "video_seek_back_big"
+    },
+    {
+      "design": 2,
+      "id": "video_seek_fwd_big"
+    },
+    {
+      "design": 2,
+      "id": "video_format"
+    },
+    {
+      "design": 2,
+      "id": "video_up"
+    },
+    {
+      "design": 2,
+      "id": "video_down"
+    },
+    {
+      "design": 2,
+      "id": "video_exit"
+    },
+    {
+      "design": 2,
+      "id": "video_quality"
+    },
+    {
+      "design": 2,
+      "id": "video_controls"
+    },
+    {
+      "design": 2,
+      "id": "video_browse"
+    },
+    {
+      "design": 2,
+      "id": "video_play"
+    },
+    {
+      "design": 2,
+      "id": "video_paste_ui"
+    },
+    {
+      "design": 2,
+      "id": "quality_filter"
+    },
+    {
+      "design": 2,
+      "id": "quality_deband"
+    },
+    {
+      "design": 2,
+      "id": "privacy_display"
+    },
+    {
+      "design": 2,
+      "id": "fallback"
+    },
+    {
+      "design": 2,
+      "id": "tracking"
+    },
+    {
+      "design": 2,
+      "id": "tracking_driver"
+    },
+    {
+      "design": 2,
+      "id": "stop"
+    },
+    {
+      "design": 2,
+      "id": "recover"
+    },
+    {
+      "design": 2,
+      "id": "start"
+    },
+    {
+      "design": 2,
+      "id": "confirm_start"
+    },
+    {
+      "design": 2,
+      "id": "confirm_recover"
+    },
+    {
+      "design": 2,
+      "id": "cancel"
+    },
+    {
+      "design": 2,
+      "id": "status"
+    },
+    {
+      "design": 2,
+      "id": "controller_restart"
+    },
+    {
+      "design": 2,
+      "id": "close_external"
+    },
+    {
+      "design": 2,
+      "id": "plugin_restart"
+    },
+    {
+      "design": 2,
+      "id": "immersive_monitor"
+    },
+    {
+      "design": 2,
+      "id": "immersive_monitor_strength"
+    },
+    {
+      "design": 2,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 2,
+      "id": "resolution"
+    },
+    {
+      "design": 2,
+      "id": "scale"
+    },
+    {
+      "design": 2,
+      "id": "ultrawide"
+    },
+    {
+      "design": 2,
+      "id": "remove_monitor"
+    },
+    {
+      "design": 2,
+      "id": "zoom_in"
+    },
+    {
+      "design": 2,
+      "id": "prev"
+    },
+    {
+      "design": 2,
+      "id": "next"
+    },
+    {
+      "design": 2,
+      "id": "menu_field_prev"
+    },
+    {
+      "design": 2,
+      "id": "menu_field_next"
+    },
+    {
+      "design": 2,
+      "id": "menu_dec"
+    },
+    {
+      "design": 2,
+      "id": "menu_inc"
+    },
+    {
+      "design": 2,
+      "id": "menu_dec_big"
+    },
+    {
+      "design": 2,
+      "id": "menu_inc_big"
+    },
+    {
+      "design": 2,
+      "id": "menu_desktop_next"
+    },
+    {
+      "design": 2,
+      "id": "menu_desktop_prev"
+    },
+    {
+      "design": 2,
+      "id": "menu_reset"
+    },
+    {
+      "design": 2,
+      "id": "menu_back"
+    },
+    {
+      "design": 2,
+      "id": "menu_ultrawide"
+    },
+    {
+      "design": 2,
+      "id": "menu_add"
+    },
+    {
+      "design": 2,
+      "id": "menu_delete"
+    },
+    {
+      "design": 2,
+      "id": "placement_x"
+    },
+    {
+      "design": 2,
+      "id": "placement_y"
+    },
+    {
+      "design": 2,
+      "id": "placement_distance"
+    },
+    {
+      "design": 2,
+      "id": "placement_curvature"
+    },
+    {
+      "design": 2,
+      "id": "placement_apply"
+    },
+    {
+      "design": 2,
+      "id": "placement_flat"
+    },
+    {
+      "design": 2,
+      "id": "roll_ccw"
+    },
+    {
+      "design": 2,
+      "id": "roll_level"
+    },
+    {
+      "design": 2,
+      "id": "roll_cw"
+    },
+    {
+      "design": 2,
+      "id": "drag_move"
+    },
+    {
+      "design": 2,
+      "id": "drag_resize"
+    },
+    {
+      "design": 2,
+      "id": "select_pointer"
+    },
+    {
+      "design": 2,
+      "id": "edge_pan"
+    },
+    {
+      "design": 2,
+      "id": "resize_press"
+    },
+    {
+      "design": 2,
+      "id": "resize_release"
+    },
+    {
+      "design": 2,
+      "id": "resize_cancel"
+    },
+    {
+      "design": 2,
+      "id": "send_glasses"
+    },
+    {
+      "design": 2,
+      "id": "send_glasses_1"
+    },
+    {
+      "design": 2,
+      "id": "send_glasses_2"
+    },
+    {
+      "design": 2,
+      "id": "send_glasses_3"
+    },
+    {
+      "design": 2,
+      "id": "send_glasses_4"
+    },
+    {
+      "design": 2,
+      "id": "super_left_press"
+    },
+    {
+      "design": 2,
+      "id": "super_right_press"
+    },
+    {
+      "design": 2,
+      "id": "super_release"
+    },
+    {
+      "design": 2,
+      "id": "startup_desktops"
     },
     {
       "design": 3,
-      "category": "Display stabilization",
-      "rows": 4
+      "id": "recenter"
     },
     {
       "design": 3,
-      "category": "3D depth",
-      "rows": 4
+      "id": "prediction"
     },
     {
       "design": 3,
-      "category": "Monitor settings",
-      "rows": 5
+      "id": "stabilization"
     },
     {
       "design": 3,
-      "category": "Placement & view",
-      "rows": 9
+      "id": "immersive_toggle"
     },
     {
       "design": 3,
-      "category": "Layout & profile",
-      "rows": 3
+      "id": "immersive_all"
     },
     {
       "design": 3,
-      "category": "Background",
-      "rows": 3
+      "id": "immersive_preset"
     },
     {
       "design": 3,
-      "category": "Input & keybinds",
-      "rows": 4
+      "id": "immersive_strength_presets"
     },
     {
       "design": 3,
-      "category": "VR video",
-      "rows": 11
+      "id": "immersive_strength"
     },
     {
       "design": 3,
-      "category": "Advanced & session",
-      "rows": 6
+      "id": "immersive_plane"
+    },
+    {
+      "design": 3,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 3,
+      "id": "add_monitor"
+    },
+    {
+      "design": 3,
+      "id": "zoom_out"
+    },
+    {
+      "design": 3,
+      "id": "mode_next"
+    },
+    {
+      "design": 3,
+      "id": "menu_toggle"
+    },
+    {
+      "design": 3,
+      "id": "mode_follow"
+    },
+    {
+      "design": 3,
+      "id": "mode_locked"
+    },
+    {
+      "design": 3,
+      "id": "mode_switch"
+    },
+    {
+      "design": 3,
+      "id": "spacing_down"
+    },
+    {
+      "design": 3,
+      "id": "spacing_up"
+    },
+    {
+      "design": 3,
+      "id": "layout_reset"
+    },
+    {
+      "design": 3,
+      "id": "profile_remember"
+    },
+    {
+      "design": 3,
+      "id": "environment_toggle"
+    },
+    {
+      "design": 3,
+      "id": "background"
+    },
+    {
+      "design": 3,
+      "id": "background_brightness"
+    },
+    {
+      "design": 3,
+      "id": "background_switch"
+    },
+    {
+      "design": 3,
+      "id": "typing_toggle"
+    },
+    {
+      "design": 3,
+      "id": "help"
+    },
+    {
+      "design": 3,
+      "id": "binds_toggle"
+    },
+    {
+      "design": 3,
+      "id": "help_prev"
+    },
+    {
+      "design": 3,
+      "id": "help_next"
+    },
+    {
+      "design": 3,
+      "id": "send_back"
+    },
+    {
+      "design": 3,
+      "id": "bind_change"
+    },
+    {
+      "design": 3,
+      "id": "bind_reset"
+    },
+    {
+      "design": 3,
+      "id": "bind_reset_all"
+    },
+    {
+      "design": 3,
+      "id": "bind_cancel"
+    },
+    {
+      "design": 3,
+      "id": "bind_navigation"
+    },
+    {
+      "design": 3,
+      "id": "video_open"
+    },
+    {
+      "design": 3,
+      "id": "video_paste"
+    },
+    {
+      "design": 3,
+      "id": "playback_menu_toggle"
+    },
+    {
+      "design": 3,
+      "id": "video_pause"
+    },
+    {
+      "design": 3,
+      "id": "video_seek_back"
+    },
+    {
+      "design": 3,
+      "id": "video_seek_fwd"
+    },
+    {
+      "design": 3,
+      "id": "video_seek_back_big"
+    },
+    {
+      "design": 3,
+      "id": "video_seek_fwd_big"
+    },
+    {
+      "design": 3,
+      "id": "video_format"
+    },
+    {
+      "design": 3,
+      "id": "video_up"
+    },
+    {
+      "design": 3,
+      "id": "video_down"
+    },
+    {
+      "design": 3,
+      "id": "video_exit"
+    },
+    {
+      "design": 3,
+      "id": "video_quality"
+    },
+    {
+      "design": 3,
+      "id": "video_controls"
+    },
+    {
+      "design": 3,
+      "id": "video_browse"
+    },
+    {
+      "design": 3,
+      "id": "video_play"
+    },
+    {
+      "design": 3,
+      "id": "video_paste_ui"
+    },
+    {
+      "design": 3,
+      "id": "quality_filter"
+    },
+    {
+      "design": 3,
+      "id": "quality_deband"
+    },
+    {
+      "design": 3,
+      "id": "privacy_display"
+    },
+    {
+      "design": 3,
+      "id": "fallback"
+    },
+    {
+      "design": 3,
+      "id": "tracking"
+    },
+    {
+      "design": 3,
+      "id": "tracking_driver"
+    },
+    {
+      "design": 3,
+      "id": "stop"
+    },
+    {
+      "design": 3,
+      "id": "recover"
+    },
+    {
+      "design": 3,
+      "id": "start"
+    },
+    {
+      "design": 3,
+      "id": "confirm_start"
+    },
+    {
+      "design": 3,
+      "id": "confirm_recover"
+    },
+    {
+      "design": 3,
+      "id": "cancel"
+    },
+    {
+      "design": 3,
+      "id": "status"
+    },
+    {
+      "design": 3,
+      "id": "controller_restart"
+    },
+    {
+      "design": 3,
+      "id": "close_external"
+    },
+    {
+      "design": 3,
+      "id": "plugin_restart"
+    },
+    {
+      "design": 3,
+      "id": "immersive_monitor"
+    },
+    {
+      "design": 3,
+      "id": "immersive_monitor_strength"
+    },
+    {
+      "design": 3,
+      "id": "immersive_connected_tail"
+    },
+    {
+      "design": 3,
+      "id": "resolution"
+    },
+    {
+      "design": 3,
+      "id": "scale"
+    },
+    {
+      "design": 3,
+      "id": "ultrawide"
+    },
+    {
+      "design": 3,
+      "id": "remove_monitor"
+    },
+    {
+      "design": 3,
+      "id": "zoom_in"
+    },
+    {
+      "design": 3,
+      "id": "prev"
+    },
+    {
+      "design": 3,
+      "id": "next"
+    },
+    {
+      "design": 3,
+      "id": "menu_field_prev"
+    },
+    {
+      "design": 3,
+      "id": "menu_field_next"
+    },
+    {
+      "design": 3,
+      "id": "menu_dec"
+    },
+    {
+      "design": 3,
+      "id": "menu_inc"
+    },
+    {
+      "design": 3,
+      "id": "menu_dec_big"
+    },
+    {
+      "design": 3,
+      "id": "menu_inc_big"
+    },
+    {
+      "design": 3,
+      "id": "menu_desktop_next"
+    },
+    {
+      "design": 3,
+      "id": "menu_desktop_prev"
+    },
+    {
+      "design": 3,
+      "id": "menu_reset"
+    },
+    {
+      "design": 3,
+      "id": "menu_back"
+    },
+    {
+      "design": 3,
+      "id": "menu_ultrawide"
+    },
+    {
+      "design": 3,
+      "id": "menu_add"
+    },
+    {
+      "design": 3,
+      "id": "menu_delete"
+    },
+    {
+      "design": 3,
+      "id": "placement_x"
+    },
+    {
+      "design": 3,
+      "id": "placement_y"
+    },
+    {
+      "design": 3,
+      "id": "placement_distance"
+    },
+    {
+      "design": 3,
+      "id": "placement_curvature"
+    },
+    {
+      "design": 3,
+      "id": "placement_apply"
+    },
+    {
+      "design": 3,
+      "id": "placement_flat"
+    },
+    {
+      "design": 3,
+      "id": "roll_ccw"
+    },
+    {
+      "design": 3,
+      "id": "roll_level"
+    },
+    {
+      "design": 3,
+      "id": "roll_cw"
+    },
+    {
+      "design": 3,
+      "id": "drag_move"
+    },
+    {
+      "design": 3,
+      "id": "drag_resize"
+    },
+    {
+      "design": 3,
+      "id": "select_pointer"
+    },
+    {
+      "design": 3,
+      "id": "edge_pan"
+    },
+    {
+      "design": 3,
+      "id": "resize_press"
+    },
+    {
+      "design": 3,
+      "id": "resize_release"
+    },
+    {
+      "design": 3,
+      "id": "resize_cancel"
+    },
+    {
+      "design": 3,
+      "id": "send_glasses"
+    },
+    {
+      "design": 3,
+      "id": "send_glasses_1"
+    },
+    {
+      "design": 3,
+      "id": "send_glasses_2"
+    },
+    {
+      "design": 3,
+      "id": "send_glasses_3"
+    },
+    {
+      "design": 3,
+      "id": "send_glasses_4"
+    },
+    {
+      "design": 3,
+      "id": "super_left_press"
+    },
+    {
+      "design": 3,
+      "id": "super_right_press"
+    },
+    {
+      "design": 3,
+      "id": "super_release"
+    },
+    {
+      "design": 3,
+      "id": "startup_desktops"
     }
   ],
+  "errors": [],
+  "persistence": true,
   "escape": true,
-  "confirmation": true,
-  "htmlMockup": true
+  "removeConfirmation": true,
+  "recoveryGating": true
 }

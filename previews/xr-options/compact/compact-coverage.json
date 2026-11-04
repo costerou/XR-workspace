@@ -1,0 +1,1287 @@
+{
+  "inventory_sha256": "9a2f7944b7bbefbcd548b1517d09559efc19f5711c8bb20a26663f5aab26e7de",
+  "counts": {
+    "live": 106,
+    "startup-only": 7,
+    "recovery-only": 2,
+    "confirmation-only": 1
+  },
+  "rows": {
+    "zoom_in": {
+      "category": "Placement & view",
+      "label": "Maximize the selected desktop",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop"
+      ]
+    },
+    "zoom_out": {
+      "category": "Placement & view",
+      "label": "Overview",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview"
+      ]
+    },
+    "prev": {
+      "category": "Placement & view",
+      "label": "Previous desktop",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop"
+      ]
+    },
+    "next": {
+      "category": "Placement & view",
+      "label": "Next desktop",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop"
+      ]
+    },
+    "spacing_down": {
+      "category": "Layout & profile",
+      "label": "Less space between desktops",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops"
+      ]
+    },
+    "spacing_up": {
+      "category": "Layout & profile",
+      "label": "More space between desktops",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops"
+      ]
+    },
+    "recenter": {
+      "category": "Display stabilization",
+      "label": "Recenter the view",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view"
+      ]
+    },
+    "layout_reset": {
+      "category": "Layout & profile",
+      "label": "Reset to 3 flat desktops (press twice)",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)"
+      ]
+    },
+    "mode_next": {
+      "category": "Placement & view",
+      "label": "Maximized: follow / locked",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked"
+      ]
+    },
+    "prediction": {
+      "category": "Display stabilization",
+      "label": "Toggle pose prediction",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction"
+      ]
+    },
+    "typing_toggle": {
+      "category": "Input & keybinds",
+      "label": "Typing mode: XR keys off / on",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on"
+      ]
+    },
+    "privacy_display": {
+      "category": "Advanced & session",
+      "label": "Privacy: main display off / on",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on"
+      ]
+    },
+    "environment_toggle": {
+      "category": "Background",
+      "label": "Background: none / last used",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used"
+      ]
+    },
+    "immersive_toggle": {
+      "category": "3D depth",
+      "label": "Immersive 3D: all desktops on / off",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off"
+      ]
+    },
+    "menu_toggle": {
+      "category": "Placement & view",
+      "label": "Placement pill of the selected desktop",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop"
+      ]
+    },
+    "video_open": {
+      "category": "VR video",
+      "label": "Play a 180/360 VR video",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video"
+      ]
+    },
+    "video_paste": {
+      "category": "VR video",
+      "label": "Play the browser video you copied",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied"
+      ]
+    },
+    "playback_menu_toggle": {
+      "category": "VR video",
+      "label": "VR video: hide / show playback controls",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls"
+      ]
+    },
+    "help": {
+      "category": "Input & keybinds",
+      "label": "Help card (every key)",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)"
+      ]
+    },
+    "binds_toggle": {
+      "category": "Input & keybinds",
+      "label": "Key binds (this panel)",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)"
+      ]
+    },
+    "help_prev": {
+      "category": "Input & keybinds",
+      "label": "Previous help page",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page"
+      ]
+    },
+    "help_next": {
+      "category": "Input & keybinds",
+      "label": "Next help page",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page"
+      ]
+    },
+    "send_glasses": {
+      "category": "Input & keybinds",
+      "label": "Send window to the selected desktop",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop"
+      ]
+    },
+    "send_glasses_1": {
+      "category": "Input & keybinds",
+      "label": "Send window to XR-1",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1"
+      ]
+    },
+    "send_glasses_2": {
+      "category": "Input & keybinds",
+      "label": "Send window to XR-2",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2"
+      ]
+    },
+    "send_glasses_3": {
+      "category": "Input & keybinds",
+      "label": "Send window to XR-3",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3"
+      ]
+    },
+    "send_glasses_4": {
+      "category": "Input & keybinds",
+      "label": "Send window to XR-4",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4"
+      ]
+    },
+    "send_back": {
+      "category": "Input & keybinds",
+      "label": "Send window back to the main display",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display"
+      ]
+    },
+    "menu_field_prev": {
+      "category": "Placement & view",
+      "label": "Menu field prev",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev"
+      ]
+    },
+    "menu_field_next": {
+      "category": "Placement & view",
+      "label": "Menu field next",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next"
+      ]
+    },
+    "menu_dec": {
+      "category": "Placement & view",
+      "label": "Menu dec",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec"
+      ]
+    },
+    "menu_inc": {
+      "category": "Placement & view",
+      "label": "Menu inc",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc"
+      ]
+    },
+    "menu_dec_big": {
+      "category": "Placement & view",
+      "label": "Menu dec big",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big"
+      ]
+    },
+    "menu_inc_big": {
+      "category": "Placement & view",
+      "label": "Menu inc big",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big"
+      ]
+    },
+    "menu_desktop_next": {
+      "category": "Placement & view",
+      "label": "Menu desktop next",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next"
+      ]
+    },
+    "menu_desktop_prev": {
+      "category": "Placement & view",
+      "label": "Menu desktop prev",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev"
+      ]
+    },
+    "menu_reset": {
+      "category": "Placement & view",
+      "label": "Menu reset",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset"
+      ]
+    },
+    "menu_back": {
+      "category": "Placement & view",
+      "label": "Menu back",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back"
+      ]
+    },
+    "menu_ultrawide": {
+      "category": "Placement & view",
+      "label": "Menu ultrawide",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide"
+      ]
+    },
+    "menu_add": {
+      "category": "Placement & view",
+      "label": "Menu add",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add"
+      ]
+    },
+    "menu_delete": {
+      "category": "Placement & view",
+      "label": "Menu delete",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete"
+      ]
+    },
+    "video_pause": {
+      "category": "VR video",
+      "label": "Play / pause",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause"
+      ]
+    },
+    "video_seek_back": {
+      "category": "VR video",
+      "label": "\u221210 s",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s"
+      ]
+    },
+    "video_seek_fwd": {
+      "category": "VR video",
+      "label": "+10 s",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s"
+      ]
+    },
+    "video_seek_back_big": {
+      "category": "VR video",
+      "label": "\u221260 s",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s"
+      ]
+    },
+    "video_seek_fwd_big": {
+      "category": "VR video",
+      "label": "+60 s",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s"
+      ]
+    },
+    "video_format": {
+      "category": "VR video",
+      "label": "Next format",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format"
+      ]
+    },
+    "video_up": {
+      "category": "VR video",
+      "label": "Video up",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up"
+      ]
+    },
+    "video_down": {
+      "category": "VR video",
+      "label": "Video down",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down"
+      ]
+    },
+    "video_exit": {
+      "category": "VR video",
+      "label": "Back to desktops",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops"
+      ]
+    },
+    "video_quality": {
+      "category": "VR video",
+      "label": "Video quality",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality"
+      ]
+    },
+    "video_controls": {
+      "category": "VR video",
+      "label": "Show / hide controls",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls"
+      ]
+    },
+    "stabilization": {
+      "category": "Display stabilization",
+      "label": "Stabilization",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization"
+      ]
+    },
+    "immersive_all": {
+      "category": "3D depth",
+      "label": "All desktops",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops"
+      ]
+    },
+    "immersive_monitor": {
+      "category": "3D depth",
+      "label": "XR-n",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n"
+      ]
+    },
+    "immersive_preset": {
+      "category": "3D depth",
+      "label": "Desktop / Video / Games",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games"
+      ]
+    },
+    "immersive_strength_presets": {
+      "category": "3D depth",
+      "label": "Soft / Standard / Enhanced",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced"
+      ]
+    },
+    "immersive_strength": {
+      "category": "3D depth",
+      "label": "Strength",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength"
+      ]
+    },
+    "immersive_monitor_strength": {
+      "category": "3D depth",
+      "label": "Selected desktop strength",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength"
+      ]
+    },
+    "immersive_plane": {
+      "category": "3D depth",
+      "label": "Screen plane",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane"
+      ]
+    },
+    "placement_x": {
+      "category": "Placement & view",
+      "label": "Left / right",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right"
+      ]
+    },
+    "placement_y": {
+      "category": "Placement & view",
+      "label": "Down / up",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up"
+      ]
+    },
+    "placement_distance": {
+      "category": "Placement & view",
+      "label": "Distance",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance"
+      ]
+    },
+    "placement_curvature": {
+      "category": "Placement & view",
+      "label": "Curvature",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature"
+      ]
+    },
+    "placement_apply": {
+      "category": "Placement & view",
+      "label": "Apply placement",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement"
+      ]
+    },
+    "placement_flat": {
+      "category": "Placement & view",
+      "label": "Flat",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat"
+      ]
+    },
+    "mode_follow": {
+      "category": "Placement & view",
+      "label": "follow",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow"
+      ]
+    },
+    "mode_locked": {
+      "category": "Placement & view",
+      "label": "locked",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked"
+      ]
+    },
+    "video_browse": {
+      "category": "VR video",
+      "label": "Browse\u2026",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026"
+      ]
+    },
+    "video_play": {
+      "category": "VR video",
+      "label": "Play",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play"
+      ]
+    },
+    "video_paste_ui": {
+      "category": "VR video",
+      "label": "Paste from browser",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser"
+      ]
+    },
+    "resolution": {
+      "category": "Monitor settings",
+      "label": "Resolution",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution"
+      ]
+    },
+    "scale": {
+      "category": "Monitor settings",
+      "label": "Scale",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale"
+      ]
+    },
+    "ultrawide": {
+      "category": "Monitor settings",
+      "label": "Ultrawide",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide"
+      ]
+    },
+    "add_monitor": {
+      "category": "Monitor settings",
+      "label": "Add new",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new"
+      ]
+    },
+    "remove_monitor": {
+      "category": "Monitor settings",
+      "label": "Remove / Remove?",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?"
+      ]
+    },
+    "background": {
+      "category": "Background",
+      "label": "Background",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background"
+      ]
+    },
+    "background_brightness": {
+      "category": "Background",
+      "label": "Brightness",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness"
+      ]
+    },
+    "roll_ccw": {
+      "category": "Placement & view",
+      "label": "Roll ccw",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw"
+      ]
+    },
+    "roll_level": {
+      "category": "Placement & view",
+      "label": "Roll level",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level"
+      ]
+    },
+    "roll_cw": {
+      "category": "Placement & view",
+      "label": "Roll cw",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw"
+      ]
+    },
+    "drag_move": {
+      "category": "Placement & view",
+      "label": "Drag move",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move"
+      ]
+    },
+    "drag_resize": {
+      "category": "Placement & view",
+      "label": "Drag resize",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize"
+      ]
+    },
+    "quality_filter": {
+      "category": "VR video",
+      "label": "Texture filter",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter"
+      ]
+    },
+    "quality_deband": {
+      "category": "VR video",
+      "label": "Deband",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband"
+      ]
+    },
+    "bind_change": {
+      "category": "Input & keybinds",
+      "label": "Enter",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter"
+      ]
+    },
+    "bind_reset": {
+      "category": "Input & keybinds",
+      "label": "R",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R"
+      ]
+    },
+    "bind_reset_all": {
+      "category": "Input & keybinds",
+      "label": "Shift+R",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R"
+      ]
+    },
+    "bind_cancel": {
+      "category": "Input & keybinds",
+      "label": "Esc",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc"
+      ]
+    },
+    "bind_navigation": {
+      "category": "Input & keybinds",
+      "label": "Up / Down (PgUp / PgDn, Home / End)",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)"
+      ]
+    },
+    "fallback": {
+      "category": "Advanced & session",
+      "label": "Return windows to",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to"
+      ]
+    },
+    "tracking": {
+      "category": "Advanced & session",
+      "label": "Head tracking",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking"
+      ]
+    },
+    "tracking_driver": {
+      "category": "Advanced & session",
+      "label": "Tracking driver",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver"
+      ]
+    },
+    "mode_switch": {
+      "category": "Placement & view",
+      "label": "120 Hz mode switch",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch"
+      ]
+    },
+    "startup_desktops": {
+      "category": "Advanced & session",
+      "label": "Save desktop",
+      "lifecycle": "startup-only",
+      "scope": "per-monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop"
+      ]
+    },
+    "stop": {
+      "category": "Advanced & session",
+      "label": "Stop",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop"
+      ]
+    },
+    "recover": {
+      "category": "Advanced & session",
+      "label": "Recover",
+      "lifecycle": "recovery-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover"
+      ]
+    },
+    "start": {
+      "category": "Advanced & session",
+      "label": "Start XR",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR"
+      ]
+    },
+    "confirm_start": {
+      "category": "Advanced & session",
+      "label": "Start",
+      "lifecycle": "startup-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start"
+      ]
+    },
+    "confirm_recover": {
+      "category": "Advanced & session",
+      "label": "Recover",
+      "lifecycle": "recovery-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover"
+      ]
+    },
+    "cancel": {
+      "category": "Advanced & session",
+      "label": "Cancel",
+      "lifecycle": "confirmation-only",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel"
+      ]
+    },
+    "status": {
+      "category": "Advanced & session",
+      "label": "Measured, this session",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session"
+      ]
+    },
+    "controller_restart": {
+      "category": "Advanced & session",
+      "label": "Start / restart controller",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller"
+      ]
+    },
+    "close_external": {
+      "category": "Advanced & session",
+      "label": "Close",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close"
+      ]
+    },
+    "immersive_connected_tail": {
+      "category": "3D depth",
+      "label": "3D",
+      "lifecycle": "live",
+      "scope": "selected monitor + workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D"
+      ]
+    },
+    "select_pointer": {
+      "category": "Placement & view",
+      "label": "Select pointer",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer"
+      ]
+    },
+    "edge_pan": {
+      "category": "Placement & view",
+      "label": "Edge pan",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan"
+      ]
+    },
+    "background_switch": {
+      "category": "Background",
+      "label": "Background switch",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch"
+      ]
+    },
+    "profile_remember": {
+      "category": "Layout & profile",
+      "label": "Profile remember",
+      "lifecycle": "live",
+      "scope": "per-glasses model",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember"
+      ]
+    },
+    "plugin_restart": {
+      "category": "Advanced & session",
+      "label": "Restart plugin",
+      "lifecycle": "live",
+      "scope": "workspace",
+      "paths": [
+        "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin",
+        "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin",
+        "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin"
+      ]
+    },
+    "resize_press": {
+      "category": "Placement & view",
+      "label": "Resize press",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press"
+      ]
+    },
+    "resize_release": {
+      "category": "Placement & view",
+      "label": "Resize release",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release"
+      ]
+    },
+    "resize_cancel": {
+      "category": "Placement & view",
+      "label": "Resize cancel",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel"
+      ]
+    },
+    "super_left_press": {
+      "category": "Input & keybinds",
+      "label": "Super left press",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press"
+      ]
+    },
+    "super_right_press": {
+      "category": "Input & keybinds",
+      "label": "Super right press",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press"
+      ]
+    },
+    "super_release": {
+      "category": "Input & keybinds",
+      "label": "Super release",
+      "lifecycle": "live",
+      "scope": "selected monitor",
+      "paths": [
+        "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release",
+        "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release",
+        "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release"
+      ]
+    }
+  }
+}
