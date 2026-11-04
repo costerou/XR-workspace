@@ -26,6 +26,8 @@ class NativeEditors:
         self.entries = []
         self.text_input = None
         self.text_field = None
+        self.character = 'a'
+        self.hex_digits = list('000000')
 
     def open(self, kind):
         if kind not in ('file', 'url', 'keybinds'): raise ValueError('unknown child')
@@ -56,12 +58,12 @@ class NativeEditors:
     def rows(self):
         if self.kind == 'url':
             return [row('editor.text', 'Video URL or page link', 'text', self.text),
-                    row('editor.play', 'Play video'), row('editor.cancel', 'Cancel')]
+                    row('editor.submit', 'Submit URL'), row('editor.cancel', 'Cancel')] + self.text_rows()
         if self.kind == 'file':
             out = [row('editor.path', 'Folder path', 'text', self.text), row('editor.parent', 'Parent folder')]
             for n, path in enumerate(self.entries[self.page*self.PAGE:(self.page+1)*self.PAGE]):
                 out.append(row(f'editor.file.{n}', ('Folder: ' if path.is_dir() else '') + path.name))
-            return out + [row('editor.previous', 'Previous files'), row('editor.next', 'Next files'), row('editor.cancel', 'Cancel')]
+            return out + [row('editor.previous', 'Previous files'), row('editor.next', 'Next files'), row('editor.cancel', 'Cancel'),row('editor.submit','Submit folder path')] + self.text_rows()
         if self.kind == 'keybinds':
             keys = self.control.keys
             data = keys.payload()
@@ -72,8 +74,50 @@ class NativeEditors:
             return out + [row('editor.previous','Previous binds'),row('editor.next','Next binds'),row('editor.bind.reset','Reset selected bind'),row('editor.bind.reset_all','Reset all (press twice)'),row('editor.cancel','Cancel')]
         return []
 
+    CHARSETS = {'lower':'abcdefghijklmnopqrstuvwxyz','upper':'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                'digits':'0123456789','punctuation':":/?#[]@!$&'()*+,;=%._-~\\ "}
+
+    def text_rows(self):
+        out=[row('editor.hardware','Physical text input','readonly','Unavailable without authoritative keyboard state; use character controls')]
+        for name,chars in self.CHARSETS.items():
+            out.append(row('editor.char.'+name,'Choose '+name,'choice',self.character if self.character in chars else chars[0],choices=list(chars)))
+        out += [row('editor.selected','Selected character','readonly',self.character),row('editor.insert','Insert character'),row('editor.backspace','Backspace'),row('editor.clear','Clear text')]
+        for n,digit in enumerate(self.hex_digits): out.append(row(f'editor.hex.{n}',f'Unicode hex digit {n+1}','choice',digit,choices=list('0123456789abcdef')))
+        return out+[row('editor.unicode','Insert Unicode scalar')]
+
+    def _buffer(self,text):
+        if not isinstance(text,str) or len(text.encode('utf-8'))>256 or any(not ch.isprintable() for ch in text): raise ValueError('Text requires printable UTF-8, at most 256 bytes')
+        self.text=text
+        return b''
+
     def apply(self, id, value=None):
         if id == 'editor.cancel': return self.close()
+        if self.kind in ('url','file'):
+            if id.startswith('editor.char.'):
+                group=id.rsplit('.',1)[1]
+                if group not in self.CHARSETS or value not in self.CHARSETS[group] or not isinstance(value,str) or len(value)!=1: raise ValueError('Invalid character')
+                self.character=value; return b''
+            if id.startswith('editor.hex.'):
+                n=int(id.rsplit('.',1)[1])
+                if not 0<=n<6 or not isinstance(value,str) or len(value)!=1 or value not in '0123456789abcdef': raise ValueError('Invalid hex digit')
+                self.hex_digits[n]=value; return b''
+            if id=='editor.unicode':
+                scalar=int(''.join(self.hex_digits),16)
+                if scalar>0x10ffff or 0xd800<=scalar<=0xdfff or not chr(scalar).isprintable(): raise ValueError('Invalid printable Unicode scalar')
+                return self._buffer(self.text+chr(scalar))
+            if id=='editor.insert': return self._buffer(self.text+self.character)
+            if id=='editor.clear': return self._buffer('')
+            if id=='editor.backspace': return self._buffer(self.text[:-1])
+            if id in ('editor.text','editor.path'): return self._buffer(value)
+            if id=='editor.submit':
+                if self.kind=='url': return self.apply('editor.play')
+                if not Path(self.text).is_absolute(): raise ValueError('Absolute folder path required')
+                directory=Path(self.text).resolve()
+                with os.scandir(directory) as entries:
+                    limited=[Path(item.path) for item in islice(entries,4097)]
+                if len(limited)>4096: raise ValueError('Folder exceeds 4096 entries; enter narrower folder path')
+                self.directory,self.page,self.entries=directory,0,sorted(limited,key=lambda p:(not p.is_dir(),p.name.casefold()))
+                return b''
         if self.kind == 'keybinds':
             keys = self.control.keys
             if id == 'editor.bind.reset': return keys.key(0,27)
@@ -96,12 +140,7 @@ class NativeEditors:
                 if not self.text.startswith(('https://', 'http://')): raise ValueError('HTTP(S) URL required')
                 return self._play({'url': self.text})
         if self.kind == 'file':
-            if id == 'editor.path':
-                if not isinstance(value,str) or len(value.encode())>256 or not Path(value).is_absolute(): raise ValueError('absolute folder path required')
-                self.directory, self.page = Path(value).resolve(),0
-                self._scan()
-                self.text=str(self.directory)
-            elif id == 'editor.parent': self.directory, self.page = self.directory.parent, 0; self._scan()
+            if id == 'editor.parent': self.directory, self.page = self.directory.parent, 0; self._scan()
             elif id in ('editor.previous', 'editor.next'):
                 self.page = min(max(0, self.page + (1 if id.endswith('next') else -1)), max(0, (len(self.entries)-1)//self.PAGE))
             elif id.startswith('editor.file.'):
@@ -117,7 +156,8 @@ class NativeEditors:
     def _play(self, payload):
         video = getattr(self.control, 'options_video', None)
         if video is None: raise ValueError('video owner unavailable')
-        out = video.on_message({'op': 'video_open', 'payload': payload})
+        from .options_actions import video_request
+        out = video_request(self.control,'video_open',payload,'editor.play')
         self.close()
         return out
 
@@ -134,7 +174,7 @@ class NativeEditors:
         if self.text_input is None: raise ValueError('text capture not initialized')
         action, text = self.text_input.key(code)
         if action == 'cancel': return self.close()
-        if action == 'submit': return self.apply('editor.play') if self.kind == 'url' else self.apply('editor.path',self.text)
+        if action == 'submit': return self.apply('editor.submit')
         updated = self.text[:-1] if action == 'backspace' else self.text+text
         if len(updated.encode())>256: raise ValueError('text too long')
         self.text = updated

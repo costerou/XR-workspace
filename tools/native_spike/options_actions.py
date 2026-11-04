@@ -68,6 +68,14 @@ def options_rows(control, scope, monitor, category):
                 row('environment_toggle','Background: none / last used')]
         out[-2]['enabled'] = environment.on(s.environment)
     if category == '3d':
+        status=control._immersive_status()
+        run=getattr(control,'immersive_run',None)
+        report=(getattr(control,'owner_readback',None) or {}).get('immersive')
+        phase=status['phase']
+        detail='Physical R1 required; waiting for SBS' if phase=='glasses' else 'Failure latched; explicit retry required' if status['failed'] else phase
+        out += [{**row('immersive.phase','3D actual phase','readonly',detail),'scope':scope},
+                {**row('immersive.applied','3D actual drawing','readonly',str(bool(isinstance(report,dict) and any(r.get('drawing') for r in report.get('desktops',[])))).lower()),'scope':scope},
+                {**row('immersive.error','3D error','readonly',report.get('error') or report.get('engine_error') or getattr(run,'error','') if isinstance(report,dict) else getattr(run,'error','')),'scope':scope}]
         v = immersive.immersive(s)
         if scope == 'workspace':
             out += [row('immersive_all','All desktops 3D','toggle',str(v['global']).lower()),
@@ -83,6 +91,10 @@ def options_rows(control, scope, monitor, category):
             out += [{**row('resolution','Resolution','choice',f"{size['width']}x{size['height']}",choices=[f'{w}x{h}' for w,h in geometry.RESOLUTIONS]), 'scope':scope},
                     {**row('scale','Scale','choice',str(size['scale']),choices=[str(v) for v in geometry.valid_scales(size['width'],size['height'])]),'scope':scope}]
     if category == 'video' and scope == 'workspace':
+        video=getattr(control,'options_video',None)
+        if video is not None:
+            snapshot=video.snapshot()
+            out += [row('video.actual','Playback state','readonly',snapshot['state']),row('video.error','Playback error','readonly',snapshot['error'] or '')]
         for setting in quality.SETTINGS:
             out.append(row('quality_'+setting.key,setting.label,'choice',str(s.video_quality[setting.key]), choices=[str(v) for v,_ in setting.choices]))
     if category == 'session' and scope == 'workspace':
@@ -111,6 +123,23 @@ def options_rows(control, scope, monitor, category):
     return out
 
 
+def owner_callback(control, row_id, monitor, scope):
+    """Only OptionsMenu owns request identity; worker receives an opaque callback."""
+    menu=getattr(control,'options',None)
+    if menu is None or not callable(getattr(menu,'begin_owner',None)): return None
+    token=menu.begin_owner(row_id,monitor,scope)
+    return lambda success,detail: menu.finish_owner(token,success,detail)
+
+
+def video_request(control, op, payload, row_id='video_open', monitor=None, scope='workspace'):
+    video=getattr(control,'options_video',None)
+    if video is None: raise ValueError('video owner unavailable')
+    monitor=monitor or control.state.names[control.state.selected]
+    done=owner_callback(control,row_id,monitor,scope)
+    message={'op':op,'payload':payload}
+    return video.on_message(message,done=done) if done is not None else video.on_message(message)
+
+
 def options_apply(control, row_id, value, monitor, scope):
     """Validate typed input then call the original owner. Raises rather than claiming success.
 
@@ -126,10 +155,18 @@ def options_apply(control, row_id, value, monitor, scope):
     matches = [r for r in rows if r['id']==row_id]
     if not matches: raise ValueError('row unavailable in scope')
     if not matches[0]['enabled']: raise ValueError('owner unavailable or action disabled')
+    if row_id == 'privacy_display':
+        control.privacy.request(done=owner_callback(control,row_id,monitor,scope))
+        return None
+    if row_id.startswith('send_'):
+        control.sender.request(row_id,monitor,done=owner_callback(control,row_id,monitor,scope))
+        return None
     if row_id == 'stop':
         if value != 'confirmed': raise ValueError('Stop confirmation required')
         raise KeyboardInterrupt  # existing managed run unwinds through Stop/recovery
     if row_id == 'layout_reset' and value == 'confirmed':
+        done=owner_callback(control,row_id,monitor,scope)
+        if done is not None: control.options_output_done=done
         out=control.layout_reset() or b''
         if control.reset is None: out += control.layout_reset() or b''
         return out
@@ -168,13 +205,19 @@ def options_apply(control, row_id, value, monitor, scope):
         elif row_id == 'immersive_plane': v['convergence'] = _number(value,0,100)
         elif row_id == 'immersive_strength': v['strength'] = _number(value,0,immersive.STRENGTH_MAX)
         elif row_id == 'immersive_monitor_strength': v.setdefault('strengths',{})[monitor] = _number(value,0,immersive.STRENGTH_MAX)
-        return control.set_immersive(v)
+        done=owner_callback(control,row_id,monitor,scope)
+        out=control.set_immersive(v)
+        run=getattr(control,'immersive_run',None)
+        if done is not None:
+            if run is None: done(False,'3D engine owner unavailable')
+            else: run.request(control._immersive_wanted(),done=done,setting=v)
+        return out
     if row_id == 'quality_deband' and value in ('False','True'):
         value = value == 'True'
     if row_id.startswith('quality_'):
         video = getattr(control,'options_video',None)
         if video is None: raise ValueError('video owner unavailable')
-        return video._set_quality(quality.validate({**s.video_quality,row_id[8:]:value}))
+        return video._set_quality(quality.validate({**s.video_quality,row_id[8:]:value}),done=owner_callback(control,row_id,monitor,scope))
     if row_id in ('resolution','scale','ultrawide','add_monitor','remove_monitor'):
         if control.desktops is None: raise ValueError('desktop owner unavailable')
         if s.desktops_busy: raise ValueError('desktop change pending')
@@ -190,9 +233,14 @@ def options_apply(control, row_id, value, monitor, scope):
         # Existing native placement child owns transaction arming and output readback.
         before = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
         action={'add_monitor':'add','remove_monitor':'remove'}.get(row_id,row_id)
+        done=owner_callback(control,row_id,monitor,scope)
+        if done is not None: control.options_output_done=done
         out=(before or b'') + (control.desktop_action(i,action,**kwargs) or b'')
         if row_id=='remove_monitor' and value=='confirmed' and s.remove_armed:
             out += control.desktop_action(i,action,**kwargs) or b''
+        if done is not None and getattr(control,'options_output_done',None) is done:
+            control.options_output_done=None
+            done(False,'Output transaction did not start')
         return out
     if row_id in ('menu_toggle','menu_reset'):
         out = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
@@ -210,10 +258,10 @@ def options_apply(control, row_id, value, monitor, scope):
         if error: raise ValueError(error)
         video = getattr(control, 'options_video', None)
         if video is None: raise ValueError('video owner unavailable')
-        return video.on_message({'op':'video_open','payload':payload})
+        return video_request(control,'video_open',payload,row_id,monitor,scope)
     if row_id.startswith('video_') or row_id == 'playback_menu_toggle':
         video = getattr(control,'options_video',None)
         if video is None: raise ValueError('video owner unavailable')
-        return video.on_message({'op':row_id,'payload':{}})
+        return video_request(control,row_id,{},row_id,monitor,scope) if row_id in ('video_open','video_pause','video_exit','video_format','video_seek_back','video_seek_fwd','video_seek_back_big','video_seek_fwd_big') else video.on_message({'op':row_id,'payload':{}})
     prefix = control.select_desktop(i) if row_id in MONITOR_ACTIONS else b''
     return (prefix or b'') + (control.on_message({'op':row_id}) or b'')

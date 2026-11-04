@@ -152,6 +152,13 @@ def target_for(op, names, selected, fallback):
     return selected if op == 'send_glasses' else f'XR-{op[-1]}'
 
 
+def complete(done, success, detail=''):
+    """Bounded worker completion, isolated from callback failures."""
+    if done is not None:
+        try: done(bool(success),str(detail).encode('utf-8')[:256].decode('utf-8','ignore'))
+        except Exception: pass
+
+
 class WindowSender:
     """Supervisor side: one op -> at most one window move, on a worker thread, serialized, stoppable before recovery."""
     def __init__(self, client, names, fallback, notify=notify, deadline=2.0):
@@ -166,20 +173,23 @@ class WindowSender:
         """The run's desktops changed (a pill's Add / Remove): later sends go by the new set."""
         self.names = list(names)
 
-    def request(self, op, selected):
+    def request(self, op, selected, done=None):
         """From the supervisor loop: never blocks on the compositor."""
-        if op not in SEND_OPS or self.closed: return
-        t = threading.Thread(target=self._work, args=(op, selected), daemon=True); t.start()
+        if op not in SEND_OPS or self.closed:
+            complete(done,False,'Window sender is closed or request invalid'); return
+        t = threading.Thread(target=self._work, args=(op, selected, done), daemon=True); t.start()
         self._threads = [x for x in self._threads if x.is_alive()] + [t]
 
-    def _work(self, op, selected):
+    def _work(self, op, selected, done=None):
         with self._lock:
-            if self.closed: return  # the run is ending: recovery owns the outputs now
-            try: message = self.move(op, selected)
-            except (OSError, ValueError, TypeError, KeyError, AttributeError): message = 'Could not move the window.'
+            if self.closed:
+                complete(done,False,'Window sender closed'); return
+            try: message = self.move(op, selected, verify=done is not None)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc: message = str(exc) or 'Could not move the window.'
+        complete(done,message is None,message or 'Window target verified')
         if message and self.notify is not None: self.notify(message)
 
-    def move(self, op, selected):
+    def move(self, op, selected, verify=False):
         """Do it now (caller holds the lock). Returns a message for the user, or None if it moved or had nothing to do."""
         target = target_for(op, self.names, selected, self.fallback)
         if op != 'send_back' and target not in self.names: return f'{target} is not part of this session.'
@@ -194,7 +204,10 @@ class WindowSender:
         current = next((m.get('name') for m in monitors if isinstance(m, dict) and type(m.get('id')) is int
                         and m.get('id') == window.get('monitor')), None)
         if op == 'send_back' and current not in self.names: return 'That window is not on the glasses.'
-        if current == target: return None  # already there
+        if current == target:
+            workspace=window.get('workspace',{}).get('id')
+            if verify and (type(workspace) is not int or workspace<=0): return 'Target window is not on a regular workspace'
+            return None  # authoritative activewindow + monitor identity already match
         found = [m for m in monitors if isinstance(m, dict) and m.get('name') == target]
         if len(found) != 1: return f'{target} is not available.'
         active = found[0].get('activeWorkspace')
@@ -202,6 +215,13 @@ class WindowSender:
         if type(workspace) is not int or workspace <= 0: return f'{target} is not showing a regular workspace.'
         reply = self.client.mutate(move_command(address, workspace))
         if reply != 'ok': return 'Hyprland did not move the window.'
+        if verify:
+            clients = self.client.query('clients',timeout=self.deadline)
+            after = self.client.query('monitors',timeout=self.deadline)
+            targets = [m for m in after if isinstance(m,dict) and m.get('name')==target]
+            found = [w for w in clients if isinstance(w,dict) and w.get('address')==address]
+            if len(targets)!=1 or len(found)!=1 or found[0].get('monitor')!=targets[0].get('id') or found[0].get('workspace',{}).get('id')!=workspace or found[0].get('pinned') is not False:
+                return 'Window target/workspace readback mismatch; window remains under compositor authority.'
         self.moves += 1
         return None
 
