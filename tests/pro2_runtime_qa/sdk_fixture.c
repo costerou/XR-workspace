@@ -35,7 +35,7 @@ static void emit(unsigned i, uint64_t origin) {
 static void *produce(void *arg) {
     (void)arg; uint64_t origin=now_ns(); unsigned i=0;
     while(atomic_load(&running)) {
-        if(!is("no_pose") && !(is("stale_after_ready") && i>=5))emit(i++,origin);
+        if(!is("no_pose") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2))emit(i++,origin);
         struct timespec wait={0,16000000}; nanosleep(&wait,NULL);
     }
     return NULL;
