@@ -291,8 +291,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 if on: client.install_video_binds(*bind_args)
                 else: client.remove_video_binds()
         video = VideoControl(control, binds=video_binds, notify=notify_send)
+        control.options_video = video
         yield video
     finally:
+        if control is not None and getattr(control, 'options', None) is not None:
+            control.options.close('stop')
         if desktops is not None: desktops.close()  # no desktop change starts now; one in flight lands before recovery
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this
         if control is not None and control.sender is not None:
