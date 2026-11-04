@@ -1,3 +1,5 @@
+> Release-gate continuation (2026-11-04): Cody approved an app-reachable Restore overlay inside the maximized picture. The original decision request below is historical and resolved. Production geometry now passes 432 actual app-bound descriptor/input cases. A clean ownership-enabled Release build and all110 CTests passed in `build/v4-clean-native/` in the shared preview directory; its FD manifest observed only renderD129. Final deferred-video receipt, same-poll 3D completion, expanded functional acceptance and all-suite combined-head rerun remain in progress. Desktop equivalence stays disabled until those gates pass. No install or live XR changes are authorized or performed.
+
 # B1 + C1 integration status
 
 This branch is **not install-ready and the full migration is not complete**. Implementation, independent acceptance material and all five implementation branches are integrated. No master update, install, live XR control, service action, driver change or compositor hook was performed. The installed renderer was not modified.
