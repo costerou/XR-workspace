@@ -141,6 +141,11 @@ target_compile_features(xr_types INTERFACE cxx_std_20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 enable_testing()
+# Our own VITURE Luma head-tracking driver (spike/driver). The guard lets spike/driver/CMakeLists.txt own bench/ once it exists.
+option(XR_ENABLE_LUMA_DRIVER "Build the Luma driver components and their offline tests" ON)
+if(XR_ENABLE_LUMA_DRIVER AND NOT TARGET xr_luma_rt)
+  add_subdirectory(driver/bench)
+endif()
 add_executable(layout_test tests/layout_test.cpp)
 target_link_libraries(layout_test PRIVATE xr_types)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
