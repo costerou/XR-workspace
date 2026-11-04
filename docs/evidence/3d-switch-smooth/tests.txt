@@ -7,7 +7,7 @@ Offline validation
 3d-suite-probe.log: 62 passed, 153 subtests passed in 1.99s
 3d-suite-stereo_eval.log: 49 passed in 10.20s
 3d-suite-tests.log: 11 passed in 2.62s
-Controller after final changes: 528 passed, 51 subtests passed
+Controller after final changes: 529 passed, 53 subtests passed
 QML: 46 passed
 bind_check: config valid, no clash
 C++ ctest: 91/91 passed; DRI_PRIME=pci-0000_03_00_0, XR_DEPTH_TEST_NODE=/dev/dri/by-path/pci-0000:03:00.0-render; nice -n 19

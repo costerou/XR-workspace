@@ -33,3 +33,33 @@ class ModeSwitchTests(unittest.TestCase):
         signals = run(w, 15, start=20, status=dict(GOOD, immersive={'switching': True}),
                       monitor=dict(MODE, width=2560))
         self.assertIn('video-lost', kinds(signals))
+
+class LiveModeSwitchCases(unittest.TestCase):
+    """Curated from Nov 4's 10:12 enter and 10:27 probable exit reports.
+
+    Reconnect sampling below is synthetic: the reports establish mode and order,
+    not exact time to first new picture. USB stays present in both cases.
+    """
+    def test_enter_then_probable_exit_in_the_same_session(self):
+        from tools.xr_controller.incident_detect import RunWatch
+        from tests.xr_controller.test_incident_detect import CONSENT, RUN, obs
+        w = RunWatch(RUN, CONSENT, 0)
+        signals = run(w, 20)
+        for start, width, hz in ((20, 3840, 60), (60, 1920, 120)):
+            with self.subTest(case='10:12 enter' if width == 3840 else '10:27 probable exit'):
+                before = len(signals)
+                # Renderer dispatch closes first; DP-2 is reported gone one tick later.
+                old_mode = dict(MODE, width=w.mode[0], refresh=w.mode[2])
+                signals += w.observe(obs(start, monitor=old_mode, immersive={'switching': True}))
+                for offset in (1, 2, 3):
+                    signals += w.observe(obs(start + offset, monitor=None, drm='disconnected',
+                        immersive={'switching': True}, status=dict(GOOD, tracking=False),
+                        usb_present=True, driver_alive=True))
+                mode = dict(MODE, width=width, refresh=hz)
+                for offset in range(4, 12):
+                    signals += w.observe(obs(start + offset, monitor=mode, immersive={'switching': False}))
+                self.assertNotIn('video-lost', kinds(signals[before:]))
+                self.assertNotIn('usb-drop', kinds(signals[before:]))
+                self.assertEqual(w.mode, (width, 1200, hz))
+                signals += run(w, 28, start=start + 12, monitor=mode)
+        self.assertEqual(getattr(w, 'mode_switches', 0), 2)

@@ -27,3 +27,20 @@ toast when the glasses become wide. It does not start the AI engine. This is
 the conservative choice because R1 can also be intended for SBS video.
 
 No installation or hardware/session manipulation was performed.
+
+Additional live case: 20261104T152823Z-video-lost.json, probable 3D exit.
+The renderer dispatch closed at 10:27:53 ET; DRM reported DP-2 disconnected
+at 10:27:54. It returned at 1920x1200@120 and the session survived. The report
+also contains a tracking-lost signal at 10:27:57; the driver statistics show
+no USB disconnect/reconnect. This supplements the enter case at 10:12
+(1920x1200@120 -> 3840x1200@60).
+
+`LiveModeSwitchCases` replays both directions on one continuously observed
+session, with the renderer-close-before-DRM ordering, USB/driver remaining
+present and three synthetic ticks with tracking unavailable. Both mode
+changes must update the expected mode without a video-lost/usb-drop signal.
+The precise reconnect ticks are synthetic, not a claimed live gap measurement.
+The original incident did not record the 3D click, so “exit” remains probable;
+the regression supplies the pending-switch intent explicitly. Independent
+tracking-log signals remain active, as documented above.
+The case fails against 00c2328 (live-cases-red.txt) and passes on this branch.
