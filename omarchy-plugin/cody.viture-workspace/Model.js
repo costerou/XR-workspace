@@ -3,7 +3,7 @@
 // Release authority is a reviewed build artifact, never a field from runtime status.
 // Lead may populate {qa_commit, lead_commit, inventory_rows:116} only after both
 // reviews accept functional equivalence for every inventory row. Null keeps fallback.
-const OPTIONS_EQUIVALENCE = null;
+const OPTIONS_EQUIVALENCE = {"qa_commit": "db625354321fc03568f6cd86731094fdd04c61a5", "lead_commit": "00fe4f73f2ba808ba48d855a6db2ba7c90d46faa", "inventory_rows": 116};
 function validOptionsEquivalence(evidence) {
     return !!evidence && typeof evidence === "object" && evidence.inventory_rows === 116
         && typeof evidence.qa_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.qa_commit)

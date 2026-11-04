@@ -1456,7 +1456,7 @@ class ViewControl:
         return frame
 
     def status_reply(self, status):
-        reply = dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
+        reply = dict(capabilities=[*USER_OPS, "options_runtime_complete"], view=self.state.view(), status=dict(status),
                      placements=self.state.wanted_placements(), names=list(self.state.names), immersive=self._immersive_status())
         if self.desktops is not None: reply['desktops'] = self.desktops.desktops()  # live sizes (Ultrawide, Add)
         return reply
