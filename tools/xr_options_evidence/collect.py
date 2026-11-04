@@ -50,7 +50,7 @@ def main(argv=None):
     parser.add_argument('--artifact', action='append', default=[], type=Path)
     args = parser.parse_args(argv)
     args.output.mkdir(parents=True, exist_ok=False)
-    env = dict(os.environ, PYTHONPATH=str(ROOT)+os.pathsep+str(ROOT/'tests/native_spike'))
+    env = dict(os.environ, PYTHONPATH=str(ROOT)+os.pathsep+str(ROOT/'tests/native_spike')+os.pathsep+str(ROOT/'tests/xr_options_integration'))
     if args.decoder:
         env['CONTROL_WIRE_CHECK'] = str(args.decoder.resolve(strict=True))
     records = []

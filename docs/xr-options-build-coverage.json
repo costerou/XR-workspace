@@ -18,7 +18,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -32,7 +32,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[zoom_in]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+          "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "zoom_out",
@@ -48,7 +59,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -62,7 +73,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[zoom_out]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+          "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "prev",
@@ -78,7 +100,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -91,7 +113,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[prev]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+          "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "next",
@@ -107,7 +140,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -120,7 +153,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[next]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+          "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+          "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "spacing_down",
@@ -136,7 +180,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -149,7 +193,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[spacing_down]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "spacing_up",
@@ -165,7 +218,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -178,7 +231,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[spacing_up]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "recenter",
@@ -194,7 +256,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -207,7 +269,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[recenter]",
+        "owner_tests": [
+          "tests/native_spike/test_tracking.py::RecenterTests::test_recenter_op_sends_recenter_frame_without_view_change"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "layout_reset",
@@ -223,7 +294,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. Two presses within 3 seconds; refuse during video/busy; backup previous_setup; preserve window memory.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -236,7 +307,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[layout_reset]",
+        "owner_tests": [
+          "tests/native_spike/test_layout_reset.py::ResetTests::test_four_custom_desktops_ease_then_become_the_default_three",
+          "tests/native_spike/test_layout_reset.py::ResetTests::test_a_failed_step_says_so_and_saves_what_is_there",
+          "tests/native_spike/test_layout_reset.py::ResetTests::test_a_run_ending_mid_reset_saves_the_default"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "mode_next",
@@ -252,7 +334,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -265,7 +347,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_next]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "prediction",
@@ -281,7 +373,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -294,7 +386,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[prediction]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_prediction_toggles_reaches_renderer_and_is_saved"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "typing_toggle",
@@ -310,7 +411,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -324,7 +425,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[typing_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_typing_mode.py::ControlTests::test_toggle_swaps_the_binds_and_tells_the_renderer",
+          "tests/native_spike/test_typing_mode.py::ControlTests::test_a_failed_swap_is_retried_by_the_next_toggle",
+          "tests/native_spike/test_typing_mode.py::ControlTests::test_run_end_stops_further_swaps"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "privacy_display",
@@ -340,7 +452,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. DPMS fallback must wake on stop/recovery and stale helper.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -353,7 +465,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[privacy_display]",
+        "owner_tests": [
+          "tests/native_spike/test_privacy.py::ToggleTests::test_toggle_blanks_then_restores_the_main_display",
+          "tests/native_spike/test_privacy.py::ToggleTests::test_refusals",
+          "tests/native_spike/test_privacy.py::GuardAndRecoveryTests::test_crash_recovery_wakes_the_fallback_before_its_physical_check"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "environment_toggle",
@@ -369,7 +492,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -382,7 +505,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[environment_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_toggle",
@@ -398,7 +532,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -412,7 +546,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: immersive_toggle"
+      "implementation_route": "existing pointer owner: immersive_toggle",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+          "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+          "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "menu_toggle",
@@ -428,7 +573,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -442,7 +587,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuOpenCloseTests::test_toggle_opens_then_closes_with_full_payload",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_open",
@@ -458,7 +613,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -472,7 +627,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_open]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+          "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+          "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_paste",
@@ -488,7 +654,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -502,7 +668,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_paste]",
+        "owner_tests": [
+          "tests/native_spike/test_web_video.py::FormatAndSourceTests::test_clipboard",
+          "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
+        ],
+        "exception": "Native clipboard video route"
+      }
     },
     {
       "id": "playback_menu_toggle",
@@ -518,7 +694,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -531,7 +707,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[playback_menu_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast",
+          "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
+        ],
+        "exception": "Retained native video controls"
+      }
     },
     {
       "id": "help",
@@ -547,7 +733,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -560,7 +746,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help]",
+        "owner_tests": [
+          "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+          "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+          "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "binds_toggle",
@@ -576,7 +773,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -590,7 +787,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[binds_toggle]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_enter_then_new_keys_rebinds_live_and_saves",
+          "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
+        ],
+        "exception": "Native keybind child; v4 modal handoff separately gated"
+      }
     },
     {
       "id": "help_prev",
@@ -606,7 +813,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -619,7 +826,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help_prev]",
+        "owner_tests": [
+          "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+          "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+          "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "help_next",
@@ -635,7 +853,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -648,7 +866,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[help_next]",
+        "owner_tests": [
+          "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+          "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+          "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_glasses",
@@ -664,7 +893,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -677,7 +906,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_g_sends_to_the_selected_desktop_and_focus_follows",
+          "tests/native_spike/test_send_window.py::MoveTests::test_hyprland_refusing_the_move_is_reported",
+          "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_glasses_1",
@@ -693,7 +933,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -706,7 +946,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_1]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+          "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+          "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_glasses_2",
@@ -722,7 +973,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -735,7 +986,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_2]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+          "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+          "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_glasses_3",
@@ -751,7 +1013,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -764,7 +1026,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_3]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+          "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+          "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_glasses_4",
@@ -780,7 +1053,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -793,7 +1066,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_glasses_4]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+          "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+          "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "send_back",
@@ -809,7 +1093,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -822,7 +1106,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[send_back]",
+        "owner_tests": [
+          "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_b_sends_an_xr_window_back_to_the_fallback",
+          "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_b_without_a_fallback",
+          "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "menu_field_prev",
@@ -838,7 +1133,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -852,7 +1147,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_field_prev]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_field_next_and_prev_wrap_in_contract_order",
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_field_next",
@@ -868,7 +1173,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -882,7 +1187,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_field_next]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_field_next_and_prev_wrap_in_contract_order",
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_dec",
@@ -898,7 +1213,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -912,7 +1227,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_dec]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_inc",
@@ -928,7 +1254,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -942,7 +1268,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_inc]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_dec_big",
@@ -958,7 +1295,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -972,7 +1309,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_dec_big]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_inc_big",
@@ -988,7 +1336,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1002,7 +1350,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_inc_big]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_desktop_next",
@@ -1018,7 +1377,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1032,7 +1391,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_desktop_next]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_desktop_next_and_prev_wrap",
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_desktop_prev",
@@ -1048,7 +1417,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1062,7 +1431,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_desktop_prev]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_desktop_next_and_prev_wrap",
+          "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+        ],
+        "exception": "Preserved placement child keyboard"
+      }
     },
     {
       "id": "menu_reset",
@@ -1078,7 +1457,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1092,7 +1471,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_reset]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_reset_restores_flat_default_for_the_selected_desktop_only",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "menu_back",
@@ -1108,7 +1497,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1122,7 +1511,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_back]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuOpenCloseTests::test_toggle_opens_then_closes_with_full_payload",
+          "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
+        ],
+        "exception": "Preserved placement child close"
+      }
     },
     {
       "id": "menu_ultrawide",
@@ -1138,7 +1537,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1152,7 +1551,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_ultrawide]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_ultrawide_end_to_end",
+          "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "menu_add",
@@ -1168,7 +1577,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1182,7 +1591,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_add]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_add_moves_the_panel_to_the_new_desktop",
+          "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "menu_delete",
@@ -1198,7 +1617,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1212,7 +1631,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing placement child -> ViewControl._on_menu"
+      "implementation_route": "existing placement child -> ViewControl._on_menu",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[menu_delete]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_remove_asks_twice_and_lets_go_of_the_capture_first",
+          "tests/native_spike/test_desktops.py::ControlTests::test_a_refused_removal_puts_the_desktop_back",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_pause",
@@ -1228,7 +1658,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1242,7 +1672,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_pause]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_seek_back",
@@ -1258,7 +1698,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1272,7 +1712,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_back]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_seek_fwd",
@@ -1288,7 +1738,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1302,7 +1752,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_fwd]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_seek_back_big",
@@ -1318,7 +1778,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1332,7 +1792,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_back_big]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_seek_fwd_big",
@@ -1348,7 +1818,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1362,7 +1832,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_seek_fwd_big]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_format",
@@ -1378,7 +1858,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1392,7 +1872,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_format]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_up",
@@ -1408,7 +1898,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1422,7 +1912,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing VideoControl._on_video"
+      "implementation_route": "existing VideoControl._on_video",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_up]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_down",
@@ -1438,7 +1938,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1452,7 +1952,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing VideoControl._on_video"
+      "implementation_route": "existing VideoControl._on_video",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_down]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls while playing"
+      }
     },
     {
       "id": "video_exit",
@@ -1468,7 +1978,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1482,7 +1992,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_exit]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_exit_returns_to_the_desktops",
+          "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+        ],
+        "exception": "Retained native video controls"
+      }
     },
     {
       "id": "video_quality",
@@ -1498,7 +2018,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1512,7 +2032,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_quality]",
+        "owner_tests": [
+          "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+          "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+          "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+        ],
+        "exception": "Retained native video quality editor; actual renderer readback separately gated"
+      }
     },
     {
       "id": "video_controls",
@@ -1528,7 +2059,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1542,7 +2073,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_controls]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast",
+          "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
+        ],
+        "exception": "Retained native video controls"
+      }
     },
     {
       "id": "stabilization",
@@ -1558,7 +2099,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1571,7 +2112,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[stabilization]",
+        "owner_tests": [
+          "tests/native_spike/test_stabilization.py::test_default_light_and_live_persistence",
+          "tests/native_spike/test_stabilization.py::test_legacy_profile_defaults_and_custom_strength_roundtrip"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_all",
@@ -1587,7 +2138,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1601,7 +2152,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_all]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+          "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+          "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_monitor",
@@ -1617,7 +2179,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1631,7 +2193,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_monitor]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+          "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+          "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_preset",
@@ -1647,7 +2220,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1661,7 +2234,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_preset]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+          "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+          "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_strength_presets",
@@ -1677,7 +2261,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1691,7 +2275,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_strength_presets]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+          "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+          "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_strength",
@@ -1707,7 +2302,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1721,7 +2316,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_strength]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+          "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+          "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_monitor_strength",
@@ -1737,7 +2343,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1751,7 +2357,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_monitor_strength]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive_strength.py::DesktopStrengthTests::test_roundtrip",
+          "tests/native_spike/test_immersive_strength.py::DesktopStrengthTests::test_bad_strength_is_rejected"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "immersive_plane",
@@ -1767,7 +2383,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1781,7 +2397,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_plane]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+          "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+          "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_x",
@@ -1797,7 +2424,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1811,7 +2438,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_x]",
+        "owner_tests": [
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_y",
@@ -1827,7 +2465,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1841,7 +2479,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_y]",
+        "owner_tests": [
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_distance",
@@ -1857,7 +2506,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1871,7 +2520,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_distance]",
+        "owner_tests": [
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_curvature",
@@ -1887,7 +2547,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1901,7 +2561,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_curvature]",
+        "owner_tests": [
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_apply",
@@ -1917,7 +2588,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1931,7 +2602,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_apply]",
+        "owner_tests": [
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+          "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "placement_flat",
@@ -1947,7 +2629,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1961,7 +2643,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[placement_flat]",
+        "owner_tests": [
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_reset_restores_flat_default_for_the_selected_desktop_only",
+          "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "mode_follow",
@@ -1977,7 +2669,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1991,7 +2683,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_follow]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "mode_locked",
@@ -2007,7 +2709,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2021,7 +2723,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_locked]",
+        "owner_tests": [
+          "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_browse",
@@ -2037,7 +2749,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2051,7 +2763,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_browse]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+          "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+          "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_play",
@@ -2067,7 +2790,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2081,7 +2804,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_play]",
+        "owner_tests": [
+          "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+          "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+          "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "video_paste_ui",
@@ -2097,7 +2831,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2111,7 +2845,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[video_paste_ui]",
+        "owner_tests": [
+          "tests/native_spike/test_web_video.py::FormatAndSourceTests::test_clipboard",
+          "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
+        ],
+        "exception": "Native clipboard video route"
+      }
     },
     {
       "id": "resolution",
@@ -2127,7 +2871,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2140,7 +2884,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: desktops RESOLUTION"
+      "implementation_route": "existing pointer owner: desktops RESOLUTION",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resolution]",
+        "owner_tests": [
+          "tests/native_spike/test_resolution_dropdown.py::ControlTests::test_pick_a_resolution_end_to_end_live_in_place_and_saved",
+          "tests/native_spike/test_resolution_dropdown.py::ControlTests::test_a_refused_reshape_is_told_and_the_panel_comes_back",
+          "tests/native_spike/test_resolution_dropdown.py::PointerTests::test_presses_reach_the_control"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "scale",
@@ -2156,7 +2911,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2169,7 +2924,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: desktops SCALE"
+      "implementation_route": "existing pointer owner: desktops SCALE",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[scale]",
+        "owner_tests": [
+          "tests/native_spike/test_scale_dropdown.py::ControlTests::test_pick_a_scale_end_to_end_live_and_saved",
+          "tests/native_spike/test_scale_dropdown.py::ControlTests::test_the_current_step_or_a_dimmed_one_changes_nothing",
+          "tests/native_spike/test_scale_dropdown.py::PointerTests::test_presses_reach_the_control"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "ultrawide",
@@ -2185,7 +2951,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2198,7 +2964,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[ultrawide]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_ultrawide_end_to_end",
+          "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "add_monitor",
@@ -2214,7 +2990,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2227,7 +3003,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[add_monitor]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_add_moves_the_panel_to_the_new_desktop",
+          "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "remove_monitor",
@@ -2243,7 +3029,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2256,7 +3042,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[remove_monitor]",
+        "owner_tests": [
+          "tests/native_spike/test_desktops.py::ControlTests::test_remove_asks_twice_and_lets_go_of_the_capture_first",
+          "tests/native_spike/test_desktops.py::ControlTests::test_a_refused_removal_puts_the_desktop_back",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "background",
@@ -2272,7 +3069,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2285,7 +3082,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background]",
+        "owner_tests": [
+          "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "background_brightness",
@@ -2301,7 +3109,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2314,7 +3122,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background_brightness]",
+        "owner_tests": [
+          "tests/native_spike/test_environment.py::PanelTests::test_the_slider_applies_live_and_saves_after_a_pause",
+          "tests/native_spike/test_environment.py::PanelTests::test_with_none_the_slider_does_nothing",
+          "tests/native_spike/test_environment.py::PanelTests::test_a_release_saves_at_once"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "roll_ccw",
@@ -2330,7 +3149,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2344,7 +3163,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_ccw]",
+        "owner_tests": [
+          "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+          "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+        ],
+        "exception": "Preserved native top level bar"
+      }
     },
     {
       "id": "roll_level",
@@ -2360,7 +3190,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2374,7 +3204,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_level]",
+        "owner_tests": [
+          "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+          "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+        ],
+        "exception": "Preserved native top level bar"
+      }
     },
     {
       "id": "roll_cw",
@@ -2390,7 +3231,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2404,7 +3245,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[roll_cw]",
+        "owner_tests": [
+          "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+          "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+          "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+        ],
+        "exception": "Preserved native top level bar"
+      }
     },
     {
       "id": "drag_move",
@@ -2420,7 +3272,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2434,7 +3286,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: placement + placement_menu.surface"
+      "implementation_route": "existing pointer owner: placement + placement_menu.surface",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[drag_move]",
+        "owner_tests": [
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_the_pill_moves_the_desktop_live_and_saves_on_release",
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+        ],
+        "exception": "Preserved pill gesture"
+      }
     },
     {
       "id": "drag_resize",
@@ -2450,7 +3312,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2464,7 +3326,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: placement distance"
+      "implementation_route": "existing pointer owner: placement distance",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[drag_resize]",
+        "owner_tests": [
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+          "tests/native_spike/test_free_pointer.py::GateTests::test_off_in_typing_mode_and_a_drag_is_saved"
+        ],
+        "exception": "Preserved corner/edge gesture"
+      }
     },
     {
       "id": "quality_filter",
@@ -2480,7 +3352,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2494,7 +3366,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[quality_filter]",
+        "owner_tests": [
+          "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+          "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+          "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+        ],
+        "exception": "Retained native video quality editor; actual renderer readback separately gated"
+      }
     },
     {
       "id": "quality_deband",
@@ -2510,7 +3393,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2524,7 +3407,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[quality_deband]",
+        "owner_tests": [
+          "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+          "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+          "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+        ],
+        "exception": "Retained native video quality editor; actual renderer readback separately gated"
+      }
     },
     {
       "id": "bind_change",
@@ -2540,7 +3434,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2554,7 +3448,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "NativeEditors keybinds -> BindControl.key"
+      "implementation_route": "NativeEditors keybinds -> BindControl.key",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_change]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_enter_then_new_keys_rebinds_live_and_saves",
+          "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
+        ],
+        "exception": "Native keybind child; v4 modal handoff separately gated"
+      }
     },
     {
       "id": "bind_reset",
@@ -2570,7 +3474,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2584,7 +3488,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "NativeEditors keybinds -> BindControl.key"
+      "implementation_route": "NativeEditors keybinds -> BindControl.key",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_reset]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_r_resets_one_and_shift_r_twice_resets_all",
+          "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
+        ],
+        "exception": "Native keybind child"
+      }
     },
     {
       "id": "bind_reset_all",
@@ -2600,7 +3514,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2614,7 +3528,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "NativeEditors keybinds -> BindControl.key"
+      "implementation_route": "NativeEditors keybinds -> BindControl.key",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_reset_all]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_r_resets_one_and_shift_r_twice_resets_all",
+          "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
+        ],
+        "exception": "Native keybind child"
+      }
     },
     {
       "id": "bind_cancel",
@@ -2630,7 +3554,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2644,7 +3568,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "NativeEditors keybinds -> BindControl.key"
+      "implementation_route": "NativeEditors keybinds -> BindControl.key",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_cancel]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_escape_cancels_a_change_and_then_closes_the_panel",
+          "tests/native_spike/test_keybinds.py::PanelTests::test_a_change_waits_only_so_long_and_the_panel_closes_when_idle"
+        ],
+        "exception": "Native keybind child"
+      }
     },
     {
       "id": "bind_navigation",
@@ -2660,7 +3594,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2674,7 +3608,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "NativeEditors keybinds -> BindControl.key"
+      "implementation_route": "NativeEditors keybinds -> BindControl.key",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[bind_navigation]",
+        "owner_tests": [
+          "tests/native_spike/test_keybinds.py::PanelTests::test_up_down_page_home_end_pick_a_row"
+        ],
+        "exception": "Native keybind child"
+      }
     },
     {
       "id": "fallback",
@@ -2690,7 +3633,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2701,7 +3644,17 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[fallback]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_changed_fallback_invalidates_scope",
+          "tests/xr_controller/test_state.py::StateTests::test_snapshot_exposes_fallback_choices_and_pending_scope"
+        ],
+        "exception": "Pre-start only"
+      }
     },
     {
       "id": "tracking",
@@ -2717,7 +3670,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2729,7 +3682,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[tracking]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_driver_choice_is_locked_while_running_and_validated",
+          "tests/xr_controller/test_state.py::StateTests::test_tracking_start_failures_reach_the_panel_word_for_word",
+          "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
+        ],
+        "exception": "Pre-start only"
+      }
     },
     {
       "id": "tracking_driver",
@@ -2745,7 +3709,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2757,7 +3721,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[tracking_driver]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_driver_choice_is_locked_while_running_and_validated",
+          "tests/xr_controller/test_state.py::StateTests::test_tracking_start_failures_reach_the_panel_word_for_word",
+          "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
+        ],
+        "exception": "Pre-start only"
+      }
     },
     {
       "id": "mode_switch",
@@ -2773,7 +3748,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2784,7 +3759,17 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[mode_switch]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_optional_can_only_reduce_scope",
+          "tests/xr_controller/test_runner.py::RunnerTests::test_no_mode_switch_when_false"
+        ],
+        "exception": "Pre-start consent only"
+      }
     },
     {
       "id": "startup_desktops",
@@ -2800,7 +3785,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2811,7 +3796,17 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[startup_desktops]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_start_scope_restores_the_saved_desktops",
+          "tests/xr_controller/test_state.py::StateTests::test_start_scope_falls_back_to_three_flat_desktops_with_the_reason_logged"
+        ],
+        "exception": "Pre-start only"
+      }
     },
     {
       "id": "stop",
@@ -2827,7 +3822,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2841,7 +3836,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[stop]",
+        "owner_tests": [
+          "tests/xr_controller/test_service.py::ServiceTests::test_stop_uses_main_sigint_for_teardown",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_crash_after_prepare_before_confirm"
+        ],
+        "exception": "External safety Stop plus native confirmation"
+      }
     },
     {
       "id": "recover",
@@ -2857,7 +3862,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2869,7 +3874,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[recover]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_recover_requires_confirm",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
+        ],
+        "exception": "External recovery-only safety path"
+      }
     },
     {
       "id": "start",
@@ -2885,7 +3901,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2896,7 +3912,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[start]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_no_start_without_confirm",
+          "tests/xr_controller/test_state.py::StateTests::test_confirm_writes_consent_matching_scope",
+          "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
+        ],
+        "exception": "Pre-start consent only"
+      }
     },
     {
       "id": "confirm_start",
@@ -2912,7 +3939,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2923,7 +3950,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[confirm_start]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_no_start_without_confirm",
+          "tests/xr_controller/test_state.py::StateTests::test_confirm_writes_consent_matching_scope",
+          "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
+        ],
+        "exception": "Pre-start consent only"
+      }
     },
     {
       "id": "confirm_recover",
@@ -2939,7 +3977,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2950,7 +3988,18 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[confirm_recover]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_recover_requires_confirm",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources",
+          "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
+        ],
+        "exception": "External recovery-only safety path"
+      }
     },
     {
       "id": "cancel",
@@ -2966,7 +4015,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2977,7 +4026,17 @@
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[cancel]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_unplug_cancels_confirmation",
+          "tests/xr_controller/test_state.py::StateTests::test_tracking_startup_reports_progress_and_can_be_cancelled"
+        ],
+        "exception": "External confirmation cancellation"
+      }
     },
     {
       "id": "status",
@@ -2993,7 +4052,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3006,7 +4065,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[status]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_snapshot_includes_only_reported_status",
+          "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
+        ],
+        "exception": "External measured status"
+      }
     },
     {
       "id": "controller_restart",
@@ -3022,7 +4091,7 @@
       "safety_dependency": "Only shown disconnected; restart controller service is not restart renderer and not a substitute for recovery.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3036,7 +4105,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[controller_restart]",
+        "owner_tests": [
+          "tests/xr_controller/test_state.py::StateTests::test_rediscovers_live_run",
+          "tests/xr_controller/test_state.py::StateTests::test_live_unit_without_journal_blocks_second_start"
+        ],
+        "exception": "External controller fault; rediscovery tested without restarting service"
+      }
     },
     {
       "id": "close_external",
@@ -3052,7 +4131,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3065,7 +4144,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[close_external]",
+        "owner_tests": [
+          "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
+        ],
+        "exception": "External shell dismissal; transport disconnect tested, QML dismiss gesture unverified"
+      }
     },
     {
       "id": "immersive_connected_tail",
@@ -3081,7 +4169,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3095,7 +4183,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: immersive_click / immersive_tail_click"
+      "implementation_route": "existing pointer owner: immersive_click / immersive_tail_click",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[immersive_connected_tail]",
+        "owner_tests": [
+          "tests/native_spike/test_immersive.py::ButtonTests::test_a_press_turns_that_desktop_on_and_off",
+          "tests/native_spike/test_immersive.py::ButtonTests::test_a_press_on_the_tail_is_every_desktop",
+          "tests/native_spike/test_immersive.py::ButtonTests::test_a_stale_click_does_nothing"
+        ],
+        "exception": "Preserved Connected Tail gesture"
+      }
     },
     {
       "id": "select_pointer",
@@ -3111,7 +4210,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3124,7 +4223,16 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: select_desktop"
+      "implementation_route": "existing pointer owner: select_desktop",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[select_pointer]",
+        "owner_tests": [
+          "tests/native_spike/test_full_interaction.py::FocusAndKeyboardTests::test_the_selected_desktop_follows_the_dot_for_the_keys_that_act_on_it"
+        ],
+        "exception": "Preserved app-content pointer"
+      }
     },
     {
       "id": "edge_pan",
@@ -3140,7 +4248,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3153,7 +4261,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: edge_pan + switch_desktop"
+      "implementation_route": "existing pointer owner: edge_pan + switch_desktop",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[edge_pan]",
+        "owner_tests": [
+          "tests/native_spike/test_edge_pan.py::PushTests::test_reaching_the_target_switches_with_the_entry_point",
+          "tests/native_spike/test_edge_pan.py::TriggerTests::test_a_refused_landing_sends_the_view_home",
+          "tests/native_spike/test_edge_pan.py::SamplerTests::test_back_to_the_overview_mid_pan_ends_it"
+        ],
+        "exception": "Preserved edge-pan gesture"
+      }
     },
     {
       "id": "background_switch",
@@ -3169,7 +4288,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3182,7 +4301,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply"
+      "implementation_route": "options_apply",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[background_switch]",
+        "owner_tests": [
+          "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+          "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+        ],
+        "exception": null
+      }
     },
     {
       "id": "profile_remember",
@@ -3198,7 +4328,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3211,7 +4341,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing ViewControl.save_setup / profiles"
+      "implementation_route": "existing ViewControl.save_setup / profiles",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[profile_remember]",
+        "owner_tests": [
+          "tests/native_spike/test_remember_setup.py::RunRestoreTests::test_a_run_restores_placements_and_rolls_and_saves_its_setup_at_the_end",
+          "tests/native_spike/test_remember_setup.py::LoadSetupTests::test_an_unusable_save_falls_back_whole_with_the_reason"
+        ],
+        "exception": "Automatic per-model persistence"
+      }
     },
     {
       "id": "plugin_restart",
@@ -3227,7 +4367,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3241,7 +4381,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing controller/plugin (external or pre-start)"
+      "implementation_route": "existing controller/plugin (external or pre-start)",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[plugin_restart]",
+        "owner_tests": [
+          "tests/xr_controller/test_runner.py::RunnerTests::test_unload_readback_failure_is_reported",
+          "tests/xr_controller/test_runner.py::RunnerTests::test_does_not_unload_foreign_plugin"
+        ],
+        "exception": "External shell fault; shell restart gesture unverified, no live restart authorized"
+      }
     },
     {
       "id": "resize_press",
@@ -3257,7 +4407,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3271,7 +4421,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: resize_press"
+      "implementation_route": "existing pointer owner: resize_press",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_press]",
+        "owner_tests": [
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+        ],
+        "exception": "Preserved capture protocol"
+      }
     },
     {
       "id": "resize_release",
@@ -3287,7 +4447,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3301,7 +4461,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: resize_release"
+      "implementation_route": "existing pointer owner: resize_release",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_release]",
+        "owner_tests": [
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+        ],
+        "exception": "Preserved capture protocol"
+      }
     },
     {
       "id": "resize_cancel",
@@ -3317,7 +4487,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3331,7 +4501,17 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: resize_cancel"
+      "implementation_route": "existing pointer owner: resize_cancel",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[resize_cancel]",
+        "owner_tests": [
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+          "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+        ],
+        "exception": "Preserved capture protocol"
+      }
     },
     {
       "id": "super_left_press",
@@ -3347,7 +4527,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3361,7 +4541,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: super_left_press"
+      "implementation_route": "existing pointer owner: super_left_press",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_left_press]",
+        "owner_tests": [
+          "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+          "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+          "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+        ],
+        "exception": "Preserved Super gesture"
+      }
     },
     {
       "id": "super_right_press",
@@ -3377,7 +4568,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3391,7 +4582,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: super_right_press"
+      "implementation_route": "existing pointer owner: super_right_press",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_right_press]",
+        "owner_tests": [
+          "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+          "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+          "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+        ],
+        "exception": "Preserved Super gesture"
+      }
     },
     {
       "id": "super_release",
@@ -3407,7 +4609,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
+      "limitation": "Executed owner/preserved scenario is partial proof; C1 ingress, native receipts, owner failure/readback and cleanup release gates must independently pass",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3421,7 +4623,18 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "existing pointer owner: super_release"
+      "implementation_route": "existing pointer owner: super_release",
+      "functional_owner_evidence": {
+        "status": "passed",
+        "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
+        "scenario": "tests/xr_options_integration/test_functional_routes.py::test_functional_preserved_route[super_release]",
+        "owner_tests": [
+          "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+          "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+          "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+        ],
+        "exception": "Preserved Super gesture"
+      }
     }
   ],
   "gates": [

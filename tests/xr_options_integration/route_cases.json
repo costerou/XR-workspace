@@ -1,0 +1,867 @@
+{
+  "zoom_in": {
+    "tests": [
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+      "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+    ],
+    "exception": null
+  },
+  "zoom_out": {
+    "tests": [
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+      "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+    ],
+    "exception": null
+  },
+  "prev": {
+    "tests": [
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+      "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+    ],
+    "exception": null
+  },
+  "next": {
+    "tests": [
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_every_desktop_of_every_run_maximizes_with_focus_on_it",
+      "tests/native_spike/test_view.py::EveryDesktopMaximizesTests::test_selection_stays_on_its_desktop_when_the_numbers_change",
+      "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
+    ],
+    "exception": null
+  },
+  "spacing_down": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
+    ],
+    "exception": null
+  },
+  "spacing_up": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
+    ],
+    "exception": null
+  },
+  "recenter": {
+    "tests": [
+      "tests/native_spike/test_tracking.py::RecenterTests::test_recenter_op_sends_recenter_frame_without_view_change"
+    ],
+    "exception": null
+  },
+  "mode_next": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+    ],
+    "exception": null
+  },
+  "mode_follow": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+    ],
+    "exception": null
+  },
+  "mode_locked": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_maximized_mode_toggles_and_is_never_saved",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
+    ],
+    "exception": null
+  },
+  "prediction": {
+    "tests": [
+      "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_prediction_toggles_reaches_renderer_and_is_saved"
+    ],
+    "exception": null
+  },
+  "typing_toggle": {
+    "tests": [
+      "tests/native_spike/test_typing_mode.py::ControlTests::test_toggle_swaps_the_binds_and_tells_the_renderer",
+      "tests/native_spike/test_typing_mode.py::ControlTests::test_a_failed_swap_is_retried_by_the_next_toggle",
+      "tests/native_spike/test_typing_mode.py::ControlTests::test_run_end_stops_further_swaps"
+    ],
+    "exception": null
+  },
+  "layout_reset": {
+    "tests": [
+      "tests/native_spike/test_layout_reset.py::ResetTests::test_four_custom_desktops_ease_then_become_the_default_three",
+      "tests/native_spike/test_layout_reset.py::ResetTests::test_a_failed_step_says_so_and_saves_what_is_there",
+      "tests/native_spike/test_layout_reset.py::ResetTests::test_a_run_ending_mid_reset_saves_the_default"
+    ],
+    "exception": null
+  },
+  "privacy_display": {
+    "tests": [
+      "tests/native_spike/test_privacy.py::ToggleTests::test_toggle_blanks_then_restores_the_main_display",
+      "tests/native_spike/test_privacy.py::ToggleTests::test_refusals",
+      "tests/native_spike/test_privacy.py::GuardAndRecoveryTests::test_crash_recovery_wakes_the_fallback_before_its_physical_check"
+    ],
+    "exception": null
+  },
+  "background": {
+    "tests": [
+      "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+    ],
+    "exception": null
+  },
+  "background_switch": {
+    "tests": [
+      "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+    ],
+    "exception": null
+  },
+  "environment_toggle": {
+    "tests": [
+      "tests/native_spike/test_environment.py::ControlTests::test_toggle_fades_and_saves",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_failed_save_keeps_the_run_going",
+      "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
+    ],
+    "exception": null
+  },
+  "background_brightness": {
+    "tests": [
+      "tests/native_spike/test_environment.py::PanelTests::test_the_slider_applies_live_and_saves_after_a_pause",
+      "tests/native_spike/test_environment.py::PanelTests::test_with_none_the_slider_does_nothing",
+      "tests/native_spike/test_environment.py::PanelTests::test_a_release_saves_at_once"
+    ],
+    "exception": null
+  },
+  "immersive_toggle": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+      "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+      "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+    ],
+    "exception": null
+  },
+  "immersive_all": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+      "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+      "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+    ],
+    "exception": null
+  },
+  "immersive_monitor": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::ViewTests::test_two_desktops_keep_one_engine_and_the_last_one_stops_it",
+      "tests/native_spike/test_immersive.py::ViewTests::test_the_engine_failing_falls_back_with_a_toast_and_keeps_the_saved_setting",
+      "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
+    ],
+    "exception": null
+  },
+  "immersive_preset": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+      "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+      "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+    ],
+    "exception": null
+  },
+  "immersive_strength_presets": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+      "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+      "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+    ],
+    "exception": null
+  },
+  "immersive_strength": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+      "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+      "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+    ],
+    "exception": null
+  },
+  "immersive_plane": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::LookTests::test_changing_the_look_goes_at_once",
+      "tests/native_spike/test_immersive.py::LookTests::test_bad_values_fall_back_one_at_a_time",
+      "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
+    ],
+    "exception": null
+  },
+  "immersive_monitor_strength": {
+    "tests": [
+      "tests/native_spike/test_immersive_strength.py::DesktopStrengthTests::test_roundtrip",
+      "tests/native_spike/test_immersive_strength.py::DesktopStrengthTests::test_bad_strength_is_rejected"
+    ],
+    "exception": null
+  },
+  "immersive_connected_tail": {
+    "tests": [
+      "tests/native_spike/test_immersive.py::ButtonTests::test_a_press_turns_that_desktop_on_and_off",
+      "tests/native_spike/test_immersive.py::ButtonTests::test_a_press_on_the_tail_is_every_desktop",
+      "tests/native_spike/test_immersive.py::ButtonTests::test_a_stale_click_does_nothing"
+    ],
+    "exception": "Preserved Connected Tail gesture"
+  },
+  "menu_toggle": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuOpenCloseTests::test_toggle_opens_then_closes_with_full_payload",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
+    ],
+    "exception": null
+  },
+  "menu_field_prev": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_field_next_and_prev_wrap_in_contract_order",
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_field_next": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_field_next_and_prev_wrap_in_contract_order",
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_desktop_next": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_desktop_next_and_prev_wrap",
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_desktop_prev": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_desktop_next_and_prev_wrap",
+      "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_dec": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_inc": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_dec_big": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_inc_big": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_small_and_big_steps_per_field",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_clamped_exactly_at_every_bound",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
+    ],
+    "exception": "Preserved placement child keyboard"
+  },
+  "menu_reset": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_reset_restores_flat_default_for_the_selected_desktop_only",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
+    ],
+    "exception": null
+  },
+  "placement_flat": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_reset_restores_flat_default_for_the_selected_desktop_only",
+      "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
+    ],
+    "exception": null
+  },
+  "menu_back": {
+    "tests": [
+      "tests/native_spike/test_placement_menu.py::MenuOpenCloseTests::test_toggle_opens_then_closes_with_full_payload",
+      "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
+    ],
+    "exception": "Preserved placement child close"
+  },
+  "placement_x": {
+    "tests": [
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+    ],
+    "exception": null
+  },
+  "placement_y": {
+    "tests": [
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+    ],
+    "exception": null
+  },
+  "placement_distance": {
+    "tests": [
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+    ],
+    "exception": null
+  },
+  "placement_curvature": {
+    "tests": [
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+    ],
+    "exception": null
+  },
+  "placement_apply": {
+    "tests": [
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_live_placement_applied_and_saved",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_invalid_live_placement_ignored",
+      "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
+    ],
+    "exception": null
+  },
+  "menu_ultrawide": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_ultrawide_end_to_end",
+      "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
+    ],
+    "exception": null
+  },
+  "ultrawide": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_ultrawide_end_to_end",
+      "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
+    ],
+    "exception": null
+  },
+  "menu_add": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_add_moves_the_panel_to_the_new_desktop",
+      "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
+    ],
+    "exception": null
+  },
+  "add_monitor": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_add_moves_the_panel_to_the_new_desktop",
+      "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
+    ],
+    "exception": null
+  },
+  "menu_delete": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_remove_asks_twice_and_lets_go_of_the_capture_first",
+      "tests/native_spike/test_desktops.py::ControlTests::test_a_refused_removal_puts_the_desktop_back",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
+    ],
+    "exception": null
+  },
+  "remove_monitor": {
+    "tests": [
+      "tests/native_spike/test_desktops.py::ControlTests::test_remove_asks_twice_and_lets_go_of_the_capture_first",
+      "tests/native_spike/test_desktops.py::ControlTests::test_a_refused_removal_puts_the_desktop_back",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
+    ],
+    "exception": null
+  },
+  "resolution": {
+    "tests": [
+      "tests/native_spike/test_resolution_dropdown.py::ControlTests::test_pick_a_resolution_end_to_end_live_in_place_and_saved",
+      "tests/native_spike/test_resolution_dropdown.py::ControlTests::test_a_refused_reshape_is_told_and_the_panel_comes_back",
+      "tests/native_spike/test_resolution_dropdown.py::PointerTests::test_presses_reach_the_control"
+    ],
+    "exception": null
+  },
+  "scale": {
+    "tests": [
+      "tests/native_spike/test_scale_dropdown.py::ControlTests::test_pick_a_scale_end_to_end_live_and_saved",
+      "tests/native_spike/test_scale_dropdown.py::ControlTests::test_the_current_step_or_a_dimmed_one_changes_nothing",
+      "tests/native_spike/test_scale_dropdown.py::PointerTests::test_presses_reach_the_control"
+    ],
+    "exception": null
+  },
+  "roll_ccw": {
+    "tests": [
+      "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+      "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+    ],
+    "exception": "Preserved native top level bar"
+  },
+  "roll_cw": {
+    "tests": [
+      "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+      "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+    ],
+    "exception": "Preserved native top level bar"
+  },
+  "roll_level": {
+    "tests": [
+      "tests/native_spike/test_roll_level.py::PointerTests::test_both_directions_on_every_desktop",
+      "tests/native_spike/test_roll_level.py::PointerTests::test_the_middle_segment_levels_and_moves_nothing_else",
+      "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
+    ],
+    "exception": "Preserved native top level bar"
+  },
+  "drag_move": {
+    "tests": [
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_the_pill_moves_the_desktop_live_and_saves_on_release",
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+    ],
+    "exception": "Preserved pill gesture"
+  },
+  "drag_resize": {
+    "tests": [
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+      "tests/native_spike/test_free_pointer.py::GateTests::test_off_in_typing_mode_and_a_drag_is_saved"
+    ],
+    "exception": "Preserved corner/edge gesture"
+  },
+  "help": {
+    "tests": [
+      "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+      "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+      "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+    ],
+    "exception": null
+  },
+  "help_prev": {
+    "tests": [
+      "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+      "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+      "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+    ],
+    "exception": null
+  },
+  "help_next": {
+    "tests": [
+      "tests/native_spike/test_help_pages.py::ControlTests::test_turning_pages_keeps_the_card_up",
+      "tests/native_spike/test_help_pages.py::ControlTests::test_typing_mode_and_a_video_leave_nothing_to_turn",
+      "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
+    ],
+    "exception": null
+  },
+  "binds_toggle": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_enter_then_new_keys_rebinds_live_and_saves",
+      "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
+    ],
+    "exception": "Native keybind child; v4 modal handoff separately gated"
+  },
+  "bind_change": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_enter_then_new_keys_rebinds_live_and_saves",
+      "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
+    ],
+    "exception": "Native keybind child; v4 modal handoff separately gated"
+  },
+  "bind_reset": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_r_resets_one_and_shift_r_twice_resets_all",
+      "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
+    ],
+    "exception": "Native keybind child"
+  },
+  "bind_reset_all": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_r_resets_one_and_shift_r_twice_resets_all",
+      "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
+    ],
+    "exception": "Native keybind child"
+  },
+  "bind_cancel": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_escape_cancels_a_change_and_then_closes_the_panel",
+      "tests/native_spike/test_keybinds.py::PanelTests::test_a_change_waits_only_so_long_and_the_panel_closes_when_idle"
+    ],
+    "exception": "Native keybind child"
+  },
+  "bind_navigation": {
+    "tests": [
+      "tests/native_spike/test_keybinds.py::PanelTests::test_up_down_page_home_end_pick_a_row"
+    ],
+    "exception": "Native keybind child"
+  },
+  "send_glasses": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_g_sends_to_the_selected_desktop_and_focus_follows",
+      "tests/native_spike/test_send_window.py::MoveTests::test_hyprland_refusing_the_move_is_reported",
+      "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
+    ],
+    "exception": null
+  },
+  "send_glasses_1": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+      "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+      "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+    ],
+    "exception": null
+  },
+  "send_glasses_2": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+      "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+      "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+    ],
+    "exception": null
+  },
+  "send_glasses_3": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+      "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+      "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+    ],
+    "exception": null
+  },
+  "send_glasses_4": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_numbered_binds_pick_their_desktop_whatever_is_selected",
+      "tests/native_spike/test_desktops.py::WireTests::test_send_to_a_fourth_desktop",
+      "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
+    ],
+    "exception": null
+  },
+  "send_back": {
+    "tests": [
+      "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_b_sends_an_xr_window_back_to_the_fallback",
+      "tests/native_spike/test_send_window.py::MoveTests::test_ctrl_alt_b_without_a_fallback",
+      "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
+    ],
+    "exception": null
+  },
+  "video_open": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+      "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+      "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+    ],
+    "exception": null
+  },
+  "video_browse": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+      "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+      "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+    ],
+    "exception": null
+  },
+  "video_play": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_open_sends_the_descriptor_with_the_frame",
+      "tests/native_spike/test_video.py::ControlTests::test_refused_files_send_nothing",
+      "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
+    ],
+    "exception": null
+  },
+  "video_paste": {
+    "tests": [
+      "tests/native_spike/test_web_video.py::FormatAndSourceTests::test_clipboard",
+      "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
+    ],
+    "exception": "Native clipboard video route"
+  },
+  "video_paste_ui": {
+    "tests": [
+      "tests/native_spike/test_web_video.py::FormatAndSourceTests::test_clipboard",
+      "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
+    ],
+    "exception": "Native clipboard video route"
+  },
+  "video_pause": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_seek_back": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_seek_fwd": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_seek_back_big": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_seek_fwd_big": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_format": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_up": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_down": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_keys_while_playing",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls while playing"
+  },
+  "video_exit": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_exit_returns_to_the_desktops",
+      "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
+    ],
+    "exception": "Retained native video controls"
+  },
+  "video_controls": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast",
+      "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
+    ],
+    "exception": "Retained native video controls"
+  },
+  "playback_menu_toggle": {
+    "tests": [
+      "tests/native_spike/test_video.py::ControlTests::test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast",
+      "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
+    ],
+    "exception": "Retained native video controls"
+  },
+  "video_quality": {
+    "tests": [
+      "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+      "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+      "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+    ],
+    "exception": "Retained native video quality editor; actual renderer readback separately gated"
+  },
+  "quality_filter": {
+    "tests": [
+      "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+      "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+      "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+    ],
+    "exception": "Retained native video quality editor; actual renderer readback separately gated"
+  },
+  "quality_deband": {
+    "tests": [
+      "tests/native_spike/test_quality.py::MenuTests::test_left_right_change_live_and_save",
+      "tests/native_spike/test_quality.py::MenuTests::test_a_failed_save_still_applies",
+      "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
+    ],
+    "exception": "Retained native video quality editor; actual renderer readback separately gated"
+  },
+  "stabilization": {
+    "tests": [
+      "tests/native_spike/test_stabilization.py::test_default_light_and_live_persistence",
+      "tests/native_spike/test_stabilization.py::test_legacy_profile_defaults_and_custom_strength_roundtrip"
+    ],
+    "exception": null
+  },
+  "select_pointer": {
+    "tests": [
+      "tests/native_spike/test_full_interaction.py::FocusAndKeyboardTests::test_the_selected_desktop_follows_the_dot_for_the_keys_that_act_on_it"
+    ],
+    "exception": "Preserved app-content pointer"
+  },
+  "edge_pan": {
+    "tests": [
+      "tests/native_spike/test_edge_pan.py::PushTests::test_reaching_the_target_switches_with_the_entry_point",
+      "tests/native_spike/test_edge_pan.py::TriggerTests::test_a_refused_landing_sends_the_view_home",
+      "tests/native_spike/test_edge_pan.py::SamplerTests::test_back_to_the_overview_mid_pan_ends_it"
+    ],
+    "exception": "Preserved edge-pan gesture"
+  },
+  "profile_remember": {
+    "tests": [
+      "tests/native_spike/test_remember_setup.py::RunRestoreTests::test_a_run_restores_placements_and_rolls_and_saves_its_setup_at_the_end",
+      "tests/native_spike/test_remember_setup.py::LoadSetupTests::test_an_unusable_save_falls_back_whole_with_the_reason"
+    ],
+    "exception": "Automatic per-model persistence"
+  },
+  "resize_press": {
+    "tests": [
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+    ],
+    "exception": "Preserved capture protocol"
+  },
+  "resize_release": {
+    "tests": [
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+    ],
+    "exception": "Preserved capture protocol"
+  },
+  "resize_cancel": {
+    "tests": [
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_drag_a_corner_from_outside_to_resize",
+      "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
+    ],
+    "exception": "Preserved capture protocol"
+  },
+  "super_left_press": {
+    "tests": [
+      "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+      "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+      "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+    ],
+    "exception": "Preserved Super gesture"
+  },
+  "super_right_press": {
+    "tests": [
+      "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+      "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+      "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+    ],
+    "exception": "Preserved Super gesture"
+  },
+  "super_release": {
+    "tests": [
+      "tests/native_spike/test_super_drag.py::CarryTests::test_dropping_on_a_desktop_leaves_the_dot_there_as_the_real_cursor",
+      "tests/native_spike/test_super_drag.py::SuperSuppressesTests::test_a_lost_release_never_strands_the_dot",
+      "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
+    ],
+    "exception": "Preserved Super gesture"
+  },
+  "fallback": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_changed_fallback_invalidates_scope",
+      "tests/xr_controller/test_state.py::StateTests::test_snapshot_exposes_fallback_choices_and_pending_scope"
+    ],
+    "exception": "Pre-start only"
+  },
+  "tracking": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_driver_choice_is_locked_while_running_and_validated",
+      "tests/xr_controller/test_state.py::StateTests::test_tracking_start_failures_reach_the_panel_word_for_word",
+      "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
+    ],
+    "exception": "Pre-start only"
+  },
+  "tracking_driver": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_driver_choice_is_locked_while_running_and_validated",
+      "tests/xr_controller/test_state.py::StateTests::test_tracking_start_failures_reach_the_panel_word_for_word",
+      "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
+    ],
+    "exception": "Pre-start only"
+  },
+  "mode_switch": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_optional_can_only_reduce_scope",
+      "tests/xr_controller/test_runner.py::RunnerTests::test_no_mode_switch_when_false"
+    ],
+    "exception": "Pre-start consent only"
+  },
+  "startup_desktops": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_start_scope_restores_the_saved_desktops",
+      "tests/xr_controller/test_state.py::StateTests::test_start_scope_falls_back_to_three_flat_desktops_with_the_reason_logged"
+    ],
+    "exception": "Pre-start only"
+  },
+  "start": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_no_start_without_confirm",
+      "tests/xr_controller/test_state.py::StateTests::test_confirm_writes_consent_matching_scope",
+      "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
+    ],
+    "exception": "Pre-start consent only"
+  },
+  "confirm_start": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_no_start_without_confirm",
+      "tests/xr_controller/test_state.py::StateTests::test_confirm_writes_consent_matching_scope",
+      "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
+    ],
+    "exception": "Pre-start consent only"
+  },
+  "recover": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_recover_requires_confirm",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
+    ],
+    "exception": "External recovery-only safety path"
+  },
+  "confirm_recover": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_recover_requires_confirm",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
+    ],
+    "exception": "External recovery-only safety path"
+  },
+  "cancel": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_unplug_cancels_confirmation",
+      "tests/xr_controller/test_state.py::StateTests::test_tracking_startup_reports_progress_and_can_be_cancelled"
+    ],
+    "exception": "External confirmation cancellation"
+  },
+  "stop": {
+    "tests": [
+      "tests/xr_controller/test_service.py::ServiceTests::test_stop_uses_main_sigint_for_teardown",
+      "tests/native_spike/test_recovery.py::RecoveryTests::test_crash_after_prepare_before_confirm"
+    ],
+    "exception": "External safety Stop plus native confirmation"
+  },
+  "status": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_snapshot_includes_only_reported_status",
+      "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
+    ],
+    "exception": "External measured status"
+  },
+  "controller_restart": {
+    "tests": [
+      "tests/xr_controller/test_state.py::StateTests::test_rediscovers_live_run",
+      "tests/xr_controller/test_state.py::StateTests::test_live_unit_without_journal_blocks_second_start"
+    ],
+    "exception": "External controller fault; rediscovery tested without restarting service"
+  },
+  "close_external": {
+    "tests": [
+      "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
+    ],
+    "exception": "External shell dismissal; transport disconnect tested, QML dismiss gesture unverified"
+  },
+  "plugin_restart": {
+    "tests": [
+      "tests/xr_controller/test_runner.py::RunnerTests::test_unload_readback_failure_is_reported",
+      "tests/xr_controller/test_runner.py::RunnerTests::test_does_not_unload_foreign_plugin"
+    ],
+    "exception": "External shell fault; shell restart gesture unverified, no live restart authorized"
+  }
+}
