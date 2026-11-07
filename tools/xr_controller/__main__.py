@@ -99,21 +99,27 @@ class Host:
         self.runtime,self.state_dir,self.data_home=Path(runtime),Path(state_dir),Path(data_home)
     def probe(self):
         instance=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
-        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[],
+        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[],external=[],
                     tracking_drivers=tracking_drivers(self.data_home))
         root=self.runtime/'xr-workspace-spike'
         if root.exists():
             for path in sorted(root.glob('*/journal.json')):
                 data=read_private_json(path,limit=1048576)
                 if data.get('run_id')!=path.parent.name: raise ValueError('journal identity mismatch')
-                if any(r.get('state')!='done' for r in data['operations']): result['journals'].append(dict(data,path=str(path)))
+                if not any(r.get('state')!='done' for r in data['operations']): continue
+                # The controller writes a run's consent here before it spawns it, so that file is what makes a run its own. A run
+                # started any other way (a supervised test, the CLI) shares this runtime folder and keeps its consent elsewhere.
+                own=os.path.lexists(self.state_dir/(data['run_id']+'.json'))
+                result['journals' if own else 'external'].append(dict(data,path=str(path)))
         # A controller restart can fall between launch and the first journal write,
         # or between completed recovery and plugin unload. Both still own a unit.
         known={j['run_id'] for j in result['journals']}
         runs=[]
         for path in sorted(self.state_dir.glob('*.json')):
             if path.name.endswith(('.result.json', '.progress.json', '.recovery.json')): continue
-            raw=read_private_json(path)
+            # One unreadable consent costs that run its details (Controller._cli_recovery), not the controller its whole probe.
+            try: raw=read_private_json(path)
+            except (OSError,ValueError): continue
             run_id=raw.get('run_id')
             if run_id and path.name==run_id+'.json' and run_id not in known: runs.append(run_id)
         alive=Units(self.runtime).alive_many(runs) if runs else {}
