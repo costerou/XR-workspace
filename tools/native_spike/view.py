@@ -247,6 +247,13 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('SHIFT + left', 'menu_dec_big'), ('SHIFT + right', 'menu_inc_big'), ('Tab', 'menu_desktop_next'),
               ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'),
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('SHIFT + Delete', 'menu_delete'))
+# The options menu's keys while it has the keyboard (OptionsMenu.keyboard_owned; view.ViewControl.options_key): plain binds in
+# the default submap, in the placement panel's table (the two never own the keys together), and the wire's `binds_key MODS CODE`
+# so the key names stay in one place. Not the key bind panel's submap: Hyprland checks a bind's submap for mouse buttons too, so
+# in there the run's left-button binds and the input lock's wheel stop and clicks land on the window under the parked cursor.
+OPTIONS_BINDS = tuple((chord, f'binds_key {mods} {code}') for chord, mods, code in (
+    ('up', 0, 111), ('down', 0, 116), ('left', 0, 113), ('right', 0, 114), ('Tab', 0, 23), ('SHIFT + Tab', 1, 23),
+    ('Escape', 0, 9), ('Return', 0, 36), ('space', 0, 65), ('BackSpace', 0, 22), ('Prior', 0, 112), ('Next', 0, 117)))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
 IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key', ENVIRONMENT_OP, IMMERSIVE_OP)
@@ -1000,6 +1007,17 @@ def install_menu_binds_lua(python, client, control_socket, run_id, session):
                                                       f'{python} -I {client} {control_socket} {run_id} {session}')
 
 
+def install_options_binds_lua(python, client, control_socket, run_id, session):
+    """The options menu's keys (OPTIONS_BINDS), replacing whatever the shared table holds; remove_menu_binds_lua removes them
+    and a dead run's next key clears them (xr_control.main)."""
+    for p in (python, client, control_socket):
+        if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
+    for t in (run_id, session):
+        if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
+    return remove_menu_binds_lua() + ' ' + _binds_lua('xr_workspace_menu_binds', OPTIONS_BINDS,
+                                                      f'{python} -I {client} {control_socket} {run_id} {session}')
+
+
 # Legacy cleanup (module docstring): the left-button binds and hidden cursor of the old menu "mouse mode", which builds
 # before the glass pills installed. This build never creates xr_workspace_mouse_binds or xr_workspace_mouse, so the tail
 # is a no-op unless a run of an older build died in that mode: then the binds go and the cursor's own visibility and
@@ -1081,8 +1099,9 @@ class ViewControl:
         self._immersive_sent = IMMERSIVE_START  # the renderer starts with nothing on
         from .options_menu import OptionsMenu
         self.options = OptionsMenu(self, clock=clock)
-        self.options_binds = None  # optional (owned: bool) -> None; outer runner supplies subscription
-        self._options_owned = False
+        self.options_binds = None  # optional (owned: bool) -> None: the menu's keys on or off (compositor call: _menu_bind_work)
+        self._options_owned = False  # what keyboard_owned last was, so a change is acted on once
+        self._options_binds_installed = False
         self._options_sent = None
         self.owner_readback = None
         self.options_output_done = None
@@ -1100,7 +1119,7 @@ class ViewControl:
         owned = self.options.keyboard_owned
         if owned != self._options_owned:
             self._options_owned = owned
-            if self.options_binds is not None: self.options_binds(owned)
+            self._sync_menu_binds()
         if self._options_sent is None and not snapshot['open'] and not force: return pending_output
         if not force and snapshot == self._options_sent: return pending_output
         self._options_sent = snapshot
@@ -1123,9 +1142,6 @@ class ViewControl:
             if self.state.zoomed: out += self._zoom_out()
             self.state.selected = self.state.names.index(fields['monitor'])
             out += self._frame()
-        if name in ('options_activate', 'options_set', 'options_confirm') and fields.get('row_id') == 'binds_toggle' and self._options_owned:
-            if self.options_binds is not None: self.options_binds(False)
-            self._options_owned = False
         self.options.intent(name, **fields)
         return out + self._options_frame()
 
@@ -1155,8 +1171,9 @@ class ViewControl:
             if d['focus']==-4:
                 return self.options_intent('options_scope',scope='workspace' if d['scope']=='monitor' else 'monitor')
             if d['focus'] in (-3,-2):
-                from .options_menu import CATEGORIES
-                step=4 if d['focus']==-2 else (-1 if key=='Left' else 1)
+                from .options_menu import CATEGORIES, next_page
+                if d['focus']==-2: return self.options_intent('options_category',category=next_page(d['category']))
+                step=-1 if key=='Left' else 1
                 return self.options_intent('options_category',category=CATEGORIES[(CATEGORIES.index(d['category'])+step)%len(CATEGORIES)])
             if key in ('Return','space'): return self.options_intent('options_close')
         if key in ('Up', 'Down'):
@@ -1476,6 +1493,9 @@ class ViewControl:
         changed = change()
         out = b''
         if self.state.menu_open and not was_open and self.keys_open: out += self.keys.close()  # their keys would clash
+        if self.state.menu_open and not was_open and self.options.data['open']:  # one menu at a time: the glass and the keys are shared
+            self.options.close('native child')
+            out += self._options_frame()
         if changed:
             pushed = self._bump(placed, keep=keep)
             if self.state.placements != placed: out += self._placement_frame(glide=glide and pushed)
@@ -2022,7 +2042,7 @@ class ViewControl:
 
     def _sync_menu_binds(self, force=False):
         if not self.state.menu_open: self.menu_keys_off = False  # the next panel starts with its keys
-        if self.menu_binds is None: return
+        if self.menu_binds is None and self.options_binds is None: return
         # Compositor call: never on the watchdog loop. The worker applies the state current when it runs, serialized,
         # so a fast open/close/open cannot leave the binds out of step with the panel.
         t = threading.Thread(target=self._menu_bind_work, args=(force,), daemon=True); t.start()
@@ -2030,12 +2050,21 @@ class ViewControl:
 
     def _menu_bind_work(self, force):
         with self._menu_lock:
-            binds, want = self.menu_binds, self.state.menu_open and not self.menu_keys_off
-            if binds is not None and (want != self._menu_binds_installed or (force and want)):
-                try:
+            binds, options = self.menu_binds, self.options_binds
+            owned = self.options.keyboard_owned
+            want = self.state.menu_open and not self.menu_keys_off and not owned
+            # One table, one writer, off before on: Keybind:remove() takes a chord in whichever set holds it.
+            try:
+                if options is not None and self._options_binds_installed and not owned:
+                    options(False)
+                    self._options_binds_installed = False
+                if binds is not None and (want != self._menu_binds_installed or (force and want)):
                     binds(want)
                     self._menu_binds_installed = want
-                except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; Ctrl+Alt+L still collapses the panel
+                if options is not None and owned and (force or not self._options_binds_installed):
+                    options(True)
+                    self._options_binds_installed = True
+            except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; a click or Ctrl+Alt+L still closes a menu
 
     def poll(self, now=None):
         """Supervisor loop tick: the overview free pointer, a debounced panel placement save once it is due, and closing
@@ -2231,6 +2260,9 @@ class ViewControl:
             return frame
         # Maximizing collapses an open panel first (saved, keys released): pills and panels live in the overview.
         out = (self._on_menu('menu_toggle') or b'') if message['op'] == 'zoom_in' and self.state.menu_open else b''
+        if message['op'] == 'zoom_in' and self.options.data['open']:  # so does the options menu, drawn there only too
+            self.options.close('native child')
+            out += self._options_frame()
         if message['op'] == 'mode_next' and not self.state.zoomed:
             self._tell(MODE_OVERVIEW_TOAST)  # the overview is always anchored: nothing changes, say why
         before = self.state.view()
@@ -2317,7 +2349,7 @@ class ViewControl:
         self.owner_readback=None
         if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(None)
         self._options_frame()
-        self.menu_binds = self.typing_binds = None
+        self.menu_binds = self.typing_binds = self.options_binds = None
         deadline = time.monotonic() + timeout
         for t in self._menu_threads: t.join(max(0.0, deadline - time.monotonic()))
 

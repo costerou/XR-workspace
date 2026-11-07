@@ -254,6 +254,11 @@ class HyprlandClient:
         if not 0 < timeout <= DEADLINE: raise ValueError('invalid timeout')
         return self._request('binds', timeout).decode('utf-8', errors='replace')
 
+    def install_options_binds(self, python, client, control_socket, run_id, session):
+        """The options menu has the keyboard (view.OPTIONS_BINDS); generated Lua only."""
+        from .view import install_options_binds_lua
+        self._eval(install_options_binds_lua(python, client, control_socket, run_id, session))
+
     def open_key_panel(self, python, client, control_socket, run_id, session):
         """The key bind panel opened: its submap and key subscription (keybinds.panel_on_lua); generated Lua only."""
         from .keybinds import panel_on_lua

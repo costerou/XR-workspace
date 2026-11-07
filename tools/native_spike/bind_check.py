@@ -64,6 +64,7 @@ def run_chords(keymap=None):
     out = [('run', keymap.overrides.get(op, c), op) for c, op in view.BINDS] + \
         [('send', keymap.overrides.get(op, c), op) for c, op in send.SEND_BINDS]
     out += [('menu', c, op) for c, op in view.MENU_BINDS]
+    out += [('options', c, op) for c, op in view.OPTIONS_BINDS]
     # The overview free pointer's left button (free mode only: pill and corner drags, pill clicks, panel sliders).
     out += [('pointer', resize.RESIZE_BUTTON, op) for op in resize.RESIZE_OPS]
     # The overview input lock, while the cursor is captured: the other buttons and the wheel (bound to nothing).
@@ -150,8 +151,9 @@ def clashes(records, keymap=None):
         if key in desktop: problems.append(f'{chord} ({where}: {op}) is already bound by the desktop config as {desktop[key][0]}')
         for other_where, other_op in seen.get(key, []):
             pair = {op, other_op} == set(resize.RESIZE_OPS)  # one left-button bind: press, and release
-            # The run, send, panel and free-pointer sets can all be live at once (a panel open, the pointer free).
-            if not pair: problems.append(f'{chord} is bound twice in this project ({other_where}: {other_op}, {where}: {op})')
+            # The run, send, panel and free-pointer sets can all be live at once (a panel open, the pointer free). The options
+            # menu's keys replace the panel's in one table (view.OPTIONS_BINDS).
+            if not pair and {where, other_where} != {'menu', 'options'}: problems.append(f'{chord} is bound twice in this project ({other_where}: {other_op}, {where}: {op})')
         seen.setdefault(key, []).append((where, op))
     return problems
 

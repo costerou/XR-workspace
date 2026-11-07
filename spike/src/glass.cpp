@@ -323,8 +323,8 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
     for(int state=0;state<4;++state) {
       float x=2+state*84,y=float(kAtlasOldH)+2;
       md_fill_rounded(im,x,y,x+78,y+78,14,state>=2?m.secondary_container:m.surface_container_high,1);
-      if(state%2)md_stroke_rounded(im,x+27,y+17,x+61,y+51,2,4,m.primary,1);
-      md_stroke_rounded(im,x+18,y+26,x+52,y+60,2,4,m.primary,1);
+      if(state%2){md_stroke_rounded(im,x+27,y+17,x+61,y+51,2,4,m.primary,1);md_stroke_rounded(im,x+18,y+26,x+52,y+60,2,4,m.primary,1);}  // Restore: two windows, together centred
+      else md_stroke_rounded(im,x+22,y+22,x+56,y+56,2,4,m.primary,1);  // Maximize: one window, centred in the 78 px cell
     }
     for(int state=0;state<2;++state){float x=2+state*260,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,12,m.surface_container_high,1);text(im,font,state?"Restore":"Maximize",40,true,x+12,y+30,m.on_surface);}
     const float gx=360,gy=float(kAtlasOldH)+2;  // the options button (28x14 at 3x): a sliders mark, legible where a gear is not
@@ -532,7 +532,7 @@ constexpr OptionsTab kOptionsTabs[] = {{"placement", "Placement"}, {"output", "D
                                        {"layout", "Layout"},       {"environment", "Background"}, {"view", "View"}, {"video", "Video"},
                                        {"input", "Typing"},        {"keybinds", "Keys"},      {"windows", "Windows"}, {"privacy", "Privacy"},
                                        {"help", "Help"},           {"session", "Session"}};
-constexpr std::size_t kOptionsTabCount = sizeof(kOptionsTabs) / sizeof(kOptionsTabs[0]), kOptionsTabsPerPage = 4;
+constexpr std::size_t kOptionsTabCount = sizeof(kOptionsTabs) / sizeof(kOptionsTabs[0]), kTabsPerPage = kOptionsTabsPerPage;
 
 // UTF-8 when the system font draws it, ASCII for the built-in pixel font (it has no glyphs past 0x7e).
 const char* opt_pick(const HudFont* font, const char* utf8, const char* ascii) { return font ? utf8 : ascii; }
@@ -627,7 +627,7 @@ HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font
   text(im, font, monitor_scope ? "this monitor" : "workspace", 12, false, 16 + float(text_width(font, title, 18, true)) + 8, 23, m.on_surface_variant);
  }
  {  // Scope: a two-way switch, the current scope filled with the primary colour.
-  md_fill_rounded(im, 346, 8, 440, 36, 14, m.surface_container, 1);
+  md_fill_rounded(im, kOptionsScopeX0, 8, kOptionsNextX0, 36, 14, m.surface_container, 1);
   if (state.focus == -4) md_stroke_rounded(im, 344, 6, 442, 38, 16, 2, m.primary, 1);
   const float x0 = monitor_scope ? 348 : 393, x1 = monitor_scope ? 393 : 438;
   md_fill_rounded(im, x0, 10, x1, 34, 12, m.primary, 1);
@@ -637,9 +637,9 @@ HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font
  }
  const auto at = std::find_if(std::begin(kOptionsTabs), std::end(kOptionsTabs), [&](const OptionsTab& t) { return state.category == t.id; });
  const std::size_t current = at == std::end(kOptionsTabs) ? 0 : std::size_t(at - std::begin(kOptionsTabs));
- const std::size_t page = current / kOptionsTabsPerPage, pages = (kOptionsTabCount + kOptionsTabsPerPage - 1) / kOptionsTabsPerPage;
+ const std::size_t page = current / kTabsPerPage, pages = (kOptionsTabCount + kTabsPerPage - 1) / kTabsPerPage;
  {  // Next: which page of categories is up, as dots (the current one long), then a chevron.
-  if (state.focus == -2) md_fill_rounded(im, 440, 4, 530, 40, 8, m.secondary_container, 1);
+  if (state.focus == -2) md_fill_rounded(im, kOptionsNextX0, 4, kOptionsCloseX0, 40, 8, m.secondary_container, 1);
   float x = 456;
   for (std::size_t p = 0; p < pages; ++p) {
    const float w = p == page ? 12.f : 4.f;
@@ -649,18 +649,18 @@ HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font
   opt_chevron(im, x + 10, 22, 10, m.on_surface_variant, 1);
  }
  {  // Close: a cross and its key.
-  if (state.focus == -1) md_fill_rounded(im, 530, 4, 594, 40, 8, m.secondary_container, 1);
+  if (state.focus == -1) md_fill_rounded(im, kOptionsCloseX0, 4, kOptionsCloseX1, 40, 8, m.secondary_container, 1);
   text(im, font, opt_pick(font, "\xC3\x97", "x"), 18, true, 538, 22, m.on_surface_variant);
   opt_key(im, font, m, "Esc", 556, 22);
  }
 
  // Tabs: four to a page, the current one a filled pill, its label bold.
- for (std::size_t i = page * kOptionsTabsPerPage; i < std::min((page + 1) * kOptionsTabsPerPage, kOptionsTabCount); ++i) {
-  const float x = 16 + float(i - page * kOptionsTabsPerPage) * 142;
+ for (std::size_t i = page * kTabsPerPage; i < std::min((page + 1) * kTabsPerPage, kOptionsTabCount); ++i) {
+  const float x = kOptionsTabsX + float(i - page * kTabsPerPage) * kOptionsTabPitch;
   const bool on = i == current;
   if (on) {
-   md_fill_rounded(im, x, 44, x + 136, 80, 10, m.secondary_container, 1);
-   if (state.focus == -3) md_stroke_rounded(im, x, 44, x + 136, 80, 10, 2, m.primary, 1);
+   md_fill_rounded(im, x, 44, x + kOptionsTabW, 80, 10, m.secondary_container, 1);
+   if (state.focus == -3) md_stroke_rounded(im, x, 44, x + kOptionsTabW, 80, 10, 2, m.primary, 1);
   }
   text(im, font, kOptionsTabs[i].label, 13, on, x + 12, 62, on ? m.on_secondary_container : m.on_surface_variant);
  }

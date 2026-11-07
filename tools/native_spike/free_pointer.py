@@ -1585,10 +1585,14 @@ class OverviewPointer:
 
     def _onto_help(self):
         """Desktop mode with the pointer on the open help card (the cursor moved onto it, or the card opened or turned
-        with the head over a still cursor): the card is on top, so the pointer turns into the free dot right there and
-        the left button goes to the run, not to the window hidden under the card."""
+        with the head over a still cursor) or the options menu, which can hang over the desktop below its own: they are on
+        top, so the pointer turns into the free dot right there and the left button goes to the run, not to the window
+        hidden under them."""
         o = self._output(self.desktop)
-        if self.mode != 'desktop' or o is None or self._on_help() is None: return
+        if self.mode != 'desktop' or o is None: return
+        menu = getattr(self.control, 'options', None)
+        over_menu = menu is not None and menu.visible is True and (self._options_hit() or ('',))[0] == 'options_panel'
+        if self._on_help() is None and not over_menu: return
         self.gain = self._gain(self.desktop)
         self.mode = 'free'
         self.exits += 1
@@ -1605,6 +1609,8 @@ class OverviewPointer:
         self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
         self.last_move = now
         if self.control.state.menu_open: self.control.last_input = now  # moving over an open panel keeps it up
+        menu = getattr(self.control, 'options', None)
+        if menu is not None and menu.visible is True: menu.touch()  # and the options menu
         if self.drag is not None: return self._apply_drag()
         return self._settle()
 
@@ -1632,18 +1638,19 @@ class OverviewPointer:
             if d is not None and d['kind'] == 'options_range':
                 menu = self.control.options
                 if menu.capture is d:
-                    q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry,d['tile'],d['placement'],self.pointer))
-                    if q is not None:
-                        from . import options_geometry as og
-                        x = q[0]-og.panel_rect(d['tile'],pill_rect(d['tile']))[0]
+                    value = self._options_range_value(d)
+                    menu.preview = None
+                    menu.capture = None
+                    if value is None: menu.refresh()
+                    else:  # against the menu as it is now: readbacks may have changed the page during the drag (the row is
+                        # still checked by id, monitor and scope)
                         r = d['row']
-                        value=og.range_value(r,x)
-                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=min(max(value,r['minimum']),r['maximum']))
-                    menu.capture=None
+                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=menu.snapshot()['revision'],value=value)
                 self.drag=None
             if d is not None and d['kind'] == 'maximize':
                 self.drag = None
-                out += self.control.maximize_monitor(d['monitor'])
+                if self._hit() == ('maximize', d['index']):  # a button: dragged off it, its release does nothing
+                    out += self.control.maximize_monitor(d['monitor'])
             if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse
                 if self._open() == d['open_at_press']:
                     self.drag = None
@@ -1678,23 +1685,19 @@ class OverviewPointer:
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
             if h is not None and h[0] == 'options_gear':
-                return self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
+                return out + self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
             if h is not None and h[0] == 'options_panel':
                 from . import options_geometry as og
                 menu = self.control.options
                 menu.focused = True
                 d = menu.snapshot()
                 row = og.row_at(h[2], h[3], d['scroll'], len(d['rows']))
-                if h[3] < 44:
-                    if h[2] >= 530: out += self.control.options_intent('options_close')
-                    elif 350 <= h[2] < 440: out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
-                    elif 440 <= h[2] < 530:
-                        from .options_menu import CATEGORIES
-                        out += self.control.options_intent('options_category', category=CATEGORIES[(CATEGORIES.index(d['category'])//4*4+4)%len(CATEGORIES)])
-                elif 44 <= h[3] < 80:
-                    from .options_menu import CATEGORIES
-                    n = CATEGORIES.index(d['category'])//4*4 + int((h[2]-16)//142)
-                    if h[2]>=16 and 0 <= n < len(CATEGORIES): out += self.control.options_intent('options_category', category=CATEGORIES[n])
+                from .options_menu import CATEGORIES, next_page
+                header, tab = og.header_at(h[2], h[3]), og.tab_at(h[2], h[3], CATEGORIES.index(d['category']), len(CATEGORIES))
+                if header == 'close': out += self.control.options_intent('options_close')
+                elif header == 'scope': out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
+                elif header == 'next': out += self.control.options_intent('options_category', category=next_page(d['category']))
+                elif tab is not None: out += self.control.options_intent('options_category', category=CATEGORIES[tab])
                 elif row is not None:
                     out += self.control.options_intent('options_focus', focus=row)
                     r = d['rows'][row]
@@ -1709,6 +1712,14 @@ class OverviewPointer:
                         menu.capture=self.drag
                     else: out += self.control.options_activate(row)
                 return out + self.control._options_frame()
+            menu = getattr(self.control, 'options', None)
+            if menu is not None and menu.visible is True:  # a press off the menu, which is open and drawn on top
+                if h is not None and h[0] == 'desktop':  # a desktop is no outside (as for a placement panel): the keys go back
+                    menu.desktop_press()
+                    out += self.control._options_frame()
+                else:
+                    self.outside_closes += 1
+                    out += self.control.options_intent('options_close')  # and the press carries on: it was not on the menu
             if h is not None and h[0] == 'maximize':
                 self.drag = {'kind': 'maximize', 'monitor': self.control.state.names[h[1]], 'index': h[1], 'start': self.pointer}
                 return out
@@ -1858,11 +1869,25 @@ class OverviewPointer:
         if tell is None: return b''
         return tell(h[1], h[2] == 'tail') if h is not None and h[0] == 'immersive' else tell(-1)
 
+    def _options_range_value(self, d):
+        """The value a held options slider stands at now, measured on the panel as it was at the press; None off its surface."""
+        from . import options_geometry as og
+        q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry, d['tile'], d['placement'], self.pointer))
+        return None if q is None else og.range_value(d['row'], q[0] - og.panel_rect(d['tile'], pill_rect(d['tile']))[0])
+
     def _apply_drag(self):
         d = self.drag
         if d is None or self.pointer is None: return b''
         c = self.control
-        if d['kind'] in ('maximize', 'options_range'): return b''
+        if d['kind'] == 'maximize': return b''
+        if d['kind'] == 'options_range':  # the knob and value follow the hand; the owner hears at the release
+            value = self._options_range_value(d)
+            menu = c.options
+            if value is not None and menu.capture is d and menu.preview != (d['row']['id'], str(value)):
+                menu.preview = (d['row']['id'], str(value))
+                menu.refresh()
+                return c._options_frame()
+            return b''
         if d['kind'] == 'slider':
             # Measured on the panel as it was at the press, where the renderer keeps drawing it until the release (the
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
