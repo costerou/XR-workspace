@@ -1,13 +1,10 @@
 """What a mockup must pass: no clipped text, no overlapping hit zones, every row drawn, the OLED cap, a centred icon, and a Restore
 that the real pointer code can (or provably cannot) reach. make_mockups.py writes the results; the tests assert them."""
 import json
-import math
-
-import numpy as np
 
 from tools.native_spike import free_pointer as fp, neighbors, options_geometry as og
 from tools.native_spike.unified_cursor import NUDGE_PX
-from . import harness as h, maximize_options as X, menu_options as M
+from . import harness as h, maximize_options as X
 
 
 def overlap(a, b):
@@ -35,88 +32,6 @@ def panel_problems(p, covered=False):
         if covered: continue
         for b in p.hits[i + 1:]:
             if overlap(a['rect'], b['rect']): out.append(f'{p.name}: hits {a["name"]} and {b["name"]} overlap')
-    return out
-
-
-def check_design(d, snaps, children, fonts):
-    """Every page of every tab in both scopes and the child screens: returns (problems, pages drawn)."""
-    problems, count = [], 0
-    for snap in snaps:
-        drawn = []
-        pages = d.page_count(snap, fonts)
-        for page in range(pages):
-            out = d.draw(snap, fonts, page)
-            problems += panel_problems(out.panel)
-            drawn += out.drawn
-            count += 1
-        want = [r['id'] for r in snap['rows']]
-        if drawn != want: problems.append(f'{d.name}: {snap["category"]}/{snap["scope"]} drew {drawn}, not {want}')
-        for r in snap['rows']:
-            if not any(t['text'] == r['label'] for page in range(pages) for t in d.draw(snap, fonts, page).panel.texts) and not long_label_ok(d, snap, r, fonts, pages):
-                problems.append(f'{d.name}: {snap["category"]}/{snap["scope"]} lost label {r["label"]!r}')
-    for name, snap in children.items():
-        for page in range(d.page_count(snap, fonts)):
-            problems += panel_problems(d.draw(snap, fonts, page).panel)
-            count += 1
-    return problems, count
-
-
-def long_label_ok(d, snap, row, fonts, pages):
-    """A label wrapped onto two button lines is still whole."""
-    words = ' '.join(t['text'] for page in range(pages) for t in d.draw(snap, fonts, page).panel.texts)
-    return row['label'] in words
-
-
-def tabs_reachable(d, snap, fonts):
-    """Each of the 14 tabs has a hit zone: on show, in the open Section list, or on its own page of four."""
-    found = set()
-    for c in M.CATEGORIES:
-        panel = d.draw(dict(snap, category=c, rows=[]), fonts, open_nav=True).panel
-        found |= {x['name'][4:] for x in panel.hits if x['name'].startswith('tab:')}
-    return set(M.CATEGORIES) - found
-
-
-def real_geometry_kept(d, fonts):
-    """Drop-in: its rows, tabs and header against the rects free_pointer.py and options_geometry.py use today."""
-    bad = []
-    if (d.w, d.h, d.grid.row_h, d.grid.x0, d.grid.top) != (og.W, og.H, og.ROW_H, og.PAD, og.BODY_TOP): bad.append('panel or row grid')
-    if d.grid.top + d.grid.rows * d.grid.row_h != og.BODY_BOTTOM: bad.append('body bottom')
-    return bad
-
-
-def inventory_cover(snaps):
-    """Rows the menu shows against tests/xr_options_acceptance/inventory.json: which inventory rows are not in-menu rows, and why."""
-    rows = json.loads((h.REPO / 'tests/xr_options_acceptance/inventory.json').read_text())['rows']
-    shown = {r['id'] for s in snaps for r in s['rows']}
-    from tools.native_spike.options_actions import ALIASES
-    missing = [r for r in rows if r['identifier'] not in shown and ALIASES.get(r['identifier']) not in shown]
-    return shown, missing
-
-
-def max_channel(path, w, hgt):
-    a = np.frombuffer(open(path, 'rb').read(), np.uint8).reshape(hgt, w, 4)
-    return int(a[..., :3].max())
-
-
-# --- Maximize ---------------------------------------------------------------------------------------------------------
-def tile_problems(look, frame):
-    """A look on every tile of a real layout: clear of the bar, the top-left cap, its own desktop's width, the neighbour."""
-    out = []
-    for i, tile in enumerate(frame['tiles']):
-        bar, s = tuple(frame['bars'][i]), frame['scale'][i]
-        r, hit = look.rect(bar, s), look.hit(bar, s)
-        if not bar[2]: continue
-        if r[0] + r[2] > bar[0] + 1e-3: out.append(f'{look.name} touches the bar on tile {i}')
-        bar_hit = (bar[0] - 4 * s, bar[1] - 4 * s, bar[2] + 8 * s, bar[3] + 8 * s)
-        # The contract of immersive_part: padding gives way in a gap too narrow for it, and the button asks first.
-        if look.gap * s < 8 * s:
-            mid = bar[0] - look.gap * s / 2
-            if abs(hit[0] + hit[2] - mid) > 1e-3: out.append(f'{look.name} hit does not stop at the gap\'s middle on tile {i}')
-        elif overlap(hit, bar_hit): out.append(f'{look.name} hit overlaps the bar on tile {i}')
-        if r[0] < tile[0] + 16 * s: out.append(f'{look.name} reaches the top-left cap on tile {i}')
-        if hit[1] + hit[3] > tile[1] - 6: out.append(f'{look.name} hit enters the band along the edge on tile {i}')
-        for j, other in enumerate(frame['tiles']):
-            if j != i and overlap(hit, other): out.append(f'{look.name} hit is on tile {j} from tile {i}')
     return out
 
 
@@ -213,27 +128,3 @@ def letterbox(sizes):
         frame = h.layout([dict(desktops=[dict(w=w, h=hgt, placement=dict(x=0, y=0, distance=100, curvature=0))], spacing=0, selected=0, zoom=1.0)])[0]
         out[name] = dict(size=f'{w}x{hgt}', above=frame['tiles'][0][1], side=frame['tiles'][0][0], tile=frame['tiles'][0])
     return out
-
-
-def x_of(look, m, d):
-    """A pixel of pure fill on the centre line: just left of the glyph, inside the shape."""
-    return int((m + look.w * .5 - 8) * d)
-
-
-def centred(look, restore, fonts, stage_accent, work):
-    """The drawn button's ink centre against the shape's: restyle_preview raster at density 6, ink = pixels unlike the fill."""
-    p = look.draw(restore, False, fonts)
-    m = X.MARGIN
-    d = 6
-    path = f'{work}/ink-{look.slug}-{restore}.rgba'
-    h.job_call('raster', dict(accent=stage_accent, images=[dict(p.overlay(), density=d, out=path)]))
-    W, H = int((look.w + 2 * m) * d), int((look.h + 2 * m) * d)
-    a = np.frombuffer(open(path, 'rb').read(), np.uint8).reshape(H, W, 4).astype(int)
-    cx, cy = W // 2, H // 2
-    fill = a[cy, x_of(look, m, d)]
-    y0, y1 = int((m + look.h * .5 - min(look.h * .5, 7.5)) * d), int((m + look.h * .5 + min(look.h * .5, 7.5)) * d)   # the glyph's own square,
-    x0, x1 = int((m + look.w * .5 - 8.5) * d), int((m + look.w * .5 + 8.5) * d)                                      # clear of a capsule's corners
-    sub = a[y0:y1, x0:x1]
-    ink = np.abs(sub - fill)[..., :3].sum(axis=2) > 40
-    ys, xs = np.nonzero(ink)
-    return ((xs.min() + xs.max() + 1) / 2 + x0 - W / 2) / d, ((ys.min() + ys.max() + 1) / 2 + y0 - H / 2) / d

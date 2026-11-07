@@ -10,10 +10,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
-import cairo
-import numpy as np
-from PIL import Image
-
 REPO = Path(__file__).resolve().parents[2]
 BINARY = REPO / 'build/restyle/restyle_preview'
 OUT = Path.home() / '.hermes/profiles/coderbotxr/previews/xr-options-restyle'
@@ -26,15 +22,18 @@ REAL = [dict(w=2560, h=1600, scale=1.25, placement=dict(x=-67, y=44, distance=36
 REAL_SPACING = 0
 # Other saved sizes, for the band a maximized picture leaves: the beast and unknown profiles.
 OTHER_SIZES = [('beast', 1920, 1080), ('unknown XR-1', 3840, 2160), ('unknown XR-2', 2560, 1440)]
+# The Pro 2 session's desktops (fix/restore-current-geometry.md): an ultrawide and a 16:9, so these do leave a band.
+PRO2 = [dict(w=5120, h=1440, scale=1.25, placement=dict(x=0, y=0, distance=100, curvature=0, roll=0)),
+        dict(w=2560, h=1440, scale=2.0, placement=dict(x=0, y=0, distance=100, curvature=0, roll=0))]
 
 
 def run_env():
     return dict(os.environ, LIBGL_ALWAYS_SOFTWARE='1', GALLIUM_DRIVER='llvmpipe', EGL_PLATFORM='surfaceless')
 
 
-def tool(*args, gl=False):
+def tool(*args, gl=False, binary=None):
     """Run the binary. `gl`: with /dev/dri hidden, at the lowest priority, so a frame costs a live run nothing."""
-    command = [str(BINARY), *map(str, args)]
+    command = [str(binary or BINARY), *map(str, args)]
     if gl:
         command = ['bwrap', '--dev-bind', '/', '/', '--tmpfs', '/dev/dri', 'nice', '-n', '19', *command]
     done = subprocess.run(command, capture_output=True, text=True, env=run_env())
@@ -47,11 +46,11 @@ def info(accent):
     return json.loads(tool('info', accent))
 
 
-def job_call(mode, job, gl=False):
+def job_call(mode, job, gl=False, binary=None):
     with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
         json.dump(job, f)
     try:
-        return tool(mode, f.name, gl=gl)
+        return tool(mode, f.name, gl=gl, binary=binary)
     finally:
         os.unlink(f.name)
 
@@ -71,14 +70,16 @@ def measure(texts):
         os.unlink(f.name)
 
 
-def render(frames, accent, scale=2):
+def render(frames, accent, scale=2, binary=None):
     """Render `frames` (each with `out`, a PNG path) and return one report per frame."""
+    import numpy as np
+    from PIL import Image
     with tempfile.TemporaryDirectory() as tmp:
         sized = []
         for i, f in enumerate(frames):
             crop = f.get('crop', [0, 0, 1920, 1200])
             sized.append(dict(f, out=f'{tmp}/{i}.rgba', crop=crop))
-        lines = job_call('render', dict(accent=accent, scale=scale, sources=frames[0]['desktops'], frames=sized), gl=True).splitlines()
+        lines = job_call('render', dict(accent=accent, scale=scale, sources=frames[0]['desktops'], frames=sized), gl=True, binary=binary).splitlines()
         reports = [json.loads(line) for line in lines if line.startswith('{"out"') or line.startswith('{"overlays"')]
         renderer = next((line for line in lines if line.startswith('{"report"')), '')
         for i, f in enumerate(frames):
@@ -97,6 +98,7 @@ def _hex(c):
 
 def desktop_pixels(index, name, w, h, scale, scheme, path):
     """A synthetic desktop in Omarchy's shape at its output size: a bar on top, tiled windows under it. Nothing is captured."""
+    import cairo
     surface = cairo.ImageSurface(cairo.FORMAT_RGB24, w, h)
     cr = cairo.Context(surface)
     cr.scale(scale, scale)

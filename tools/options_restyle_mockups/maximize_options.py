@@ -1,6 +1,5 @@
-"""The Maximize / Restore button looks (M1..M4) and the places Restore can live without sitting on the desktop (R1..R4).
+"""The places Restore can live without sitting on the desktop (R1..R4): mockups, because Cody picks where it goes.
 
-An M option is a look: drawn with the bar's and the 3D button's roles and placed relative to the real level_bar_rect, scaled with it.
 An R option is a place and a way to get there. Its `reach` says how the pointer arrives, in terms check_mockups can run against the
 real free_pointer.py; `new_handoff` is True where today's code cannot get a pointer there at all."""
 from dataclasses import dataclass
@@ -65,16 +64,8 @@ class Look:
         return p
 
 
-LOOKS = [
-    Look(1, 'connected-head', 'Connected Head', 'Joined to the bar\'s left end exactly as the 3D button joins its right end: 2 px gap, 4 px inner corners, round outer end. The row reads as one control.',
-         40, 26, 2, ('secondary_container', 'on_secondary_container'), ('primary_container', 'on_primary_container'), inner=4),
-    Look(2, 'bar-capsule', 'Bar Capsule', 'A short capsule in the bar\'s own fill with 8 px of air. Reads as a sibling of the bar, not part of it.',
-         38, 26, 8, ('primary_container', 'on_primary_container'), ('primary', 'on_primary')),
-    Look(3, 'round-key', 'Round Key', 'A 26 px circle at today\'s exact rect and hit zone. The smallest change: only the drawing moves.',
-         26, 26, 12, ('secondary_container', 'on_secondary_container'), ('primary_container', 'on_primary_container'), keeps_rect=True),
-    Look(4, 'slim-pill', 'Slim Pill', 'The drag pill\'s own 14 px height on the bar\'s centre line, so top and bottom of a monitor use one shape. Its hit zone stays bar-tall.',
-         44, 14, 8, ('primary_container', 'on_primary_container'), ('primary', 'on_primary'), hit_y=10, glyph_scale=.72),
-]
+# The look built into render_handle_atlas: a capsule in the bar's fill, the primary under the dot.
+LOOKS = [Look(1, 'capsule', 'Capsule', 'Built.', 38, 26, 12, ('primary_container', 'on_primary_container'), ('primary', 'on_primary'))]
 
 
 @dataclass
@@ -93,26 +84,27 @@ DWELL_MS, FADE_MS = 350, 200
 NEAR_FAR, NEAR_FULL = 160, 48               # R2: canvas px from the chip: invisible past FAR, whole inside FULL
 STEP_ZOOM = .84                             # R3: how far the picture steps back for its band
 BAND_PILL_GAP = 7
+BAND_PX = 46                                 # R3: the band a pill needs, its height and a margin each side
 
 PLACES = [
     Place(1, 'hot-corner', 'Hot Corner', 'Nothing is drawn. Rest the pointer in the bottom-right corner for 350 ms and a Restore pill grows out of it, under the pointer.',
           f'Throw the mouse into the bottom-right corner: the cursor stops there by itself, because the output ends. Rest {DWELL_MS} ms inside the {ZONE_LOGICAL} x {ZONE_LOGICAL} logical px zone. The pill appears under the pointer and the existing Restore mode takes over. Click it. Leave it and it fades in {FADE_MS} ms.',
-          'At rest nothing. In use a 122 x 26 pill in the corner, only while the pointer is on it.', False,
+          f'At rest nothing, and the app keeps the pointer in the corner: the zone only reads the cursor until the {DWELL_MS} ms are up. While the pill is up, a 122 x 26 pill, and there the app gets no pointer.', False,
           f'No new handoff: the existing _poll_restore route reaches it. New: a {DWELL_MS} ms dwell timer before the mesh is armed, one wire flag so the renderer shows the pill, and options_restore_rect moved to the corner.',
           f'Move the cursor to the corner, hold {DWELL_MS} ms: restore_mesh_hit is True on the real ray. check_mockups runs it for every corner pixel of the zone on all three desktops.'),
     Place(2, 'fade-chip', 'Fade Chip', 'A 26 px round key in the corner, invisible until the pointer comes near, whole when it is close. No wait: click it as soon as you reach it.',
           f'Move toward the bottom-right corner: the chip fades in from {NEAR_FAR} px away and is whole by {NEAR_FULL} px. The cursor reaches it by itself because the output ends there. Reaching it enters the existing Restore mode; click.',
-          f'At rest nothing, when the pointer is more than {NEAR_FAR} px away. Near the corner a 26 px key, part see-through until {NEAR_FULL} px.', False,
+          f'At rest nothing, when the pointer is more than {NEAR_FAR} px away. Near the corner a 26 px key, part see-through until {NEAR_FULL} px. Its cost: the hit zone is live even while the key is invisible, so the app never gets the pointer in the last 36 x 36 px of that corner, and a click there is Restore.', False,
           'No new handoff: the same route. New: the supervisor sends the cursor\'s distance (already sampled, read-only) as an alpha on one wire field; the renderer fades the key.',
           f'Move the cursor to the corner: restore_mesh_hit is True on the real ray with no timer. Alpha is 0 past {NEAR_FAR} px and 1 inside {NEAR_FULL} px.'),
     Place(3, 'step-back-band', 'Step-Back Band', 'The only one fully outside the picture. Rest at the top edge and the whole picture steps back to 84%, opening a band above it with Restore in it. On a 16:9 desktop the band is already there.',
           f'Rest {DWELL_MS} ms at the top edge. The picture eases back to 84% and the cursor hands over to the free dot, which leaves the output and travels up into the band. Click Restore there. Move back down and the picture comes forward again.',
-          'Never any content. On 16:10 the picture itself shrinks to 84% while the band is open, so text softens for that moment.', True,
-          'NEEDS NEW POINTER-HANDOFF CODE: today no output pixel maps past the picture (restore_cursor_ray refuses it), so the cursor must hand off to the dot before it is on a button, which is the "excursion pointer" the approved interface v3 rules out, so Cody must lift that rule. Also a held zoom state in the renderer.',
+          'Never any content, and the app keeps the pointer everywhere it can reach: the band is outside the picture. On 16:10 the picture itself shrinks to 84% while the band is open, so text softens for that moment. The Pro 2 session\'s desktops already leave a band (330 px on the ultrawide, 60 px on the 16:9), so they need no step-back.', True,
+          'NEEDS NEW POINTER-HANDOFF CODE: today no output pixel maps past the picture (restore_cursor_ray refuses it), so the cursor must hand off to the dot before it is on a button, which is the "excursion pointer" the approved interface v3 rules out, so Cody must lift that rule. Also a held zoom state in the renderer, which must hold the picture lower on a desktop placed high: XR-1 rides up by 29 px at 84%.',
           'Today, sweeping every output pixel never hits a mesh in the band: check_mockups proves that, and that is why it needs the handoff. A built version passes if a resting cursor reaches the band and a click lands with no app click.'),
     Place(4, 'keys-and-hint', 'Keys and Hint', 'No Restore on the picture at all. Ctrl+Alt+Down, which already exists, is the way back, and the overview\'s Maximize tooltip teaches it.',
           'The pointer does not go anywhere. Press Ctrl+Alt+Down (bound today, zoom_out). Hover Maximize in the overview and its tooltip says so.',
-          'Nothing, ever. The hint is shown in the overview, beside the Maximize button.', False,
+          'Nothing, ever, and the app has the pointer everywhere. The hint is shown in the overview, beside the Maximize button.', False,
           'Least code: remove Restore\'s draw and hit, and lengthen the tooltip. No wire change. No mouse way back: Cody loses the click.',
           'Ctrl+Alt+Down returns to the overview: the zoom_out row in tests/xr_options_acceptance/inventory.json, already tested by the view suites.'),
 ]

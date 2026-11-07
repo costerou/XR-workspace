@@ -403,12 +403,12 @@ Bounds project(const Canvas& c, const std::vector<MeshVertex>& mesh, const Mat3&
 OptionsMenuState options_state(const json& j) {
     OptionsMenuState s;
     s.open = true; s.monitor = j.at("monitor"); s.scope = j.at("scope"); s.category = j.at("category");
-    s.status = j.at("status"); s.message = j.at("message"); s.focus = j.at("focus"); s.scroll = j.at("scroll");
+    s.status = j.at("status"); s.message = j.at("message"); s.focus = j.at("focus"); s.scroll = j.at("scroll"); s.list = j.value("list", -1);
     for (const auto& r : j.at("rows")) {
         OptionsRow o;
         o.id = r.at("id"); o.label = r.at("label"); o.scope = r.at("scope"); o.kind = r.at("kind"); o.value = r.at("value");
         o.unit = r.value("unit", ""); o.minimum = r.value("minimum", 0.0); o.maximum = r.value("maximum", 0.0); o.step = r.value("step", 0.0);
-        o.enabled = r.at("enabled");
+        o.enabled = r.at("enabled"); o.choices = r.value("choices", std::vector<std::string>{});
         s.rows.push_back(o);
     }
     return s;
@@ -475,7 +475,7 @@ int render(const std::string& path) {
         }
         if (frame.contains("real_options")) {
             panel = frame["real_options"].at("desktop");
-            content = render_options_panel(options_state(frame["real_options"]));  // as Presentation::set_options_menu: no font
+            content = render_options_panel(options_state(frame["real_options"]), font.get(), accent);  // as Presentation::render_options
             glass.options = true; glass.expand.fill(0); glass.expand[std::size_t(panel)] = 1.f;
             pitch = glass_panel_shift(canvas, s.tiles[std::size_t(panel)], s.placements[std::size_t(panel)], true);
         }
@@ -498,6 +498,7 @@ int render(const std::string& path) {
             }
         }
         if (pitch > 0) view = glass_view_shift(view, pitch);
+        view = glass_view_shift(view, frame.value("view_pitch", 0.f));  // a mock's held view: negative moves the picture down
         report["pitch"] = pitch;
         gl->set_glass(glass);
         const bool dot = frame.contains("dot");
