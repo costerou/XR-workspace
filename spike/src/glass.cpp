@@ -1,6 +1,8 @@
 #include "xr/glass.hpp"
 #include "xr/ipc.hpp"
 #include "xr/options_geometry.hpp"
+#include <cstdio>
+#include <cctype>
 #include "xr/material_draw.hpp"
 #include <algorithm>
 #include <cmath>
@@ -345,10 +347,12 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
       md_stroke_rounded(im,gx-10,cy-19,gx+20,cy+10,2,4,ink,1);md_stroke_rounded(im,gx-20,cy-10,gx+10,cy+19,2,4,ink,1);
       text(im,font,"Restore",font?54u:0u,true,x+108,cy,ink);
     }
-    const float gx=360,gy=float(kAtlasOldH)+2;
+    const float gx=360,gy=float(kAtlasOldH)+2;  // the options button (28x14 at 3x): a sliders mark, legible where a gear is not
     md_fill_rounded(im,gx,gy,gx+84,gy+42,21,m.primary_container,1);
-    for(int tooth=0;tooth<8;++tooth){float a=float(tooth)*std::numbers::pi_v<float>/4;md_disc(im,gx+42+10*std::cos(a),gy+21+10*std::sin(a),3,m.on_primary_container,1);}
-    md_disc(im,gx+42,gy+21,10,m.on_primary_container,1);md_disc(im,gx+42,gy+21,5,m.primary_container,1);
+    md_fill_rounded(im,gx+20,gy+13,gx+64,gy+17,2,m.on_primary_container,1);
+    md_fill_rounded(im,gx+20,gy+25,gx+64,gy+29,2,m.on_primary_container,1);
+    md_disc(im,gx+50,gy+15,6,m.on_primary_container,1);md_disc(im,gx+50,gy+15,3,m.primary_container,1);
+    md_disc(im,gx+34,gy+27,6,m.on_primary_container,1);md_disc(im,gx+34,gy+27,3,m.primary_container,1);
     return im;
 }
 AtlasBox options_gear_box(){return box_of({360,kAtlasOldH+2,84,42});}
@@ -540,41 +544,222 @@ PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMen
     return {m.secondary_container, m.on_secondary_container, 1.f, 1.f};                            // filled tonal
 }
 
-HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font) {
- const auto& m=glass_theme_scheme({.45f,.65f,.8f});
- HudImage im{600,440,std::vector<std::uint8_t>(600*440*4,0)};
- md_fill_rounded(im,0,0,600,440,18,m.surface_container_high,1);
- if(state.focus==-4)md_fill_rounded(im,kOptionsScopeX0,4,kOptionsNextX0,40,6,m.secondary_container,1);
- if(state.focus==-2)md_fill_rounded(im,kOptionsNextX0,4,kOptionsCloseX0,40,6,m.secondary_container,1);
- if(state.focus==-1)md_fill_rounded(im,kOptionsCloseX0,4,kOptionsCloseX1,40,6,m.secondary_container,1);
- text(im,font,state.scope=="monitor"?state.monitor:"Workspace / All monitors",18,true,16,22,m.on_surface);
- text(im,font,"Close",16,false,530,22,m.on_surface_variant);
- text(im,font,state.scope=="monitor"?"Workspace >":"< Monitor",14,false,350,22,m.on_surface_variant);
- const std::vector<std::string> tabs={"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"};
- text(im,font,"Next >",14,false,446,22,m.on_surface_variant);
- auto at=std::find(tabs.begin(),tabs.end(),state.category);std::size_t start=at==tabs.end()?0:(std::size_t(at-tabs.begin())/kOptionsTabsPerPage)*kOptionsTabsPerPage;
- for(std::size_t i=start;i<std::min<std::size_t>(start+kOptionsTabsPerPage,tabs.size());++i){float x=kOptionsTabsX+float(i-start)*kOptionsTabPitch;if(tabs[i]==state.category){md_fill_rounded(im,x,44,x+kOptionsTabW,80,8,m.secondary_container,1);if(state.focus==-3)md_stroke_rounded(im,x,44,x+kOptionsTabW,80,8,2,m.primary,1);}text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
+namespace {
+// Options menu v2 (canvas "XR options menu (fits contract)"): drawing only. Every rect below is options_geometry.hpp's:
+// header 0..44 (focus targets scope 346..440, Next 440..530, Close 530..594), tabs 44..80 at x = 16 + 142 i (w 136),
+// body 88..392 in 38 px rows (x 16..584), range track x 300..450, footer 400..440.
+struct OptionsTab { const char* id; const char* label; };
+constexpr OptionsTab kOptionsTabs[] = {{"placement", "Placement"}, {"output", "Display"},   {"3d", "3D"},       {"stabilization", "Stability"},
+                                       {"layout", "Layout"},       {"environment", "Background"}, {"view", "View"}, {"video", "Video"},
+                                       {"input", "Typing"},        {"keybinds", "Keys"},      {"windows", "Windows"}, {"privacy", "Privacy"},
+                                       {"help", "Help"},           {"session", "Session"}};
+constexpr std::size_t kOptionsTabCount = sizeof(kOptionsTabs) / sizeof(kOptionsTabs[0]), kTabsPerPage = kOptionsTabsPerPage;
 
+// UTF-8 when the system font draws it, ASCII for the built-in pixel font (it has no glyphs past 0x7e).
+const char* opt_pick(const HudFont* font, const char* utf8, const char* ascii) { return font ? utf8 : ascii; }
 
- HudImage body{600,304,std::vector<std::uint8_t>(600*304*4,0)};
- md_fill_rounded(body,0,0,600,304,0,m.surface_container_high,1);
- for(std::size_t i=0;i<state.rows.size();++i){const auto& r=state.rows[i];float y=float(i)*38-float(state.scroll);if(y+38<=0||y>=304)continue;
-  if(int(i)==state.focus)md_fill_rounded(body,16,y+2,584,y+36,8,m.secondary_container,1);
-  text(body,font,r.label,16,false,16,y+19,m.on_surface,r.enabled?1:.38f);
-  if(r.kind=="range" && r.maximum>r.minimum){
-    try {float t=float(std::clamp((std::stod(r.value)-r.minimum)/(r.maximum-r.minimum),0.,1.));
-     md_fill_rounded(body,kOptionsTrackX0,y+28,kOptionsTrackX1,y+32,2,m.primary,.24f);
-     md_disc(body,kOptionsTrackX0+(kOptionsTrackX1-kOptionsTrackX0)*t,y+30,5,m.primary,r.enabled?1:.38f);
-    }catch(const std::exception&){} // value is presentation text; never execute or change it
-  }
-  if(r.kind=="toggle")md_stroke_rounded(body,302,y+9,336,y+29,10,2,m.primary,r.enabled?1:.38f);
-  if(r.kind=="choice")md_icon(body,MdIcon::arrow_drop_down,570,y+19,16,m.primary);
-  auto v=r.value+(r.unit.empty()?"":" "+r.unit);
-  const float right=r.kind=="choice"?558:584;  // a choice's arrow keeps its own column
-  text(body,font,v,16,false, std::max(310.f,right-float(text_width(font,v,16,false))),y+19,m.on_surface_variant,r.enabled?1:.38f);
+std::string opt_num(double v, int decimals) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.*f", decimals, v);
+    std::string s = buf;
+    if (s.find('.') != std::string::npos) {
+        while (!s.empty() && s.back() == '0') s.pop_back();
+        if (!s.empty() && s.back() == '.') s.pop_back();
+    }
+    return s == "-0" ? "0" : s;
+}
+
+// The value as people read it. The wire value stays the backend's own number (the slider position is computed from it).
+std::string options_value_text(const OptionsRow& r, const HudFont* font) {
+    const std::string deg = opt_pick(font, "\xC2\xB0", " deg");
+    if (r.kind == "toggle") return r.value == "true" ? "on" : r.value == "false" ? "off" : r.value;
+    if (r.kind == "range") {
+        double v = 0;
+        try { v = std::stod(r.value); } catch (const std::exception&) { return r.value + (r.unit.empty() ? "" : " " + r.unit); }
+        if (r.unit == "0.1 deg") {
+            const std::string a = opt_num(std::fabs(v) / 10, 1);
+            if (std::fabs(v) < 0.5) return r.id == "placement_y" ? "level" : "ahead";
+            if (r.id == "placement_x") return a + deg + (v > 0 ? " right" : " left");
+            if (r.id == "placement_y") return a + deg + (v > 0 ? " up" : " down");
+            return opt_num(v / 10, 1) + deg;
+        }
+        if (r.unit == "deg") return opt_num(v, 1) + deg;
+        if (r.unit == "%") return opt_num(v, 1) + "%";
+        return opt_num(v, 2) + (r.unit.empty() ? "" : " " + r.unit);
+    }
+    if (r.kind == "choice" && r.id == "scale") {
+        try { return opt_num(std::stod(r.value) * 100, 0) + "%"; } catch (const std::exception&) {}
+    }
+    if (r.kind == "choice" && !r.value.empty() && std::all_of(r.value.begin(), r.value.end(), [](char c) { return std::islower(static_cast<unsigned char>(c)) || c == ' '; })) {
+        std::string v = r.value; v[0] = char(std::toupper(static_cast<unsigned char>(v[0]))); return v;
+    }
+    if (r.kind == "choice") {
+        const auto x = r.value.find('x');  // 1920x1080 -> 1920 x 1080
+        if (x != std::string::npos && x > 0 && x + 1 < r.value.size() &&
+            std::all_of(r.value.begin(), r.value.begin() + long(x), ::isdigit) && std::all_of(r.value.begin() + long(x) + 1, r.value.end(), ::isdigit))
+            return r.value.substr(0, x) + opt_pick(font, " \xC3\x97 ", " x ") + r.value.substr(x + 1);
+    }
+    return r.value + (r.unit.empty() || r.value.empty() ? "" : " " + r.unit);
+}
+
+// Rows that remove or stop something: drawn in the error role so they never read as an ordinary action.
+bool options_destructive(const std::string& id) { return id == "remove_monitor" || id == "stop" || id == "layout_reset" || id == "menu_reset"; }
+
+// `s` cut with an ellipsis so it fits `room` px.
+std::string opt_fit(const HudFont* font, std::string s, std::uint32_t px, bool bold, float room) {
+    if (float(text_width(font, s, px, bold)) <= room) return s;
+    const std::string dots = opt_pick(font, "\xE2\x80\xA6", "..");
+    while (!s.empty() && float(text_width(font, s + dots, px, bold)) > room) {
+        s.pop_back();
+        while (!s.empty() && (static_cast<unsigned char>(s.back()) & 0xC0) == 0x80) s.pop_back();  // whole UTF-8 sequences
+        if (!s.empty() && static_cast<unsigned char>(s.back()) >= 0xC0) s.pop_back();
+    }
+    return s + dots;
+}
+
+// A right-pointing chevron drawn as a stroke, the same with or without the system font.
+void opt_chevron(HudImage& im, float cx, float cy, float h, MdRgb c, float alpha) {
+    for (float t = 0; t <= 1.0001f; t += 0.04f) {
+        md_disc(im, cx - h / 4 + t * h / 2, cy - h / 2 + t * h / 2, 1.1f, c, alpha);
+        md_disc(im, cx - h / 4 + t * h / 2, cy + h / 2 - t * h / 2, 1.1f, c, alpha);
+    }
+}
+// A small key cap: outline-variant border on the surface, label in on-surface-variant. Returns its right edge.
+float opt_key(HudImage& im, const HudFont* font, const MaterialScheme& m, const std::string& label, float left, float cy) {
+    const float w = float(text_width(font, label, 11, true)) + 10;
+    md_fill_rounded(im, left, cy - 9, left + w, cy + 9, 4, m.primary, 0.14f);
+    md_stroke_rounded(im, left, cy - 9, left + w, cy + 9, 4, 1, m.outline_variant, 1);
+    text(im, font, label, 11, true, left + 5, cy, m.on_surface_variant);
+    return left + w;
+}
+}  // namespace
+
+HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font, std::array<float, 3> accent) {
+ const auto& m = glass_theme_scheme(accent);
+ HudImage im{600, 440, std::vector<std::uint8_t>(600 * 440 * 4, 0)};
+ md_fill_rounded(im, 0, 0, 600, 440, 18, m.surface_container_high, 1);
+ md_stroke_rounded(im, 0, 0, 600, 440, 18, 1, m.outline_variant, 1);
+ const bool monitor_scope = state.scope == "monitor";
+
+ // Header: the title, then the scope switch, the page dots and Close at their contract focus rects.
+ {
+  const std::string title = monitor_scope ? state.monitor : "All monitors";
+  text(im, font, title, 18, true, 16, 22, m.on_surface);
+  text(im, font, monitor_scope ? "this monitor" : "workspace", 12, false, 16 + float(text_width(font, title, 18, true)) + 8, 23, m.on_surface_variant);
  }
- for(unsigned y=0;y<304;++y)std::copy_n(body.rgba.begin()+y*2400,2400,im.rgba.begin()+(y+88)*2400);
- text(im,font,state.status+" "+state.message,14,false,16,418,m.on_surface_variant);
+ {  // Scope: a two-way switch, the current scope filled with the primary colour.
+  md_fill_rounded(im, kOptionsScopeX0, 8, kOptionsNextX0, 36, 14, m.surface_container, 1);
+  if (state.focus == -4) md_stroke_rounded(im, 344, 6, 442, 38, 16, 2, m.primary, 1);
+  const float x0 = monitor_scope ? 348 : 393, x1 = monitor_scope ? 393 : 438;
+  md_fill_rounded(im, x0, 10, x1, 34, 12, m.primary, 1);
+  const std::string left = opt_fit(font, state.monitor.empty() ? "One" : state.monitor, 11, true, 41), right = "All";
+  text(im, font, left, 11, monitor_scope, 348 + (45 - float(text_width(font, left, 11, monitor_scope))) / 2, 22, monitor_scope ? m.on_primary : m.on_surface_variant);
+  text(im, font, right, 11, !monitor_scope, 393 + (45 - float(text_width(font, right, 11, !monitor_scope))) / 2, 22, monitor_scope ? m.on_surface_variant : m.on_primary);
+ }
+ const auto at = std::find_if(std::begin(kOptionsTabs), std::end(kOptionsTabs), [&](const OptionsTab& t) { return state.category == t.id; });
+ const std::size_t current = at == std::end(kOptionsTabs) ? 0 : std::size_t(at - std::begin(kOptionsTabs));
+ const std::size_t page = current / kTabsPerPage, pages = (kOptionsTabCount + kTabsPerPage - 1) / kTabsPerPage;
+ {  // Next: which page of categories is up, as dots (the current one long), then a chevron.
+  if (state.focus == -2) md_fill_rounded(im, kOptionsNextX0, 4, kOptionsCloseX0, 40, 8, m.secondary_container, 1);
+  float x = 456;
+  for (std::size_t p = 0; p < pages; ++p) {
+   const float w = p == page ? 12.f : 4.f;
+   md_fill_rounded(im, x, 20, x + w, 24, 2, p == page ? m.primary : m.outline_variant, 1);
+   x += w + 4;
+  }
+  opt_chevron(im, x + 10, 22, 10, m.on_surface_variant, 1);
+ }
+ {  // Close: a cross and its key.
+  if (state.focus == -1) md_fill_rounded(im, kOptionsCloseX0, 4, kOptionsCloseX1, 40, 8, m.secondary_container, 1);
+  text(im, font, opt_pick(font, "\xC3\x97", "x"), 18, true, 538, 22, m.on_surface_variant);
+  opt_key(im, font, m, "Esc", 556, 22);
+ }
+
+ // Tabs: four to a page, the current one a filled pill, its label bold.
+ for (std::size_t i = page * kTabsPerPage; i < std::min((page + 1) * kTabsPerPage, kOptionsTabCount); ++i) {
+  const float x = kOptionsTabsX + float(i - page * kTabsPerPage) * kOptionsTabPitch;
+  const bool on = i == current;
+  if (on) {
+   md_fill_rounded(im, x, 44, x + kOptionsTabW, 80, 10, m.secondary_container, 1);
+   if (state.focus == -3) md_stroke_rounded(im, x, 44, x + kOptionsTabW, 80, 10, 2, m.primary, 1);
+  }
+  text(im, font, kOptionsTabs[i].label, 13, on, x + 12, 62, on ? m.on_secondary_container : m.on_surface_variant);
+ }
+ for (int x = 16; x < 584; ++x) md_over(im, x, 84, m.outline_variant, 1);
+
+ // Body: clipped to 88..392, scrolled by state.scroll exactly as options_row_at hit-tests it.
+ HudImage body{600, 304, std::vector<std::uint8_t>(600 * 304 * 4, 0)};
+ md_fill_rounded(body, 0, 0, 600, 304, 0, m.surface_container_high, 1);
+ for (std::size_t i = 0; i < state.rows.size(); ++i) {
+  const auto& r = state.rows[i];
+  const float y = float(i) * 38 - float(state.scroll);
+  if (y + 38 <= 0 || y >= 304) continue;
+  const bool focused = int(i) == state.focus;
+  const float alpha = r.enabled ? 1.f : kMdDisabledContent, cy = y + 19;
+  if (focused) {
+   md_fill_rounded(body, 16, y + 1, 584, y + 37, 10, m.secondary_container, 1);
+   md_stroke_rounded(body, 16, y + 1, 584, y + 37, 10, 2, m.primary, 1);
+  }
+  const bool danger = options_destructive(r.id), readonly = r.kind == "readonly";
+  const MdRgb label_c = danger ? m.on_error_container : readonly ? m.on_surface_variant : focused ? m.on_secondary_container : m.on_surface;
+  const std::string value = options_value_text(r, font);
+  float value_right = 576;
+  if (r.kind == "range" && r.maximum > r.minimum) {
+   double v = r.minimum;
+   try { v = std::stod(r.value); } catch (const std::exception&) {}  // presentation text; never executed or changed
+   const auto px = [&](double x) { return kOptionsTrackX0 + (kOptionsTrackX1 - kOptionsTrackX0) * float(std::clamp((x - r.minimum) / (r.maximum - r.minimum), 0., 1.)); };
+   const float knob = px(v), origin = px(std::clamp(0., r.minimum, r.maximum));  // active track grows from zero
+   md_fill_rounded(body, kOptionsTrackX0, cy - 2, kOptionsTrackX1, cy + 2, 2, m.primary, 0.24f * alpha);
+   if (std::fabs(knob - origin) >= 1) md_fill_rounded(body, std::min(knob, origin), cy - 2, std::max(knob, origin), cy + 2, 2, m.primary, alpha);
+   if (focused) md_disc(body, knob, cy, 13, m.primary, 0.3f * alpha);
+   md_disc(body, knob, cy, focused ? 8.f : 7.f, focused ? m.primary_bright : m.primary, alpha);
+  } else if (r.kind == "toggle") {
+   const bool on = r.value == "true";
+   md_fill_rounded(body, 302, y + 9, 338, y + 29, 10, on ? m.primary : m.surface_container_highest, alpha);
+   if (!on) md_stroke_rounded(body, 302, y + 9, 338, y + 29, 10, 2, m.outline, alpha);
+   md_disc(body, on ? 328.f : 312.f, cy, on ? 7.f : 5.f, on ? m.on_primary : m.outline, alpha);
+  } else if (r.kind == "choice") {
+   md_icon(body, MdIcon::arrow_drop_down, 572, cy, 16, m.primary, alpha);
+   value_right = 560;
+  } else if (r.kind == "action" && value.empty()) {
+   opt_chevron(body, 570, cy, 10, danger ? m.on_error_container : m.on_surface_variant, alpha);
+  }
+  const float value_left = r.kind == "range" ? 462.f : r.kind == "toggle" ? 350.f : 310.f;
+  const float label_room = (r.kind == "range" || r.kind == "toggle" ? 296.f : value.empty() ? 540.f : 300.f) - 26;
+  text(body, font, opt_fit(font, r.label, 14, focused, label_room), 14, focused, 26, cy, label_c, alpha);
+  if (!value.empty()) {
+   const std::string shown = opt_fit(font, value, 14, focused && !readonly, value_right - value_left);
+   const MdRgb c = readonly ? m.on_surface : focused ? m.on_secondary_container : m.on_surface_variant;
+   text(body, font, shown, 14, focused && !readonly, value_right - float(text_width(font, shown, 14, focused && !readonly)), cy, c, alpha);
+  }
+ }
+ const float content = float(state.rows.size()) * 38;
+ if (content > 304) {  // a thin scroll thumb on the right edge
+  const float h = std::max(24.f, 304 * 304 / content), top = (304 - h) * std::clamp(float(state.scroll) / (content - 304), 0.f, 1.f);
+  md_fill_rounded(body, 591, top + 2, 595, top + h - 2, 2, m.outline, 1);
+ }
+ for (unsigned y = 0; y < 304; ++y) std::copy_n(body.rgba.begin() + y * 2400, 2400, im.rgba.begin() + (y + 88) * 2400);
+
+ // Footer: a status chip (pending / applied / error), the message, and the keys when there is room.
+ for (int x = 16; x < 584; ++x) md_over(im, x, 396, m.outline_variant, 1);
+ float x = 16;
+ const char* chip = state.status == "applied" ? "Applied" : state.status == "pending" ? "Pending" : state.status == "error" ? "Error" : nullptr;
+ if (chip) {
+  const MdRgb bg = state.status == "error" ? m.error_container : state.status == "applied" ? m.primary_container : m.secondary_container;
+  const MdRgb fg = state.status == "error" ? m.on_surface : state.status == "applied" ? m.on_primary_container : m.on_secondary_container;
+  const float w = float(text_width(font, chip, 12, true)) + 16;
+  md_fill_rounded(im, x, 409, x + w, 431, 11, bg, 1);
+  text(im, font, chip, 12, true, x + 8, 420, fg);
+  x += w + 8;
+ }
+ const std::string hint = opt_pick(font, "\xE2\x86\x91\xE2\x86\x93 row  \xE2\x86\x90\xE2\x86\x92 adjust", "Up/Dn row  L/R adjust");
+ const float hint_w = float(text_width(font, hint, 12, false));
+ const std::string message = state.message.empty() && !chip ? "Ready" : state.message;
+ const float message_w = float(text_width(font, message, 12, false));
+ const bool show_hint = x + message_w + 16 + hint_w <= 584;
+ text(im, font, opt_fit(font, message, 12, false, (show_hint ? 584 - hint_w - 16 : 584) - x), 12, false, x, 420,
+      state.status == "error" ? m.on_surface : m.on_surface_variant);
+ if (show_hint) text(im, font, hint, 12, false, 584 - hint_w, 420, m.on_surface_variant);
  return im;
 }
 

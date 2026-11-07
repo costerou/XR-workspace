@@ -40,8 +40,7 @@ inline int options_row_at(float x,float y,int scroll,std::size_t count){if(x<16|
 }
 namespace xr {
 // Ray against the same triangle strip used to draw the transformed target.
-inline std::optional<float> options_maximize_ray(const Canvas& canvas,const FRect& tile,const Placement& on,const Vec3& ray){
- auto mesh=tile_mesh(canvas,tile,on,options_maximize_hit(tile));
+template<class Mesh> inline std::optional<float> options_mesh_ray(const Mesh& mesh,const Vec3& ray){
  auto sub=[](Vec3 a,Vec3 b){return Vec3{a.x-b.x,a.y-b.y,a.z-b.z};};
  auto cross=[](Vec3 a,Vec3 b){return Vec3{a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x};};
  auto dot=[](Vec3 a,Vec3 b){return a.x*b.x+a.y*b.y+a.z*b.z;};
@@ -49,4 +48,5 @@ inline std::optional<float> options_maximize_ray(const Canvas& canvas,const FRec
  for(std::size_t i=0;i+2<mesh.size();++i){auto a=mesh[i].world,e1=sub(mesh[i+1].world,a),e2=sub(mesh[i+2].world,a),n=cross(ray,e2);float d=dot(e1,n);if(std::abs(d)<1e-12f)continue;Vec3 o{-a.x,-a.y,-a.z};float u=dot(o,n)/d;if(u<-.0001f||u>1.0001f)continue;auto q=cross(o,e1);float v=dot(ray,q)/d,t=dot(e2,q)/d;if(v<-.0001f||u+v>1.0001f||t<=0)continue;if(!best||t<*best)best=t;}
  return best;
 }
+inline std::optional<float> options_maximize_ray(const Canvas& canvas,const FRect& tile,const Placement& on,const Vec3& ray){return options_mesh_ray(tile_mesh(canvas,tile,on,options_maximize_hit(tile)),ray);}
 }
