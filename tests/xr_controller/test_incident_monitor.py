@@ -557,8 +557,31 @@ class ControllerRestartTests(Case):
         self.assertEqual(self.only()['kind'], 'controller-restart')
 
     def test_a_run_that_needs_the_cli(self):
-        self.tick('cli-recovery', status=None, seconds=30)
+        self.tick('cli-recovery', status=None, seconds=30, unit_up=False)
         self.assertEqual(self.only()['kind'], 'controller-restart')
+
+    def test_a_run_that_needs_the_cli_with_its_unit_up_is_left_alone(self):
+        self.tick('cli-recovery', status=None, seconds=90, unit_up=True)
+        self.assertEqual(self.reports(), [])
+
+    def test_a_run_that_needs_the_cli_with_nothing_known_is_left_alone(self):
+        # No unit evidence at all, as with a consent read failure: that alone must never read as a killed run.
+        self.tick('cli-recovery', status=None, seconds=90)
+        self.assertEqual(self.reports(), [])
+        self.assertNotIn(RUN, self.monitor.ended)
+
+    def test_a_held_run_still_gets_its_outcome(self):
+        self.session()
+        self.host.drop(self.now)
+        self.tick(seconds=30)
+        before = self.only()
+        self.assertEqual(before['session'], 'kept-running')
+        self.tick('cli-recovery', status=None, seconds=40, unit_up=True)
+        self.assertEqual(self.only()['session'], 'kept-running')
+        self.tick('cli-recovery', status=None, seconds=40, unit_up=False)
+        report = self.only()  # the same report, updated on the session's end as drop-incident-evidence does
+        self.assertEqual(report['id'], before['id'])
+        self.assertEqual(report['session'], 'ended')
 
     def test_a_crash_while_the_controller_was_down_keeps_its_name(self):
         self.session()

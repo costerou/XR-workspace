@@ -771,6 +771,10 @@ If the panel reports "Needs CLI recovery" (for example several unfinished runs),
 supervisor CLI: `python -m tools.native_spike recover --journal JOURNAL --instance INSTANCE --output OUTPUT
 --consent-file CONSENT`. The panel shows the journal path.
 
+If the panel says a session was started outside XR Workspace, a journal has unfinished work and no consent in the controller's
+state folder. Stop that session where it was started. If it has already ended, recover its journal the same way with the
+consent it was started with, which may be in that session's own folder. The panel shows the journal path here too.
+
 ### When a recovery cannot finish
 
 Recovery never guesses: a step it cannot prove stays in the journal, and the run stays in `recovery-needed`. It now always
@@ -870,7 +874,17 @@ frame, 284 ms later the driver logged `luma: stale`, and that made the report `t
 `control-closed` ranks right under `renderer-crash`: what tracking says after that moment follows from it. The signal takes
 its time from the journal line, so the timeline reads in order though the monitor hears of the end a moment later.
 
-**What is not an incident.** Stop, also Stop during a start, and the renderer's SIGTERM or SIGKILL from Stop's own grace
+**What 2026-11-06 decided.** A supervised Pro 2 test ran from its own bundle, with a journal beside the controller's and its
+consent in its own folder. The probe took every journal for the controller's own, the missing consent made that
+`cli-recovery`, and the monitor read `cli-recovery` as a stranded run, so a healthy run was reported as killed 32 s in. A run is
+now the controller's only if its consent is at `<state dir>/<run_id>.json`, which the controller writes before it spawns one.
+Any other journal is listed as `external`: the panel shows `external-run`, Start, Stop and Recover stay closed, the monitor
+hears no run id, and nobody reports on it. `cli-recovery` itself proves nothing about a run, as it only says the controller
+cannot act on it, so the tick sends `unit_up` with it and the monitor takes it for stranded only when that is false. Until
+then a run in that state is held: still watched if it was, with its reports updated when it ends.
+
+**What is not an incident.** A run the controller did not start. A consent that cannot be read, while the run's unit is up
+or its state is unknown. Stop, also Stop during a start, and the renderer's SIGTERM or SIGKILL from Stop's own grace
 period. Recover that finishes. A controller restart under a live session, which the panel's restart is. A reboot:
 `.monitor-state` holds the boot id. Glasses unplugged after a clean end: an end's last unread log lines are read only
 if the end was abnormal. A suspend: USB lines around one are ignored, and any gap of over 5 s between observations

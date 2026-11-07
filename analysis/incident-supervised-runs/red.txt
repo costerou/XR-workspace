@@ -1,0 +1,193 @@
+FFFFFFF...F.FFFF.F.F
+======================================================================
+FAIL: test_a_consent_it_cannot_read_is_not_a_killed_run (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_consent_it_cannot_read_is_not_a_killed_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 239, in test_a_consent_it_cannot_read_is_not_a_killed_run
+    self.assertEqual(self.snap()['state'], 'cli-recovery')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'failed' != 'cli-recovery'
+- failed
++ cli-recovery
+
+
+======================================================================
+FAIL: test_a_consent_that_no_longer_validates (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_consent_that_no_longer_validates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 304, in test_a_consent_that_no_longer_validates
+    self.assertEqual(self.kinds(), [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['run-killed'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'run-killed'
+
+- ['run-killed']
++ []
+
+======================================================================
+FAIL: test_a_controller_restart_while_it_cannot_read_it (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_controller_restart_while_it_cannot_read_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 289, in test_a_controller_restart_while_it_cannot_read_it
+    self.assertEqual(self.kinds(), [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['controller-restart'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'controller-restart'
+
+- ['controller-restart']
++ []
+
+======================================================================
+FAIL: test_a_dead_unit_is_evidence_even_with_no_consent (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_dead_unit_is_evidence_even_with_no_consent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 270, in test_a_dead_unit_is_evidence_even_with_no_consent
+    self.assertEqual(self.snap()['state'], 'cli-recovery')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'failed' != 'cli-recovery'
+- failed
++ cli-recovery
+
+
+======================================================================
+FAIL: test_a_restart_that_finds_a_dead_run_it_cannot_read (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_restart_that_finds_a_dead_run_it_cannot_read)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 296, in test_a_restart_that_finds_a_dead_run_it_cannot_read
+    self.assertEqual(self.kinds(), ['controller-restart'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['controller-restart']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'controller-restart'
+
+- []
++ ['controller-restart']
+
+======================================================================
+FAIL: test_a_systemd_that_does_not_answer_proves_nothing (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_a_systemd_that_does_not_answer_proves_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 279, in test_a_systemd_that_does_not_answer_proves_nothing
+    self.assertEqual(self.snap()['state'], 'cli-recovery')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'failed' != 'cli-recovery'
+- failed
++ cli-recovery
+
+
+======================================================================
+FAIL: test_losing_the_consent_mid_run_is_not_a_killed_run (tests.xr_controller.test_incident_supervised.ConsentFailureTests.test_losing_the_consent_mid_run_is_not_a_killed_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 247, in test_losing_the_consent_mid_run_is_not_a_killed_run
+    self.assertEqual(self.snap()['state'], 'cli-recovery')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'failed' != 'cli-recovery'
+- failed
++ cli-recovery
+
+
+======================================================================
+FAIL: test_two_of_its_own_with_one_alive_are_not_a_killed_run (tests.xr_controller.test_incident_supervised.ControllerRunTests.test_two_of_its_own_with_one_alive_are_not_a_killed_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 231, in test_two_of_its_own_with_one_alive_are_not_a_killed_run
+    self.assertEqual(self.kinds(), [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['run-killed'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'run-killed'
+
+- ['run-killed']
++ []
+
+======================================================================
+FAIL: test_a_controller_run_that_ends_while_one_runs (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_a_controller_run_that_ends_while_one_runs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 200, in test_a_controller_run_that_ends_while_one_runs
+    self.assertEqual(self.snap()['state'], 'external-run')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cli-recovery' != 'external-run'
+- cli-recovery
++ external-run
+
+
+======================================================================
+FAIL: test_a_healthy_supervised_run_is_no_incident (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_a_healthy_supervised_run_is_no_incident)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 133, in test_a_healthy_supervised_run_is_no_incident
+    self.assertEqual(self.kinds(), [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['run-killed'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'run-killed'
+
+- ['run-killed']
++ []
+
+======================================================================
+FAIL: test_a_start_offer_lapses_when_one_appears (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_a_start_offer_lapses_when_one_appears)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 168, in test_a_start_offer_lapses_when_one_appears
+    self.assertEqual(self.snap()['state'], 'external-run')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cli-recovery' != 'external-run'
+- cli-recovery
++ external-run
+
+
+======================================================================
+FAIL: test_it_does_not_disturb_a_controller_run (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_it_does_not_disturb_a_controller_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 189, in test_it_does_not_disturb_a_controller_run
+    self.assertEqual(self.snap()['state'], 'running')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cli-recovery' != 'running'
+- cli-recovery
++ running
+
+
+======================================================================
+FAIL: test_one_that_leaves_work_behind_stays_visible_and_unreported (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_one_that_leaves_work_behind_stays_visible_and_unreported)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 173, in test_one_that_leaves_work_behind_stays_visible_and_unreported
+    self.assertEqual(self.snap()['state'], 'external-run')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cli-recovery' != 'external-run'
+- cli-recovery
++ external-run
+
+
+======================================================================
+FAIL: test_the_controller_says_what_it_sees (tests.xr_controller.test_incident_supervised.SupervisedRunTests.test_the_controller_says_what_it_sees)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/xr_controller/test_incident_supervised.py", line 144, in test_the_controller_says_what_it_sees
+    self.assertEqual(snap['state'], 'external-run')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cli-recovery' != 'external-run'
+- cli-recovery
++ external-run
+
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.178s
+
+FAILED (failures=14)

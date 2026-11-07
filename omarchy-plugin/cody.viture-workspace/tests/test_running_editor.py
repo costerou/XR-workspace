@@ -27,7 +27,7 @@ TestCase {
     Component { id: launcher; Workspace.Launcher {} }
     Component { id: notice; Workspace.SessionNotice {} }
     function test_recovery_state_gate() {
-        for (const state of ["idle", "running", "starting", "stopping", "failed", "cli-recovery", "recovery-needed"]) {
+        for (const state of ["idle", "running", "starting", "stopping", "failed", "cli-recovery", "external-run", "recovery-needed"]) {
             const item = createTemporaryObject(notice, testCase, {width:900, snapshot:{state:state,run_id:"run",reason:"fallback unavailable"}});
             verify(item !== null);
             const recover = findChild(item, "recoverButton");
@@ -182,6 +182,7 @@ TestCase {
         mouseClick(recover); compare(sent, [{op:"begin_recover"}]);
         item.snapshot = {state:"running"}; verify(!recover.visible);
         item.snapshot = {state:"cli-recovery"}; verify(!recover.visible);
+        item.snapshot = {state:"external-run",journal:"/run/journal.json"}; verify(!recover.visible);
     }
     function test_startup_preserved_in_approved_build() {
         const item = createTemporaryObject(launcher, testCase, {width:900,

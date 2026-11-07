@@ -33,6 +33,7 @@ class Controller:
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
         self.route_config=None  # pro2_route's directory; None: beside profiles.json
         self.monitor=monitor; self.stop_run=None; self.monitor_fault=None  # incident_monitor.py; the run Stop was asked of
+        self.unit_up=None  # in cli-recovery: is the run's unit alive? None when that is not known
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
         self.observed={}; self.started=None; self.last_failure=None
         self.live={}; self.last_status=None; self.status_run=None
@@ -46,7 +47,8 @@ class Controller:
         return copy.deepcopy(dict(fallback=pick_fallback(monitors,o.get('output'),profile.get('fallback')),
             fallback_candidates=candidates, pending=self.pending, luma_available=LUMA_PIN in (o.get('installed') or {}),
             state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or self.last_failure or o.get('reason'),
-            run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
+            run_id=self.run.get('run_id') if self.run else None,
+            journal=self.run.get('path') if self.run else next((j['path'] for j in o.get('external') or []),None),
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
             status=self.live.get('status',{}) if self.state=='running' else {},
@@ -93,7 +95,7 @@ class Controller:
         if self.monitor is None: return
         o=self.observed
         try:
-            self.monitor.observe(dict(state=self.state,run_id=self.run.get('run_id') if self.run else None,stop_requested=self.stop_run,
+            self.monitor.observe(dict(state=self.state,run_id=self.run.get('run_id') if self.run else None,stop_requested=self.stop_run,unit_up=self.unit_up,
                 instance=o.get('instance'),monitors=[_monitor_facts(m) for m in o.get('monitors') or []],
                 plugins=ownership_plugin_count(o.get('plugins') or []),
                 immersive=copy.deepcopy(self.live.get('immersive') or {}),
@@ -102,20 +104,32 @@ class Controller:
             if str(exc)!=self.monitor_fault: log(f'incident monitor: {exc}')
             self.monitor_fault=str(exc)
 
+    def _cli_recovery(self):
+        """This state says the controller cannot act on the run, and nothing about the run itself, which may be healthy: the
+        monitor needs to know whether its unit is still up."""
+        try: self.unit_up=self.units.alive(self.run['run_id']) if self.run else None
+        except (OSError,subprocess.SubprocessError): self.unit_up=None
+        self._state('cli-recovery')
+
+    def _at_rest(self):
+        """No run of ours. A run someone else started holds the outputs and glasses, so Start stays closed until it ends."""
+        o=self.observed
+        return 'external-run' if o.get('external') else 'idle' if o.get('model') else 'no-glasses'
+
     def _tick(self):
         old=self.observed
         self.observed=self.probe()
         o=self.observed
-        self.error=None
-        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','tracking_drivers','pro2_route')):
+        self.error=None; self.unit_up=None
+        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','external','tracking_drivers','pro2_route')):
             self.pending=None; self.state='idle'
         journals=o.get('journals',[])
         if len(journals)>1:
-            self.error='multiple unfinished journals require CLI recovery'; self._state('cli-recovery'); return
+            self.error='multiple unfinished journals require CLI recovery'; self._cli_recovery(); return
         if journals:
             j=journals[0]; self.run=j
             try: self._consent(j)
-            except (OSError,ValueError): self._state('cli-recovery'); return
+            except (OSError,ValueError): self._cli_recovery(); return
             if self.units.alive(j['run_id']):
                 if self.state == 'stopping': return
                 # A scoped connection proves a listener; status replies additionally carry live measurements.
@@ -148,13 +162,13 @@ class Controller:
                 if result.get('error') or result.get('renderer_returncode') not in (None,0) or result.get('complete') is not True:
                     self.last_failure=result.get('error') or 'runner failed during '+str(result.get('phase','run'))
                 self.run=None; self.started=None
-                self._state('idle' if o.get('model') else 'no-glasses')
+                self._state(self._at_rest())
                 return
         if self.state in ('starting','stopping') and self.started is not None and self.clock()-self.started<5: return
         if self.state=='starting':
             self.error='runner exited before creating a journal'; self._state('failed'); return
         self.run=None
-        if self.state!='confirming': self._state('idle' if o.get('model') else 'no-glasses')
+        if self.state!='confirming': self._state(self._at_rest())
 
     def _recovery_reason(self,run_id):
         """Why the last Recover of this run stopped (__main__.report_recovery), for the panel; None before a first one."""

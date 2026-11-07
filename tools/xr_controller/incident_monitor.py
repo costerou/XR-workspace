@@ -37,6 +37,12 @@ QUEUE = 256
 def _unit(run_id): return f'viture-xr-{run_id}.service'
 
 
+def _held(o):
+    """'cli-recovery' means the controller cannot act on a run: two journals, or a consent it cannot read. It says nothing about the
+    run, so only a unit known to be gone makes it stranded. Anything else is a run that may be fine, and is left alone."""
+    return o.get('state') == 'cli-recovery' and o.get('unit_up') is not False
+
+
 _KERNEL_NOISE = re.compile(r'split lock|bus_lock|\bUFW\b')
 _KERNEL_WANTED = re.compile(r'(?i)\bxhci|\[drm\]|\bdrm\b|\bamdgpu\b|\b35ca\b|\bPM: suspend')
 _KERNEL_PORT = re.compile(r'\b(\d+-\d+(?:\.\d+)*)[:\s]')
@@ -304,9 +310,10 @@ class IncidentMonitor:
             if run_id in self.ended:
                 self._after_end(run_id, o)
                 return
+            if _held(o): return
             self._begin(run_id, o)
         if self.live is None: return
-        if o.get('state') in STRANDED: self._finish(self.live, o, stranded=True)
+        if o.get('state') in STRANDED and not _held(o): self._finish(self.live, o, stranded=True)
         else: self._feed(self.live, o)
 
     def _context(self, run_id, at):
@@ -332,9 +339,9 @@ class IncidentMonitor:
             live.watch.running_since, live.watch.stopped = saved.get('running_since'), saved.get('stopped') is True
             live.report_ids = [s for s in saved.get('report_ids', []) if isinstance(s, str)]
             if isinstance(saved.get('ports'), list): live.kernel.note_ports(saved['ports'])
-            if run_id == saved['run_id'] and o.get('state') in LIVE: self.live = live
+            if run_id == saved['run_id'] and (o.get('state') in LIVE or _held(o)): self.live = live
             else: self._finish(live, o, stranded=run_id == saved['run_id'] and o.get('state') in STRANDED, away=True)
-        elif run_id is not None and o.get('state') in STRANDED and run_id not in self.ended:
+        elif run_id is not None and o.get('state') in STRANDED and not _held(o) and run_id not in self.ended:
             self._finish(self._context(run_id, o['at']), o, stranded=True, away=True)
 
     def _feed(self, live, o):

@@ -18,7 +18,7 @@ import threading
 from tools.native_spike.profiles import DEFAULT_PROFILE
 
 STATES = ('no-glasses', 'idle', 'confirming', 'starting', 'running', 'stopping',
-          'recovery-needed', 'recover-confirming', 'cli-recovery', 'failed',
+          'recovery-needed', 'recover-confirming', 'cli-recovery', 'external-run', 'failed',
           'idle-editor', 'beast-confirming', 'running-unmeasured', 'disconnected',
           'bar-idle', 'bar-running', 'bar-recovery-needed')
 
@@ -53,7 +53,7 @@ def fixture(state):
                     capabilities=['prev','next','zoom_out','zoom_in','recenter','mode_next','spacing_down','spacing_up','prediction'],
                     status=dict(presented_hz=119.8,missed=3,capture_path='dmabuf',pose_age_ms=4))
     if state == 'failed': snap['reason']='Pinned binary changed; reinstall before starting.'
-    if state == 'cli-recovery': snap['journal']='/scratch/xr-workspace-spike/cli-run/journal.json'
+    if state in ('cli-recovery','external-run'): snap['journal']='/scratch/xr-workspace-spike/cli-run/journal.json'
     if original=='beast-confirming':
         snap['model']='beast'; scope.update(model='beast',mode_switch=False)
     if original=='running-unmeasured': snap['status']={}
