@@ -19,7 +19,7 @@ struct In { double host; float device; Quat q; };
 int main(int argc, char** argv) {
     std::map<std::string, std::string> o{{"--mode", "smooth"}, {"--period", "8.3333"}, {"--r2p", "16.6"}, {"--phase", "0"},
         {"--stabilization", "25"}, {"--tau", "35"}, {"--cap", "40"}, {"--constant", "0"}, {"--publish-delay", "1"},
-        {"--max-predict", "6"}, {"--snap", "8"}, {"--brake", "3"}, {"--brake-floor", "4"}, {"--read-jitter", "0"}};
+        {"--max-predict", "6"}, {"--snap", "30"}, {"--brake", "3"}, {"--brake-floor", "4"}, {"--read-jitter", "0"}};
     for (int i = 1; i + 1 < argc; i += 2) { if (!o.count(argv[i])) { std::cerr << "unknown " << argv[i] << '\n'; return 2; } o[argv[i]] = argv[i + 1]; }
     auto num = [&](const char* k) { return std::strtod(o[k].c_str(), nullptr); };
     std::vector<In> in;

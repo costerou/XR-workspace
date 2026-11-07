@@ -57,6 +57,7 @@ Vec MotionSmoother::velocity() const {
 Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, double now_ms) {
     relative = unit(relative);
     if (!std::isfinite(device_ms) || !std::isfinite(now_ms)) { reset(); return relative; }
+    if (!count_ || device_ms != t_[0]) new_sample_ms_ = now_ms;
     learn(relative, device_ms);
     Vec v = velocity();
     // The newest interval against the window: 1 at a steady speed, towards 0 as the head stops, 0 when it turns back.
@@ -83,7 +84,9 @@ Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, do
     }
     const float dt = float(std::clamp(now_ms - last_ms_, 0.0, 100.0));
     last_ms_ = now_ms;
-    const Quat carried = unit(quat_mul(output_, exp_of({v[0] * dt, v[1] * dt, v[2] * dt})));
+    // Carried only while the feed is alive: a stalled one still has its last speed in the history, and must not coast past the bound.
+    const float carry = now_ms - new_sample_ms_ > p_.stall_ms ? 0.f : dt;
+    const Quat carried = unit(quat_mul(output_, exp_of({v[0] * carry, v[1] * carry, v[2] * carry})));
     const Vec error = log_of(quat_mul(quat_conj(carried), target));
     const float size = norm(error);
     last_correction_deg_ = size * kRadToDeg;

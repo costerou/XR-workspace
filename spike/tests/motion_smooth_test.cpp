@@ -58,11 +58,32 @@ int run() {
         for (int k = 0; k < 20; ++k) { m.update(yaw(f.angle), f.t, 40, f.t); f.advance(2000); }
         CHECK(m.max_predicted_deg() <= 6.001f);
     }
-    {   // A recentre is not motion: taken at once, counted.
+    {   // A jump no head makes is not motion: taken at once, counted. (A recentre resets instead: Presentation::recenter.)
         MotionSmoother m; Feed f;
         for (int k = 0; k < 8; ++k) { m.update(yaw(f.angle + 50), f.t, 20, f.t); f.advance(0); }
         const Quat shown = m.update(yaw(0), f.t, 20, f.t);
         CHECK(between(shown, yaw(0)) < 0.01f && m.snaps() == 1);
+    }
+    {   // A hard turn at 700 deg/s is a head, not a jump: no snaps, and the view moves every frame.
+        MotionSmoother m; Feed f; double now = 0; Quat before{}; int still = 0;
+        for (int k = 0; k < 40; ++k) {
+            f.advance(700);
+            for (int j = 0; j < 2; ++j) {
+                now += 8.333;
+                const Quat shown = m.update(yaw(f.angle), f.t, 30, now);
+                if (k > 2 && between(before, shown) < 1.f) ++still;
+                before = shown;
+            }
+        }
+        CHECK(m.snaps() == 0 && still == 0);
+    }
+    {   // A stalled feed: speed stops being carried after stall_ms, so the view stops short of running on, then settles within the bound.
+        MotionSmoother m; Feed f; double now = 0;
+        for (int k = 0; k < 12; ++k) { f.advance(200); m.update(yaw(f.angle), f.t, 30, now = f.t); }
+        float furthest = 0;
+        float settled = 0;
+        for (int k = 0; k < 48; ++k) { now += 8.333; settled = between(m.update(yaw(f.angle), f.t, 40, now), yaw(f.angle)); furthest = std::max(furthest, settled); }
+        CHECK(furthest <= 9.f && settled <= 6.01f);
     }
     {   // A gap too long for a velocity: no prediction, and a repeated device time does not disturb the history.
         MotionSmoother m; Feed f;

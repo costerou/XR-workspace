@@ -107,7 +107,7 @@ def main():
         process = subprocess.Popen([str(bundle / 'bin/pro2-supervised-test'), '--consent', str(path), '--state-dir', str(state)], env=env, stdout=log, stderr=subprocess.STDOUT)
         print('CLI_PID', process.pid, flush=True)
         try: process.wait(timeout=args.stop_after)
-        except subprocess.TimeoutExpired:
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):  # the run's time, or Ctrl+C: the same clean stop
             print('PARENT_NORMAL_STOP', flush=True); process.send_signal(signal.SIGTERM)
             try: process.wait(timeout=25)
             except subprocess.TimeoutExpired:

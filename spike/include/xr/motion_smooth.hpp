@@ -23,8 +23,9 @@
 //   - brake: the newest interval's speed along the window's velocity, as a share of it, scales the velocity: a head that is
 //     stopping or turning back is not extrapolated past. A head speeding up is not scaled: nothing to overshoot yet.
 //   - a gap in device time over `max_gap_ms` means the velocity is unknown: no prediction, it eases to the sample.
-//   - a jump over `snap_deg` between samples, or an error that size, is not motion (a recentre, a reanchor): the history is
-//     dropped and the output takes the target at once, as a raw view would.
+//   - no new sample for `stall_ms`: the speed stops being carried, so the output settles on the target, within `max_predict_deg`.
+//   - a jump over `snap_deg` between samples, or an error that size, is not motion: the history is dropped and the output takes
+//     the target at once. A recentre does not get that far: Presentation::recenter resets this.
 // Allocation free, no clock reads, no I/O.
 #include "xr/pose.hpp"
 #include <array>
@@ -35,8 +36,9 @@ namespace xr {
 struct MotionSmoothParams {
     float tau_ms = 35.f;            // continuity filter time constant
     float max_predict_deg = 6.f;    // rotation the prediction may add to the newest sample
-    float snap_deg = 8.f;           // a larger error than this is taken at once
+    float snap_deg = 30.f;          // a larger error than this is taken at once: 1500 deg/s in a 20 ms gap, past any head
     float max_gap_ms = 60.f;        // a longer gap between samples has no usable velocity
+    float stall_ms = 40.f;          // past the longest normal wait seen by a reader: the 20 ms gap, the 2 ms poll, a frame's 8 ms
     float brake_power = 3.f;        // velocity scale while slowing: (newest interval's share of the window's speed) ^ this
     float brake_floor_rad_per_ms = 4.f * 3.14159265f / 180000.f;  // 4 deg/s: speeds around this are noise, not a stop
 };
@@ -60,7 +62,7 @@ private:
     MotionSmoothParams p_;
     bool valid_ = false;
     Quat output_{};
-    double last_ms_ = 0;
+    double last_ms_ = 0, new_sample_ms_ = 0;
     std::array<Quat, 3> q_{};            // newest first, distinct device times
     std::array<float, 3> t_{};
     std::uint32_t count_ = 0;

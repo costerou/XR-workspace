@@ -78,7 +78,7 @@ def load_projection(config_dir=None):
     try:
         value = read_private_json(_directory(config_dir) / SETTINGS_FILE).get('projection')
         return value if type(value) in (int, float) and float(value) in PRO2_PROJECTIONS else PRO2_DEFAULT_PROJECTION
-    except (OSError, ValueError, AttributeError): return PRO2_DEFAULT_PROJECTION
+    except (OSError, ValueError, AttributeError, OverflowError): return PRO2_DEFAULT_PROJECTION
 
 
 def save_projection(value, config_dir=None):
@@ -114,6 +114,7 @@ def enable(bundle, evidence, config_dir=None):
         raise ValueError('that supervised run did not complete cleanly')
     run_id = token(result.get('run_id'))
     if not run_id.startswith('pro2-supervised-'): raise ValueError('not a supervised Pro 2 run')
+    if result.get('manifest_sha256') != manifest_sha(root): raise ValueError('that run did not use this bundle')
     _write(_directory(config_dir) / ROUTE_FILE, dict(schema=1, model='pro2', bundle=str(root), manifest_sha256=manifest_sha(root), confirmed_run=run_id))
     return load_route(config_dir)
 
@@ -133,6 +134,7 @@ def execute(consent_path, state_dir, *, config_dir=None, client_factory=None, se
     block = consent[PRO2_KEY]
     runtime = Path(os.environ['XDG_RUNTIME_DIR'])
     client = client_factory(consent['instance'], runtime) if client_factory else BundleClient(consent['instance'], runtime, root, manifest)
+    if client_factory is None: client.check_abi()
     outcome = run_session(client, {**consent, 'sbs_mode': None}, root, runtime, Path(state_dir), consent['desktops'],
                           projection=block['projection'], seconds=ROUTE_SECONDS, pose_rate_hz=block['pose_rate_hz'], panel_route=True,
                           store=ProfileStore(profiles_path(), 'pro2'), session_factory=session_factory or RuntimeSession, run=run)
@@ -140,6 +142,7 @@ def execute(consent_path, state_dir, *, config_dir=None, client_factory=None, se
     return dict(complete=bool(done.get('complete')) and not outcome['errors'], renderer_returncode=done.get('renderer_returncode'),
                 remaining=done.get('remaining'), error='; '.join(outcome['errors']) or None,
                 **({'stop_reason': done['stop_reason']} if done.get('stop_reason') else {}),
+                **({'recovery': done['reasons']} if done.get('reasons') else {}),
                 **({'provider': outcome['provider']} if outcome.get('provider') else {}))
 
 
@@ -147,12 +150,15 @@ def recover(consent_path, journal, clear_rules=(), *, client_factory=None):
     """Recover a panel session with the bundle it ran. A later `disable` must not strand the run, so no opt-in is needed here."""
     from tools.native_spike.managed import recover_pro2_test_managed
     from tools.native_spike.hyprland import ownership_plugin_count
-    from tools.pro2_runtime.launch import verify_manifest
+    from tools.pro2_runtime.launch import validate_bundle_location, validate_bundle_plugin
     from tools.pro2_runtime.scope import BundleClient
     raw = read_private_json(consent_path)
     consent = load_panel_consent(consent_path, raw['instance'], raw['output'])
-    block = consent[PRO2_KEY]
-    root, manifest = verify_manifest(block['bundle'])
+    root = validate_bundle_location(consent[PRO2_KEY]['bundle'])
+    manifest = json.loads((root / 'manifest.json').read_text())
+    # Only the plugin is used here: the broker this run loaded. A changed renderer must not stand between the user and their windows.
+    if manifest['files'].get('bin/libxr-ownership.so') != consent['plugin']['sha256']: raise ValueError('the plugin this run pinned is gone')
+    validate_bundle_plugin(root, manifest)
     runtime = Path(os.environ['XDG_RUNTIME_DIR'])
     client = client_factory(consent['instance'], runtime) if client_factory else BundleClient(consent['instance'], runtime, root, manifest)
     if ownership_plugin_count(client.plugins_loaded()) != 1: raise ValueError('consented ownership plugin unavailable for recovery')

@@ -24,7 +24,7 @@ class ControllerTests(unittest.TestCase):
         for key,value in [('gate','normal'),('model','beast'),('parent_authorized',False),('projection',None),('seconds',301)]:
             with self.subTest(key=key),self.assertRaises(ValueError):validate({**self.data,key:value})
     def test_test_route_scope_and_teardown(self):
-        client=Mock();client.plugins_loaded.side_effect=[[],[OWNERSHIP_PLUGIN_NAME]]
+        client=Mock();client.plugins_loaded.side_effect=[[],[OWNERSHIP_PLUGIN_NAME],[OWNERSHIP_PLUGIN_NAME],[]]
         run=Mock(return_value=dict(complete=True,renderer_returncode=0))
         class Session:
             def __init__(self,root,directory,projection,seconds,approved):

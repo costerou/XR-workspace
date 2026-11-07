@@ -26,6 +26,7 @@ def validate_projection(value,approved):
 # in pose mode, and the bridge still asks it before opening. 60 unless a run says otherwise: docs/pro2/smoothness.md.
 POSE_RATES=(60,90,120,240)
 ROUTE_SECONDS=12*3600  # a panel session's deadline (bridge.cpp kRouteSeconds); Stop comes first
+COMPETING_EVERY_S=1.0
 
 
 def validate_pose_rate(value):
@@ -92,7 +93,7 @@ def competing(exclude=()):
         try:
             if proc.stat().st_uid==os.getuid():
                 if (proc/'comm').read_text().strip() in names:return True
-                if 'libglasses.so' in (proc/'maps').read_text():return True
+                if b'libglasses.so' in (proc/'maps').read_bytes():return True  # bytes: mapped file names need not be text
         except OSError:continue
     return False
 
@@ -104,7 +105,7 @@ class RuntimeSession:
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
         self.directory=Path(run_dir).absolute();self.directory.mkdir(mode=0o700,parents=False,exist_ok=False)
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
-        self.status=None;self.started=None;self.log=None
+        self.status=None;self.started=None;self.log=None;self.last_competing=0.0
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
     def command(self,exe,sdk,write):
         return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
@@ -172,7 +173,11 @@ class RuntimeSession:
         if self.failure:raise ValueError('runtime health failed')
         self.poll()
         if not self.ready or self.done is not None or self.child.poll() is not None:raise ValueError('Pro2 test provider no longer ready')
-        if competing(exclude=(self.child.pid,)):raise ValueError('competing provider during bounded test')
+        # About 35 ms of /proc/*/maps for every process, and each read holds that process's mmap lock: once a second, not 50 times.
+        now=time.monotonic()
+        if now-self.last_competing>=COMPETING_EVERY_S:
+            self.last_competing=now
+            if competing(exclude=(self.child.pid,)):raise ValueError('competing provider during bounded test')
     def close(self):
         self.stop_monitor.set()
         if self.thread:self.thread.join(timeout=2)

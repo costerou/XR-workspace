@@ -33,9 +33,9 @@ Expected in `MEASURED`:
 | --- | --- | --- |
 | `complete` | `true` | Follow the run's result; recovery is in runtime-runbook.md |
 | `look_ahead_cfg` | `[0.0, 0.0, 0.0, 40.0]` or the same as text | The bundle is the wrong one |
-| `predicted_frames` | well over 0; share near 1 less the time prediction was off | Stop: root cause not fixed live |
+| `predicted_frames` | well over 0; share near 1 less the time prediction was off. Read with `smoothing.max_predicted_deg`, which must be over 0 | Stop: root cause not fixed live |
 | `unpredicted_frames` | about 0 | As above |
-| `smoothing.snaps` | a handful at most: one per recentre | Report it: motion is being read as a jump |
+| `smoothing.snaps` | 0 | Report it: motion is being read as a jump |
 | `smoothing.max_predicted_deg` | under about 2.5 | Report it |
 | `desktops` | `["XR-1"]` | Report it: the lock failed |
 | `fov_source`, `diagonal_fov_deg` | `pro2-supervised-approximate`, `44.5` | Stop: wrong projection |

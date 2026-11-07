@@ -32,7 +32,7 @@ STOP_FROM_DPS, STOP_TO_DPS = 15.0, 3.0
 DEG = 180 / math.pi
 PIXELS_PER_DEG = 1920 / 39.25  # a 44.5 degree diagonal on 1920x1080 (docs/pro2/projection-policy.md), for reading the numbers
 PHASES_MS = (0.0, 2.08, 4.17, 6.25)  # where the display grid falls on the capture
-# The exact look-ahead and smoother values the Pro 2 route ships (tools/pro2_runtime/launch.py passes the same two).
+# The exact values the Pro 2 route ships: tau is scope.SMOOTH_MS, cap and constant are bridge.cpp kLookAhead, the brake is motion_smooth.hpp.
 SHIPPED = dict(tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0)
 ACCEPT = dict(stuck_pct=2.0, step_err_p95=0.12, jerk_p95=0.08, slow_jerk_p95=0.07, lag_ms=9.0, overshoot_max=0.30, rest_step_p95=0.016)
 

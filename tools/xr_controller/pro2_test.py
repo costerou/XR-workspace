@@ -1,5 +1,6 @@
 """Explicit bounded Pro2 supervised-test controller. Normal panel starts stay blocked."""
 import argparse
+import hashlib
 import json
 import os
 import signal
@@ -30,6 +31,13 @@ def validate(data):
 
 
 
+def journal_unfinished(path):
+    """True when recovery still needs the broker: the file stays after a finished recovery, so only its steps say. Unreadable: keep it."""
+    try:return any(r.get('state')!='done' for r in read_private_json(path,limit=1048576)['operations'])
+    except FileNotFoundError:return False
+    except (OSError,ValueError,KeyError,TypeError,AttributeError):return True
+
+
 def provider_summary(provider):
     """The bridge's closing counts, for the run's result: how many samples at what rate. Aggregates only, no pose."""
     done=getattr(provider,'done',None)
@@ -50,14 +58,15 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
     outcome=run_session(client,consent,root,runtime,Path(state_dir),data['desktops'],projection=data['projection'],seconds=data['seconds'],
         pose_rate_hz=data.get('pose_rate_hz',60),store=ProfileStore(Path(state_dir)/'pro2-test-profiles.json','pro2'),session_factory=session_factory,run=run)
     result,errors=outcome['run'],outcome['errors']
-    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
+    return dict(run_id=data['run_id'],manifest_sha256=hashlib.sha256((root/'manifest.json').read_bytes()).hexdigest(),
+                complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
                 **({'provider':outcome['provider']} if outcome.get('provider') else {}))
 
 
 def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seconds,pose_rate_hz=60,panel_route=False,store,session_factory=RuntimeSession,run=None):
     """The bridge, the plugin and the managed run, in order, and their teardown. Shared by the supervised test and the panel route."""
     from tools.native_spike.managed import run_pro2_test_managed
-    provider=None;loaded=False;result=None;errors=[];started=False
+    provider=None;attempted=False;result=None;errors=[];started=False
     plugin=str(root/'bin/libxr-ownership.so')
     journal=runtime/'xr-workspace-spike'/consent['run_id']/'journal.json'
     try:
@@ -67,17 +76,20 @@ def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seco
         provider=session_factory(root,state_dir/consent['run_id'],projection,seconds,True,**options)
         provider.start()
         scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route);scope.healthy()
+        attempted=True  # before the call: a load that took effect and then raised still has to be unloaded
         client.plugin_load(plugin)
-        loaded=True
         if ownership_plugin_count(client.plugins_loaded())!=1:raise ValueError('test ownership plugin load unconfirmed')
         client.park_presentation(consent['output'])
         started=True
         result=(run or run_pro2_test_managed)(client,consent,runtime,test_scope=scope,desktops=desktops,store=store,renderer=str(root/'bin/xr-native-spike'))
     except BaseException as exc:errors.append(str(exc) or type(exc).__name__)
     finally:
-        preserve=started and ((result is not None and result.get('complete') is not True) or (result is None and journal.exists()))
-        if loaded and not preserve:
-            try:client.plugin_unload(plugin)
+        preserve=started and ((result is not None and result.get('complete') is not True) or (result is None and journal_unfinished(journal)))
+        if attempted and not preserve:
+            try:
+                if ownership_plugin_count(client.plugins_loaded()):
+                    client.plugin_unload(plugin)
+                    if ownership_plugin_count(client.plugins_loaded()):errors.append('plugin still loaded after unload')
             except Exception as exc:errors.append(str(exc))
         if preserve:errors.append('ownership retained for explicit recovery')
         if provider is not None:

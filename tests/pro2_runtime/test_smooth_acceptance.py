@@ -56,7 +56,7 @@ class Metrics(unittest.TestCase):
         self.assertIn('kLookAhead{0,0,0,40}',bridge);self.assertEqual((A.SHIPPED['constant'],A.SHIPPED['cap']),(0.0,40.0))
         header=(ROOT/'spike/include/xr/motion_smooth.hpp').read_text()
         self.assertRegex(header,r'tau_ms = 35\.f');self.assertRegex(header,r'brake_power = 3\.f');self.assertRegex(header,r'brake_floor_rad_per_ms = 4\.f')
-        self.assertRegex(header,r'max_predict_deg = 6\.f');self.assertRegex(header,r'snap_deg = 8\.f')
+        self.assertRegex(header,r'max_predict_deg = 6\.f');self.assertRegex(header,r'snap_deg = 30\.f')
 
 
 class Summary(unittest.TestCase):

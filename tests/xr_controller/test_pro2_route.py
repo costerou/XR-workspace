@@ -25,7 +25,9 @@ class Base(unittest.TestCase):
         self.dir=Path(t.name).resolve();self.config=self.dir/'config';self.config.mkdir(mode=0o700)
         self.bundle=self.make_bundle(self.dir/'bundle')
         self.evidence=self.dir/'result.json'
-        self.evidence.write_text(json.dumps(dict(run_id='pro2-supervised-1',complete=True,errors=[],run=dict(complete=True,renderer_returncode=0))));self.evidence.chmod(0o600)
+        self.write_evidence()
+    def write_evidence(self,bundle=None):
+        self.evidence.write_text(json.dumps(dict(run_id='pro2-supervised-1',manifest_sha256=route.manifest_sha(bundle or self.bundle),complete=True,errors=[],run=dict(complete=True,renderer_returncode=0))));self.evidence.chmod(0o600)
     def make_bundle(self,root):
         (root/'bin').mkdir(parents=True);files={}
         for name in ('pro2-sdk-bridge','xr-native-spike','libxr-ownership.so'):
@@ -47,7 +49,7 @@ class OffByDefault(Base):
         luma=[dict(vendor_id='35ca',product_id='1104',product='VITURE Luma Ultra XR GLASSES')]
         self.assertEqual(identify(luma,DRM,MONITORS,('pro2',)),identify(luma,DRM,MONITORS))
     def test_enable_needs_a_clean_completed_supervised_run(self):
-        for change in (dict(complete=False),dict(errors=['x']),dict(run_id='r'),dict(run=dict(complete=False,renderer_returncode=0)),dict(run=dict(complete=True,renderer_returncode=1))):
+        for change in (dict(manifest_sha256='0'*64),dict(complete=False),dict(errors=['x']),dict(run_id='r'),dict(run=dict(complete=False,renderer_returncode=0)),dict(run=dict(complete=True,renderer_returncode=1))):
             good=json.loads(self.evidence.read_text());self.evidence.write_text(json.dumps({**good,**change}))
             with self.subTest(change=change),self.assertRaises(ValueError):route.enable(self.bundle,self.evidence,self.config)
             self.evidence.write_text(json.dumps(good))
@@ -59,6 +61,13 @@ class OffByDefault(Base):
     def test_a_broken_opt_in_never_raises_into_the_probe(self):
         (self.config/route.ROUTE_FILE).write_text('{');(self.config/route.ROUTE_FILE).chmod(0o600)
         got,why=route.probe(self.config);self.assertIsNone(got);self.assertTrue(why)
+    def test_the_running_hyprland_must_be_the_bundles(self):
+        from tools.pro2_runtime.scope import BundleClient
+        client=BundleClient.__new__(BundleClient);client.bundle_manifest=dict(ownership_abi=['0.55','0.10'])
+        client._request=Mock(return_value=json.dumps(dict(version='0.55',buildAquamarine='0.10')).encode())
+        client.check_abi();client._request.assert_called_once_with('j/version')
+        client._request=Mock(return_value=json.dumps(dict(version='0.56',buildAquamarine='0.10')).encode())
+        with self.assertRaisesRegex(ValueError,'another Hyprland'):client.check_abi()
     def test_disable(self):
         self.enable();route.disable(self.config);self.assertIsNone(route.load_route(self.config))
 
@@ -105,7 +114,7 @@ class Consent(Base):
         self.assertEqual(route.require(consent,self.config)[0],self.bundle)
         route.disable(self.config)
         with self.assertRaisesRegex(ValueError,'not enabled'):route.require(consent,self.config)
-        other=self.make_bundle(self.dir/'other');route.enable(other,self.evidence,self.config)
+        other=self.make_bundle(self.dir/'other');self.write_evidence(other);route.enable(other,self.evidence,self.config)
         with self.assertRaisesRegex(ValueError,'changed since'):route.require(consent,self.config)
 
 
@@ -169,7 +178,7 @@ class Run(Base):
             def close(s):seen['closed']=True
         return Session
     def run_it(self,**result):
-        client=Mock();client.plugins_loaded.side_effect=[[],[OWNERSHIP_PLUGIN_NAME]]
+        client=Mock();client.plugins_loaded.side_effect=[[],[OWNERSHIP_PLUGIN_NAME],[OWNERSHIP_PLUGIN_NAME],[]]
         run=Mock(return_value=dict(complete=True,renderer_returncode=0,remaining=[],**result))
         path=self.consent_file()
         with patch.dict(os.environ,XDG_RUNTIME_DIR=str(self.dir)),patch('tools.xr_controller.pro2_test.monitor_rules.refuse_start'),patch.object(route,'profiles_path',return_value=self.dir/'profiles.json'):
@@ -201,6 +210,7 @@ class Run(Base):
         self.assertEqual((result['error'],result['complete']),('no',False))
     def test_recovery_uses_the_bundle_even_after_disable(self):
         path=self.consent_file();route.disable(self.config)
+        (self.bundle/'bin/xr-native-spike').write_bytes(b'changed since')    # recovery never starts it
         client=Mock();client.plugins_loaded.side_effect=[[OWNERSHIP_PLUGIN_NAME],[]]
         with patch.dict(os.environ,XDG_RUNTIME_DIR=str(self.dir)),patch('tools.native_spike.managed.recover_pro2_test_managed',return_value=dict(complete=True)) as rec:
             self.assertTrue(route.recover(path,self.dir/'journal.json',('XR-1',),client_factory=lambda *a:client)['complete'])

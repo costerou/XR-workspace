@@ -160,7 +160,7 @@ def _run_managed_impl(client,consent,runtime,*,desktops=None,store=None,renderer
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=pro2_scope is not None or consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
                           **({'pro2_scope':pro2_scope} if pro2_scope is not None else {}),
-                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output),
+                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=None if pro2_scope is not None else _restore_output(client, consent, output),  # no hold: its bridge has no reconnect
                           sbs_mode=consent.get('sbs_mode'), faults=faults)
 
 

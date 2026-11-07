@@ -97,7 +97,7 @@ class ControllerRouteQA(unittest.TestCase):
         from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
         with tempfile.TemporaryDirectory(dir=self.build) as tmp:
             root = Path(tmp)
-            client = Mock(); client.plugins_loaded.side_effect = [[], [OWNERSHIP_PLUGIN_NAME]]
+            client = Mock(); client.plugins_loaded.side_effect = [[], [OWNERSHIP_PLUGIN_NAME], [OWNERSHIP_PLUGIN_NAME], []]
             def run(fake_client, consent, runtime, **kwargs):
                 self.assertIs(fake_client, client)
                 self.assertEqual(consent['model'], 'pro2')

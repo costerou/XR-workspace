@@ -26,9 +26,10 @@ The speed comes from the last three samples over their real device-time gap. The
 | Horizon | age + read-to-present, at most 40 ms | Measured live as about 17 to 37 ms |
 | `tau_ms` | 35 | Continuity filter. 15 to 50 swept; shorter gets jerkier, longer drifts further off |
 | `max_predict_deg` | 6 | The most the prediction may add |
+| `stall_ms` | 40 | No new sample for this long: speed stops being carried. The view can run on by that much time first, at most 8.8 degrees at 200 deg/s, then settles within 6. The bridge ends a feed silent for 100 ms |
 | `brake_power` | 3 | Speed scale while slowing is (newest interval's share of the window's speed) to this power |
 | `brake_floor` | 4 deg/s | Speeds around this are noise, not a stop |
-| `snap_deg` | 8 | A bigger jump is a recentre, not motion: taken at once |
+| `snap_deg` | 30 | 1500 deg/s in a 20 ms gap, past any head: taken at once. A recentre resets the smoother instead |
 | `max_gap_ms` | 60 | A longer gap has no usable speed: no prediction |
 | Stabilization | 25 | Unchanged |
 
@@ -57,7 +58,7 @@ Held in this table is the live test's behaviour: the replay's 28 ms lag and 50% 
 
 About 49 pixels is one degree here, so 0.22 degrees of overshoot is about 11 pixels for a moment at a hard stop. It is not zero: the limit is 0.30, and only `hold` is truly zero. The reference path's own floor is about 0.03 degrees of step error.
 
-Limits of this evidence: three captures from one wearer, 65 seconds in all, none of it a fast whip turn (peak 72 deg/s). `Lag` is software-visible only: panel delay cannot be seen from a capture. Whether it feels right is the live test's question.
+Limits of this evidence: three captures from one wearer, 65 seconds in all, none of it a fast whip turn (peak 72 deg/s). The overshoot figures rest on few real stops: 4 in the directional capture and 1 or 2 in the roll one, each seen at four display phases. The parameters were tuned on these same captures; there is no hold-out. `Lag` is software-visible only: panel delay cannot be seen from a capture. Whether it feels right is the live test's question.
 
 ## Pose rate
 
@@ -78,13 +79,13 @@ A supervised test now keeps its consent: no DesktopManager, and Add, Remove and 
 
 ## The panel route
 
-`tools/xr_controller/pro2_route.py`. Off until `python -m tools.xr_controller pro2-route enable --bundle … --evidence <run>/pro2-test-result.json` names a bundle and a clean supervised run. With no opt-in, detection, consent and managed runs refuse the Pro 2 exactly as before.
+`tools/xr_controller/pro2_route.py`. Off until `python -m tools.xr_controller pro2-route enable --bundle … --evidence <run>/pro2-test-result.json` names a bundle and a clean supervised run of that same bundle: the result carries the manifest hash. With no opt-in, detection, consent and managed runs refuse the Pro 2 exactly as before.
 
 - It runs one pinned bundle: bridge, renderer and plugin, by manifest hash. Not `installed.json`, so it cannot change another model's pins, and a rebuilt bundle turns the route off until enabled again.
 - Projection lives in `pro2-settings.json`: 44.5 by default, then 45.5, 46.5, 47.5, 48.5, 49.5 and 50, labelled approximate in the panel and the consent box. An unreadable value is 44.5.
-- Nothing falls back. No route means no start, never XRLinuxDriver. A bridge that stops ends the session and puts the windows back; there is no reconnect yet.
+- Nothing falls back. No route means no start, never XRLinuxDriver. A bridge that stops ends the session and puts the windows back: there is no hold and no reconnect yet, so a USB drop ends a Pro 2 session.
 - The consent box has nothing to untick: the route's tracking is the route.
-- Sessions have a 12 hour deadline; `pro2-sdk` is not in `tracking.SCOPES`, so the incident monitor does not watch its tracking yet.
+- Sessions have a 12 hour deadline; `pro2-sdk` is not in `tracking.SCOPES`, so the incident monitor does not watch its tracking yet. The running Hyprland must be the one the bundle's plugin was built for. Each session leaves its private log folder in the state directory.
 - `disable` removes the opt-in; recovery of a session that already ran still works without it.
 
 Luma and Beast: `identify`, consent keys, `profiles.json` and the start path are unchanged; tests compare them.

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import time
-from tools.native_spike.ipc import read_private_json
+from tools.native_spike.ipc import read_private_json,strict_json
 from tools.native_spike.hyprland import HyprlandClient
 from .launch import validate_projection
 
@@ -33,6 +33,10 @@ class ScopedGuard:
 class BundleClient(HyprlandClient):
     def __init__(self,instance,runtime,root,manifest):
         super().__init__(instance,runtime);self.bundle_root=root;self.bundle_manifest=manifest
+    def check_abi(self):
+        """The plugin was built for one Hyprland: the running one, or no start."""
+        version=strict_json(self._request('j/version'))  # not in the client's query list: it is only asked here
+        if [version.get('version'),version.get('buildAquamarine')]!=self.bundle_manifest.get('ownership_abi'):raise ValueError('the bundle was built for another Hyprland')
     def _plugin_command(self,verb,path,data_home=None,recovery_pin=None):
         from tools.pro2_runtime.launch import validate_bundle_plugin
         if verb not in ('load','unload'):raise ValueError('supervised plugin verb required')

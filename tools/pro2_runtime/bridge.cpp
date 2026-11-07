@@ -72,7 +72,7 @@ int main(int argc,char** argv){
  int sdk_fd=-1,status_fd=-1,pose_hz=60;double projection=0,seconds=0,max_seconds=300;bool approved=false;std::string prefix,root="/sys/bus/usb/devices",expected=kHash;
  try{
   for(int i=1;i<argc;++i){std::string a=argv[i];if(a=="--supervised-pro2-test"){approved=true;continue;}if(a=="--panel-route"){max_seconds=kRouteSeconds;continue;}if(i+1>=argc)throw std::runtime_error("arguments");std::string v=argv[++i];
-   if(a=="--sdk-fd")sdk_fd=std::stoi(v);else if(a=="--status-fd")status_fd=std::stoi(v);else if(a=="--prefix")prefix=v;else if(a=="--projection")projection=std::stod(v);else if(a=="--seconds")seconds=std::stod(v);else if(a=="--pose-rate")pose_hz=std::stoi(v);
+   if(a=="--sdk-fd")sdk_fd=std::stoi(v);else if(a=="--status-fd")status_fd=std::stoi(v);else if(a=="--prefix")prefix=v;else if(a=="--projection")projection=std::stod(v);else if(a=="--seconds")seconds=std::stod(v);else if(a=="--pose-rate"){std::size_t used=0;pose_hz=std::stoi(v,&used);if(used!=v.size())throw std::runtime_error("arguments");}
 #ifdef PRO2_SYNTHETIC
    else if(a=="--fixture-root")root=v;else if(a=="--fixture-hash")expected=v;
 #endif

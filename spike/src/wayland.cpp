@@ -1248,8 +1248,8 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     return {};
 }
 void Presentation::enable_tracking(std::string prefix, float supervised_projection, float smooth_ms) {
-    if (const auto params = motion_smooth_params(smooth_ms)) { impl_->smoother = MotionSmoother(*params); impl_->smooth_ms = smooth_ms; }
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
+    if (const auto params = motion_smooth_params(smooth_ms)) { impl_->smoother = MotionSmoother(*params); impl_->smooth_ms = smooth_ms; }
     impl_->supervised_projection = supervised_projection;
     if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
@@ -1509,7 +1509,7 @@ void Presentation::save_continuity(int fd) {
             (void)ftruncate(fd, 0);
     } catch (const std::runtime_error&) { (void)ftruncate(fd, 0); }
 }
-void Presentation::recenter() { if (impl_) { impl_->stabilization.reset(); impl_->pose.recenter(); impl_->modes.recenter(); } }
+void Presentation::recenter() { if (impl_) { impl_->stabilization.reset(); impl_->smoother.reset(); impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_edge_pan(const EdgePan& pan) {
     if (!impl_) return;
     impl_->view.set_pan(pan, double(monotonic_ms()));
