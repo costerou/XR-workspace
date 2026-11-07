@@ -59,6 +59,27 @@ class Metrics(unittest.TestCase):
         self.assertRegex(header,r'max_predict_deg = 6\.f');self.assertRegex(header,r'snap_deg = 8\.f')
 
 
+class Summary(unittest.TestCase):
+    def line(self):
+        return json.dumps(dict(kind='managed_output_capture',outputs=[dict(name='XR-1',frames=9)],tracking=dict(samples=5368,lost_events=0,fov_source='pro2-supervised-approximate',diagonal_fov_deg=44.5),
+            latency=dict(read_to_present=dict(p50_ms=16.6),pose_age_relative=dict(p50_ms=9.4),prediction=dict(enabled=True,predicted_frames=9000,unpredicted_frames=0,last_horizon_ms=20.0,look_ahead_cfg=[0,0,0,40],smoothing=dict(tau_ms=35,frames=9000,snaps=0)))))
+    def test_consent_for_keeps_one_desktop_and_sixty_unless_asked(self):
+        from tools.pro2_runtime.supervised_parent import consent_for
+        from tools.xr_controller.pro2_test import validate
+        plain=consent_for('pro2-supervised-1','i');self.assertNotIn('pose_rate_hz',plain);self.assertEqual(len(plain['desktops']),1)
+        validate(plain);self.assertEqual(validate(consent_for('pro2-supervised-1','i',pose_rate_hz=120))['pose_rate_hz'],120)
+        with self.assertRaises(ValueError):validate({**plain,'pose_rate_hz':1000})
+    def test_summarize_reads_aggregates_only(self):
+        from tools.pro2_runtime.supervised_parent import summarize
+        timing=json.dumps(dict(kind='generated_pattern_presentation_timing',presented=10000,interval_histogram=[0,0,0,9000],abandoned=2))
+        s=summarize('PRO2 SUPERVISED TEST\n'+timing+'\n'+self.line()+'\n{"kind":"x"}\nnot json\n',dict(complete=True,provider=dict(samples=5400)))
+        self.assertEqual((s['predicted_share'],s['desktops'],s['provider']['samples'],s['complete']),(.9,['XR-1'],5400,True))
+        self.assertEqual(s['smoothing']['tau_ms'],35);self.assertEqual(s['look_ahead_cfg'],[0,0,0,40])
+    def test_summarize_survives_an_empty_log(self):
+        from tools.pro2_runtime.supervised_parent import summarize
+        self.assertEqual(summarize('',None)['presented'],0)
+
+
 REPLAY=os.environ.get('PRO2_SMOOTH_REPLAY')
 @unittest.skipUnless(REPLAY,'set PRO2_SMOOTH_REPLAY to a built pro2_smooth_replay')
 class Replay(unittest.TestCase):
@@ -73,3 +94,17 @@ class Replay(unittest.TestCase):
     def test_private_capture_data_stays_out_of_the_summary(self):
         text=json.dumps(A.evaluate(REPLAY,A.synthetic(seconds=4),mode='smooth'))
         self.assertNotIn('sdk_values',text);self.assertNotRegex(text,r'"q"')
+
+
+RENDERER=os.environ.get('PRO2_RENDERER')
+@unittest.skipUnless(RENDERER,'set PRO2_RENDERER to a built xr-native-spike')
+class RendererArguments(unittest.TestCase):
+    def status(self,*extra):
+        base=['--supervised-fd','3','--wayland-fd','4','--output','DP-2','--run-id','r','--session','s','--capture','XR-1','--pose-feed','xrld']
+        env={'PATH':'/usr/bin'}
+        return subprocess.run([RENDERER,*base,*extra],capture_output=True,timeout=5,env=env,stdin=subprocess.DEVNULL).returncode
+    def test_smoothing_needs_the_private_feed_and_a_sane_time(self):
+        pro2=['--pro2-test-pose-prefix','/private/pose_','--pro2-test-projection','44.5']
+        self.assertEqual(self.status('--pro2-test-smooth-ms','35'),2)            # alone: refused
+        for bad in ('4','81','nan','x'):
+            with self.subTest(bad=bad):self.assertEqual(self.status(*pro2,'--pro2-test-smooth-ms',bad),2)

@@ -22,14 +22,14 @@ def validate_projection(value,approved):
     return float(value)
 
 
-# SDK report rates the bridge may ask for (viture_protocol_public.h); viture's public reference lists 60/90/120 Hz for the Pro 2 in
-# pose mode, and the bridge still asks the SDK before opening. 60 unless a run says otherwise: docs/pro2/smoothness.md.
-POSE_RATES=(60,90,120)
+# SDK report rates the bridge may ask for (viture_protocol_public.h). The pinned SDK's capability check allows codes 0..3 for the Pro 2
+# in pose mode, and the bridge still asks it before opening. 60 unless a run says otherwise: docs/pro2/smoothness.md.
+POSE_RATES=(60,90,120,240)
 ROUTE_SECONDS=12*3600  # a panel session's deadline (bridge.cpp kRouteSeconds); Stop comes first
 
 
 def validate_pose_rate(value):
-    if type(value) is not int or value not in POSE_RATES:raise ValueError('pose rate must be exactly 60, 90 or 120 Hz')
+    if type(value) is not int or value not in POSE_RATES:raise ValueError('pose rate must be exactly 60, 90, 120 or 240 Hz')
     return value
 
 

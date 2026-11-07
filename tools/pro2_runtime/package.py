@@ -29,6 +29,12 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 exec python3 -I -c 'import sys;sys.path.insert(0,sys.argv.pop(1));from tools.xr_controller.pro2_test import main;raise SystemExit(main())' "$ROOT" --bundle "$ROOT" "$@"
 ''');script.chmod(0o500)
+    parent=destination/'bin/pro2-supervised-parent'
+    parent.write_text('''#!/bin/sh
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec python3 -I -c 'import sys;sys.path.insert(0,sys.argv.pop(1));from tools.pro2_runtime.supervised_parent import main;raise SystemExit(main())' "$ROOT" "$@"
+''');parent.chmod(0o500)
     manifest=dict(schema=1,sdk_sha256=SDK_SHA,firmware='30.0.00.002_20260804',
         source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         projection='explicit provisional diagonal44.5..50, seed44.5 TBD; no optical correction',

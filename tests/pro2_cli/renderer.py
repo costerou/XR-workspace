@@ -3,7 +3,7 @@
 import sys,socket,time,os,json,subprocess
 from pathlib import Path
 args=dict(zip(sys.argv[1::2],sys.argv[2::2]));trace=Path(os.environ['XDG_RUNTIME_DIR'])/'renderer.json'
-assert args['--pose-feed']=='xrld' and float(args['--pro2-test-projection'])==44.5
+assert args['--pose-feed']=='xrld' and float(args['--pro2-test-projection'])==44.5 and float(args['--pro2-test-smooth-ms'])==35
 fd=int(args['--supervised-fd']);conn=socket.socket(fileno=fd);data=b''
 while not data.endswith(b'\n'):data+=conn.recv(1)
 assert json.loads(data)['op']=='start'

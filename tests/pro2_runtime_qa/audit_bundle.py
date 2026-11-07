@@ -33,6 +33,8 @@ def audit(bundle, source):
         original = subprocess.check_output(['git', 'show', expected + ':' + name], cwd=REPO)
         if (root / name).read_bytes() != original:
             raise ValueError('packaged source differs from pinned commit: ' + name)
+    if 'from tools.pro2_runtime.supervised_parent import main' not in (root / 'bin/pro2-supervised-parent').read_text():
+        raise ValueError('packaged parent entry missing')
     entry = (root / 'bin/pro2-supervised-test').read_text()
     if 'runpy' in entry or 'from tools.xr_controller.pro2_test import main' not in entry:
         raise ValueError('packaged CLI must use canonical imported main')
@@ -42,7 +44,7 @@ def audit(bundle, source):
         raise ValueError('review executables must be ELF artifacts')
     if b'--fixture-root' in bridge or b'--fixture-hash' in bridge:
         raise ValueError('synthetic-only flags found in production bridge')
-    if b'--pro2-test-pose-prefix' not in renderer or b'--pro2-test-projection' not in renderer:
+    if b'--pro2-test-pose-prefix' not in renderer or b'--pro2-test-projection' not in renderer or b'--pro2-test-smooth-ms' not in renderer:
         raise ValueError('renderer missing dedicated supervised route flags')
     if any(n.startswith('tests/') or (Path(n).suffix == '.so' and 'fixture' in Path(n).name.lower()) or Path(n).name == 'libglasses.so' for n in data['files']):
         raise ValueError('synthetic fixture or vendor SDK must not ship in review bundle')

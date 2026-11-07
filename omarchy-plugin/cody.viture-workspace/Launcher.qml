@@ -169,7 +169,7 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: childrenRect.height
             spacing: 8
-            CheckBox { objectName: "trackingOption"; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
+            CheckBox { objectName: "trackingOption"; visible: !root.snapshot.pro2; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
             CheckBox { objectName: "modeSwitchOption"; visible: root.snapshot.model==="luma-ultra"; text: "120 Hz mode switch"; checked: !!root.settings.mode_switch; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{mode_switch:checked}}) }
         }
         // Standard, the 3DoF test (docs/tracking-3dof-ab.md) and the new driver: whichever are installed, and a saved one
@@ -191,6 +191,25 @@ ColumnLayout {
                 onActivated: root.request({op:"set_settings",settings:{tracking_driver:currentValue}})
             }
         }
+        // The Pro 2 with its route on (tools/xr_controller/pro2_route.py): its own projection, for the next start.
+        RowLayout {
+            objectName: "pro2ProjectionOption"
+            visible: !!root.snapshot.pro2
+            Layout.fillWidth: true
+            spacing: 10
+            Label { text: "Projection" }
+            ComboBox {
+                objectName: "pro2ProjectionCombo"
+                Layout.fillWidth: true
+                textRole: "label"
+                valueRole: "value"
+                model: Model.projectionChoices(root.snapshot.pro2)
+                currentIndex: ((root.snapshot.pro2 || {}).choices || []).indexOf((root.snapshot.pro2 || {}).projection)
+                enabled: !root.busy
+                onActivated: index => root.request({op:"set_pro2_projection",projection:valueAt(index)})
+            }
+        }
+        Label { objectName: "pro2Note"; visible: !!root.snapshot.pro2; text: "Pro 2: the projection is approximate, not calibrated. Only this model uses it."; opacity: 0.65; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         Label { objectName: "lumaMissing"; visible: !!root.settings.tracking && root.settings.tracking_driver === "luma" && root.snapshot.luma_available === false; text: "The XR Luma driver is not installed: starts use XRLinuxDriver."; color: "#e7c78a"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         Label { objectName: "beastNote"; visible: root.snapshot.model==="beast"; text: "Beast: native 120 Hz mode, no switch. Presentation rate is measured during a run."; wrapMode: Text.WordWrap; Layout.fillWidth: true; opacity: 0.65 }
     }

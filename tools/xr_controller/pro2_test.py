@@ -47,34 +47,43 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
         if result.get('complete') and ownership_plugin_count(client.plugins_loaded())==1:
             client.plugin_unload(str(root/'bin/libxr-ownership.so'))
         return result
+    outcome=run_session(client,consent,root,runtime,Path(state_dir),data['desktops'],projection=data['projection'],seconds=data['seconds'],
+        pose_rate_hz=data.get('pose_rate_hz',60),store=ProfileStore(Path(state_dir)/'pro2-test-profiles.json','pro2'),session_factory=session_factory,run=run)
+    result,errors=outcome['run'],outcome['errors']
+    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
+                **({'provider':outcome['provider']} if outcome.get('provider') else {}))
+
+
+def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seconds,pose_rate_hz=60,panel_route=False,store,session_factory=RuntimeSession,run=None):
+    """The bridge, the plugin and the managed run, in order, and their teardown. Shared by the supervised test and the panel route."""
+    from tools.native_spike.managed import run_pro2_test_managed
     provider=None;loaded=False;result=None;errors=[];started=False
     plugin=str(root/'bin/libxr-ownership.so')
+    journal=runtime/'xr-workspace-spike'/consent['run_id']/'journal.json'
     try:
         monitor_rules.refuse_start(client)
         if ownership_plugin_count(client.plugins_loaded()):raise ValueError('ownership plugin already present')
-        rate=data.get('pose_rate_hz',60)
-        provider=session_factory(root,Path(state_dir)/data['run_id'],data['projection'],data['seconds'],True,**({'pose_rate_hz':rate} if rate!=60 else {}))
+        options={**({'pose_rate_hz':pose_rate_hz} if pose_rate_hz!=60 else {}),**({'panel_route':True} if panel_route else {})}
+        provider=session_factory(root,state_dir/consent['run_id'],projection,seconds,True,**options)
         provider.start()
-        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce);scope.healthy()
+        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route);scope.healthy()
         client.plugin_load(plugin)
         loaded=True
         if ownership_plugin_count(client.plugins_loaded())!=1:raise ValueError('test ownership plugin load unconfirmed')
-        client.park_presentation(data['output'])
+        client.park_presentation(consent['output'])
         started=True
-        result=(run or run_pro2_test_managed)(client,consent,runtime,test_scope=scope,desktops=data['desktops'],
-            store=ProfileStore(Path(state_dir)/'pro2-test-profiles.json','pro2'),renderer=str(root/'bin/xr-native-spike'))
+        result=(run or run_pro2_test_managed)(client,consent,runtime,test_scope=scope,desktops=desktops,store=store,renderer=str(root/'bin/xr-native-spike'))
     except BaseException as exc:errors.append(str(exc) or type(exc).__name__)
     finally:
         preserve=started and ((result is not None and result.get('complete') is not True) or (result is None and journal.exists()))
         if loaded and not preserve:
             try:client.plugin_unload(plugin)
             except Exception as exc:errors.append(str(exc))
-        if preserve:errors.append('ownership retained for explicit pro2-test --recover')
+        if preserve:errors.append('ownership retained for explicit recovery')
         if provider is not None:
             try:provider.close()
             except Exception as exc:errors.append(str(exc))
-    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
-                **({'provider':provider_summary(provider)} if provider is not None else {}))
+    return dict(run=result,errors=errors,provider=provider_summary(provider) if provider is not None else None)
 
 
 def main():

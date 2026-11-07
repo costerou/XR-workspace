@@ -9,13 +9,15 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
-from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE, LUMA_PIN
+from tools.native_spike.display_policy import PRO2_PROJECTIONS
+from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE, LUMA_PIN, PRO2_KEY, PRO2_TRACKING
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike import environment, immersive, sbs, tracking
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
+from . import pro2_route
 from .detect import pick_fallback
 from .install import verify_tracking_driver
 
@@ -29,6 +31,7 @@ class Controller:
     def __init__(self, clock, probe, spawn, units, store, consent_dir_fd, state_dir, monitor=None):
         self.clock,self.probe,self.spawn,self.units,self.store = clock,probe,spawn,units,store
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
+        self.route_config=None  # pro2_route's directory; None: beside profiles.json
         self.monitor=monitor; self.stop_run=None; self.monitor_fault=None  # incident_monitor.py; the run Stop was asked of
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
         self.observed={}; self.started=None; self.last_failure=None
@@ -53,8 +56,15 @@ class Controller:
             names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None,
             tracking_drivers=o.get('tracking_drivers') or [],
+            **self._pro2_snapshot(),
             immersive=self.live.get('immersive') if self.state=='running' else None,
             incident=self.monitor.latest if self.monitor is not None else None))
+
+    def _pro2_snapshot(self):
+        """The Pro 2's panel row: its projection, only for a Pro 2 with the route on. No key at all for anything else."""
+        o=self.observed
+        if o.get('model')!='pro2' or not o.get('pro2_route'): return {}
+        return dict(pro2=dict(projection=pro2_route.load_projection(self.route_config),choices=list(PRO2_PROJECTIONS),label='approximate'))
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -97,7 +107,7 @@ class Controller:
         self.observed=self.probe()
         o=self.observed
         self.error=None
-        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','tracking_drivers')):
+        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','tracking_drivers','pro2_route')):
             self.pending=None; self.state='idle'
         journals=o.get('journals',[])
         if len(journals)>1:
@@ -252,6 +262,10 @@ class Controller:
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)
             self.store.save(model,_check({**profile,**settings})); return
+        if op=='set_pro2_projection':
+            if self.state!='idle' or self.observed.get('model')!='pro2' or not self.observed.get('pro2_route'): raise ValueError('busy')
+            pro2_route.save_projection(msg.get('projection'),self.route_config)
+            return
         if op=='begin_start':
             self.tick()
             if self.state!='idle': raise ValueError('busy')
@@ -259,11 +273,19 @@ class Controller:
             fallback=pick_fallback(o['monitors'],o['output'],p['fallback'])
             if not o['output'] or fallback in (None,'choose'): raise ValueError(o.get('reason') or 'choose a physical fallback output')
             if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
-            installed=dict(o['installed']); luma=installed.pop(LUMA_PIN,None)
-            scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
-                tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(p),**installed)
-            if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
+            if o['model']=='pro2':
+                # Reached only with an opt-in (detect.identify gives no output otherwise). Its own artifacts and projection, read fresh.
+                route=pro2_route.load_route(self.route_config)
+                if route is None: raise ValueError('the Pro 2 route is not enabled')
+                scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model='pro2',
+                    tracking=PRO2_TRACKING,mode_switch=False,desktops=self._startup_desktops('pro2',p),plugin=route['plugin'],renderer=route['renderer'])
+                scope[PRO2_KEY]=pro2_route.consent_block(route,pro2_route.load_projection(self.route_config))
+            else:
+                installed=dict(o['installed']); luma=installed.pop(LUMA_PIN,None)
+                scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
+                    tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
+                    desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(p),**installed)
+                if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
             # 3D's own line in the consent (tools/native_spike/sbs.py), only where the depth engine can run at all.
             if scope['mode_switch'] and immersive.find_engine(scope['renderer']['path']) is not None: scope[sbs.SCOPE_KEY]=copy.deepcopy(sbs.SCOPE)
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
@@ -287,6 +309,7 @@ class Controller:
             if action=='start':
                 optional=msg.get('optional',{})
                 if not isinstance(optional,dict) or set(optional)-{'tracking','mode_switch'} or any(type(v) is not bool for v in optional.values()): raise ValueError('invalid optional scope')
+                if PRO2_KEY in scope: optional={}  # nothing optional: its tracking is its route, and there is no other
                 for k,v in optional.items():
                     if not v: scope[k]=False
                     elif scope[k] is False: raise ValueError('cannot expand confirmed scope')

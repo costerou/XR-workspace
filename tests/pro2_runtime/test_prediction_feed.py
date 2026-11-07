@@ -50,3 +50,42 @@ class PredictionFeed(unittest.TestCase):
         self.assertEqual(seen['horizon_ok'],seen['distinct']-3,seen)
         self.assertEqual(seen['cap_ms'],40,seen)
         self.assertAlmostEqual(seen['horizon_ms'],24.6,places=3)
+
+
+@unittest.skipUnless(os.environ.get('PRO2_RUNTIME_NAMESPACE_TEST')=='1','run via tests/pro2_runtime/run.py in private namespaces')
+class PoseRateFlag(unittest.TestCase):
+    """--pose-rate through the real bridge, against a simulated SDK. No claim about what real glasses deliver."""
+    def bridge(self,*extra,sdk_rate=None):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);usb=root/'sysfs';(usb/'1-1').mkdir(parents=True)
+            for name,value in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='13').items():(usb/'1-1'/name).write_text(value+'\n')
+            sdk=root/'fixture.so';binary=root/'bridge'
+            subprocess.run(['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],cwd=ROOT,check=True,capture_output=True)
+            subprocess.run(['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)],cwd=ROOT,check=True,capture_output=True)
+            digest=hashlib.sha256(sdk.read_bytes()).hexdigest();status=root/'status';trace=root/'trace'
+            env=dict(os.environ,PRO2_QA_TRACE=str(trace),**({'PRO2_QA_RATE':sdk_rate} if sdk_rate else {}))
+            sdk_fd=os.open(sdk,os.O_RDONLY);status_fd=os.open(status,os.O_CREAT|os.O_WRONLY,0o600)
+            try:
+                done=subprocess.run([str(binary),'--supervised-pro2-test','--sdk-fd',str(sdk_fd),'--status-fd',str(status_fd),'--prefix',str(root/'pose_'),'--projection','44.5','--seconds','.3','--fixture-root',str(usb),'--fixture-hash',digest,*extra],
+                    pass_fds=(sdk_fd,status_fd),env=env,capture_output=True,timeout=8)
+            finally:os.close(sdk_fd);os.close(status_fd)
+            events=[json.loads(l) for l in status.read_text().splitlines()]
+            return done.returncode,events,(trace.read_text().split() if trace.exists() else [])
+    def test_sixty_is_the_default_and_opens_rate_code_zero(self):
+        code,events,trace=self.bridge()
+        self.assertEqual(code,0,events);self.assertIn('open:0',trace);self.assertEqual(events[0]['pose_rate_hz'],60)
+    def test_a_supported_rate_opens_its_own_code(self):
+        code,events,trace=self.bridge('--pose-rate','120',sdk_rate='2')
+        self.assertEqual(code,0,events);self.assertIn('open:2',trace);self.assertEqual(events[-1]['pose_rate_hz'],120)
+        self.assertIn('gap_ms_counts',events[-1]);self.assertEqual(sum(events[-1]['gap_ms_counts']),events[-1]['samples']+1)
+    def test_a_refused_rate_stops_it_and_never_falls_back_to_sixty(self):
+        code,events,trace=self.bridge('--pose-rate','120')
+        self.assertNotEqual(code,0);self.assertEqual(events[-1]['error'],'capability');self.assertFalse([t for t in trace if t.startswith('open')])
+    def test_a_rate_outside_the_list_is_refused_before_the_sdk(self):
+        for rate in ('500','1000','0','abc'):
+            with self.subTest(rate=rate):
+                code,events,trace=self.bridge('--pose-rate',rate)
+                self.assertEqual(code,2);self.assertEqual((events,trace),([],[]))
+    def test_a_long_deadline_needs_the_panel_route(self):
+        self.assertEqual(launch.ROUTE_SECONDS,43200)
+        with self.assertRaises(ValueError):launch.RuntimeSession('/nonexistent','/nonexistent',44.5,301,True)

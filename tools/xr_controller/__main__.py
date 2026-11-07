@@ -16,6 +16,7 @@ from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
+from . import pro2_route
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
@@ -128,7 +129,9 @@ class Host:
         try:
             client=HyprlandClient(instance,self.runtime)
             monitors=client.query('monitors')
-            result.update(identify(probe_usb(),probe_drm(),monitors),monitors=monitors,plugins=client.plugins_loaded())
+            route,off=pro2_route.probe()
+            result.update(identify(probe_usb(),probe_drm(),monitors,('pro2',) if route else ()),monitors=monitors,plugins=client.plugins_loaded(),pro2_route=route)
+            if off and result.get('model')=='pro2': result['reason']=off
             result['installed']=load_installed(self.data_home)
             result['tracking_drivers']=tracking_drivers(self.data_home,result['installed'])
         except (OSError,ValueError) as exc: result['reason']=str(exc)
@@ -203,6 +206,7 @@ def recover_pinned(consent_path,journal,clear_rules=()):
     from tools.native_spike.managed import recover_managed
     from .install import verify_recovery_pin
     raw=read_private_json(consent_path)
+    if raw.get('model')=='pro2': return pro2_route.recover(consent_path,journal,clear_rules)
     consent=load_panel_consent(consent_path,raw['instance'],raw['output'])
     data_home=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     # Recover with the plugin this run pinned, even if an install has since upgraded
@@ -219,6 +223,19 @@ def recover_pinned(consent_path,journal,clear_rules=()):
         client.plugin_unload(plugin['path'],data_home=data_home,recovery_pin=plugin)
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')
     return result
+
+
+def route_command(args):
+    try:
+        if args.action=='enable':
+            if args.bundle is None or args.evidence is None: raise ValueError('enable needs --bundle and --evidence')
+            pro2_route.enable(args.bundle,args.evidence)
+        elif args.action=='disable': pro2_route.disable()
+        route,off=pro2_route.probe()
+        print(json.dumps(dict(enabled=route is not None,bundle=route and route['bundle'],confirmed_run=route and route['confirmed_run'],reason=off)))
+        return 0
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        print(f'pro2-route failed: {exc}',file=sys.stderr); return 1
 
 
 def install_unit(config_home):
@@ -238,7 +255,10 @@ def main(argv=None):
     sub.add_parser('serve'); p=sub.add_parser('install'); p.add_argument('--build',type=Path,required=True)
     p=sub.add_parser('recover-run'); p.add_argument('--consent',required=True); p.add_argument('--journal',required=True)
     p.add_argument('--clear-rule',action='append',default=[],type=monitor_rules.desktop,help='a desktop whose monitors.lua rule the confirm box listed')
+    p=sub.add_parser('pro2-route',help="the Pro 2's opt-in for the panel's Start: off until a live test says otherwise")
+    p.add_argument('action',choices=('enable','disable','status')); p.add_argument('--bundle',type=Path); p.add_argument('--evidence',type=Path)
     args=ap.parse_args(argv)
+    if args.command=='pro2-route': return route_command(args)
     data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     if args.command=='install':
         try:

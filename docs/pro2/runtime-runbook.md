@@ -1,5 +1,7 @@
 # Built Pro2 supervised-test runtime — parent review and later authorization
 
+For the smoothness bundle use [smooth-live-test.md](smooth-live-test.md); recovery below still applies.
+
 Normal Pro2 panel/driver/managed activation stays blocked. This bundle adds a **separate bounded test route**, not an unattended production driver. Cody authorized its offline build; installation, SDK/hardware execution and physical XR Workspace testing are NOT performed/authorized by this thread. Roll picture is now confirmed normal by Cody (supersedes the earlier missing confirmation). Private raw/SDK logs stay private.
 
 ## What is built

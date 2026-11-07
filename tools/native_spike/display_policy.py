@@ -6,6 +6,11 @@ infer the glasses model from EDID. Callers must supply the verified model key.
 """
 import math
 
+# The Pro 2's projection (docs/pro2/projection-policy.md): the diagonal the renderer uses, degrees. 44.5 is upstream's "TBD" seed,
+# and up to 50 is an engineering test bound in 1 degree steps, the last one shorter. Approximate; none of it is a calibration.
+PRO2_DEFAULT_PROJECTION = 44.5
+PRO2_PROJECTIONS = (44.5, 45.5, 46.5, 47.5, 48.5, 49.5, 50.0)
+
 
 def initial_picture_mode(model, width, height, refresh):
     """Whether an observed mode meets the model's initial picture target.

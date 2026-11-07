@@ -116,9 +116,18 @@ function desktopEdit(width, height, scale) {
 // The consent's `tracking` (tools/native_spike/tracking.py SCOPES) and `tracking_driver`. The Luma scope covers the handover
 // too: the click agrees to it. The 3DoF test never hands over.
 function trackingLine(tracking, driver) {
+    if (tracking === "pro2-sdk") return "Head tracking via the pinned Pro 2 SDK bridge, network blocked. If it stops, XR stops and your windows come back.";
     if (tracking === "luma") return "Head tracking via the XR Luma driver, network blocked. If it does not calibrate, XRLinuxDriver takes over, also network blocked.";
     if (tracking && driver === "3dof") return "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked.";
     return tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).";
+}
+
+// The Pro 2's projection, always with its caveat: docs/pro2/projection-policy.md.
+function projectionLine(degrees) {
+    return "Projection " + degrees + " degrees diagonal, approximate: not calibrated, no optical or tilt correction.";
+}
+function projectionChoices(pro2) {
+    return ((pro2 || {}).choices || []).map(function(p) { return {label: p + "° (approximate)", value: p}; });
 }
 
 function scopeLines(scope, action, rules) {
@@ -139,7 +148,11 @@ function scopeLines(scope, action, rules) {
     (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
     required("In the glasses, a desktop's glass pill can make it ultrawide, add one (up to " + MAX_DESKTOPS + ") or remove it; its windows then return to " + scope.recovery_output + ".");
     required("Load the pinned ownership plugin for this session.");
-    lines.push({text:trackingLine(scope.tracking, scope.tracking_driver), optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
+    if (scope.pro2_route) {  // nothing optional: its tracking is the route (tools/xr_controller/pro2_route.py)
+        required(trackingLine(scope.tracking));
+        required(projectionLine(scope.pro2_route.projection));
+    } else
+        lines.push({text:trackingLine(scope.tracking, scope.tracking_driver), optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
     if (scope.mode_switch) {
         const m = scope.mode_switch;
         lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});

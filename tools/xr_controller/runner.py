@@ -56,7 +56,24 @@ def _toast(body):
     except (OSError, subprocess.SubprocessError): pass
 
 
+def execute_pro2(consent_path, raw, progress=None):
+    """A Pro 2 panel session: its own route (pro2_route.py), a pinned bundle with no installed.json or tracking.py driver."""
+    from .pro2_route import execute as execute_route
+    result = {'run_id': _run_id(raw), 'phase': 'run', 'complete': False, 'renderer_returncode': None, 'remaining': None, 'error': None}
+    try:
+        if progress and result['run_id']: progress(result['run_id'], 'tracking')
+        result.update(execute_route(consent_path, Path(consent_path).parent))
+    except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
+        result['error'] = str(exc) or type(exc).__name__
+    if not result['error']: result['phase'] = 'done'
+    return result
+
+
 def execute(consent_path, data_home, progress=None):
+    try:
+        first = read_private_json(consent_path)
+        if isinstance(first, dict) and first.get('model') == 'pro2': return execute_pro2(consent_path, first, progress)
+    except (OSError, ValueError): pass  # the path below reports it, in its own words
     result = {'run_id': None, 'phase': 'verify', 'complete': False,
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False

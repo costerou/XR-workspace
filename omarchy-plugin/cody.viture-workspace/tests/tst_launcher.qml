@@ -253,4 +253,29 @@ TestCase {
         const arc = shot.pixel(32, 22);
         verify(arc.a > 0.9 && arc.b > 0.6, "arc " + arc);
     }
+
+    // The Pro 2 with its route on: its own projection, labelled approximate, and nothing of the other models' startup options.
+    function test_pro2ProjectionRowOnlyForAPro2WithTheRoute() {
+        const pro2 = {projection:44.5, choices:[44.5,45.5,46.5,47.5,48.5,49.5,50], label:"approximate"};
+        const launcher = make(idle({model:"pro2", pro2:pro2}), settings({tracking:false, mode_switch:false}));
+        launcher.showOptions = true;
+        verify(waitForRendering(launcher));
+        verify(findChild(launcher, "pro2ProjectionOption").visible);
+        verify(!findChild(launcher, "trackingOption").visible);
+        verify(!findChild(launcher, "modeSwitchOption").visible);
+        const combo = findChild(launcher, "pro2ProjectionCombo");
+        compare(combo.count, 7);
+        compare(combo.currentIndex, 0);
+        verify(combo.currentText.indexOf("approximate") >= 0, combo.currentText);
+        verify(findChild(launcher, "pro2Note").text.indexOf("not calibrated") >= 0);
+        combo.activated(3);
+        compare(requestSpy.count, 1);
+        compare(requestSpy.signalArguments[0][0].op, "set_pro2_projection");
+        compare(requestSpy.signalArguments[0][0].projection, 47.5);
+        const luma = make(idle(), settings());
+        luma.showOptions = true;
+        verify(waitForRendering(luma));
+        verify(!findChild(luma, "pro2ProjectionOption").visible);
+        verify(findChild(luma, "trackingOption").visible);
+    }
 }

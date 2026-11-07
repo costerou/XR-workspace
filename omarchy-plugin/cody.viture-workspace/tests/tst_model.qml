@@ -488,4 +488,14 @@ TestCase {
         verify(hint.indexOf("always faces you") >= 0, hint);
         verify(!/\b(yaw|pitch|roll)\b/i.test(hint), hint);
     }
+
+    function test_pro2StartNamesItsTrackingAndApproximateProjection() {
+        const scope = {model:"pro2", output:"DP-2", recovery_output:"DP-1", desktops:[], tracking:"pro2-sdk", mode_switch:false,
+                       pro2_route:{projection:46.5}};
+        const lines = Model.scopeLines(scope, "start");
+        verify(lines.every(l => !l.optional), "nothing on a Pro 2 start can be unticked");
+        verify(lines.some(l => l.text.indexOf("pinned Pro 2 SDK bridge") >= 0));
+        const projection = lines.filter(l => l.text.indexOf("46.5") >= 0)[0];
+        verify(projection.text.indexOf("approximate") >= 0 && projection.text.indexOf("not calibrated") >= 0, projection.text);
+    }
 }

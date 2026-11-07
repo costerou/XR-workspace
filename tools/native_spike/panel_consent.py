@@ -3,6 +3,7 @@ import json
 import os
 import re
 
+from .display_policy import PRO2_PROJECTIONS
 from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
@@ -18,6 +19,10 @@ LUMA_PIN = 'luma_driver'  # the pinned binary a consent with tracking 'luma' run
 # Present only for the 3DoF test driver, so a standard run's consent stays what older code reads (a rollback, a recovery).
 # It is its own key: `tracking` stays "xrlinuxdriver", which the pose feed and the incident monitor test for.
 DRIVER_KEY = 'tracking_driver'
+# Only with an opt-in (tools/xr_controller/pro2_route.py): the pinned bundle and projection a Pro 2 start agreed to. Without this key
+# a Pro 2 consent is refused as it always was. `tracking` is then this exact scope, which is none of tracking.SCOPES.
+PRO2_KEY, PRO2_TRACKING = 'pro2_route', 'pro2-sdk'
+PRO2_RATES = (60, 90, 120, 240)
 LUMA_MODE = {'width': 1920, 'height': 1200, 'refresh_hz': 120}
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 
@@ -33,8 +38,23 @@ def _artifact(value):
 def _keys(data):
     keys = PANEL_KEYS | {LUMA_PIN} if data.get('tracking') == LUMA else PANEL_KEYS
     keys = keys | {DRIVER_KEY} if DRIVER_KEY in data else keys
+    keys = keys | {PRO2_KEY} if PRO2_KEY in data else keys
     # Present only where the depth engine is installed, so any other run's consent stays what older code reads.
     return keys | {SBS_KEY} if SBS_KEY in data else keys
+
+
+def _check_pro2(data):
+    block = data[PRO2_KEY]
+    if not isinstance(block, dict) or set(block) != {'bundle', 'manifest_sha256', 'projection', 'pose_rate_hz'}: raise ValueError('invalid Pro 2 route')
+    bundle, sha = block['bundle'], block['manifest_sha256']
+    if not isinstance(bundle, str) or not bundle.startswith('/') or '\0' in bundle: raise ValueError('invalid Pro 2 route')
+    if not isinstance(sha, str) or not SHA256.fullmatch(sha): raise ValueError('invalid Pro 2 route')
+    if type(block['projection']) is not float or block['projection'] not in PRO2_PROJECTIONS: raise ValueError('invalid Pro 2 projection')
+    if type(block['pose_rate_hz']) is not int or block['pose_rate_hz'] not in PRO2_RATES: raise ValueError('invalid Pro 2 pose rate')
+    if data['tracking'] != PRO2_TRACKING or data['mode_switch'] is not False or SBS_KEY in data or DRIVER_KEY in data:
+        raise ValueError('the Pro 2 route is exactly its own tracking, no mode switch, no 3D mode')
+    if _artifact(data['plugin'])['path'] != bundle + '/bin/libxr-ownership.so' or _artifact(data['renderer'])['path'] != bundle + '/bin/xr-native-spike':
+        raise ValueError('Pro 2 artifacts must come from the pinned bundle')
 
 
 def _validate(data, instance=None, output=None):
@@ -47,11 +67,14 @@ def _validate(data, instance=None, output=None):
     if len(data['run_id']) > 80: raise ValueError('run id too long')
     if data['recovery_output'] == data['output']: raise ValueError('independent physical recovery output required')
     if not isinstance(data['model'], str) or data['model'] not in MODELS: raise ValueError('unknown model')
-    if data['model'] == 'pro2': raise ValueError('VITURE PRO 2 driver and display support unverified; start consent unavailable')
+    if data['model'] == 'pro2' and PRO2_KEY not in data: raise ValueError('VITURE PRO 2 driver and display support unverified; start consent unavailable')
+    if PRO2_KEY in data and data['model'] != 'pro2': raise ValueError('the Pro 2 route is the Pro 2 only')
     if not isinstance(data['capture'], str) or data['capture'] != CAPTURE_SCOPE or data['allow'] != CAPTURE_ALLOW:
         raise ValueError('exact managed-output capture scope required')
     tracking = data['tracking']
-    if tracking is not False and (not isinstance(tracking, str) or tracking not in SCOPES):
+    if PRO2_KEY in data:
+        _check_pro2(data)
+    elif tracking is not False and (not isinstance(tracking, str) or tracking not in SCOPES):
         raise ValueError('tracking scope must be false, "xrlinuxdriver" or "luma"')
     if DRIVER_KEY in data and (data[DRIVER_KEY] != DOF3 or tracking != 'xrlinuxdriver'):
         raise ValueError('tracking driver must be "3dof", on XRLinuxDriver tracking')

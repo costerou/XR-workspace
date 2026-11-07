@@ -27,7 +27,7 @@ constexpr const char* kHash="8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33
 constexpr std::array<float,4> kLookAhead{0,0,0,40};
 // viture_protocol_public.h VITURE_IMU_FREQUENCY_*: not USB command bytes. 60 Hz unless a run asks; each still has to pass the
 // SDK's own capability query for the Pro 2 in pose mode, and a refusal stops the run rather than dropping to 60.
-int rate_code(int hz){switch(hz){case 60:return 0;case 90:return 1;case 120:return 2;default:return -1;}}
+int rate_code(int hz){switch(hz){case 60:return 0;case 90:return 1;case 120:return 2;case 240:return 3;default:return -1;}}
 volatile std::sig_atomic_t stopped=0;
 void signal_stop(int){stopped=1;}
 // Device-time gaps between samples, counted: under 7, 7..9.5, 9.5..13, 13..18, 18..25, 25 ms and over. What the desk test reads.

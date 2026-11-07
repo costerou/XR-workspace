@@ -42,7 +42,9 @@ static void *produce(void *arg) {
 }
 void *xr_device_provider_create(int pid) { owner=pthread_self(); created=1; trace("create"); return is("null_create")||pid!=0x1301?NULL:&created; }
 int xr_device_provider_is_product_id_valid(int pid) { trace("cap_pid"); return !is("unsupported_pid")&&pid==0x1301; }
-int xr_device_provider_is_product_support_imu_frequency(int pid,int mode,int rate) { trace("cap_rate"); return !is("unsupported_rate")&&pid==0x1301&&mode==1&&rate==0; }
+/* PRO2_QA_RATE: one more report rate the fixture supports, as a VITURE_IMU_FREQUENCY_* code. */
+static int rate_ok(int rate) { const char *extra=getenv("PRO2_QA_RATE"); return rate==0||(extra&&rate==atoi(extra)); }
+int xr_device_provider_is_product_support_imu_frequency(int pid,int mode,int rate) { trace("cap_rate"); return !is("unsupported_rate")&&pid==0x1301&&mode==1&&rate_ok(rate); }
 int xr_device_provider_get_device_type(void *h) { (void)h; trace("family"); return is("wrong_family")?2:1; }
 int xr_device_provider_initialize(void *h,const char *cfg,const char *cache) { (void)h;(void)cfg;(void)cache;return result("initialize"); }
 int xr_device_provider_start(void *h) { (void)h;return result("start"); }
@@ -53,7 +55,7 @@ int xr_device_provider_get_glasses_version(void *h,char *out,int *len) {
     memcpy(out,version,(size_t)n);*len=is("firmware_length")?10000:(is("firmware_short_length")?1:n);return is("firmware_error")?-37:0;
 }
 int xr_device_provider_open_imu(void *h,uint8_t mode,uint8_t rate) {
-    (void)h;trace("open");if(mode!=1||rate!=0)return -1;
+    (void)h;{char name[16];snprintf(name,sizeof name,"open:%d",rate);trace(name);}trace("open");if(mode!=1||!rate_ok(rate))return -1;
     if(is("stdout_spoof")){fputs("{\"event\":\"ready\",\"projection_diagonal_approx\":44.5}\nSDK_PRIVATE_FIXTURE_ONLY\n",stdout);fflush(stdout);}
     if(is("ready_then_bad")) { for(unsigned i=0;i<4;i++)emit(i,now_ns()); }
     else if(is("queue_overflow")) { for(unsigned i=0;i<1024;i++)emit(i,now_ns()); }

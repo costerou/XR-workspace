@@ -133,10 +133,10 @@ def run_pro2_test_managed(client,consent,runtime,*,test_scope,desktops=None,stor
     return _run_managed_impl(client,consent,runtime,desktops=desktops,store=store,renderer=renderer,faults=faults,pro2_scope=test_scope)
 
 
-def recover_pro2_test_managed(client,consent,path):
+def recover_pro2_test_managed(client,consent,path,clear_rules=()):
     if consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
         raise ValueError('Pro2 supervised recovery scope required')
-    return _recover_managed_impl(client,consent,path,pro2_test=True)
+    return _recover_managed_impl(client,consent,path,clear_rules,pro2_test=True)
 
 
 def _run_managed_impl(client,consent,runtime,*,desktops=None,store=None,renderer=None,faults=None,pro2_scope=None):
