@@ -33,7 +33,8 @@ The speed comes from the last three samples over their real device-time gap. The
 | `max_gap_ms` | 60 | A longer gap has no usable speed: no prediction |
 | Stabilization | 25 | Unchanged |
 | Health age limit | 2 s | Was 0.5 s |
-| Tilt limit | 0.1 degrees of lean per 10 of turn, turn alone | |
+| Tilt limit | 0.3 degrees of lean per 10 of turn, in motion, at the shipped mount | |
+| Mount pitch | -11 degrees | Fit to one wearer, provisional |
 
 ## Offline acceptance
 
@@ -90,9 +91,48 @@ Hypotheses, against this evidence:
 | Unmeasured mount pitch | Partly, and it does not matter | Upstream's constant -8.5 leaves 1.24 degrees of total lean per 10, and +8.5 makes it 4.58. Levelling also cuts the yaw that head roll leaks into the view from 4.43 to 1.30 per 10, which suggests most of the pitch is a frame offset, not the wearer looking down. Gravity gives it per session, so nothing needs measuring |
 | The smoother | No | Held and smoothed show the same 2.85 per 10 |
 
-**The fix:** `PoseState::level_reference`, on for the Pro 2's feed only. Each recentre takes the fixed turn from the head to a frame with the same heading and no pitch or roll, and everything after works in that frame. The status line reports what it took out, as `levelled_deg`. Other feeds take the old path unchanged; `tests` compare them bit for bit. Smoothness numbers do not change.
+That was the first fix, levelling to the SDK's gravity at each recentre. It removed the large lean, and it was the wrong reference: see the next section. Three numbers above are superseded by it: the split's "turn alone" figures of 3.67 and 0.012 only show that the render matches geometry in the SDK's own frame. Levelling to that frame makes the second number small by construction, so it says nothing about whether that frame suits the eye, and the remaining 1.54 degrees was wrongly put down to the wearer alone.
 
-It levels at the recentre, so put the glasses on before a start, or recentre (Ctrl+Alt+space) once they are on. A view recentred while looking far up or down is levelled there, which is what is wanted for a desktop, though it is not strict world-locking. The renderer-restart continuity snapshot does not carry the level turn; the Pro 2 has no mode handover that uses it.
+## Why the lean flipped, and the mount pitch
+
+Run B, `pro2-supervised-20261106-223104`, with gravity levelling (14.47 degrees taken out): "when I turn left the screen tilts slightly left and when I turn right the screen tilts slightly right". Cody sees neither on the Luma, through the same renderer.
+
+**A head does not turn about gravity.** The Luma's 20 minute capture has raw gyro and accelerometer at 1 kHz with no vendor fusion in between, from the same head. Over 28 real turns of 10 degrees or more, with gravity tilt ranging from -12 to +18 degrees, the turn axis stays put: axis tilt = 0.12 x gravity tilt - 6.2, r 0.19, slope 90% range -0.14 to 0.45 ([turn-axis.json](smooth-evidence/turn-axis.json)). A head turning about gravity would give a slope of 1. So the right frame is fixed to the glasses, and gravity at the start is the wrong thing to level to: it depends on the head's pitch at that moment.
+
+| Lean per 10 degrees of turn, through the same view | In motion | End to end |
+| --- | --- | --- |
+| Luma, real path (its publisher's -8.5), 34 turns | +0.53 (IQR 0.01 to 1.34) | +0.39 (IQR -0.20 to 1.31) |
+| Luma, no mount | +2.04 | +2.17 |
+| Luma, levelled to its true gravity | +1.91 | +1.75 |
+| Pro 2 directional, no mount | +2.03 | +3.26 |
+| Pro 2 directional, levelled at 19.5 | -1.46 | -0.47 |
+| Pro 2 directional, -11 | **+0.06** | +1.13 |
+
+Positive leans against the turn, as the first run did. Levelling to true gravity does not clean up even the Luma.
+
+The candidates for what Cody saw:
+
+| | Verdict | Numbers |
+| --- | --- | --- |
+| (a) True perspective of a flat desktop | Real, not the cause | Pure yaw leaves the line through the screen's centre level. The top edge alone leans 1.99 degrees per 10 of turn on the Pro 2 and 2.53 on the Luma, and the bottom edge leans the other way. The Luma shows more of it and does not bother him. The last run's card said to watch the edges, so it may have added to the impression |
+| (b) Levelling over-corrects a fixed frame | **The cause** | The turn axis is fixed to the head. Run B's frame was -14.47. A lean with the turn means the true axis is less tilted than that, and -11.3 predicts -0.57 per 10: the sign and the "slightly" |
+| (c) Cody's own head roll | Small, not the cause | The Luma's IQR is about 0.7 either side turn to turn, centred near zero. It does not pick a side |
+| (d) SDK gravity not true | Open | Levelling leaves opposite signs on the two glasses, which fits the SDK's pitch not being true gravity, but nothing here measures that. The fixed frame does not depend on it |
+
+**Candidates for the mount pitch, on the directional capture.** The start pitch does not enter: this is a fixed turn on every pose.
+
+| Mount pitch | Lean in motion | End to end | Fits the live runs? |
+| --- | --- | --- | --- |
+| 0 (first runs) | +2.03 | +3.26 | Against the turn, clearly: yes |
+| -8.5 | +0.50 | +1.60 | Upstream's constant, not used. Near the Luma's in-motion lean |
+| **-11** | **+0.06** | +1.13 | **Default** |
+| -14.47 (Run B) | -0.57 | +0.47 | In motion, the sign and size Cody reported |
+| -17 | -1.01 | +0.01 | No: Run B would then have leaned against the turn |
+| -19.5 | -1.46 | -0.47 | |
+
+Estimates of the axis: -11.3 from the lean in motion, -11.2 and -11.1 from the angular velocity itself, -15.2 over the whole window, -17 end to end (-17.4 left, -16.8 right). Run B rules out anything past -14.47, which leaves the in-motion estimates. **So -11 fits the two live reports and two estimates, but it rests on two usable turns in one capture and it is not settled.** That capture still has +1.13 end to end, about 3 degrees at a 27 degree hold. On the Luma the in-motion and end-to-end figures agree to 0.09, and here they differ by 1.07; the cause is unknown.
+
+Now shipped: `mount_pitch_deg`, -11 by default, -30 to 30, set in the consent or with `--mount-pitch`, applied by the bridge through the same publisher option the Luma uses. `level_gravity` keeps gravity levelling as a comparison, off by default. The renderer now measures the turn axis in each run, as `turn_axis_forward_deg`, `turn_axis_left_deg` and `turn_seconds`. On the directional capture that reads -10.29 with no mount and -0.14 at -11. The mount that would zero a run is its mount plus `turn_axis_forward_deg`.
 
 ## Why the run stopped at about 60 seconds
 

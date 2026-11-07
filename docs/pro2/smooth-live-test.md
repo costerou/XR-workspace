@@ -1,6 +1,6 @@
 # Pro 2 smoothness: the short live comparison
 
-For the orchestrator, with Cody. This is one supervised run of the new bundle, about 90 seconds, then optionally one 120 Hz desk test. Cody agrees to each run. Nothing here installs anything or touches the controller. Same preflight, consent and launch as the first test. The script needs no sudo.
+For the orchestrator, with Cody. This is one supervised run of the new bundle, 60 seconds, then optionally one 120 Hz desk test. Cody agrees to each run. Nothing here installs anything or touches the controller. Same preflight, consent and launch as the first test. The script needs no sudo.
 
 ## Before
 
@@ -12,36 +12,47 @@ XR must be stopped: no `viture-xr-*` unit, no XR-n output. The script checks and
 
 Expect the source in `release.json`, `plugin_command_path:"validated"`, `sdk_started:false`, `compositor_contacted:false`.
 
-## Run A: tilt and duration (60 Hz)
+## The 60 second lean check
 
     RELEASE/runtime/bin/pro2-supervised-parent --bundle RELEASE/runtime
 
-Cody puts the glasses on within the 30 seconds and sits facing forward, looking straight ahead as it starts: that moment sets the level. Then:
+It uses mount pitch -11 and stops by itself after 60 seconds. Cody sits facing forward with the glasses on, and does each step once. Watch the **middle of the desktop**, such as a line of text, and not the edges.
 
-1. Turn slowly about 30 degrees right, back, 30 degrees left, back, a few times. Watch the desktop's top and bottom edges: do they stay level, or lean?
-2. Leave it running until it stops by itself at 90 seconds. Nothing else is needed. The run must last the whole time.
+1. Looking straight ahead: turn about 20 degrees right at a normal pace and stop. Hold for two seconds. Come back. Do the same to the left.
+2. Chin down a little, about 10 degrees, and do the same turns.
+3. At one held turn, look at the top edge, then the bottom edge. Do they lean the same way, or opposite ways?
 
 Stop at once on any discomfort: take the glasses off, and press Ctrl+C in the script's terminal.
 
-Expected in `MEASURED`, printed at the end and saved as `measured.json`:
+Ask Cody four things:
+
+| Question | Answer | Means |
+| --- | --- | --- |
+| While moving, does the picture lean? | No | -11 is right in motion |
+| | With the turn, as last time | The mount is too large |
+| | Against the turn | The mount is too small |
+| When held at the end of the turn? | The same as moving | One frame fits |
+| | Leans only when held | The capture's +1.13: report it |
+| Top and bottom edges at a held turn? | Opposite ways | Perspective of a flat desktop. The Luma does it too. Not a fault |
+| | The same way | A true lean: go by the first answer |
+| Does chin down change it? | No | Turn axis fixed to the head, as the Luma's capture says |
+| | Yes, it flips | Some head pitch is in it. Report it |
+
+Then read `MEASURED`, printed at the end and saved as `measured.json`:
 
 | Field | Expect | If not |
 | --- | --- | --- |
-| `complete` | `true` | Recovery is in runtime-runbook.md |
-| `stop_reason` | `interrupted`: the parent's own stop at 90 s | Report it with the next two |
-| `guard_reason`, `provider.failure` | `null`, absent | They now say what stopped the run: report them exactly |
-| `provider.seconds` | about 90 | |
-| `levelled_deg` | about 15 to 30 | Near 0: levelling did not run |
-| `predicted_frames` | near `presented` | Stop: prediction not running |
+| `smoothing.turn_axis_forward_deg` | Within 1 of 0, with `turn_seconds` over 1.5 | **New mount = -11 + this value.** Run again with `--mount-pitch` at that value, rounded to 0.5 |
+| `complete`, `stop_reason` | `true`, `interrupted` | Report them, with `guard_reason` and `provider.failure` |
+| `mount_pitch_deg`, `levelled_deg` | -11, 0: gravity levelling is off | Wrong run |
+| `predicted_frames` | Near `presented` | Stop: prediction not running |
 | `smoothing.snaps` | 0 | Report it |
-| `smoothing.max_predicted_deg`, `peak_speed_dps`, `capped_frames` | Up to 6 is normal. At the cap, `peak_speed_dps` should be over about 200, and `capped_frames` a small share | A cap with a low peak speed: report it |
 | `desktops` | `["XR-1"]` | Report it |
 | `fov_source`, `diagonal_fov_deg` | `pro2-supervised-approximate`, `44.5` | Stop: wrong projection |
-| `provider.gap_ms_counts` | about two thirds in slot 3, one third in slot 4 | Report it |
 
-Then ask Cody: do the edges stay level through a turn? A small lean when the head itself tips is expected and is real. Is it still as smooth?
+If the measured value and what Cody sees disagree, report both. To see the old behaviour for comparison: `--level-gravity --mount-pitch 0`.
 
-## Run B: the pose rate desk test (optional, only after Run A is good)
+## Run B: the pose rate desk test (optional, only after the lean check is good)
 
 One question: does the Pro 2 really deliver 120 Hz pose in this firmware, and on what cadence?
 
@@ -57,7 +68,7 @@ Only if 120 looks right and Cody finds it better: report it, and the default can
 
 ## After
 
-If Run A is good and Cody agrees, the orchestrator can turn on the panel's Start for this exact bundle, once the branch is merged and installed:
+If the lean check is good and Cody agrees, the orchestrator can turn on the panel's Start for this exact bundle, once the branch is merged and installed:
 
     python -m tools.xr_controller pro2-route enable --bundle RELEASE/runtime --evidence STATE/pro2-test-result.json
 
