@@ -10,7 +10,7 @@ from pathlib import Path
 import secrets
 import subprocess
 from tools.native_spike.display_policy import PRO2_PROJECTIONS
-from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE, LUMA_PIN, PRO2_KEY, PRO2_TRACKING
+from tools.native_spike.panel_consent import DRIVER_KEY, build_consent, write_consent, load_panel_consent, LUMA_MODE, LUMA_PIN, PRO2_KEY, PRO2_TRACKING
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
@@ -22,6 +22,10 @@ from .detect import pick_fallback
 from .install import verify_tracking_driver
 
 
+# The panel's name for each driver a run can use: consent `tracking`, or `tracking_driver` for the 3DoF test.
+DRIVER_LABELS={tracking.LUMA:'XR Luma driver',PRO2_TRACKING:'Pro 2 SDK bridge',tracking.XRDRIVER:'XRLinuxDriver','xrlinuxdriver':'XRLinuxDriver',tracking.DOF3:'XRLinuxDriver 3DoF test'}
+
+
 def _monitor_facts(monitor):
     """The fields of a Hyprland monitor the incident monitor may see. Named: the rest holds workspace names and serials."""
     return dict(name=monitor.get('name'),width=monitor.get('width'),height=monitor.get('height'),refresh=monitor.get('refreshRate'),dpms=monitor.get('dpmsStatus'))
@@ -31,7 +35,8 @@ class Controller:
     def __init__(self, clock, probe, spawn, units, store, consent_dir_fd, state_dir, monitor=None):
         self.clock,self.probe,self.spawn,self.units,self.store = clock,probe,spawn,units,store
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
-        self.route_config=None  # pro2_route's directory; None: beside profiles.json
+        self.route_config=None  # pro2_route's settings directory; None: beside profiles.json
+        self.route_data=None    # the data directory its pin is under; None: XDG_DATA_HOME
         self.monitor=monitor; self.stop_run=None; self.monitor_fault=None  # incident_monitor.py; the run Stop was asked of
         self.unit_up=None  # in cli-recovery: is the run's unit alive? None when that is not known
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
@@ -45,7 +50,7 @@ class Controller:
         profile=self.store.load(o['model']) if o.get('model') else {}
         candidates=[m['name'] for m in monitors if pick_fallback([m],o.get('output'),None) is not None]
         return copy.deepcopy(dict(fallback=pick_fallback(monitors,o.get('output'),profile.get('fallback')),
-            fallback_candidates=candidates, pending=self.pending, luma_available=LUMA_PIN in (o.get('installed') or {}),
+            fallback_candidates=candidates, pending=self.pending,
             state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or self.last_failure or o.get('reason'),
             run_id=self.run.get('run_id') if self.run else None,
             journal=self.run.get('path') if self.run else next((j['path'] for j in o.get('external') or []),None),
@@ -57,16 +62,37 @@ class Controller:
             desktops=self.live.get('desktops') if self.state=='running' else None,
             names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None,
-            tracking_drivers=o.get('tracking_drivers') or [],
+            tracking_in_use=self._driver_in_use(),
             **self._pro2_snapshot(),
             immersive=self.live.get('immersive') if self.state=='running' else None,
             incident=self.monitor.latest if self.monitor is not None else None))
 
+    def _driver_in_use(self):
+        """What the panel shows: which head tracking driver these glasses run, never a choice. A running session's comes from its
+        consent, which is what it agreed to; before a start, from what a start here would ask for."""
+        o=self.observed; model=o.get('model')
+        if self.state=='running' and self.run:
+            try: scope=self._consent(self.run)
+            except (OSError,ValueError,KeyError,TypeError): return None
+            if scope['tracking'] is False: return None
+            return dict(key=scope['tracking'],label=DRIVER_LABELS[scope.get(DRIVER_KEY) or scope['tracking']],available=True,note=None)
+        if not model: return None
+        if model=='pro2':
+            ready=bool(o.get('pro2_route'))
+            return dict(key=PRO2_TRACKING,label=DRIVER_LABELS[PRO2_TRACKING],available=ready,note=None if ready else 'Not installed: these glasses cannot start.')
+        if model!=tracking.LUMA_MODEL:
+            return dict(key=tracking.XRDRIVER,label=DRIVER_LABELS[tracking.XRDRIVER],available=True,note='Automatic: our own drivers do not support these glasses.')
+        override=o.get('tracking_override')
+        if override:
+            return dict(key=override,label=DRIVER_LABELS[override],available=True,note='Recovery setting on. To go back: python -m tools.xr_controller tracking-override clear')
+        ready=LUMA_PIN in (o.get('installed') or {})
+        return dict(key=tracking.LUMA,label=DRIVER_LABELS[tracking.LUMA],available=ready,note=None if ready else 'Not installed: XR cannot start with head tracking.')
+
     def _pro2_snapshot(self):
-        """The Pro 2's panel row: its projection, only for a Pro 2 with the route on. No key at all for anything else."""
+        """The Pro 2's panel row: its settings, only for a Pro 2 with the bundle installed. No key at all for anything else."""
         o=self.observed
         if o.get('model')!='pro2' or not o.get('pro2_route'): return {}
-        return dict(pro2=dict(projection=pro2_route.load_projection(self.route_config),choices=list(PRO2_PROJECTIONS),label='approximate'))
+        return dict(pro2=dict(**pro2_route.load_settings(self.route_config),choices=list(PRO2_PROJECTIONS),label='approximate'))
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -121,7 +147,7 @@ class Controller:
         self.observed=self.probe()
         o=self.observed
         self.error=None; self.unit_up=None
-        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','external','tracking_drivers','pro2_route')):
+        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','external','tracking_drivers','tracking_override','pro2_route')):
             self.pending=None; self.state='idle'
         journals=o.get('journals',[])
         if len(journals)>1:
@@ -138,7 +164,7 @@ class Controller:
                         self._state('running'); self._poll_status(j)
                     return
                 if not j.get('session'):
-                    self.error=('Starting head tracking and waiting for calibration (up to 120 seconds). Keep the glasses still.'
+                    self.error=(f'Starting head tracking and waiting for calibration (up to {self._tracking_wait(j)} seconds). Keep the glasses still.'
                                 if j.get('phase')=='tracking' else 'Preparing XR session…')
                     self._state('starting')
                 else:
@@ -188,21 +214,27 @@ class Controller:
         else: log(f'start: saved monitor setup not used: {reason}; three flat desktops instead')
         return setup['desktops']
 
-    def _tracking_scope(self,profile,luma):
-        """What this start's consent asks to run: False, or XRLinuxDriver, or the Luma driver if it is chosen and installed."""
-        if not profile['tracking']: return False
-        if profile['tracking_driver']!=tracking.LUMA: return 'xrlinuxdriver'
-        if luma: return tracking.LUMA
-        log('start: the XR Luma driver is chosen but not installed; offering XRLinuxDriver')
-        return 'xrlinuxdriver'
+    def _tracking_wait(self,journal):
+        """The seconds this run's tracking start can take, for the panel. The consent's own driver: the run has one by now."""
+        try: scope=self._consent(journal)['tracking']
+        except (OSError,ValueError,KeyError,TypeError): return 120
+        return {tracking.LUMA:int(tracking.LUMA_TIMEOUT),PRO2_TRACKING:10}.get(scope,120)
 
-    def _tracking_driver(self,profile):
-        """What the start's scope adds for the 3DoF test: nothing for the others. Only a choice the probe offers can start,
-        and a missing or changed test build stops the start here rather than running the standard driver in its place."""
-        if not profile['tracking'] or profile['tracking_driver']!=tracking.DOF3: return {}
+    def _tracking_scope(self,model,profile,luma):
+        """What this start's consent asks to run: False, or the driver this model runs (tracking.default_driver), decided here and
+        not in the profile. A Luma Ultra runs our driver or nothing, unless the hidden recovery setting says otherwise."""
+        if not profile['tracking']: return False
+        if tracking.default_driver(model)!=tracking.LUMA or self.observed.get('tracking_override'): return 'xrlinuxdriver'
+        if luma: return tracking.LUMA
+        raise ValueError(tracking.LUMA_MISSING)
+
+    def _tracking_driver(self,model,profile):
+        """What the start's scope adds for the 3DoF test, reachable only through the recovery setting: nothing for the others. A
+        missing or changed test build stops the start here rather than running another driver in its place."""
+        if not profile['tracking'] or model!=tracking.LUMA_MODEL or self.observed.get('tracking_override')!=tracking.DOF3: return {}
         choice=next((d for d in self.observed.get('tracking_drivers') or [] if d['key']==tracking.DOF3),None)
         if choice is None or not choice['available']:
-            raise ValueError('the 3DoF test driver is not available. Choose Standard in Startup options.')
+            raise ValueError('the 3DoF test driver is not available. Clear the recovery setting: python -m tools.xr_controller tracking-override clear')
         verify_tracking_driver(choice)
         return dict(tracking_driver=tracking.DOF3)
 
@@ -275,6 +307,7 @@ class Controller:
                 # The supervisor saves actual applied values; never claim these send-only operations applied.
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)
+            if settings.get('tracking_driver',tracking.default_driver(model))!=tracking.default_driver(model): raise ValueError('the tracking driver follows the glasses and is not a choice')
             self.store.save(model,_check({**profile,**settings})); return
         if op=='set_pro2_projection':
             if self.state!='idle' or self.observed.get('model')!='pro2' or not self.observed.get('pro2_route'): raise ValueError('busy')
@@ -288,17 +321,17 @@ class Controller:
             if not o['output'] or fallback in (None,'choose'): raise ValueError(o.get('reason') or 'choose a physical fallback output')
             if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
             if o['model']=='pro2':
-                # Reached only with an opt-in (detect.identify gives no output otherwise). Its own artifacts and projection, read fresh.
-                route=pro2_route.load_route(self.route_config)
-                if route is None: raise ValueError('the Pro 2 route is not enabled')
+                # Reached only with the bundle installed (detect.identify gives no output otherwise). Its own artifacts and settings, read fresh.
+                route=pro2_route.load_route(self.route_data)
+                if route is None: raise ValueError('the Pro 2 bridge bundle is not installed')
                 scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model='pro2',
                     tracking=PRO2_TRACKING,mode_switch=False,desktops=self._startup_desktops('pro2',p),plugin=route['plugin'],renderer=route['renderer'])
-                scope[PRO2_KEY]=pro2_route.consent_block(route,pro2_route.load_projection(self.route_config))
+                scope[PRO2_KEY]=pro2_route.consent_block(route,**pro2_route.load_settings(self.route_config))
             else:
                 installed=dict(o['installed']); luma=installed.pop(LUMA_PIN,None)
                 scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
-                    tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                    desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(p),**installed)
+                    tracking=self._tracking_scope(o['model'],p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
+                    desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(o['model'],p),**installed)
                 if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
             # 3D's own line in the consent (tools/native_spike/sbs.py), only where the depth engine can run at all.
             if scope['mode_switch'] and immersive.find_engine(scope['renderer']['path']) is not None: scope[sbs.SCOPE_KEY]=copy.deepcopy(sbs.SCOPE)

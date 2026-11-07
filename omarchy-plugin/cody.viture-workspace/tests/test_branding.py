@@ -117,3 +117,11 @@ class BrandingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TrackingInUse(unittest.TestCase):
+    """Panel.qml needs the shell's imports, so the QML tests cannot load it: this keeps the line wired."""
+    def test_the_panel_shows_which_driver_is_in_use_on_every_page(self):
+        text = (PLUGIN / 'Panel.qml').read_text()
+        self.assertIn('objectName:"trackingInUse"', text)
+        self.assertIn('Model.trackingInUseLine(root.snapshot.tracking_in_use)', text)

@@ -30,7 +30,7 @@ class Pro2ProviderTests(unittest.TestCase):
                      patch.object(tracking, 'status') as status, \
                      patch.object(tracking, 'stop') as stop, \
                      patch.object(tracking.subprocess, 'Popen') as spawn:
-                    with self.assertRaisesRegex(ValueError, '35ca:1301.*not approved'):
+                    with self.assertRaisesRegex(ValueError, '35ca:1301.*not for these glasses'):
                         getattr(tracking, method)(self.root, **kwargs)
                     config.assert_not_called(); log.assert_not_called()
                     status.assert_not_called(); stop.assert_not_called(); spawn.assert_not_called()
@@ -38,7 +38,7 @@ class Pro2ProviderTests(unittest.TestCase):
     def test_no_sdk_fallback_for_unsupported_model(self):
         self.device()
         with patch.object(tracking, 'ensure_ready') as ready:
-            with self.assertRaisesRegex(ValueError, 'not approved'):
+            with self.assertRaisesRegex(ValueError, 'not for these glasses'):
                 tracking.ensure_ready_luma(self.root, '/test/luma')
             ready.assert_not_called()
 
@@ -46,7 +46,7 @@ class Pro2ProviderTests(unittest.TestCase):
         for pid, product in [('1301', 'Unknown'), ('1104', 'VITURE PRO 2 XR Glasses')]:
             with self.subTest(pid=pid):
                 self.device(pid, product, name=pid)
-                with self.assertRaisesRegex(ValueError, 'not approved'):
+                with self.assertRaisesRegex(ValueError, 'not for these glasses'):
                     tracking._check_provider_compatibility()
                 for f in (self.root / pid).iterdir(): f.unlink()
                 (self.root / pid).rmdir()
@@ -55,7 +55,7 @@ class Pro2ProviderTests(unittest.TestCase):
         self.device()
         (self.root / '1-1/product').unlink()
         self.device('1104', 'VITURE Luma Ultra XR GLASSES', name='luma')
-        with self.assertRaisesRegex(ValueError, 'not approved'):
+        with self.assertRaisesRegex(ValueError, 'not for these glasses'):
             tracking._check_provider_compatibility()
 
     def test_existing_and_unrelated_devices_are_unchanged(self):

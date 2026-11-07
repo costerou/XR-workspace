@@ -14,8 +14,7 @@ class Pro2PlatformTests(unittest.TestCase):
         result = identify(usb, [], [dict(name='DP-2', model='VITURE')])
         self.assertEqual(result['model'], 'pro2')
         self.assertIsNone(result['output'])
-        self.assertIn('driver', result['reason'])
-        self.assertIn('display', result['reason'])
+        self.assertIn('not installed', result['reason'])
         for key, value in [('product', 'VITURE Pro'), ('product_id', '1104'), ('vendor_id', 'ffff')]:
             changed = [{**usb[0], key: value}]
             self.assertNotEqual(identify(changed, [], [])['model'], 'pro2')

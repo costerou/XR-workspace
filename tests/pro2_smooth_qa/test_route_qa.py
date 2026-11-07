@@ -34,21 +34,6 @@ class Provider:
     def close(self): self.closed += 1
 
 
-class EnableEvidence(Base):
-    def test_a_clean_run_of_the_same_bundle_enables(self):
-        self.assertEqual(self.enable()['confirmed_run'], 'pro2-supervised-1')
-
-    def test_evidence_must_belong_to_the_bundle_it_enables(self):
-        # The first live run's real result (complete, no errors, renderer 0, predicted nothing) has this shape, and names no bundle.
-        other = self.make_bundle(self.dir / 'never-tested')
-        (other / 'bin/xr-native-spike').write_bytes(b'a different renderer')
-        manifest = json.loads((other / 'manifest.json').read_text())
-        import hashlib
-        manifest['files']['bin/xr-native-spike'] = hashlib.sha256(b'a different renderer').hexdigest()
-        (other / 'manifest.json').write_text(json.dumps(manifest))
-        with self.assertRaises(ValueError): route.enable(other, self.evidence, self.config)
-
-
 class Projection(Base):
     def write(self, text):
         path = self.config / route.SETTINGS_FILE; path.write_text(text); path.chmod(0o600)
@@ -87,21 +72,21 @@ class ConsentTable(Base):
         consent = self.consent()
         for key in ('plugin', 'renderer'):
             bad = {**consent, key: {**consent[key], 'sha256': 'a' * 64}}
-            with self.subTest(key=key), self.assertRaises(ValueError): route.require(bad, self.config)
+            with self.subTest(key=key), self.assertRaises(ValueError): route.require(bad, self.data)
 
-    def test_require_catches_a_binary_changed_after_enable(self):
+    def test_require_catches_a_binary_changed_after_install(self):
         consent = self.consent()
         (self.bundle / 'bin/xr-native-spike').write_bytes(b'tampered')
-        with self.assertRaisesRegex(ValueError, 'hash mismatch'): route.require(consent, self.config)
+        with self.assertRaisesRegex(ValueError, 'hash mismatch'): route.require(consent, self.data)
 
-    def test_a_route_file_with_open_permissions_is_off(self):
-        self.enable(); (self.config / route.ROUTE_FILE).chmod(0o644)
-        got, why = route.probe(self.config)
+    def test_a_pin_file_with_open_permissions_is_off(self):
+        self.enable(); (self.install / route.PIN_FILE).chmod(0o644)
+        got, why = route.probe(self.data)
         self.assertIsNone(got); self.assertTrue(why)
 
     def test_a_symlinked_bundle_is_refused(self):
         link = self.dir / 'link'; link.symlink_to(self.bundle)
-        with self.assertRaises(ValueError): route.enable(link, self.evidence, self.config)
+        with self.assertRaises(ValueError): route.write_pin(link, self.data)
 
     def test_a_pro2_consent_needs_the_route_block(self):
         s = self.scope(); s.pop('pro2_route')
@@ -125,7 +110,7 @@ class OtherModels(Base):
         observed = dict(model='luma-ultra', output='DP-2', instance='i', monitors=MONITORS, installed={}, plugins=[], journals=[], tracking_drivers=[], pro2_route=info)
         fd = os.open(self.dir, os.O_RDONLY); self.addCleanup(os.close, fd)
         units = Mock(); units.alive.return_value = False
-        c = Controller(lambda: 0.0, lambda: observed, Mock(), units, Store(), fd, self.dir); c.route_config = self.config
+        c = Controller(lambda: 0.0, lambda: observed, Mock(), units, Store(), fd, self.dir); c.route_config = self.config; c.route_data = self.data
         self.assertNotIn('pro2', c.snapshot())
         self.assertFalse(c.request(dict(op='set_pro2_projection', projection=46.5))['ok'])
 
@@ -219,8 +204,8 @@ class Recover(Base):
         with patch.dict(os.environ, XDG_RUNTIME_DIR=str(self.dir)), patch('tools.native_spike.managed.recover_pro2_test_managed', return_value=dict(complete=True)):
             return route.recover(path, self.dir / 'journal.json', (), client_factory=lambda *a: client)
 
-    def test_recovery_runs_after_disable(self):
-        path = self.consent_file(); route.disable(self.config)
+    def test_recovery_runs_with_the_pin_gone(self):
+        path = self.consent_file(); self.unpin()
         self.assertTrue(self.recover(path)['complete'])
 
     def test_recover_pinned_sends_a_pro2_run_to_the_route(self):
@@ -289,7 +274,7 @@ class RealSigint(Base):
         path = self.dir / 'r1.json'; path.write_text(json.dumps(c)); path.chmod(0o600)
         self.dir.chmod(0o700)
         marks = self.dir / 'marks'; marks.mkdir()
-        env = dict(os.environ, PYTHONPATH=str(ROOT), QA_CONFIG=str(self.config), XDG_RUNTIME_DIR=str(self.dir), XDG_CONFIG_HOME=str(self.dir))
+        env = dict(os.environ, PYTHONPATH=str(ROOT), QA_CONFIG=str(self.config), XDG_RUNTIME_DIR=str(self.dir), XDG_CONFIG_HOME=str(self.dir), XDG_DATA_HOME=str(self.data))
         child = subprocess.Popen([sys.executable, '-c', SIGINT_CHILD, str(path), str(marks), str(self.dir)], cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             line = child.stdout.readline()

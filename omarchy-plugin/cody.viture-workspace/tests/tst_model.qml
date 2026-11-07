@@ -127,16 +127,26 @@ TestCase {
         compare(line(test).text, "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked.");
         verify(line(test).optional);
     }
-    function test_trackingDriverChoices() {
-        const drivers = [{key:"xrdriver", label:"Standard", available:true}, {key:"3dof", label:"3DoF test", available:true}, {key:"luma", label:"New driver", available:true}];
-        compare(Model.trackingDriverChoices(drivers, "xrdriver").map(c => c.label), ["Standard", "3DoF test", "New driver"]);
-        const gone = [drivers[0], Object.assign({}, drivers[1], {available:false}), drivers[2]];
-        compare(Model.trackingDriverChoices(gone, "xrdriver").map(c => c.label), ["Standard", "New driver"]);
-        const saved = Model.trackingDriverChoices(gone, "3dof");
-        compare(saved.map(c => c.label), ["Standard", "3DoF test (missing)", "New driver"]);
-        compare(Model.trackingDriverIndex(saved, "3dof"), 1);
-        compare(Model.trackingDriverIndex(saved, "other"), -1);
-        compare(Model.trackingDriverChoices(undefined, "xrdriver"), []);  // an older controller
+    function test_trackingLinesSayNothingTakesOver() {
+        const luma = Model.trackingLine("luma");
+        verify(luma.indexOf("XR Luma driver") >= 0); verify(luma.indexOf("does not start") >= 0); verify(luma.indexOf("XRLinuxDriver") < 0);
+        verify(Model.trackingLine("pro2-sdk").indexOf("XRLinuxDriver") < 0);
+    }
+    function test_trackingInUse() {
+        compare(Model.trackingInUseLine(undefined), "");  // an older controller
+        compare(Model.trackingInUseLine(null), "");       // no glasses, or a running session without tracking
+        const ours = {key:"luma", label:"XR Luma driver", available:true, note:null};
+        compare(Model.trackingInUseLine(ours), "Head tracking: XR Luma driver");
+        verify(!Model.trackingInUseWarns(ours));
+        const other = {key:"xrdriver", label:"XRLinuxDriver", available:true, note:"Automatic: our own drivers do not support these glasses."};
+        compare(Model.trackingInUseLine(other), "Head tracking: XRLinuxDriver. Automatic: our own drivers do not support these glasses.");
+        verify(!Model.trackingInUseWarns(other));
+        verify(Model.trackingInUseWarns({key:"luma", label:"XR Luma driver", available:false, note:"Not installed"}));
+        for (const key of ["xrdriver", "3dof"]) verify(Model.trackingInUseWarns({key:key, label:"x", available:true, note:"Recovery setting on."}));
+    }
+    function test_pro2SettingsLine() {
+        compare(Model.pro2SettingsLine(undefined), "");
+        compare(Model.pro2SettingsLine({mount_pitch_deg:-11, pose_rate_hz:120}), "Mount pitch -11°, 120 Hz pose rate, smoothing on.");
     }
     function test_scopeLines() {
         const scope = {model:"luma-ultra", output:"DP-2", recovery_output:"DP-1",
@@ -145,10 +155,10 @@ TestCase {
         const lines = Model.scopeLines(scope, "start");
         compare(lines.filter(l => l.optional).map(l => l.key), ["tracking", "mode_switch"]);
         verify(lines.some(l => l.key === "tracking" && l.text === "Head tracking via XRLinuxDriver, network blocked."));
-        // The Luma scope says it can hand over: the click agrees to both drivers.
+        // The Luma scope says nothing takes over: no calibration, no session.
         const luma = Model.scopeLines(Object.assign({}, scope, {tracking:"luma"}), "start").filter(l => l.key === "tracking");
         compare(luma.length, 1);
-        verify(luma[0].optional && /XR Luma driver/.test(luma[0].text) && /XRLinuxDriver takes over/.test(luma[0].text));
+        verify(luma[0].optional && /XR Luma driver/.test(luma[0].text) && /XR does not start/.test(luma[0].text));
         verify(lines.some(l => l.text.indexOf("3840 × 1080 · 125%") >= 0));
         verify(lines.some(l => l.text.indexOf("DP-1") >= 0));
         verify(Model.scopeLines(scope, "recover").every(l => !l.optional));

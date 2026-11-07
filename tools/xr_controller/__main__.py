@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 import time
-from tools.native_spike import monitor_rules
+from tools.native_spike import monitor_rules, tracking
 from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
@@ -20,7 +20,7 @@ from . import pro2_route
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
-from .install import install, load_installed, tracking_drivers
+from .install import _luma_output, install, install_pro2_bundle, load_installed, tracking_drivers
 from .state import Controller
 from .server import serve
 
@@ -101,7 +101,7 @@ class Host:
     def probe(self):
         instance=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
         result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[],external=[],
-                    tracking_drivers=tracking_drivers(self.data_home))
+                    tracking_drivers=tracking_drivers(self.data_home),tracking_override=tracking.load_override())
         root=self.runtime/'xr-workspace-spike'
         if root.exists():
             for path in sorted(root.glob('*/journal.json')):
@@ -135,7 +135,7 @@ class Host:
         try:
             client=HyprlandClient(instance,self.runtime)
             monitors=client.query('monitors')
-            route,off=pro2_route.probe()
+            route,off=pro2_route.probe(self.data_home)
             result.update(identify(probe_usb(),probe_drm(),monitors,('pro2',) if route else ()),monitors=monitors,plugins=client.plugins_loaded(),pro2_route=route)
             if off and result.get('model')=='pro2': result['reason']=off
             result['installed']=load_installed(self.data_home)
@@ -232,16 +232,33 @@ def recover_pinned(consent_path,journal,clear_rules=()):
 
 
 def route_command(args):
+    """Which bundle a Pro 2 start runs. It changes only by installing."""
+    route,off=pro2_route.probe()
+    print(json.dumps(dict(installed=route is not None,bundle=route and route['bundle'],manifest_sha256=route and route['manifest_sha256'],reason=off)))
+    return 0
+
+
+def settings_command(args):
+    """The Pro 2's saved settings: printed, and changed by whichever flags are given."""
+    changes={k:v for k,v in dict(projection=args.projection,mount_pitch_deg=args.mount_pitch,pose_rate_hz=args.pose_rate).items() if v is not None}
     try:
-        if args.action=='enable':
-            if args.bundle is None or args.evidence is None: raise ValueError('enable needs --bundle and --evidence')
-            pro2_route.enable(args.bundle,args.evidence)
-        elif args.action=='disable': pro2_route.disable()
-        route,off=pro2_route.probe()
-        print(json.dumps(dict(enabled=route is not None,bundle=route and route['bundle'],confirmed_run=route and route['confirmed_run'],reason=off)))
+        print(json.dumps(pro2_route.save_settings(changes) if changes else pro2_route.load_settings()))
         return 0
-    except (OSError,ValueError,KeyError,TypeError) as exc:
-        print(f'pro2-route failed: {exc}',file=sys.stderr); return 1
+    except (OSError,ValueError) as exc:
+        print(f'pro2-settings failed: {exc}',file=sys.stderr); return 1
+
+
+def override_command(args):
+    """The hidden way back to XRLinuxDriver on a Luma Ultra (docs/own-drivers-default.md). Takes effect at the next Start."""
+    try:
+        if args.action=='set':
+            if args.driver is None: raise ValueError('set needs xrdriver or 3dof')
+            tracking.save_override(args.driver)
+        elif args.action=='clear': tracking.clear_override()
+        print(json.dumps(dict(override=tracking.read_override())))
+        return 0
+    except (OSError,ValueError) as exc:
+        print(f'tracking-override failed: {exc}',file=sys.stderr); return 1
 
 
 def install_unit(config_home):
@@ -261,14 +278,23 @@ def main(argv=None):
     sub.add_parser('serve'); p=sub.add_parser('install'); p.add_argument('--build',type=Path,required=True)
     p=sub.add_parser('recover-run'); p.add_argument('--consent',required=True); p.add_argument('--journal',required=True)
     p.add_argument('--clear-rule',action='append',default=[],type=monitor_rules.desktop,help='a desktop whose monitors.lua rule the confirm box listed')
-    p=sub.add_parser('pro2-route',help="the Pro 2's opt-in for the panel's Start: off until a live test says otherwise")
-    p.add_argument('action',choices=('enable','disable','status')); p.add_argument('--bundle',type=Path); p.add_argument('--evidence',type=Path)
+    p=sub.add_parser('pro2-route',help='which installed bundle a Pro 2 start runs; the install sets it')
+    p.add_argument('action',choices=('status',),nargs='?',default='status')
+    p=sub.add_parser('pro2-settings',help="show or change the Pro 2's projection, mount pitch and pose rate, for the next start")
+    p.add_argument('--projection',type=float); p.add_argument('--mount-pitch',type=float,help='degrees; default -8.5, the alternative is -11'); p.add_argument('--pose-rate',type=int,help='60, 90, 120 or 240 Hz')
+    p=sub.add_parser('tracking-override',help=argparse.SUPPRESS)
+    p.add_argument('action',choices=('set','clear','status')); p.add_argument('driver',nargs='?',choices=tracking.OVERRIDES)
     args=ap.parse_args(argv)
     if args.command=='pro2-route': return route_command(args)
+    if args.command=='pro2-settings': return settings_command(args)
+    if args.command=='tracking-override': return override_command(args)
     data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     if args.command=='install':
         try:
+            if _luma_output(args.build) is None: raise ValueError('this build has no xr-luma-driver, the Luma Ultra\'s default: build with -DXR_ENABLE_LUMA_DRIVER=ON')
+            route=install_pro2_bundle(args.build,data)  # first: a bundle that fails to build leaves the install as it was
             entry=install(args.build,data)
+            print(f"Pro 2 bundle: {route['bundle']}",file=sys.stderr)
             install_unit(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')
             print(json.dumps(entry,indent=2)); return 0
         except (OSError,ValueError,subprocess.SubprocessError) as exc:

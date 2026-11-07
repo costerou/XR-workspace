@@ -14,52 +14,43 @@ class ProfileTests(unittest.TestCase):
         self.dir = Path(self.tmp.name) / 'cfg'
         self.path = self.dir / 'profiles.json'
 
-    def test_tracking_driver_defaults_to_xrlinuxdriver_and_keeps_a_valid_choice(self):
-        self.assertEqual(profiles.DEFAULT_PROFILE['tracking_driver'], 'xrdriver')
-        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')  # nothing saved
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'beast': {'tracking': True}}}))
-        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')  # saved before the setting
-        for bad in ('other', 1, None, ['luma']):
-            self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'beast': {'tracking_driver': bad}}}))
-            self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')
-        profiles.save_profile(self.path, 'beast', {**profiles.DEFAULT_PROFILE, 'tracking_driver': 'luma'})
-        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'luma')
-        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver'], 'xrdriver')  # per glasses
+    def test_each_model_gets_its_own_driver_whatever_is_saved(self):
+        self.dir.mkdir()
+        for saved in ('xrdriver', '3dof', 'luma', '/usr/bin/sh', None):
+            self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {m: {'tracking_driver': saved} for m in profiles.MODELS}}))
+            for model, driver in (('luma-ultra', 'luma'), ('beast', 'xrdriver'), ('unknown', 'xrdriver'), ('pro2', 'xrdriver')):
+                with self.subTest(saved=saved, model=model):
+                    self.assertEqual(profiles.load_profile(self.path, model)['tracking_driver'], driver)
+
+    def test_a_saved_standard_becomes_ours_and_the_rest_of_the_profile_stays(self):
+        self.dir.mkdir()
+        kept = {'tracking': True, 'tracking_driver': 'xrdriver', 'spacing': 60, 'fallback': 'DP-1', 'mode_switch': False, 'stabilization': 40}
+        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': kept, 'beast': {'tracking_driver': 'xrdriver'}}}))
+        profile = profiles.load_profile(self.path, 'luma-ultra')
+        self.assertEqual(profile['tracking_driver'], 'luma')
+        self.assertEqual({k: profile[k] for k in kept if k != 'tracking_driver'}, {k: v for k, v in kept.items() if k != 'tracking_driver'})
+
+    def test_reading_changes_nothing_on_disk_and_the_next_save_writes_it_through(self):
+        self.dir.mkdir()
+        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': {'tracking_driver': 'xrdriver'}}}))
+        before = self.path.read_bytes()
+        profiles.load_profile(self.path, 'luma-ultra')
+        self.assertEqual(self.path.read_bytes(), before)  # a rollback right after an upgrade finds its file as it left it
+        profiles.PlacementStore(self.path, 'luma-ultra').reset()
+        data = json.loads(self.path.read_text())
+        self.assertEqual((data['schema'], data['profiles']['luma-ultra']['tracking_driver']), (2, 'luma'))
+
+    def test_a_file_with_a_saved_choice_never_fails_a_save_for_another_model(self):
+        self.dir.mkdir()
+        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': {'tracking_driver': '3dof'}}}))
+        profiles.save_profile(self.path, 'beast', {**profiles.DEFAULT_PROFILE, 'spacing': 60})
+        self.assertEqual(json.loads(self.path.read_text())['profiles']['luma-ultra']['tracking_driver'], '3dof')  # untouched until its own save
 
     def test_defaults_when_missing(self):
         for m in profiles.MODELS:
             expected = {**profiles.DEFAULT_PROFILE, 'tracking': False, 'mode_switch': False} if m == 'pro2' else profiles.DEFAULT_PROFILE
-            self.assertEqual(profiles.load_profile(self.path, m), expected)
+            self.assertEqual(profiles.load_profile(self.path, m), {**expected, 'tracking_driver': 'luma' if m == 'luma-ultra' else 'xrdriver'})
         self.assertEqual(profiles.DEFAULT_PROFILE['desktops'], [DEFAULT_DESKTOP] * 3)
-
-    def test_tracking_driver_defaults_to_the_standard_one(self):
-        self.assertEqual(profiles.DEFAULT_PROFILE['tracking_driver'], 'xrdriver')
-
-    def test_every_tracking_driver_survives_a_save_and_other_saves(self):
-        for driver in ('xrdriver', '3dof', 'luma'):
-            with self.subTest(driver):
-                profile = profiles.load_profile(self.path, 'luma-ultra')
-                profiles.save_profile(self.path, 'luma-ultra', {**profile, 'tracking_driver': driver})
-                self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver'], driver)
-                store = profiles.ProfileStore(self.path, 'luma-ultra')
-                store.save(store.load())
-                profiles.PlacementStore(self.path, 'luma-ultra').reset()
-                self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver'], driver)
-
-    def test_bad_tracking_driver_in_a_file_cleans_to_the_standard_one(self):
-        self.dir.mkdir()
-        for bad in ('/usr/bin/sh', 'xrDriver', '/usr/bin/xrDriver', 5, None, ['luma'], 'luma\0'):
-            with self.subTest(bad):
-                self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': {'tracking_driver': bad}}}))
-                self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver'], 'xrdriver')
-
-    def test_the_binary_path_of_an_unreleased_build_is_dropped(self):
-        self.dir.mkdir()  # xrdriver-3dof-ab saved a path; only ever on a test install
-        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': {'tracking_driver_binary': '/x/xrDriver'}}}))
-        profile = profiles.load_profile(self.path, 'luma-ultra')
-        self.assertNotIn('tracking_driver_binary', profile)
-        self.assertEqual(profile['tracking_driver'], 'xrdriver')
 
     def test_save_refuses_a_bad_tracking_driver(self):
         profile = profiles.load_profile(self.path, 'luma-ultra')

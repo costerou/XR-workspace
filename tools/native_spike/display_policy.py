@@ -10,9 +10,13 @@ import math
 # and up to 50 is an engineering test bound in 1 degree steps, the last one shorter. Approximate; none of it is a calibration.
 PRO2_DEFAULT_PROJECTION = 44.5
 PRO2_PROJECTIONS = (44.5, 45.5, 46.5, 47.5, 48.5, 49.5, 50.0)
-# Degrees about the glasses' left axis, applied to every pose: the frame a head's turn is a clean yaw in (docs/pro2/smoothness.md). A
-# fit to one wearer's turns, provisional until `turn_axis_forward_deg` from a live run confirms it. Upstream's -8.5 is not this value.
-PRO2_MOUNT_PITCH = -11.0
+# Degrees about the glasses' left axis, applied to every pose: the frame a head's turn is a clean yaw in (docs/pro2/smoothness.md).
+# -8.5 is upstream's fixed value: Cody wore it for 13 minutes on 2026-11-06, no tilting, and chose it. -11 is the documented
+# alternative, from the bridge's own tilt runs (two usable turns). `pro2-settings --mount-pitch` changes it; pick no third value
+# without a run's `turn_axis_forward_deg` to go on.
+PRO2_MOUNT_PITCH = -8.5
+PRO2_MOUNT_ALTERNATIVE = -11.0
+PRO2_POSE_RATE = 60  # until the desk test in docs/own-drivers-default.md proves more
 PRO2_MOUNT_BOUNDS = (-30.0, 30.0)
 
 

@@ -113,11 +113,10 @@ function desktopEdit(width, height, scale) {
     return {width:width, height:height, scale:scale};
 }
 
-// The consent's `tracking` (tools/native_spike/tracking.py SCOPES) and `tracking_driver`. The Luma scope covers the handover
-// too: the click agrees to it. The 3DoF test never hands over.
+// The consent's `tracking` (tools/native_spike/tracking.py SCOPES) and `tracking_driver`. Nothing hands over to another driver.
 function trackingLine(tracking, driver) {
     if (tracking === "pro2-sdk") return "Head tracking via the pinned Pro 2 SDK bridge, network blocked. If it stops, XR stops and your windows come back.";
-    if (tracking === "luma") return "Head tracking via the XR Luma driver, network blocked. If it does not calibrate, XRLinuxDriver takes over, also network blocked.";
+    if (tracking === "luma") return "Head tracking via the XR Luma driver, network blocked. If it does not calibrate in 30 seconds, XR does not start and your windows stay where they are.";
     if (tracking && driver === "3dof") return "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked.";
     return tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).";
 }
@@ -125,6 +124,10 @@ function trackingLine(tracking, driver) {
 // The Pro 2's projection, always with its caveat: docs/pro2/projection-policy.md.
 function projectionLine(degrees) {
     return "Projection " + degrees + " degrees diagonal, approximate: not calibrated, no optical or tilt correction.";
+}
+// The Pro 2's settings for the next start, in the Startup options note: changed with `pro2-settings`, not here.
+function pro2SettingsLine(pro2) {
+    return pro2 ? "Mount pitch " + pro2.mount_pitch_deg + "°, " + pro2.pose_rate_hz + " Hz pose rate, smoothing on." : "";
 }
 function projectionChoices(pro2) {
     return ((pro2 || {}).choices || []).map(function(p) { return {label: p + "° (approximate)", value: p}; });
@@ -321,13 +324,14 @@ function placedRects(rects, placements) {
     });
 }
 
-// The panel's Head tracking driver choices: what the controller can start, plus the saved one if it has gone missing, so
-// the box shows what is wrong. index is -1 for a saved value that is no choice at all.
-function trackingDriverChoices(drivers, saved) {
-    return (drivers || []).filter(d => d.available || d.key === saved)
-        .map(d => ({label:d.label + (d.available ? "" : " (missing)"), key:d.key}));
+// Which head tracking driver these glasses run (Controller._driver_in_use): a fact, not a choice. Empty with no glasses, an older
+// controller, or a running session without head tracking.
+function trackingInUseLine(inUse) {
+    if (!inUse) return "";
+    return "Head tracking: " + inUse.label + (inUse.note ? ". " + inUse.note : "");
 }
-function trackingDriverIndex(choices, saved) { return choices.findIndex(c => c.key === saved); }
+// Worth a second look: not installed, or the recovery setting still on. The automatic XRLinuxDriver of other models is neither.
+function trackingInUseWarns(inUse) { return !!inUse && (!inUse.available || /Recovery/.test(inUse.note || "")); }
 
 function immersiveDesktopStrength(setting, name, value) {
     const strengths = Object.assign({}, setting.strengths || {});

@@ -124,15 +124,15 @@ The candidates for what Cody saw:
 | Mount pitch | Lean in motion | End to end | Fits the live runs? |
 | --- | --- | --- | --- |
 | 0 (first runs) | +2.03 | +3.26 | Against the turn, clearly: yes |
-| -8.5 | +0.50 | +1.60 | Upstream's constant, not used. Near the Luma's in-motion lean |
-| **-11** | **+0.06** | +1.13 | **Default** |
+| **-8.5** | +0.50 | +1.60 | Upstream's constant. **Default since 2026-11-06**: Cody wore it for 13 minutes through XRLinuxDriver with no tilting. Near the Luma's in-motion lean |
+| -11 | +0.06 | +1.13 | The alternative: the fit to this capture, two usable turns |
 | -14.47 (Run B) | -0.57 | +0.47 | In motion, the sign and size Cody reported |
 | -17 | -1.01 | +0.01 | No: Run B would then have leaned against the turn |
 | -19.5 | -1.46 | -0.47 | |
 
 Estimates of the axis: -11.3 from the lean in motion, -11.2 and -11.1 from the angular velocity itself, -15.2 over the whole window, -17 end to end (-17.4 left, -16.8 right). Run B rules out anything past -14.47, which leaves the in-motion estimates. **So -11 fits the two live reports and two estimates, but it rests on two usable turns in one capture and it is not settled.** That capture still has +1.13 end to end, about 3 degrees at a 27 degree hold. On the Luma the in-motion and end-to-end figures agree to 0.09, and here they differ by 1.07; the cause is unknown.
 
-Now shipped: `mount_pitch_deg`, -11 by default, -30 to 30, set in the consent or with `--mount-pitch`, applied by the bridge through the same publisher option the Luma uses. `level_gravity` keeps gravity levelling as a comparison, off by default. The renderer now measures the turn axis in each run, as `turn_axis_forward_deg`, `turn_axis_left_deg` and `turn_seconds`. On the directional capture that reads -10.29 with no mount and -0.14 at -11. The mount that would zero a run is its mount plus `turn_axis_forward_deg`.
+Now shipped: `mount_pitch_deg`, -8.5 by default (-11 until 2026-11-06), -30 to 30, set in the consent, with `--mount-pitch`, or for panel starts with `pro2-settings --mount-pitch`, applied by the bridge through the same publisher option the Luma uses. `level_gravity` keeps gravity levelling as a comparison, off by default. The renderer now measures the turn axis in each run, as `turn_axis_forward_deg`, `turn_axis_left_deg` and `turn_seconds`. On the directional capture that reads -10.29 with no mount and -0.14 at -11. The mount that would zero a run is its mount plus `turn_axis_forward_deg`.
 
 ## XRLinuxDriver's Pro 2 path
 
@@ -195,13 +195,13 @@ A supervised test now keeps its consent: no DesktopManager, and Add, Remove and 
 
 ## The panel route
 
-`tools/xr_controller/pro2_route.py`. Off until `python -m tools.xr_controller pro2-route enable --bundle … --evidence <run>/pro2-test-result.json` names a bundle and a clean supervised run of that same bundle: the result carries the manifest hash. With no opt-in, detection, consent and managed runs refuse the Pro 2 exactly as before.
+`tools/xr_controller/pro2_route.py`, on as soon as `python -m tools.xr_controller install` has pinned a bundle under `~/.local/share/viture-workspace/pro2/`. The opt-in this section first described is gone: [own-drivers-default.md](../own-drivers-default.md). With no opt-in, detection, consent and managed runs refuse the Pro 2 exactly as before.
 
-- It runs one pinned bundle: bridge, renderer and plugin, by manifest hash. Not `installed.json`, so it cannot change another model's pins, and a rebuilt bundle turns the route off until enabled again.
+- It runs one pinned bundle: bridge, renderer and plugin, by manifest hash. Not `installed.json`, so it cannot change another model's pins, and a bundle that changes on disk turns the route off until installed again.
 - Projection lives in `pro2-settings.json`: 44.5 by default, then 45.5, 46.5, 47.5, 48.5, 49.5 and 50, labelled approximate in the panel and the consent box. An unreadable value is 44.5.
 - Nothing falls back. No route means no start, never XRLinuxDriver. A bridge that stops ends the session and puts the windows back: there is no hold and no reconnect yet, so a USB drop ends a Pro 2 session.
 - The consent box has nothing to untick: the route's tracking is the route.
-- Sessions have a 12 hour deadline; `pro2-sdk` is not in `tracking.SCOPES`, so the incident monitor does not watch its tracking yet. The running Hyprland must be the one the bundle's plugin was built for. Each session leaves its private log folder in the state directory.
-- `disable` removes the opt-in; recovery of a session that already ran still works without it.
+- Sessions have a 12 hour deadline; the incident monitor watches its tracking through the renderer's status, though `pro2-sdk` is not in `tracking.SCOPES` because there is no driver process. The running Hyprland must be the one the bundle's plugin was built for. Each session leaves its private log folder in the state directory.
+- Recovery of a session that already ran works with no pin at all.
 
 Luma and Beast: `identify`, consent keys, `profiles.json` and the start path are unchanged; tests compare them.

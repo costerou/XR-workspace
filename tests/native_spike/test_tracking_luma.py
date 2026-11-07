@@ -307,14 +307,31 @@ class LumaLifecycle(unittest.TestCase):
             tracking.start(self.runtime, timeout=0.6, luma=str(self.luma))
         self.assertFalse(tracking.status(self.runtime)['running'])
 
-    def test_fallback_hands_over_to_xrlinuxdriver(self):
+    def test_a_failed_calibration_says_so_and_runs_nothing_else(self):
         fake_driver(self.luma, NEVER_CALIBRATES)
-        with patch.object(tracking, 'LUMA_TIMEOUT', 0.6), patch.object(tracking, 'FALLBACK_TIMEOUT', 10):
-            ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
-        self.assertEqual(ready['driver'], 'xrdriver')
-        self.assertIn('did not calibrate', ready['fallback'])
-        self.assertTrue(ready['calibrated'] and ready['network_isolated'])
-        self.assertEqual(self.state()['driver'], 'xrdriver')
+        with patch.object(tracking, 'LUMA_TIMEOUT', 0.6), self.assertRaises(ValueError) as caught:
+            tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertIn('did not calibrate', str(caught.exception))
+        self.assertIn('windows stayed where they were', str(caught.exception))
+        self.assertNotIn('XRLinuxDriver', str(caught.exception))
+        self.assertFalse(tracking.status(self.runtime)['running'])  # and nothing left behind holding the glasses
+        self.assertIsNone(tracking.active_driver(self.runtime))
+
+    def test_what_it_was_waiting_for_reaches_the_message(self):
+        fake_driver(self.luma, """\
+            import signal, sys, time
+            signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+            print('luma: waiting reason=device-not-found at=1', file=sys.stderr, flush=True)
+            while True: time.sleep(0.1)
+            """)
+        with patch.object(tracking, 'LUMA_TIMEOUT', 0.6), self.assertRaisesRegex(ValueError, 'last waiting on device-not-found'):
+            tracking.ensure_ready_luma(self.runtime, str(self.luma))
+
+    def test_plain_messages_are_not_wrapped_twice(self):
+        for message in (tracking.CRASHED, tracking.USB_DENIED):
+            with self.subTest(message), patch.object(tracking, 'ensure_ready', side_effect=ValueError(message)), self.assertRaises(ValueError) as caught:
+                tracking.ensure_ready_luma(self.runtime, str(self.luma))
+            self.assertEqual(str(caught.exception), message)
 
     def test_saved_flags_reach_the_driver(self):
         fake_driver(self.luma, """\
@@ -331,18 +348,11 @@ class LumaLifecycle(unittest.TestCase):
     def test_no_flags_file_runs_the_default(self):
         self.assertEqual(tracking._luma_argv('/x')[-1], '/x')
 
-    def test_a_bad_flags_file_falls_back_and_says_why(self):
+    def test_a_bad_flags_file_fails_the_start_and_says_why(self):
         self.flags.write_text('--replay /tmp/x\n')
-        ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
-        self.assertEqual(ready['driver'], 'xrdriver')
-        self.assertIn('unknown flag: --replay', ready['fallback'])
-
-    def test_a_new_driver_that_never_calibrates_hands_over_to_the_standard_binary(self):
-        fake_driver(self.luma, NEVER_CALIBRATES)
-        with patch.object(tracking, 'LUMA_TIMEOUT', 0.5):
-            ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
-        self.assertEqual((ready['driver'], ready['binary']), ('xrdriver', str(self.xrdriver)))
-        self.assertIn('did not calibrate', ready['fallback'])
+        with self.assertRaisesRegex(ValueError, 'unknown flag: --replay'):
+            tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertIsNone(tracking.active_driver(self.runtime))
 
     def test_the_3dof_build_runs_as_asked_and_is_replaced_when_not_wanted(self):
         build = self.tmp_build()
@@ -369,22 +379,23 @@ class LumaLifecycle(unittest.TestCase):
             tracking.ensure_ready(self.runtime, timeout=10, binary=str(build))
         self.assertFalse(tracking.status(self.runtime)['running'])
 
-    def test_no_usb_permission_refuses_both_and_says_what_to_do(self):
+    def test_no_usb_permission_refuses_and_says_what_to_do(self):
         tracking._check_usb_access.side_effect = ValueError('no permission to open the glasses: unplug them')
-        with self.assertRaisesRegex(ValueError, 'XR Luma driver failed .*no permission.* so did XRLinuxDriver'):
+        with self.assertRaisesRegex(ValueError, 'no permission.*XR stopped here'):
             tracking.ensure_ready_luma(self.runtime, str(self.luma))
         self.assertFalse(self.log.exists() and 'calibrated' in self.log.read_text())
 
-    def test_no_fallback_when_luma_calibrates(self):
+    def test_calibrating_returns_the_status(self):
         ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
         self.assertEqual(ready['driver'], 'luma')
         self.assertNotIn('fallback', ready)
 
-    def test_when_both_fail_the_error_names_both(self):
+    def test_a_driver_that_exits_ends_the_start_and_never_reaches_for_xrlinuxdriver(self):
         fake_driver(self.luma, EXITS)
-        self.config.write_text('disabled=false\noutput_mode=mouse\n')
-        with self.assertRaisesRegex(ValueError, r'XR Luma driver failed \(.*\) and so did XRLinuxDriver: .*external_only'):
+        self.config.write_text('disabled=false\noutput_mode=mouse\n')  # would fail in its own words if anything tried it
+        with self.assertRaises(ValueError) as caught:
             tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertIn('exited during startup', str(caught.exception)); self.assertNotIn('external_only', str(caught.exception))
 
     def test_a_cancel_is_not_a_failure(self):
         # The panel's Stop during calibration: nothing may start after it.

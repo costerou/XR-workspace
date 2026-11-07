@@ -36,14 +36,14 @@ class StateTests(unittest.TestCase):
         self.now=0; self.calls=[]; self.units=Units()
         self.c=Controller(lambda:self.now,lambda:copy.deepcopy(self.observation),lambda *a:self.calls.append(a),self.units,Store(),self.fd,self.path)
     def choose_driver(self,available=True,data=b'driver',pin=None):
-        # The 3DoF test build in a temp folder, offered by the probe as Host.probe offers it. Nothing is executed.
+        # The hidden recovery setting on a Luma Ultra, asking for the 3DoF test build in a temp folder, offered by the probe as
+        # Host.probe offers it. Nothing is executed.
         binary=self.path/'xrDriver'
         if available: binary.write_bytes(data)
-        self.observation['tracking_drivers']=[dict(key='xrdriver',label='Standard',path='/usr/bin/xrDriver',sha256=None,available=True),
+        self.observation.update(model='luma-ultra',tracking_override='3dof',tracking_drivers=[dict(key='xrdriver',label='XRLinuxDriver',path='/usr/bin/xrDriver',sha256=None,available=True),
             dict(key='3dof',label='3DoF test',path=str(binary),sha256=pin or hashlib.sha256(b'driver').hexdigest(),available=available),
-            dict(key='luma',label='New driver',path='',sha256=None,available=False)]
+            dict(key='luma',label='XR Luma driver',path='',sha256=None,available=False)])
         self.c.tick()
-        self.assertTrue(self.c.request(dict(op='set_settings',settings=dict(tracking_driver='3dof')))['ok'])
         return str(binary)
     def begin(self):
         reply=self.c.request(dict(op='begin_start')); self.assertTrue(reply['ok'],reply); return reply
@@ -92,11 +92,50 @@ class StateTests(unittest.TestCase):
         for bad in ('/usr/bin/sh','/tmp/evil/xrDriver','standard'):
             self.assertFalse(self.c.request(dict(op='set_settings',settings=dict(tracking_driver=bad)))['ok'])
 
-    def test_snapshot_offers_the_choices_and_settings_hold_the_saved_one(self):
-        self.choose_driver()
-        reply=self.c.request(dict(op='get_settings'))
-        self.assertEqual([d['key'] for d in reply['tracking_drivers']],['xrdriver','3dof','luma'])
-        self.assertEqual(reply['settings']['tracking_driver'],'3dof')
+    def in_use(self,**observed):
+        self.observation.update(observed); self.c.tick()
+        return self.c.snapshot()['tracking_in_use']
+
+    def test_the_panel_gets_a_fact_and_no_list_of_choices(self):
+        self.assertNotIn('tracking_drivers',self.c.snapshot()); self.assertNotIn('luma_available',self.c.snapshot())
+        self.assertIsNone(self.in_use(model=None))
+
+    def test_each_model_shows_its_driver(self):
+        pin=dict(path='/p/luma',sha256='b'*64)
+        luma=self.in_use(model='luma-ultra',installed=dict(self.observation['installed'],luma_driver=pin))
+        self.assertEqual((luma['key'],luma['label'],luma['available'],luma['note']),('luma','XR Luma driver',True,None))
+        for model in ('beast','unknown'):
+            with self.subTest(model):
+                other=self.in_use(model=model)
+                self.assertEqual((other['key'],other['label'],other['available']),('xrdriver','XRLinuxDriver',True))
+                self.assertIn('Automatic',other['note'])
+        pro2=self.in_use(model='pro2',pro2_route=dict(bundle='/b'))
+        self.assertEqual((pro2['key'],pro2['label'],pro2['available']),('pro2-sdk','Pro 2 SDK bridge',True))
+        self.assertFalse(self.in_use(model='pro2',pro2_route=None)['available'])
+
+    def test_a_luma_without_our_driver_says_so(self):
+        got=self.in_use(model='luma-ultra')
+        self.assertEqual((got['key'],got['available']),('luma',False)); self.assertIn('Not installed',got['note'])
+
+    def test_the_recovery_setting_shows_on_a_luma_and_nowhere_else(self):
+        for key,label in (('xrdriver','XRLinuxDriver'),('3dof','XRLinuxDriver 3DoF test')):
+            got=self.in_use(model='luma-ultra',tracking_override=key)
+            self.assertEqual((got['key'],got['label']),(key,label)); self.assertIn('Recovery setting',got['note'])
+        self.assertIn('Automatic',self.in_use(model='beast',tracking_override='xrdriver')['note'])
+        self.assertEqual(self.in_use(model='pro2',pro2_route=dict(bundle='/b'),tracking_override='xrdriver')['key'],'pro2-sdk')
+
+    def test_a_running_session_shows_what_its_consent_says(self):
+        self.with_luma()
+        r=self.begin(); self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))['ok'])
+        self.c.state='running'
+        self.c.observed['tracking_override']='xrdriver'  # a setting changed mid-session is the next start's
+        self.assertEqual(self.c.snapshot()['tracking_in_use']['label'],'XR Luma driver')
+
+    def test_a_stale_panel_cannot_save_another_driver(self):
+        self.with_luma()
+        for bad in ('xrdriver','3dof'):
+            reply=self.c.request(dict(op='set_settings',settings=dict(tracking_driver=bad)))
+            self.assertFalse(reply['ok']); self.assertIn('not a choice',reply['error'])
 
     def test_the_build_going_away_drops_the_open_scope(self):
         self.choose_driver(); self.begin()
@@ -125,31 +164,63 @@ class StateTests(unittest.TestCase):
         self.assertIsNone(self.c.snapshot()['pending'])
 
     def with_luma(self):
+        self.observation['model']='luma-ultra'
         self.observation['installed']['luma_driver']=dict(path='/p/luma',sha256='b'*64); self.c.tick()
-    def choose_luma(self):
-        self.assertTrue(self.c.request(dict(op='set_settings',settings={'tracking_driver':'luma'}))['ok'])
 
-    def test_default_start_is_xrlinuxdriver_even_with_luma_installed(self):
+    def test_models_without_a_driver_of_ours_run_xrlinuxdriver_with_nothing_to_choose(self):
+        self.observation['installed']['luma_driver']=dict(path='/p/luma',sha256='b'*64)
+        for model in ('beast','unknown'):
+            with self.subTest(model):
+                self.observation['model']=model; self.c.tick()
+                self.c.store.profile['tracking_driver']='luma'  # a saved choice from before: tonight's Pro 2 on master was exactly this
+                scope=self.begin()['scope']
+                self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope)
+                self.c.request(dict(op='cancel'))
+
+    def test_a_saved_standard_on_a_luma_runs_our_driver(self):
         self.with_luma()
-        scope=self.begin()['scope']
-        self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope)
+        for saved in ('xrdriver','3dof'):
+            with self.subTest(saved):
+                self.c.store.profile['tracking_driver']=saved
+                self.assertEqual(self.begin()['scope']['tracking'],'luma')
+                self.c.request(dict(op='cancel'))
 
-    def test_chosen_luma_goes_into_the_consent_with_its_pin(self):
-        self.with_luma(); self.choose_luma()
-        self.assertTrue(self.c.snapshot()['luma_available'])
+    def test_the_recovery_setting_runs_xrlinuxdriver_on_a_luma(self):
+        self.with_luma(); self.observation['tracking_override']='xrdriver'; self.c.tick()
+        scope=self.begin()['scope']
+        self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope); self.assertNotIn('tracking_driver',scope)
+
+    def test_the_recovery_setting_changing_drops_the_open_scope(self):
+        self.with_luma(); self.begin()
+        self.observation['tracking_override']='xrdriver'; self.c.tick()
+        self.assertIsNone(self.c.snapshot()['pending'])
+
+    def test_luma_keeps_its_mode_switch_and_3d_scope(self):
+        self.with_luma()
+        with mock.patch('tools.xr_controller.state.immersive.find_engine',return_value='/engine'): scope=self.begin()['scope']
+        self.assertEqual(scope['mode_switch'],dict(width=1920,height=1200,refresh_hz=120)); self.assertIn('sbs_mode',scope)
+
+    def test_the_wait_the_panel_quotes_is_this_drivers(self):
+        for scope,seconds in (('luma',30),('pro2-sdk',10),('xrlinuxdriver',120),(False,120)):
+            with self.subTest(scope), mock.patch.object(self.c,'_consent',return_value=dict(tracking=scope)):
+                self.assertEqual(self.c._tracking_wait(dict(run_id='r')),seconds)
+        with mock.patch.object(self.c,'_consent',side_effect=ValueError('gone')): self.assertEqual(self.c._tracking_wait(dict(run_id='r')),120)
+
+    def test_luma_goes_into_the_consent_with_its_pin(self):
+        self.with_luma()
         r=self.begin(); self.assertEqual(r['scope']['tracking'],'luma')
         self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))['ok'])
         consent=load_panel_consent(self.path/(r['scope']['run_id']+'.json'),'instance','DP-2')
         self.assertEqual((consent['tracking'],consent['luma_driver']),('luma',dict(path='/p/luma',sha256='b'*64)))
 
     def test_unticking_tracking_drops_the_luma_pin(self):
-        self.with_luma(); self.choose_luma()
+        self.with_luma()
         r=self.begin(); self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id'],optional={'tracking':False}))['ok'])
         consent=load_panel_consent(self.path/(r['scope']['run_id']+'.json'),'instance','DP-2')
         self.assertIs(consent['tracking'],False); self.assertNotIn('luma_driver',consent)
 
     def test_luma_never_carries_the_3dof_key_and_3dof_never_carries_the_luma_pin(self):
-        self.with_luma(); self.choose_luma()
+        self.with_luma()
         self.assertNotIn('tracking_driver',self.begin()['scope'])
         self.c.request(dict(op='cancel'))
         self.choose_driver()
@@ -157,16 +228,14 @@ class StateTests(unittest.TestCase):
         self.assertEqual((scope['tracking'],scope['tracking_driver']),('xrlinuxdriver','3dof'))
         self.assertNotIn('luma_driver',scope)
 
-    def test_chosen_luma_not_installed_offers_xrlinuxdriver(self):
-        self.assertFalse(self.c.snapshot()['luma_available'])
-        self.choose_luma()
-        with contextlib.redirect_stderr(io.StringIO()) as log: scope=self.begin()['scope']
-        self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope)
-        self.assertIn('not installed',log.getvalue())
-        self.assertEqual(self.c.store.profile['tracking_driver'],'luma')  # the choice stays for an install that has it
+    def test_luma_not_installed_refuses_the_start_and_never_runs_xrlinuxdriver(self):
+        self.observation['model']='luma-ultra'; self.c.tick()
+        reply=self.c.request(dict(op='begin_start'))
+        self.assertFalse(reply['ok']); self.assertIn('not installed',reply['error']); self.assertIsNone(reply['pending'])
+        self.assertEqual(self.c.state,'idle')
 
-    def test_tracking_off_ignores_the_driver_choice(self):
-        self.with_luma(); self.choose_luma()
+    def test_tracking_off_starts_with_or_without_our_driver(self):
+        self.observation['model']='luma-ultra'; self.c.tick()
         self.assertTrue(self.c.request(dict(op='set_settings',settings={'tracking':False}))['ok'])
         scope=self.begin()['scope']
         self.assertIs(scope['tracking'],False); self.assertNotIn('luma_driver',scope)
@@ -353,7 +422,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(self.c.snapshot()['immersive']['names'],['XR-1'])
     def scoped(self,engine=True):
         """Luma Ultra glasses with the run's 120 Hz option on, the depth engine beside the renderer or not."""
-        self.observation['model']='luma-ultra'
+        self.observation['model']='luma-ultra'; self.observation['installed']['luma_driver']=dict(path='/p/luma',sha256='b'*64)
         profile=self.c.store.load('luma-ultra'); profile['mode_switch']=True; self.c.store.save('luma-ultra',profile)
         patcher=mock.patch.object(immersive,'find_engine',lambda renderer:'/pinned/xr-depth-engine' if engine else None)
         patcher.start(); self.addCleanup(patcher.stop)

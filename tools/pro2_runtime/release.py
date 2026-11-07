@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tarfile
 
+from tools.native_spike.display_policy import PRO2_MOUNT_PITCH, PRO2_POSE_RATE
 from tools.pro2_runtime.package import ROOT, build
 
 README = """# Pro 2 supervised comparison release
@@ -18,9 +19,9 @@ Source {source}. Offline-tested only until the run in docs/pro2/smooth-live-test
    Expect this source, {files} pins, plugin_command_path validated, sdk_started false, compositor_contacted false.
 3. Run, with Cody's agreement, one short test:  runtime/bin/pro2-supervised-parent --bundle "$PWD/runtime"
 
-Projection is an approximate 44.5 degree diagonal; no optical or tilt correction. The steps, what to look at and how to read the
-result are in runtime/docs/pro2/smooth-live-test.md. Installing nothing is needed to run this. The panel's normal Start stays
-off for the Pro 2 until `python -m tools.xr_controller pro2-route enable` names a bundle and a clean run.
+Projection is an approximate 44.5 degree diagonal; no optical correction. The steps, what to look at and how to read the result
+are in runtime/docs/pro2/smooth-live-test.md. Installing nothing is needed to run this. The panel's normal Start runs the bundle
+`python -m tools.xr_controller install` pins, not this one.
 """
 
 
@@ -47,7 +48,7 @@ def assemble(build_dir, destination):
     runtime_sha = hashlib.sha256((release / 'runtime/manifest.json').read_bytes()).hexdigest()
     native = {name: manifest['files']['bin/' + name] for name in ('pro2-sdk-bridge', 'xr-native-spike', 'libxr-ownership.so')}
     (release / 'release.json').write_text(json.dumps(dict(source=manifest['source_commit'], manifest_sha256=runtime_sha, runtime_files=len(manifest['files']),
-                                                          sdk_sha256=manifest['sdk_sha256'], firmware=manifest['firmware'], native=native, smoothing=dict(tau_ms=35, look_ahead_cfg=[0, 0, 0, 40], default_pose_rate_hz=60, default_mount_pitch_deg=-11.0)), indent=2) + '\n')
+                                                          sdk_sha256=manifest['sdk_sha256'], firmware=manifest['firmware'], native=native, smoothing=dict(tau_ms=35, look_ahead_cfg=[0, 0, 0, 40], default_pose_rate_hz=PRO2_POSE_RATE, default_mount_pitch_deg=PRO2_MOUNT_PITCH)), indent=2) + '\n')
     (release / 'SHA256SUMS').write_text(sums(release))
     archive = destination / f"pro2-runtime-release-{manifest['source_commit'][:7]}.tar.gz"
     with tarfile.open(archive, 'w:gz') as stream: stream.add(release, arcname='pro2-runtime-release')

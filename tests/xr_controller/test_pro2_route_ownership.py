@@ -15,15 +15,13 @@ class Ownership(Story):
     def setUp(self):
         super().setUp()
         self.config = self.root / 'config'; self.config.mkdir(mode=0o700)
-        bundle = self.root / 'bundle'; (bundle / 'bin').mkdir(parents=True)
+        data = self.root / 'data'
+        bundle = data / 'viture-workspace' / route.BUNDLE_DIR / 'bundle'; (bundle / 'bin').mkdir(parents=True)
         files = {}
         for name in ('pro2-sdk-bridge', 'xr-native-spike', 'libxr-ownership.so'):
             path = bundle / 'bin' / name; path.write_bytes(b'inert ' + name.encode()); files['bin/' + name] = hashlib.sha256(path.read_bytes()).hexdigest()
         (bundle / 'manifest.json').write_text(json.dumps(dict(schema=1, sdk_sha256=SHA256, files=files)))
-        evidence = self.root / 'result.json'
-        evidence.write_text(json.dumps(dict(run_id=SUPERVISED, manifest_sha256=route.manifest_sha(bundle), complete=True, errors=[], run=dict(complete=True, renderer_returncode=0))))
-        evidence.chmod(0o600)
-        self.route = route.enable(bundle, evidence, self.config)
+        self.route = route.write_pin(bundle, data)
         base = self.probe
         self.probe = lambda: dict(base(), model='pro2', pro2_route=self.route)
         self.start()

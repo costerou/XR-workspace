@@ -9,7 +9,7 @@ from .ipc import read_private_json, token
 from .profiles import MODELS
 from .sbs import SCOPE_KEY as SBS_KEY, scope_ok as sbs_scope_ok
 from .supervisor import CAPTURE_ALLOW, CAPTURE_SCOPE
-from .tracking import DOF3, LUMA, SCOPES
+from .tracking import DOF3, LUMA, PRO2_TRACKING, SCOPES
 
 PANEL_GATE = 'P2-panel'
 PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
@@ -19,9 +19,9 @@ LUMA_PIN = 'luma_driver'  # the pinned binary a consent with tracking 'luma' run
 # Present only for the 3DoF test driver, so a standard run's consent stays what older code reads (a rollback, a recovery).
 # It is its own key: `tracking` stays "xrlinuxdriver", which the pose feed and the incident monitor test for.
 DRIVER_KEY = 'tracking_driver'
-# Only with an opt-in (tools/xr_controller/pro2_route.py): the pinned bundle and projection a Pro 2 start agreed to. Without this key
+# Only with the installed route (tools/xr_controller/pro2_route.py): the pinned bundle and settings a Pro 2 start agreed to. Without this key
 # a Pro 2 consent is refused as it always was. `tracking` is then this exact scope, which is none of tracking.SCOPES.
-PRO2_KEY, PRO2_TRACKING = 'pro2_route', 'pro2-sdk'
+PRO2_KEY = 'pro2_route'
 PRO2_RATES = (60, 90, 120, 240)
 LUMA_MODE = {'width': 1920, 'height': 1200, 'refresh_hz': 120}
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')

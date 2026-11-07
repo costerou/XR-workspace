@@ -104,13 +104,12 @@ def execute(consent_path, data_home, progress=None):
             result['phase'] = 'tracking'
             if progress: progress(result['run_id'], 'tracking')
             if consent['tracking'] == tracking.LUMA:
-                ready = tracking.ensure_ready_luma(runtime, installed[LUMA_PIN]['path'])
-                if ready.get('fallback'):  # the setting stays: the next start tries the Luma driver again
-                    result['tracking_fallback'] = ready['fallback']
-                    _toast(f"The XR Luma driver could not start head tracking ({ready['fallback']}). Using XRLinuxDriver for this session.")
-                else:
-                    watch = tracking.LumaWatch(runtime, installed[LUMA_PIN]['path'], _toast)
-                    watch.start()
+                try: tracking.ensure_ready_luma(runtime, installed[LUMA_PIN]['path'])
+                except ValueError as exc:  # nothing has moved yet: no plugin, no desktops, so the run just ends here
+                    _toast(str(exc))
+                    raise
+                watch = tracking.LumaWatch(runtime, installed[LUMA_PIN]['path'], _toast)
+                watch.start()
             else:
                 binary = tracking_driver_path(consent.get('tracking_driver', tracking.XRDRIVER), data_home)
                 log(f'head tracking driver: {binary}')

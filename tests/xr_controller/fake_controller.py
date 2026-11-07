@@ -41,9 +41,7 @@ def fixture(state):
     snap = dict(state='confirming' if state=='recover-confirming' else state,
                 model='luma-ultra', output='DP-2', reason=None, fallback='DP-1',
                 fallback_candidates=['DP-1','HDMI-A-1'], status={}, capabilities=[],
-                tracking_drivers=[dict(key='xrdriver',label='Standard',path='/usr/bin/xrDriver',sha256=None,available=True),
-                                  dict(key='3dof',label='3DoF test',path='/offline/xrDriver',sha256='a'*64,available=True),
-                                  dict(key='luma',label='New driver',path='/offline/xr-luma-driver',sha256='b'*64,available=True)])
+                tracking_in_use=dict(key='luma',label='XR Luma driver',available=True,note=None))
     if state == 'no-glasses': snap.update(model=None,output=None)
     if state in ('confirming','recover-confirming'):
         snap['pending'] = dict(action='recover' if state=='recover-confirming' else 'start',scope=scope,scope_id='offline-scope')

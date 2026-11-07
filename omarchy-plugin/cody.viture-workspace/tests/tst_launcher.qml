@@ -35,35 +35,20 @@ TestCase {
     }
     function cleanup() { requestSpy.target = null; }
 
-    readonly property var drivers: [{key:"xrdriver", label:"Standard", path:"/usr/bin/xrDriver", available:true},
-                                    {key:"3dof", label:"3DoF test", path:"/t/xrDriver", available:true},
-                                    {key:"luma", label:"New driver", path:"/t/xr-luma-driver", available:true}]
     function openOptions(launcher) { launcher.showOptions = true; verify(waitForRendering(launcher)); }
-    function test_trackingDriverOptionSavesThePathAndShowsTheSavedOne() {
-        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking_driver:"3dof"}));
+    function test_thereIsNoDriverToChoose() {
+        // tools/xr_controller/state.py _driver_in_use: which driver runs follows the glasses. The panel shows it (Panel.qml) and offers nothing.
+        const launcher = make(idle({tracking_in_use:{key:"luma", label:"XR Luma driver", available:true, note:null}}), settings({tracking_driver:"luma"}));
         openOptions(launcher);
-        verify(findChild(launcher, "trackingDriverOption").visible);
-        const combo = findChild(launcher, "trackingDriverCombo");
-        compare(combo.count, 3);
-        compare(combo.currentText, "3DoF test");
-        combo.currentIndex = 0;
-        combo.activated(0);
-        compare(requestSpy.count, 1);
-        compare(requestSpy.signalArguments[0][0].op, "set_settings");
-        compare(requestSpy.signalArguments[0][0].settings.tracking_driver, "xrdriver");
+        compare(findChild(launcher, "trackingDriverOption"), null);
+        compare(findChild(launcher, "trackingDriverCombo"), null);
+        compare(findChild(launcher, "lumaMissing"), null);
+        verify(findChild(launcher, "trackingOption").visible);
     }
-    function test_trackingDriverOptionHiddenWithNothingToChoose() {
-        const missing = [drivers[0], Object.assign({}, drivers[1], {available:false}), Object.assign({}, drivers[2], {available:false})];
-        for (const snapshot of [idle(), idle({tracking_drivers:missing})]) {
-            const launcher = make(snapshot, settings({tracking_driver:"xrdriver"}));
-            openOptions(launcher);
-            verify(!findChild(launcher, "trackingDriverOption").visible);
-        }
-    }
-    function test_trackingDriverOptionHiddenWithHeadTrackingOff() {
-        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking:false, tracking_driver:"xrdriver"}));
+    function test_thePro2NoteNamesItsSettings() {
+        const launcher = make(idle({pro2:{projection:44.5, choices:[44.5], label:"approximate", mount_pitch_deg:-8.5, pose_rate_hz:60}}), settings());
         openOptions(launcher);
-        verify(!findChild(launcher, "trackingDriverOption").visible);
+        verify(findChild(launcher, "pro2Note").text.indexOf("Mount pitch -8.5°, 60 Hz pose rate, smoothing on.") >= 0);
     }
     function test_oneBigStartButton() {
         const launcher = make();
@@ -152,37 +137,6 @@ TestCase {
         compare(launcher.showOptions, false);
         verify(!findChild(launcher, "trackingOption").visible);
         verify(findChild(launcher, "startButton").enabled);
-    }
-
-    function test_trackingDriverIsOfferedOnceInstalled() {
-        // Only the standard driver installed: nothing to pick.
-        let launcher = make(idle({luma_available:false, tracking_drivers:[drivers[0]]}), settings({tracking_driver:"xrdriver"}));
-        launcher.showOptions = true;
-        waitForItemPolished(launcher);
-        verify(!findChild(launcher, "trackingDriverOption").visible);
-        verify(!findChild(launcher, "lumaMissing").visible);
-        // Installed: a pick, showing what is saved, and it saves through the controller.
-        launcher = make(idle({luma_available:true, tracking_drivers:[drivers[0], drivers[2]]}), settings({tracking_driver:"xrdriver"}));
-        launcher.showOptions = true;
-        waitForItemPolished(launcher);
-        verify(findChild(launcher, "trackingDriverOption").visible);
-        const combo = findChild(launcher, "trackingDriverCombo");
-        compare(combo.currentText, "Standard");
-        combo.currentIndex = 1;
-        combo.activated(1);
-        compare(requestSpy.count, 1);
-        compare(requestSpy.signalArguments[0][0], {op:"set_settings", settings:{tracking_driver:"luma"}});
-        // Tracking off: no driver to pick.
-        launcher = make(idle({luma_available:true}), settings({tracking:false, tracking_driver:"luma"}));
-        launcher.showOptions = true;
-        waitForItemPolished(launcher);
-        verify(!findChild(launcher, "trackingDriverOption").visible);
-        // Chosen, then a build without it was installed: the choice still shows and says what a start will do.
-        launcher = make(idle({luma_available:false, tracking_drivers:[drivers[0], Object.assign({}, drivers[2], {available:false})]}), settings({tracking_driver:"luma"}));
-        launcher.showOptions = true;
-        waitForItemPolished(launcher);
-        compare(findChild(launcher, "trackingDriverCombo").currentText, "New driver (missing)");
-        verify(findChild(launcher, "lumaMissing").visible);
     }
 
     function test_desktopPreviewTilesDraw() {

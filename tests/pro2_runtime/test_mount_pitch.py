@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import unittest
 from tools.pro2_runtime import smooth_acceptance as A
-from tools.native_spike.display_policy import PRO2_MOUNT_PITCH
+from tools.native_spike.display_policy import PRO2_MOUNT_ALTERNATIVE,PRO2_MOUNT_PITCH
 from tools.pro2_runtime.launch import validate_mount_pitch
 
 REPLAY=os.environ.get('PRO2_SMOOTH_REPLAY')
@@ -23,8 +23,8 @@ def head(start_pitch,axis_tilt=-11.0):
 
 
 class Default(unittest.TestCase):
-    def test_the_fitted_value(self):
-        self.assertEqual(PRO2_MOUNT_PITCH,-11.0)
+    def test_the_default_is_the_one_cody_wore_and_the_fit_is_the_alternative(self):
+        self.assertEqual(PRO2_MOUNT_PITCH,-8.5);self.assertEqual(PRO2_MOUNT_ALTERNATIVE,-11.0)
     def test_bounds(self):
         self.assertEqual(validate_mount_pitch(-11.0),-11.0);self.assertEqual(validate_mount_pitch(0),0.0)
         for bad in (-31,31,float('nan'),True,'x',None):
@@ -32,7 +32,7 @@ class Default(unittest.TestCase):
     def test_consent_takes_it_and_defaults_to_it(self):
         from tools.pro2_runtime.supervised_parent import consent_for
         from tools.xr_controller.pro2_test import validate
-        self.assertEqual(validate(consent_for('pro2-supervised-1','i'))['mount_pitch_deg'],-11.0)
+        self.assertEqual(validate(consent_for('pro2-supervised-1','i'))['mount_pitch_deg'],-8.5)
         self.assertEqual(validate(consent_for('pro2-supervised-1','i',mount_pitch_deg=-8.0))['mount_pitch_deg'],-8.0)
         with self.assertRaises(ValueError):validate(consent_for('pro2-supervised-1','i',mount_pitch_deg=-40.0))
 
@@ -44,7 +44,7 @@ class Reference(unittest.TestCase):
         for start in (5.0,14.47,19.5,27.0):
             with self.subTest(start=start):
                 rows=head(start)
-                self.assertLess(self.lean(A.mounted(rows,PRO2_MOUNT_PITCH),0),.08)
+                self.assertLess(self.lean(A.mounted(rows,PRO2_MOUNT_ALTERNATIVE),0),.08)  # head()'s axis is the -11 fit
         self.assertGreater(self.lean(head(14.47),1),.4)      # Run B's start
         self.assertGreater(self.lean(head(19.5),1),1.2)      # the directional capture's start
     def test_the_lean_of_a_gravity_level_has_the_sign_cody_reported(self):

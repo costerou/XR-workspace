@@ -5,32 +5,42 @@ so its licence requests cannot leave the machine; it starts without a licence an
 orientation over SysV IPC. It must not drive the mouse (output_mode=external_only). Lifetime is
 independent of managed runs (startup is slow); stop signals only the exact process.
 
-The profile's `tracking_driver` picks from three, and each treats failure differently, on purpose:
+Which driver runs is decided per model, not chosen (docs/own-drivers-default.md, default_driver below):
 
-  xrdriver  XRLinuxDriver, /usr/bin/xrDriver, the standard.
-  3dof      the 3DoF test build of it (docs/tracking-3dof-ab.md), `binary`, pinned by install.tracking_driver_path. It gets
-            the same namespaces and readiness checks. It never falls back: a test run that quietly used the standard
-            driver would give a wrong result. A driver outlives its run, so ensure_ready replaces one that is not the
-            binary asked for, for the same reason.
-  luma      our own xr-luma-driver (spike/driver), `luma`, a path from installed.json. Same network block, same SysV feed,
-            same state file, so stop, status and the renderer do not care which one runs. It has no licence to fetch, so
-            it needs no fake MAC and no config file. Its stderr goes to LUMA_LOG, where status() looks for 'luma: calibrated'.
-            ensure_ready_luma hands over to the standard driver if it fails to calibrate.
+  luma      our own xr-luma-driver (spike/driver), the Luma Ultra's, `luma`, a path from installed.json. Same network block,
+            same SysV feed, same state file, so stop, status and the renderer do not care which one runs. It has no licence
+            to fetch, so it needs no fake MAC and no config file. Its stderr goes to LUMA_LOG, where status() looks for
+            'luma: calibrated'. Nothing falls back: if it does not calibrate, ensure_ready_luma says so and the start ends.
+  xrdriver  XRLinuxDriver, /usr/bin/xrDriver: every model our drivers do not support, automatically (the Pro 2 excepted:
+            tools/xr_controller/pro2_route.py is its route). On a Luma Ultra only through the hidden recovery setting.
+  3dof      the 3DoF test build of it (docs/tracking-3dof-ab.md), `binary`, pinned by install.tracking_driver_path, also only
+            through that setting. It gets the same namespaces and readiness checks. A driver outlives its run, so
+            ensure_ready replaces one that is not the binary asked for: a test that quietly used another would be wrong.
 """
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
-from .ipc import private_dir
+from .ipc import private_dir, read_private_json
 
 XRDRIVER, DOF3, LUMA = 'xrdriver', '3dof', 'luma'  # the profile's tracking_driver
 DRIVERS = (XRDRIVER, DOF3, LUMA)
 SCOPES = ('xrlinuxdriver', 'luma')  # a consent's `tracking`: what the click agreed to run. Both feed the renderer the same way
+PRO2_TRACKING = 'pro2-sdk'  # a Pro 2 consent's `tracking` (panel_consent.py): its bridge, no driver process of this module
+# Which driver a model runs. There is no choice in the panel: our own where we have one, XRLinuxDriver where we do not. The Pro 2 is
+# not here because it does not run a driver of this module at all (_check_provider_compatibility, pro2_route.py).
+LUMA_MODEL = 'luma-ultra'
+# The one hidden way back to XRLinuxDriver: `python -m tools.xr_controller tracking-override set xrdriver` (or 3dof), Luma Ultra
+# only, and the panel says when it is on. Anything but a valid file is no override: it must never be how our driver gets replaced.
+OVERRIDE_FILE = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/tracking-override.json'
+OVERRIDES = (XRDRIVER, DOF3)
 DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
 DRIVER_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'xr_driver/config.ini'
@@ -41,16 +51,14 @@ LUMA_BINARY = 'xr-luma-driver'
 LUMA_LOG = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state') / 'viture-workspace/luma-driver.log'
 LUMA_LOG_MAX = 1 << 20  # bytes; a start moves a bigger log aside, keeping one
 # Flags for the Luma driver, for what the live plan's stage G finds the glasses need. Not a general command line: only these
-# pass, and each sends nothing beyond frames Transport already allows. A file with anything else fails the start, so the
-# fallback's notification says why rather than the driver running with half its flags.
+# pass, and each sends nothing beyond frames Transport already allows. A file with anything else fails the start, and the
+# failure says why, rather than the driver running with half its flags.
 LUMA_FLAGS = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/luma-driver-flags'
 LUMA_FLAG_CHOICES = {'--start': ('stream', 'prepared', 'full'), '--read-events': None, '--drain-camera': None}
 LUMA_READY = 'luma: calibrated'
 LUMA_LOST = ('luma: disconnected', 'luma: calibrating')
-# A fallback's two waits add up to the 120 seconds the panel promises. Luma has no licence wait: it either calibrates in
-# seconds or is not going to.
+# Luma has no licence wait: it either calibrates in seconds or is not going to.
 LUMA_TIMEOUT = 30.0
-FALLBACK_TIMEOUT = 90.0
 # A reconnect takes about a second and keeps its calibration; restarting the driver would lose that and put more traffic
 # on the USB link. So a start gives a driver that is not calibrated right now this long before replacing it.
 LUMA_SETTLE = 5.0
@@ -60,6 +68,10 @@ RESTARTS, RESTART_WINDOW = 3, 300.0
 CRASHED = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
            "Unplug the glasses' USB, wait 10 seconds, plug it back in and try again.")
 USB_DENIED = "XR can't open the glasses (USB permission). Unplug and replug the glasses' USB, then try again."
+LUMA_MISSING = "Our head tracking driver is not installed, so XR can't start with head tracking. Install it, or turn Head tracking off in Startup options."
+# The end of a start: nothing has moved yet at this point, so the windows are where they were.
+LUMA_FAILED = ("Head tracking did not start: {reason}. XR stopped here and your windows stayed where they were. "
+               "Keep the glasses still and press Start again. If it fails again, unplug the glasses' USB, wait 10 seconds and plug it back in.")
 # What the driver logs when it dies trying to reach the glasses; any one of them is enough.
 CRASH_LINES = ('Cannot open device', 'jcx start failed', 'Failed to send USB command - MsgID: 0x100B', 'Segmentation fault occurred')
 # How long a run holds its view with no head tracking before it gives up (supervisor.py). The file is optional and only says
@@ -91,6 +103,45 @@ SYS_USB = Path('/sys/bus/usb/devices')
 DEV_USB = Path('/dev/bus/usb')
 QUIET_SETTINGS = DRIVER_CONFIG.parent.parent / 'viture-workspace' / 'quiet-driver.json'
 QUIET_DEFAULTS = {'enabled': True, 'dof3': True, 'quiet_polls': True, 'reconnect_hold_ms': 20000}
+
+
+def default_driver(model):
+    """The profile's `tracking_driver` for a model: what a start runs, with no override."""
+    return LUMA if model == LUMA_MODEL else XRDRIVER
+
+
+def read_override(path=None):
+    """The saved override, None with no file. ValueError when the file cannot be trusted."""
+    path = Path(path or OVERRIDE_FILE)
+    if not path.exists(): return None
+    data = read_private_json(path)
+    if not isinstance(data, dict) or set(data) != {'schema', 'driver'} or data['schema'] != 1 or data['driver'] not in OVERRIDES:
+        raise ValueError(f'{path.name} is invalid')
+    return data['driver']
+
+
+def load_override(path=None):
+    """read_override for a start and the panel, which never raises: a broken file is no override."""
+    try: return read_override(path)
+    except (OSError, ValueError): return None
+
+
+def save_override(driver, path=None):
+    if driver not in OVERRIDES: raise ValueError('override must be one of ' + ', '.join(OVERRIDES))
+    path = Path(path or OVERRIDE_FILE)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix='.' + path.name + '.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            json.dump(dict(schema=1, driver=driver), stream); stream.flush(); os.fsync(stream.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True); raise
+
+
+def clear_override(path=None):
+    Path(path or OVERRIDE_FILE).unlink(missing_ok=True)
 
 
 def _start_tick(pid):
@@ -255,10 +306,10 @@ class UnsupportedTrackingProvider(ValueError):
 def _check_provider_compatibility():
     """Passive provider safety gate, separate from model/profile detection.
 
-    Installed xrDriver names Pro 2 but applies an unverified coordinate conversion
-    and -8.5 degree correction. No provider is approved for it yet. Reject PID
-    or product evidence, including conflicts, before reusing or starting a driver.
-    Never open usbfs/hidraw here. Other models retain their existing behavior.
+    A Pro 2 runs its own pinned SDK bridge (tools/xr_controller/pro2_route.py) and
+    never a driver from this module. Reject PID or product evidence, including
+    conflicts, before reusing or starting one. Never open usbfs/hidraw here. Other
+    models retain their existing behavior.
     """
     for device in SYS_USB.glob('*'):
         try:
@@ -272,9 +323,8 @@ def _check_provider_compatibility():
         except OSError: product = ''
         if product_id == '1301' or product == 'VITURE PRO 2 XR Glasses':
             raise UnsupportedTrackingProvider(
-                'VITURE PRO 2 XR Glasses (35ca:1301): tracking provider not approved; '
-                'installed SDK coordinate conversion and pitch correction need verification. '
-                'Head tracking is blocked; do not use the Luma provider or fallback.')
+                'VITURE PRO 2 XR Glasses (35ca:1301): this tracking driver is not for these glasses. '
+                'They run their own pinned SDK bridge, or nothing.')
 
 
 def _check_usb_access():
@@ -296,6 +346,14 @@ def _exit_failure(offset, log, code=None):
     current = text[offset:].decode(errors='replace')
     if any(line in current for line in CRASH_LINES): return CRASHED
     return 'tracking driver exited during startup' + (f' (status {code}); see {log}' if code is not None else '')
+
+
+def _luma_waiting(offset):
+    """What the Luma driver last said it was waiting for since this start: ', last waiting on device-not-found', or nothing."""
+    try: text = LUMA_LOG.read_bytes()[offset:].decode(errors='replace')
+    except OSError: return ''
+    found = re.findall(r'luma: waiting reason=(\S+)', text)
+    return f', last waiting on {found[-1]}' if found else ''
 
 
 def status(runtime):
@@ -368,17 +426,16 @@ def restart_same(runtime):
 
 
 def ensure_ready_luma(runtime, luma):
-    """The Luma driver, or the standard XRLinuxDriver if it fails: the status, with `fallback` saying why when it did.
-
-    Only a failure hands over. A cancel (KeyboardInterrupt, the panel's Stop) goes straight through.
+    """The Luma driver, calibrated, or a ValueError that says why in words for Cody. Nothing takes over: Cody decided there is no
+    fallback to XRLinuxDriver. A cancel (KeyboardInterrupt, the panel's Stop) goes straight through.
     """
     _check_provider_compatibility()
     try: return ensure_ready(runtime, timeout=LUMA_TIMEOUT, luma=luma)
     except UnsupportedTrackingProvider: raise
-    except (OSError, ValueError) as exc: reason = str(exc) or type(exc).__name__
-    try: return {**ensure_ready(runtime, timeout=FALLBACK_TIMEOUT), 'fallback': reason}
     except (OSError, ValueError) as exc:
-        raise ValueError(f'the XR Luma driver failed ({reason}) and so did XRLinuxDriver: {exc}') from None
+        reason = str(exc) or type(exc).__name__
+        if reason in (CRASHED, USB_DENIED): raise  # already what to do, in plain words
+        raise ValueError(LUMA_FAILED.format(reason=reason)) from None
 
 
 def start(runtime, timeout=120.0, luma=None, binary=None):
@@ -430,7 +487,7 @@ def start(runtime, timeout=120.0, luma=None, binary=None):
                 raise ValueError(_exit_failure(offset, log, child.returncode))
             if now['calibrated']: return now
             time.sleep(0.2)
-        raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
+        raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)' + (_luma_waiting(offset) if luma else ''))
     except BaseException:
         # Cancellation must not leave a child keeping the transient unit alive.
         stop(runtime)

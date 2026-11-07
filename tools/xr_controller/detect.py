@@ -8,14 +8,14 @@ def _rows(v):
 
 
 def identify(usb, drm, monitors, routes=()):
-    # routes: models with an explicit opt-in (pro2_route.py). Only the Pro 2 needs one; every other model ignores this.
+    # routes: models whose own route is installed (pro2_route.py). Only the Pro 2 needs one; every other model ignores this.
     devices = [d for d in _rows(usb) if _value(d.get('vendor_id')) == '35ca' and _value(d.get('product_id')) != '1102']
     if not devices: return dict(model=None, output=None, reason='no glasses')
     if len(devices) != 1: return dict(model='unknown', output=None, reason='multiple VITURE devices')
     d = devices[0]
     model = {('VITURE PRO 2 XR Glasses','1301'):'pro2', ('VITURE Beast XR Glasses','1201'):'beast', ('VITURE Luma Ultra XR GLASSES','1104'):'luma-ultra'}.get((_value(d.get('product')), _value(d.get('product_id'))),'unknown')
     if model == 'pro2' and model not in routes:
-        return dict(model=model, output=None, reason='VITURE PRO 2 XR Glasses (35ca:1301) identified; driver and display support unverified. Access permission is not compatibility proof.')
+        return dict(model=model, output=None, reason='VITURE PRO 2 XR Glasses (35ca:1301) identified, but their bridge bundle is not installed, so they cannot start.')
     wanted = {'beast':('VITURE Beast',), 'luma-ultra':('VITURE',), 'pro2':('VITURE',), 'unknown':('VITURE','VITURE Beast')}[model]
     connected = {r['name'].split('-',1)[-1] for r in _rows(drm) if _value(r.get('status')) == 'connected'}
     outputs = [m['name'] for m in monitors if m.get('model') in wanted and not m.get('disabled',False) and (not _rows(drm) or m['name'] in connected)]

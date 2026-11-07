@@ -14,7 +14,7 @@ import re
 import signal as signals
 
 from tools.native_spike.faults import RUN as RUN_FAULT
-from tools.native_spike.tracking import SCOPES
+from tools.native_spike.tracking import PRO2_TRACKING, SCOPES
 
 # Every kind, most telling first: an incident is named after the highest of its signals (Episode.kind). A crash outranks
 # the USB drop that may have set it off, because the crash is the part software can fix, and so does a renderer that lost its
@@ -80,7 +80,9 @@ class RunWatch:
     def __init__(self, run_id, consent, at):
         consent = consent or {}
         self.run_id, self.consent, self.created = run_id, consent, at
-        self.tracking = consent.get('tracking') in SCOPES
+        # A Pro 2 session has head tracking too, from its bridge: only `driver_alive` is about a driver process of tracking.py.
+        self.tracking = consent.get('tracking') in SCOPES + (PRO2_TRACKING,)
+        self.driver_process = consent.get('tracking') in SCOPES
         self.stopped = False           # a Stop was asked for, so the end is a normal one (classify_end)
         self.running_since = None
         self.last_at = None
@@ -191,7 +193,7 @@ class RunWatch:
             out.append(Signal(at, 'usb-drop', 'usb', 'the glasses left the USB bus'))
         if o.get('monitors_known') and self._plugin_gone.update(at, o.get('plugins') == 0):
             out.append(Signal(at, 'plugin-failed', 'hyprland', 'the ownership plugin is no longer loaded in Hyprland'))
-        if self.tracking and self._driver_gone.update(at, self.driver_seen and o.get('driver_alive') is False):
+        if self.driver_process and self._driver_gone.update(at, self.driver_seen and o.get('driver_alive') is False):
             out.append(Signal(at, 'tracking-lost', 'tracking', 'the head tracking driver process is gone'))
 
     def _presentation(self, at, o, status, out):

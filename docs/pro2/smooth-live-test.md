@@ -70,10 +70,6 @@ Only if the rate looks right and Cody finds it better: report it, and the defaul
 
 ## After
 
-If the lean check is good and Cody agrees, the orchestrator can turn on the panel's Start for this exact bundle, once the branch is merged and installed:
-
-    python -m tools.xr_controller pro2-route enable --bundle RELEASE/runtime --evidence STATE/pro2-test-result.json
-
-`pro2-route status` shows it; `pro2-route disable` turns it off. This needs that bundle to stay where it is.
+The panel's Start needs no enable step: `python -m tools.xr_controller install` builds and pins its bundle ([own-drivers-default.md](../own-drivers-default.md)), and `pro2-route status` shows which one. The current pose rate desk test, three short runs of the installed bundle, is there too.
 
 While this runs the panel shows it as an external run and Start stays closed: the controller did not start it. A panel route session, by contrast, keeps its consent in the controller's state directory and shows as the controller's own.
