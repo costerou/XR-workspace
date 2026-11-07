@@ -37,6 +37,7 @@ class BundlePluginPathQA(unittest.TestCase):
         result._request = Mock(return_value=b'ok')
         return result
 
+    @unittest.skipUnless(ACTUAL_ROOT.is_dir(),'the frozen 9158428 review bundle is not on this machine')
     def test_exact_parent_release_location_is_valid_with_pin_and_request_spy(self):
         client = self.client(ACTUAL_ROOT); path = str(ACTUAL_ROOT / 'bin/libxr-ownership.so')
         self.assertIsNone(PLUGIN_PATH.fullmatch(path), 'normal install regex is deliberately separate')

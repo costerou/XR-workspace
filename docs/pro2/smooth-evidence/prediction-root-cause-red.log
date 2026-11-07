@@ -1,0 +1,7 @@
+525a735082f031633998f6f3c43497240107df03
+test_every_sample_can_be_predicted (test_prediction_feed.PredictionFeed.test_every_sample_can_be_predicted) ... FAIL
+FAIL: test_every_sample_can_be_predicted (test_prediction_feed.PredictionFeed.test_every_sample_can_be_predicted)
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-smooth-start/tests/pro2_runtime/test_prediction_feed.py", line 49, in test_every_sample_can_be_predicted
+AssertionError: False is not true : {'distinct': 41, 'gaps_ok': 38, 'omega_ok': 38, 'horizon_ok': 0, 'look_ahead_valid': False, 'cap_ms': 0, 'horizon_ms': -1}
+Ran 11 tests in 6.700s
+FAILED (failures=1)

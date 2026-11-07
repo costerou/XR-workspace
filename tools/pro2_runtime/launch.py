@@ -22,6 +22,17 @@ def validate_projection(value,approved):
     return float(value)
 
 
+# SDK report rates the bridge may ask for (viture_protocol_public.h); viture's public reference lists 60/90/120 Hz for the Pro 2 in
+# pose mode, and the bridge still asks the SDK before opening. 60 unless a run says otherwise: docs/pro2/smoothness.md.
+POSE_RATES=(60,90,120)
+ROUTE_SECONDS=12*3600  # a panel session's deadline (bridge.cpp kRouteSeconds); Stop comes first
+
+
+def validate_pose_rate(value):
+    if type(value) is not int or value not in POSE_RATES:raise ValueError('pose rate must be exactly 60, 90 or 120 Hz')
+    return value
+
+
 def pinned_fd(path,digest):
     fd=os.open(path,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW)
     try:
@@ -87,16 +98,17 @@ def competing(exclude=()):
 
 
 class RuntimeSession:
-    def __init__(self,root,run_dir,projection,seconds,approved):
-        self.projection=validate_projection(projection,approved)
-        if type(seconds) is not int or not 1<=seconds<=300:raise ValueError('bounded1..300seconds required')
+    def __init__(self,root,run_dir,projection,seconds,approved,pose_rate_hz=60,panel_route=False):
+        self.projection=validate_projection(projection,approved);self.pose_rate_hz=validate_pose_rate(pose_rate_hz);self.panel_route=panel_route is True
+        if type(seconds) is not int or not 1<=seconds<=(ROUTE_SECONDS if self.panel_route else 300):raise ValueError('bounded seconds required')
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
         self.directory=Path(run_dir).absolute();self.directory.mkdir(mode=0o700,parents=False,exist_ok=False)
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
         self.status=None;self.started=None;self.log=None
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
     def command(self,exe,sdk,write):
-        return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds)]
+        return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
+            *(['--pose-rate',str(self.pose_rate_hz)] if self.pose_rate_hz!=60 else []),*(['--panel-route'] if self.panel_route else [])]
     def start(self):
         admit(inventory())
         if competing():raise ValueError('competing provider; parent must establish exclusive topology')
@@ -137,6 +149,7 @@ class RuntimeSession:
                     line,self.buffer=self.buffer.split(b'\n',1);event=json.loads(line)
                     if event.get('event')=='ready':
                         if event.get('projection_diagonal_approx')!=self.projection:raise ValueError('projection status mismatch')
+                        if event.get('pose_rate_hz',60)!=self.pose_rate_hz:raise ValueError('pose rate status mismatch')
                         self.ready=True
                     elif event.get('event')=='done':self.done=event
                     else:raise ValueError('runtime status event')

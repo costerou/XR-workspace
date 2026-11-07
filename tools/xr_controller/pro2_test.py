@@ -11,23 +11,29 @@ from tools.native_spike.hyprland import HyprlandClient,ownership_plugin_count
 from tools.native_spike.profiles import ProfileStore,profiles_path
 from tools.native_spike.geometry import validate_desktops
 from tools.native_spike.supervisor import CAPTURE_SCOPE
-from tools.pro2_runtime.launch import RuntimeSession,validate_projection,verify_manifest
+from tools.pro2_runtime.launch import RuntimeSession,validate_pose_rate,validate_projection,verify_manifest
 
 from tools.pro2_runtime.scope import TestScope,ScopedGuard,BundleClient
 
 
 def validate(data):
     keys={'schema','gate','model','run_id','instance','output','recovery_output','seconds','projection','parent_authorized','exclusive_topology','approximate_optics','desktops'}
-    if not isinstance(data,dict) or set(data)!=keys or type(data['schema']) is not int or data['schema']!=1 or data['gate']!='pro2-supervised-v1' or data['model']!='pro2':
+    if not isinstance(data,dict) or set(data)-{'pose_rate_hz'}!=keys or type(data['schema']) is not int or data['schema']!=1 or data['gate']!='pro2-supervised-v1' or data['model']!='pro2':
         raise ValueError('explicit Pro2 supervised consent required')
     for field in ('parent_authorized','exclusive_topology','approximate_optics'):
         if data[field] is not True:raise ValueError('explicit bounded test assumptions required')
     for field in ('run_id','instance','output','recovery_output'):token(data[field])
     if len(data['run_id'])>80 or data['output']==data['recovery_output']:raise ValueError('independent recovery output required')
-    validate_projection(data['projection'],True)
+    validate_projection(data['projection'],True);validate_pose_rate(data.get('pose_rate_hz',60))
     if type(data['seconds']) is not int or not 1<=data['seconds']<=300:raise ValueError('bounded seconds required')
     return {**data,'desktops':validate_desktops(data['desktops'])}
 
+
+
+def provider_summary(provider):
+    """The bridge's closing counts, for the run's result: how many samples at what rate. Aggregates only, no pose."""
+    done=getattr(provider,'done',None)
+    return {k:done[k] for k in ('samples','seconds','pose_rate_hz','gap_ms_counts') if k in done} if isinstance(done,dict) else None
 
 
 def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_factory=RuntimeSession,run=None):
@@ -46,7 +52,8 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
     try:
         monitor_rules.refuse_start(client)
         if ownership_plugin_count(client.plugins_loaded()):raise ValueError('ownership plugin already present')
-        provider=session_factory(root,Path(state_dir)/data['run_id'],data['projection'],data['seconds'],True)
+        rate=data.get('pose_rate_hz',60)
+        provider=session_factory(root,Path(state_dir)/data['run_id'],data['projection'],data['seconds'],True,**({'pose_rate_hz':rate} if rate!=60 else {}))
         provider.start()
         scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce);scope.healthy()
         client.plugin_load(plugin)
@@ -66,7 +73,8 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
         if provider is not None:
             try:provider.close()
             except Exception as exc:errors.append(str(exc))
-    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors)
+    return dict(run_id=data['run_id'],complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
+                **({'provider':provider_summary(provider)} if provider is not None else {}))
 
 
 def main():

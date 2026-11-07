@@ -6,12 +6,16 @@ from tools.native_spike.ipc import read_private_json
 from tools.native_spike.hyprland import HyprlandClient
 from .launch import validate_projection
 
+SMOOTH_MS=35.0  # motion_smooth.hpp tau, checked by tools/pro2_runtime/smooth_acceptance.py SHIPPED and tests
+
 @dataclass
 class TestScope:
     prefix:str
     projection:float
     health_path:str
     nonce:str
+    smooth_ms:float=SMOOTH_MS
+    fixed_desktops:bool=True  # a supervised test keeps exactly the desktops its consent names; a panel session may change them
     def healthy(self):
         validate_projection(self.projection,True)
         data=read_private_json(Path(self.health_path))
