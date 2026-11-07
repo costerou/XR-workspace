@@ -1,0 +1,664 @@
+[
+  {
+    "time": 1793682014.90447,
+    "run": "af60daa652ba0cb957f4fd14b72dc9fd",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 35800,
+      "mean_us": 81,
+      "max_us": 7282
+    }
+  },
+  {
+    "time": 1793682301.169338,
+    "run": "4ccbb1efcac176540566c9707b9988df",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 19137,
+      "mean_us": 89,
+      "max_us": 4756
+    }
+  },
+  {
+    "time": 1793684507.957371,
+    "run": "022b29d10a4d93024b7b7a611f0d5acc",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 47759,
+      "mean_us": 56,
+      "max_us": 2701
+    }
+  },
+  {
+    "time": 1793686908.112149,
+    "run": "d66ce6ae5b3bc969c286a082bbfb21e2",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 64402,
+      "mean_us": 65,
+      "max_us": 3607
+    }
+  },
+  {
+    "time": 1793687721.185435,
+    "run": "40fc3a0330acf0a5d05499b9ffcd6632",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 81513,
+      "mean_us": 58,
+      "max_us": 5538
+    }
+  },
+  {
+    "time": 1793722335.555128,
+    "run": "d674d691824f8313b3e07106e9e07056",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 190676,
+      "mean_us": 65,
+      "max_us": 19905
+    }
+  },
+  {
+    "time": 1793724056.373687,
+    "run": "3f50cf0558af6d55da2621457f90e598",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 50839,
+      "mean_us": 73,
+      "max_us": 9906
+    }
+  },
+  {
+    "time": 1793728571.697349,
+    "run": "a16e723d6b55e53fc8ca0e4ece4d0b82",
+    "buffer": null,
+    "stereo": null,
+    "composition": {
+      "count": 209774,
+      "mean_us": 112,
+      "max_us": 21014
+    }
+  },
+  {
+    "time": 1793730032.566266,
+    "run": "865d8267d0fc212de8e026bcfedf648b",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 2210,
+      "mean_us": 132,
+      "max_us": 12901
+    }
+  },
+  {
+    "time": 1793731280.84427,
+    "run": "c8ded13719f2c9f9ea10b55bbb137640",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 82567,
+      "mean_us": 79,
+      "max_us": 5553
+    }
+  },
+  {
+    "time": 1793735917.135686,
+    "run": "390c5d2992faa058530d62913168eec4",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 204848,
+      "mean_us": 93,
+      "max_us": 9856
+    }
+  },
+  {
+    "time": 1793736333.376566,
+    "run": "3bc0f30b7d2c887402cb35b7f260f3b8",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 40823,
+      "mean_us": 91,
+      "max_us": 5306
+    }
+  },
+  {
+    "time": 1793736796.715764,
+    "run": "d1b9d17e832b51f868f9e1dda6b473d1",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 29866,
+      "mean_us": 95,
+      "max_us": 8066
+    }
+  },
+  {
+    "time": 1793738065.767929,
+    "run": "6fedd4fa65ea3579f2903dca1b874b3d",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 140811,
+      "mean_us": 121,
+      "max_us": 17264
+    }
+  },
+  {
+    "time": 1793738160.668732,
+    "run": "661c643f37dfc2fb072585825bd0d64e",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 4586,
+      "mean_us": 264,
+      "max_us": 18521
+    }
+  },
+  {
+    "time": 1793738342.402452,
+    "run": "5f143492cb482c17a4ff828a445e35af",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 15235,
+      "mean_us": 94,
+      "max_us": 10909
+    }
+  },
+  {
+    "time": 1793744299.77803,
+    "run": "998220cc65645e54ccc67bf70be907af",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 106524,
+      "mean_us": 91,
+      "max_us": 2726
+    }
+  },
+  {
+    "time": 1793745771.21315,
+    "run": "07ef2f507ddc240a1a671f26ba2afc7d",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 162726,
+      "mean_us": 105,
+      "max_us": 4653
+    }
+  },
+  {
+    "time": 1793746465.989928,
+    "run": "fd3b3bd1514f3438af55d0a834effede",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 75732,
+      "mean_us": 91,
+      "max_us": 3884
+    }
+  },
+  {
+    "time": 1793751520.862804,
+    "run": "2298c7a18df736b9b6c4bde5b5877031",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 510044,
+      "mean_us": 110,
+      "max_us": 8944
+    }
+  },
+  {
+    "time": 1793754146.452183,
+    "run": "608cfa0c1eca459a3de0f74ddade4259",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 160913,
+      "mean_us": 153,
+      "max_us": 16870
+    }
+  },
+  {
+    "time": 1793754254.221424,
+    "run": "a03013d44c3222b7e432f8c838cff14b",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 3386,
+      "mean_us": 257,
+      "max_us": 54965
+    }
+  },
+  {
+    "time": 1793754383.692472,
+    "run": "e93811048c6070e56c68c54c72e2f9af",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 2002,
+      "mean_us": 173,
+      "max_us": 16609
+    }
+  },
+  {
+    "time": 1793755638.28218,
+    "run": "549bcebd15b354c2c168fabd58cc1e0c",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 144559,
+      "mean_us": 93,
+      "max_us": 14593
+    }
+  },
+  {
+    "time": 1793758181.448655,
+    "run": "4468c2831588ef1bfa8425d5359db70a",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 185810,
+      "mean_us": 113,
+      "max_us": 13719
+    }
+  },
+  {
+    "time": 1793764809.238415,
+    "run": "b56cc8d701b7d2a38c809fc7f4a2bfa9",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 244806,
+      "mean_us": 100,
+      "max_us": 18420
+    }
+  },
+  {
+    "time": 1793764920.339509,
+    "run": "a6321be1f1dcbe3194513ced8276f03b",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 9370,
+      "mean_us": 121,
+      "max_us": 35935
+    }
+  },
+  {
+    "time": 1793766643.305751,
+    "run": "9c21784c2732b2a45bea944c158f42ae",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 3592,
+      "mean_us": 142,
+      "max_us": 17741
+    }
+  },
+  {
+    "time": 1793771897.757817,
+    "run": "0272e0f527db83f2e5cfb833382086ec",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 253666,
+      "mean_us": 92,
+      "max_us": 23422
+    }
+  },
+  {
+    "time": 1793777964.331022,
+    "run": "605b41809ceebeebb1b76f465a0f4514",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 39744,
+      "mean_us": 89,
+      "max_us": 16034
+    }
+  },
+  {
+    "time": 1793778137.08227,
+    "run": "7c6bdb5a970cadbbe5e14d610d48518a",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 6895,
+      "mean_us": 84,
+      "max_us": 22222
+    }
+  },
+  {
+    "time": 1793780508.092398,
+    "run": "15cd0dc83ca46fd345ee8af8621528cc",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 63994,
+      "mean_us": 83,
+      "max_us": 12677
+    }
+  },
+  {
+    "time": 1793804901.412656,
+    "run": "d54db724e8a094b799158829883622c3",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 7353,
+      "mean_us": 96,
+      "max_us": 29710
+    }
+  },
+  {
+    "time": 1793805132.475445,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 5434,
+      "mean_us": 105,
+      "max_us": 28246
+    }
+  },
+  {
+    "time": 1793805280.051584,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 8569,
+      "mean_us": 132,
+      "max_us": 15245
+    }
+  },
+  {
+    "time": 1793805295.944266,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 1326,
+      "mean_us": 99,
+      "max_us": 1674
+    }
+  },
+  {
+    "time": 1793806073.211468,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 46330,
+      "mean_us": 153,
+      "max_us": 17275
+    }
+  },
+  {
+    "time": 1793806754.084164,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 81092,
+      "mean_us": 136,
+      "max_us": 29109
+    }
+  },
+  {
+    "time": 1793806764.622458,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 335,
+      "mean_us": 213,
+      "max_us": 3126
+    }
+  },
+  {
+    "time": 1793807084.27649,
+    "run": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 37758,
+      "mean_us": 151,
+      "max_us": 15833
+    }
+  },
+  {
+    "time": 1793807174.065039,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 9930,
+      "mean_us": 145,
+      "max_us": 27754
+    }
+  },
+  {
+    "time": 1793807195.759461,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 1010,
+      "mean_us": 209,
+      "max_us": 1816
+    }
+  },
+  {
+    "time": 1793807220.108159,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 2339,
+      "mean_us": 76,
+      "max_us": 2134
+    }
+  },
+  {
+    "time": 1793807341.774075,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 6729,
+      "mean_us": 164,
+      "max_us": 15887
+    }
+  },
+  {
+    "time": 1793807422.505809,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 9091,
+      "mean_us": 191,
+      "max_us": 17080
+    }
+  },
+  {
+    "time": 1793807429.855429,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      3840,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 149,
+      "mean_us": 178,
+      "max_us": 1825
+    }
+  },
+  {
+    "time": 1793807865.014373,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 51632,
+      "mean_us": 131,
+      "max_us": 23168
+    }
+  },
+  {
+    "time": 1793808030.757642,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 15525,
+      "mean_us": 78,
+      "max_us": 1724
+    }
+  },
+  {
+    "time": 1793808064.981162,
+    "run": "314410e8a45716ae0ec24398866218a7",
+    "buffer": [
+      1920,
+      1200
+    ],
+    "stereo": null,
+    "composition": {
+      "count": 3195,
+      "mean_us": 87,
+      "max_us": 15240
+    }
+  }
+]

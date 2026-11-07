@@ -1,0 +1,609 @@
+[
+  {
+    "id": "af60daa652ba0cb957f4fd14b72dc9fd",
+    "first": 1793682014.904207,
+    "last": 1793682046.50297,
+    "start": 1793682014.904207,
+    "end": 1793682014.974476,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "4ccbb1efcac176540566c9707b9988df",
+    "first": 1793682097.865189,
+    "last": 1793682301.504366,
+    "start": 1793682097.865189,
+    "end": 1793682301.504366,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "022b29d10a4d93024b7b7a611f0d5acc",
+    "first": 1793684066.161747,
+    "last": 1793684508.303483,
+    "start": 1793684066.161747,
+    "end": 1793684508.303483,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "d66ce6ae5b3bc969c286a082bbfb21e2",
+    "first": 1793686326.381339,
+    "last": 1793686908.219475,
+    "start": 1793686326.381339,
+    "end": 1793686908.219475,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "40fc3a0330acf0a5d05499b9ffcd6632",
+    "first": 1793686994.467023,
+    "last": 1793687721.312472,
+    "start": 1793686994.467023,
+    "end": 1793687721.312472,
+    "driver": "xrlinuxdriver",
+    "model": "beast",
+    "mode": false,
+    "binary": ""
+  },
+  {
+    "id": "d674d691824f8313b3e07106e9e07056",
+    "first": 1793720700.789708,
+    "last": 1793722335.656593,
+    "start": 1793720700.789708,
+    "end": 1793722335.656593,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "3f50cf0558af6d55da2621457f90e598",
+    "first": 1793723588.789298,
+    "last": 1793724056.697377,
+    "start": 1793723588.789298,
+    "end": 1793724056.697377,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "a16e723d6b55e53fc8ca0e4ece4d0b82",
+    "first": 1793726775.721825,
+    "last": 1793729734.984465,
+    "start": 1793726775.721825,
+    "end": 1793728571.887551,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "d6cdeaf58877ad3a96827a612d03255c",
+    "first": 1793729758.664307,
+    "last": 1793729927.014646,
+    "start": 1793729758.664307,
+    "end": 1793729802.71386,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "865d8267d0fc212de8e026bcfedf648b",
+    "first": 1793729969.797549,
+    "last": 1793730245.038846,
+    "start": 1793729969.797549,
+    "end": 1793730032.686009,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "c8ded13719f2c9f9ea10b55bbb137640",
+    "first": 1793730547.773411,
+    "last": 1793731281.189565,
+    "start": 1793730547.773411,
+    "end": 1793731281.189565,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "390c5d2992faa058530d62913168eec4",
+    "first": 1793734164.614386,
+    "last": 1793735917.944023,
+    "start": 1793734164.614386,
+    "end": 1793735917.944023,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "3bc0f30b7d2c887402cb35b7f260f3b8",
+    "first": 1793735948.600292,
+    "last": 1793736333.471331,
+    "start": 1793735948.600292,
+    "end": 1793736333.471331,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "d1b9d17e832b51f868f9e1dda6b473d1",
+    "first": 1793736503.366303,
+    "last": 1793736796.948935,
+    "start": 1793736503.366303,
+    "end": 1793736796.948935,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "6fedd4fa65ea3579f2903dca1b874b3d",
+    "first": 1793736846.925828,
+    "last": 1793738066.00881,
+    "start": 1793736846.925828,
+    "end": 1793738066.00881,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "661c643f37dfc2fb072585825bd0d64e",
+    "first": 1793738077.456928,
+    "last": 1793738160.954775,
+    "start": 1793738077.456928,
+    "end": 1793738160.954775,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "5f143492cb482c17a4ff828a445e35af",
+    "first": 1793738171.047362,
+    "last": 1793738342.600422,
+    "start": 1793738171.047362,
+    "end": 1793738342.600422,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "998220cc65645e54ccc67bf70be907af",
+    "first": 1793743368.145311,
+    "last": 1793744299.938046,
+    "start": 1793743368.145311,
+    "end": 1793744299.938046,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "0df845d2043ebfeb7b4b463144dea5b9",
+    "first": 1793744323.948656,
+    "last": 1793744367.459726,
+    "start": 1793744323.948656,
+    "end": 1793744367.459726,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "07ef2f507ddc240a1a671f26ba2afc7d",
+    "first": 1793744371.050386,
+    "last": 1793745771.419606,
+    "start": 1793744371.050386,
+    "end": 1793745771.419606,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "fd3b3bd1514f3438af55d0a834effede",
+    "first": 1793745790.6191,
+    "last": 1793746466.36522,
+    "start": 1793745790.6191,
+    "end": 1793746466.36522,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "2298c7a18df736b9b6c4bde5b5877031",
+    "first": 1793747224.971258,
+    "last": 1793751521.21035,
+    "start": 1793747224.971258,
+    "end": 1793751521.21035,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "608cfa0c1eca459a3de0f74ddade4259",
+    "first": 1793752759.48755,
+    "last": 1793754146.676414,
+    "start": 1793752759.48755,
+    "end": 1793754146.676414,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "a03013d44c3222b7e432f8c838cff14b",
+    "first": 1793754181.233701,
+    "last": 1793754254.393299,
+    "start": 1793754181.233701,
+    "end": 1793754254.393299,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "e93811048c6070e56c68c54c72e2f9af",
+    "first": 1793754322.767697,
+    "last": 1793754384.120035,
+    "start": 1793754322.767697,
+    "end": 1793754384.120035,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "549bcebd15b354c2c168fabd58cc1e0c",
+    "first": 1793754388.636814,
+    "last": 1793755638.683758,
+    "start": 1793754388.636814,
+    "end": 1793755638.683758,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "4468c2831588ef1bfa8425d5359db70a",
+    "first": 1793756616.313278,
+    "last": 1793762599.194022,
+    "start": 1793756616.313278,
+    "end": 1793758181.612229,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "5e90adc11dde06d7b71b8f88d9a64488",
+    "first": 1793762603.337072,
+    "last": 1793762609.443268,
+    "start": 1793762603.337072,
+    "end": 1793762609.443268,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "b56cc8d701b7d2a38c809fc7f4a2bfa9",
+    "first": 1793762753.986831,
+    "last": 1793764809.495771,
+    "start": 1793762753.986831,
+    "end": 1793764809.495771,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "a6321be1f1dcbe3194513ced8276f03b",
+    "first": 1793764828.024406,
+    "last": 1793764920.483682,
+    "start": 1793764828.024406,
+    "end": 1793764920.483682,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "9c21784c2732b2a45bea944c158f42ae",
+    "first": 1793766598.029496,
+    "last": 1793766643.787404,
+    "start": 1793766598.029496,
+    "end": 1793766643.787404,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "14b9a206ccaac9d131f986acd75ec9f6",
+    "first": 1793769560.207287,
+    "last": 1793769565.526592,
+    "start": 1793769560.207287,
+    "end": 1793769565.526592,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "71e604276e2bd1fad7c788a7b936c918",
+    "first": 1793769598.305003,
+    "last": 1793769603.61718,
+    "start": 1793769598.305003,
+    "end": 1793769603.61718,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "f98b8414392e13fee68f8c7f4773039a",
+    "first": 1793769720.81152,
+    "last": 1793769726.13494,
+    "start": 1793769720.81152,
+    "end": 1793769726.13494,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "0272e0f527db83f2e5cfb833382086ec",
+    "first": 1793769768.370776,
+    "last": 1793771897.96141,
+    "start": 1793769768.370776,
+    "end": 1793771897.96141,
+    "driver": "xrlinuxdriver",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": ""
+  },
+  {
+    "id": "605b41809ceebeebb1b76f465a0f4514",
+    "first": 1793777632.194749,
+    "last": 1793777964.517438,
+    "start": 1793777632.194749,
+    "end": 1793777964.517438,
+    "driver": "luma",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": "/home/cody/.local/share/viture-workspace/bin/d97faff8878f/xr-luma-driver"
+  },
+  {
+    "id": "7c6bdb5a970cadbbe5e14d610d48518a",
+    "first": 1793778062.491313,
+    "last": 1793778137.229264,
+    "start": 1793778062.491313,
+    "end": 1793778137.229264,
+    "driver": "xrlinuxdriver",
+    "model": "beast",
+    "mode": false,
+    "binary": ""
+  },
+  {
+    "id": "15cd0dc83ca46fd345ee8af8621528cc",
+    "first": 1793779973.588074,
+    "last": 1793780508.455564,
+    "start": 1793779973.588074,
+    "end": 1793780508.455564,
+    "driver": "luma",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": "/home/cody/.local/share/viture-workspace/bin/6cde3037906f/xr-luma-driver"
+  },
+  {
+    "id": "d54db724e8a094b799158829883622c3",
+    "first": 1793804838.883877,
+    "last": 1793804901.773468,
+    "start": 1793804838.883877,
+    "end": 1793804901.773468,
+    "driver": "luma",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": "/home/cody/.local/share/viture-workspace/bin/6744ab90ce82/xr-luma-driver"
+  },
+  {
+    "id": "ba3eb8ec4a3c6d2026f1eb2936c30473",
+    "first": 1793805086.23577,
+    "last": 1793807084.708021,
+    "start": 1793805086.23577,
+    "end": 1793807084.708021,
+    "driver": "luma",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": "/home/cody/.local/share/viture-workspace/bin/6744ab90ce82/xr-luma-driver"
+  },
+  {
+    "id": "314410e8a45716ae0ec24398866218a7",
+    "first": 1793807090.19167,
+    "last": 1793808074.042766,
+    "start": 1793807090.19167,
+    "end": 1793808074.042766,
+    "driver": "luma",
+    "model": "luma-ultra",
+    "mode": {
+      "height": 1200,
+      "refresh_hz": 120,
+      "width": 1920
+    },
+    "binary": "/home/cody/.local/share/viture-workspace/bin/6744ab90ce82/xr-luma-driver"
+  }
+]

@@ -1,0 +1,752 @@
+{
+  "at": "2026-11-04T12:51:54.931080-05:00",
+  "run_id": "988f7dac2fcfeb4c8cda2d5f917084bf",
+  "status": {
+    "schema": 1,
+    "request_id": 1793814714931154574,
+    "run_id": "988f7dac2fcfeb4c8cda2d5f917084bf",
+    "capabilities": [
+      "zoom_in",
+      "zoom_out",
+      "next",
+      "prev",
+      "spacing_up",
+      "spacing_down",
+      "recenter",
+      "mode_next",
+      "prediction",
+      "help"
+    ],
+    "view": {
+      "zoomed": true,
+      "selected": 1,
+      "spacing": 0,
+      "mode": "follow",
+      "cursor_follow": false,
+      "prediction": true,
+      "typing": false,
+      "stabilization": 60
+    },
+    "status": {
+      "missed": 1,
+      "presented_hz": 59.998675891290674,
+      "tracking": true,
+      "capture_failure_run": 0,
+      "capture_path": "dmabuf"
+    },
+    "placements": [
+      {
+        "x": -67,
+        "y": 44,
+        "distance": 36,
+        "curvature": 0
+      },
+      {
+        "x": 155,
+        "y": 16,
+        "distance": 45,
+        "curvature": 0
+      },
+      {
+        "x": -167,
+        "y": -152,
+        "distance": 100,
+        "curvature": 0
+      }
+    ],
+    "names": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+    ],
+    "immersive": {
+      "setting": {
+        "global": true,
+        "desktops": {
+          "XR-1": false,
+          "XR-2": false,
+          "XR-3": false
+        },
+        "preset": "desktop",
+        "strength": 100,
+        "convergence": 92
+      },
+      "names": [],
+      "switching": false,
+      "stereo": false,
+      "failed": false,
+      "phase": "off",
+      "installed": true
+    },
+    "desktops": [
+      {
+        "width": 2560,
+        "height": 1600,
+        "scale": 1.25
+      },
+      {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.25
+      },
+      {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.25
+      }
+    ],
+    "video": {
+      "active": false,
+      "title": null,
+      "format": null,
+      "label": null,
+      "source": null,
+      "state": "off",
+      "controls": false,
+      "menu_hidden": false,
+      "warnings": [],
+      "error": null,
+      "ops": [
+        "video_pause",
+        "video_seek_back",
+        "video_seek_fwd",
+        "video_seek_back_big",
+        "video_seek_fwd_big",
+        "video_format",
+        "video_controls",
+        "video_exit"
+      ],
+      "opening": false,
+      "origin": null,
+      "quality": {
+        "filter": "catmull-rom",
+        "deband": true
+      },
+      "quality_menu": false,
+      "stream": null
+    }
+  },
+  "monitors": [
+    {
+      "id": 1,
+      "name": "DP-1",
+      "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+      "make": "Samsung Electric Company",
+      "model": "Odyssey G93SD",
+      "serial": "HCSY900228",
+      "width": 5120,
+      "height": 1440,
+      "physicalWidth": 1190,
+      "physicalHeight": 340,
+      "refreshRate": 240.0,
+      "x": 0,
+      "y": 0,
+      "activeWorkspace": {
+        "id": 1,
+        "name": "1"
+      },
+      "specialWorkspace": {
+        "id": 0,
+        "name": ""
+      },
+      "reserved": [
+        0,
+        26,
+        0,
+        0
+      ],
+      "scale": 1.25,
+      "transform": 0,
+      "focused": false,
+      "dpmsStatus": true,
+      "vrr": false,
+      "solitary": "0",
+      "solitaryBlockedBy": [
+        "WINDOWED",
+        "CANDIDATE"
+      ],
+      "activelyTearing": false,
+      "tearingBlockedBy": [
+        "NOT_TORN",
+        "USER",
+        "CANDIDATE",
+        "HW_CURSOR"
+      ],
+      "directScanoutTo": "0",
+      "directScanoutBlockedBy": [
+        "USER",
+        "RECORD",
+        "CANDIDATE"
+      ],
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "mirrorOf": "none",
+      "availableModes": [
+        "5120x1440@120.00Hz",
+        "3840x1080@119.97Hz",
+        "3840x2160@60.00Hz",
+        "3840x2160@59.94Hz",
+        "3840x2160@50.00Hz",
+        "5120x1440@240.00Hz",
+        "5120x1440@60.00Hz",
+        "3840x1080@239.96Hz",
+        "3840x1080@59.96Hz",
+        "2560x1440@239.98Hz",
+        "2560x1440@119.99Hz",
+        "2560x1440@59.95Hz",
+        "1920x1080@239.99Hz",
+        "1920x1080@120.00Hz",
+        "1920x1080@119.88Hz",
+        "1920x1080@60.00Hz",
+        "1920x1080@59.94Hz",
+        "1680x1050@59.95Hz",
+        "1600x900@60.00Hz",
+        "1280x1024@60.02Hz",
+        "1440x900@59.89Hz",
+        "1280x800@59.81Hz",
+        "1280x720@60.00Hz",
+        "1280x720@60.00Hz",
+        "1280x720@59.94Hz",
+        "1024x768@60.00Hz",
+        "800x600@60.32Hz",
+        "720x480@60.00Hz",
+        "720x480@59.94Hz",
+        "640x480@60.00Hz",
+        "640x480@59.94Hz"
+      ],
+      "colorManagementPreset": "srgb",
+      "sdrBrightness": 1,
+      "sdrSaturation": 1,
+      "sdrMinLuminance": 0.2,
+      "sdrMaxLuminance": 80,
+      "hardwareCursorsInUse": true
+    },
+    {
+      "id": 2,
+      "name": "XR-1",
+      "description": "",
+      "make": "",
+      "model": "",
+      "serial": "",
+      "width": 2560,
+      "height": 1600,
+      "physicalWidth": 0,
+      "physicalHeight": 0,
+      "refreshRate": 120.0,
+      "x": 4096,
+      "y": 0,
+      "activeWorkspace": {
+        "id": 61,
+        "name": "61"
+      },
+      "specialWorkspace": {
+        "id": 0,
+        "name": ""
+      },
+      "reserved": [
+        0,
+        26,
+        0,
+        0
+      ],
+      "scale": 1.25,
+      "transform": 0,
+      "focused": false,
+      "dpmsStatus": true,
+      "vrr": false,
+      "solitary": "0",
+      "solitaryBlockedBy": [
+        "WINDOWED",
+        "CANDIDATE"
+      ],
+      "activelyTearing": false,
+      "tearingBlockedBy": [
+        "NOT_TORN",
+        "USER",
+        "SUPPORT",
+        "CANDIDATE"
+      ],
+      "directScanoutTo": "0",
+      "directScanoutBlockedBy": [
+        "USER",
+        "RECORD",
+        "SW",
+        "CANDIDATE"
+      ],
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "mirrorOf": "none",
+      "availableModes": [
+        "1920x1080@60.00Hz"
+      ],
+      "colorManagementPreset": "srgb",
+      "sdrBrightness": 1,
+      "sdrSaturation": 1,
+      "sdrMinLuminance": 0.2,
+      "sdrMaxLuminance": 80,
+      "hardwareCursorsInUse": true
+    },
+    {
+      "id": 3,
+      "name": "XR-2",
+      "description": "",
+      "make": "",
+      "model": "",
+      "serial": "",
+      "width": 1920,
+      "height": 1200,
+      "physicalWidth": 0,
+      "physicalHeight": 0,
+      "refreshRate": 120.0,
+      "x": 6144,
+      "y": 0,
+      "activeWorkspace": {
+        "id": 71,
+        "name": "71"
+      },
+      "specialWorkspace": {
+        "id": 0,
+        "name": ""
+      },
+      "reserved": [
+        0,
+        26,
+        0,
+        0
+      ],
+      "scale": 1.25,
+      "transform": 0,
+      "focused": true,
+      "dpmsStatus": true,
+      "vrr": false,
+      "solitary": "0",
+      "solitaryBlockedBy": [
+        "WINDOWED",
+        "CANDIDATE"
+      ],
+      "activelyTearing": false,
+      "tearingBlockedBy": [
+        "NOT_TORN",
+        "USER",
+        "SUPPORT",
+        "CANDIDATE"
+      ],
+      "directScanoutTo": "0",
+      "directScanoutBlockedBy": [
+        "USER",
+        "RECORD",
+        "SW",
+        "CANDIDATE"
+      ],
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "mirrorOf": "none",
+      "availableModes": [
+        "1920x1080@60.00Hz"
+      ],
+      "colorManagementPreset": "srgb",
+      "sdrBrightness": 1,
+      "sdrSaturation": 1,
+      "sdrMinLuminance": 0.2,
+      "sdrMaxLuminance": 80,
+      "hardwareCursorsInUse": true
+    },
+    {
+      "id": 4,
+      "name": "XR-3",
+      "description": "",
+      "make": "",
+      "model": "",
+      "serial": "",
+      "width": 1920,
+      "height": 1200,
+      "physicalWidth": 0,
+      "physicalHeight": 0,
+      "refreshRate": 120.0,
+      "x": 7680,
+      "y": 0,
+      "activeWorkspace": {
+        "id": 90,
+        "name": "90"
+      },
+      "specialWorkspace": {
+        "id": 0,
+        "name": ""
+      },
+      "reserved": [
+        0,
+        26,
+        0,
+        0
+      ],
+      "scale": 1.25,
+      "transform": 0,
+      "focused": false,
+      "dpmsStatus": true,
+      "vrr": false,
+      "solitary": "0",
+      "solitaryBlockedBy": [
+        "WINDOWED",
+        "CANDIDATE"
+      ],
+      "activelyTearing": false,
+      "tearingBlockedBy": [
+        "NOT_TORN",
+        "USER",
+        "SUPPORT",
+        "CANDIDATE"
+      ],
+      "directScanoutTo": "0",
+      "directScanoutBlockedBy": [
+        "USER",
+        "RECORD",
+        "SW",
+        "CANDIDATE"
+      ],
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "mirrorOf": "none",
+      "availableModes": [
+        "1920x1080@60.00Hz"
+      ],
+      "colorManagementPreset": "srgb",
+      "sdrBrightness": 1,
+      "sdrSaturation": 1,
+      "sdrMinLuminance": 0.2,
+      "sdrMaxLuminance": 80,
+      "hardwareCursorsInUse": true
+    },
+    {
+      "id": 0,
+      "name": "DP-2",
+      "description": "CVT VITURE 0x88888800",
+      "make": "CVT",
+      "model": "VITURE",
+      "serial": "0x88888800",
+      "width": 3840,
+      "height": 1200,
+      "physicalWidth": 160,
+      "physicalHeight": 100,
+      "refreshRate": 60.0,
+      "x": -3072,
+      "y": 9344,
+      "activeWorkspace": {
+        "id": 21,
+        "name": "21"
+      },
+      "specialWorkspace": {
+        "id": 0,
+        "name": ""
+      },
+      "reserved": [
+        0,
+        26,
+        0,
+        0
+      ],
+      "scale": 1.25,
+      "transform": 0,
+      "focused": false,
+      "dpmsStatus": true,
+      "vrr": false,
+      "solitary": "0",
+      "solitaryBlockedBy": [
+        "WINDOWED",
+        "CANDIDATE"
+      ],
+      "activelyTearing": false,
+      "tearingBlockedBy": [
+        "NOT_TORN",
+        "USER",
+        "CANDIDATE",
+        "HW_CURSOR"
+      ],
+      "directScanoutTo": "0",
+      "directScanoutBlockedBy": [
+        "USER",
+        "RECORD",
+        "CANDIDATE"
+      ],
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "mirrorOf": "none",
+      "availableModes": [
+        "3840x1080@60.00Hz",
+        "3840x1200@60.00Hz"
+      ],
+      "colorManagementPreset": "srgb",
+      "sdrBrightness": 1,
+      "sdrSaturation": 1,
+      "sdrMinLuminance": 0.2,
+      "sdrMaxLuminance": 80,
+      "hardwareCursorsInUse": true
+    }
+  ],
+  "layers": {
+    "DP-1": {
+      "levels": {
+        "0": [
+          {
+            "address": "0x55e00083f690",
+            "x": 0,
+            "y": 0,
+            "w": 4096,
+            "h": 1152,
+            "alpha": 1,
+            "namespace": "omarchy-background",
+            "pid": 2583586
+          }
+        ],
+        "1": [],
+        "2": [
+          {
+            "address": "0x55e000621060",
+            "x": 0,
+            "y": 0,
+            "w": 4096,
+            "h": 1152,
+            "alpha": 1,
+            "namespace": "omarchy-bar",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55e000893830",
+            "x": 0,
+            "y": 945,
+            "w": 4096,
+            "h": 207,
+            "alpha": 1,
+            "namespace": "omarchy-dock",
+            "pid": 2583586
+          }
+        ],
+        "3": [
+          {
+            "address": "0x55e0004c0000",
+            "x": 3697,
+            "y": 0,
+            "w": 399,
+            "h": 1152,
+            "alpha": 1,
+            "namespace": "omarchy-notifications",
+            "pid": 2583586
+          }
+        ]
+      }
+    },
+    "XR-1": {
+      "levels": {
+        "0": [
+          {
+            "address": "0x55e000215ce0",
+            "x": 4096,
+            "y": 0,
+            "w": 2048,
+            "h": 1280,
+            "alpha": 1,
+            "namespace": "omarchy-background",
+            "pid": 2583586
+          }
+        ],
+        "1": [],
+        "2": [
+          {
+            "address": "0x55e00082be60",
+            "x": 4096,
+            "y": 0,
+            "w": 2048,
+            "h": 1280,
+            "alpha": 1,
+            "namespace": "omarchy-bar",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55dffefc66e0",
+            "x": 4096,
+            "y": 1073,
+            "w": 2048,
+            "h": 207,
+            "alpha": 1,
+            "namespace": "omarchy-dock",
+            "pid": 2583586
+          }
+        ],
+        "3": [
+          {
+            "address": "0x55dfff2f0a20",
+            "x": 5745,
+            "y": 0,
+            "w": 399,
+            "h": 1280,
+            "alpha": 1,
+            "namespace": "omarchy-notifications",
+            "pid": 2583586
+          }
+        ]
+      }
+    },
+    "XR-2": {
+      "levels": {
+        "0": [
+          {
+            "address": "0x55dfffe88e80",
+            "x": 6144,
+            "y": 0,
+            "w": 1536,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-background",
+            "pid": 2583586
+          }
+        ],
+        "1": [],
+        "2": [
+          {
+            "address": "0x55e00077d360",
+            "x": 6144,
+            "y": 0,
+            "w": 1536,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-bar",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55e0006141d0",
+            "x": 6144,
+            "y": 753,
+            "w": 1536,
+            "h": 207,
+            "alpha": 1,
+            "namespace": "omarchy-dock",
+            "pid": 2583586
+          }
+        ],
+        "3": [
+          {
+            "address": "0x55e0004d15d0",
+            "x": 7281,
+            "y": 0,
+            "w": 399,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-notifications",
+            "pid": 2583586
+          }
+        ]
+      }
+    },
+    "XR-3": {
+      "levels": {
+        "0": [
+          {
+            "address": "0x55dffe4595b0",
+            "x": 7680,
+            "y": 0,
+            "w": 1536,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-background",
+            "pid": 2583586
+          }
+        ],
+        "1": [],
+        "2": [
+          {
+            "address": "0x55e00086d650",
+            "x": 7680,
+            "y": 0,
+            "w": 1536,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-bar",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55dfffa819e0",
+            "x": 7680,
+            "y": 753,
+            "w": 1536,
+            "h": 207,
+            "alpha": 1,
+            "namespace": "omarchy-dock",
+            "pid": 2583586
+          }
+        ],
+        "3": [
+          {
+            "address": "0x55dfff9ec530",
+            "x": 8817,
+            "y": 0,
+            "w": 399,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-notifications",
+            "pid": 2583586
+          }
+        ]
+      }
+    },
+    "DP-2": {
+      "levels": {
+        "0": [
+          {
+            "address": "0x55e0007d8070",
+            "x": -3072,
+            "y": 9344,
+            "w": 3072,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-background",
+            "pid": 2583586
+          }
+        ],
+        "1": [],
+        "2": [
+          {
+            "address": "0x55e00091c2e0",
+            "x": -3072,
+            "y": 9344,
+            "w": 3072,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-bar",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55e000795490",
+            "x": -3072,
+            "y": 10097,
+            "w": 3072,
+            "h": 207,
+            "alpha": 1,
+            "namespace": "omarchy-dock",
+            "pid": 2583586
+          }
+        ],
+        "3": [
+          {
+            "address": "0x55dfff311100",
+            "x": -399,
+            "y": 9344,
+            "w": 399,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "omarchy-notifications",
+            "pid": 2583586
+          },
+          {
+            "address": "0x55e000039f70",
+            "x": -3072,
+            "y": 9344,
+            "w": 3072,
+            "h": 960,
+            "alpha": 1,
+            "namespace": "xr-workspace-spike-test-pattern",
+            "pid": 2535678
+          }
+        ]
+      }
+    }
+  }
+}

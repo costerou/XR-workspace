@@ -225,7 +225,7 @@ class UsbDropTests(Case):
         self.assertEqual(report['summary'], "the glasses' USB connection dropped and the session ended")
         self.assertEqual(report['renderer']['returncode'], 1)
         self.assertEqual(report['unit'], dict(code='exited', status='2/INVALIDARGUMENT', result='exit-code'))
-        self.assertEqual(report['cause']['confidence'], 'high')
+        self.assertEqual(report['cause']['confidence'], 'low')
         self.assertEqual(report['run_id'], RUN)
         kinds = [t['kind'] for t in report['timeline']]
         self.assertEqual(kinds.count('usb-drop'), 3)  # kernel twice, driver once
@@ -275,7 +275,7 @@ class UsbDropTests(Case):
         self.assertEqual(len(reports), 2)
         self.assertEqual(json.loads(reports[-1].read_text())['suppressed_since_last'], {'usb-drop': 1})
 
-    def test_the_session_ending_right_after_a_reported_drop_is_still_reported(self):
+    def test_the_session_ending_right_after_a_reported_drop_updates_that_report(self):
         self.session()
         self.host.drop(self.now)
         self.tick(seconds=30)
@@ -283,7 +283,7 @@ class UsbDropTests(Case):
         self.host.drop(self.now, 50)
         self.tick(seconds=3)
         self.idle(30)
-        self.assertEqual(len(self.reports()), 2)
+        self.assertEqual(self.only()['session'], 'ended')
 
     def test_the_port_is_found_at_run_time(self):
         self.host.ports = {'1-4'}
