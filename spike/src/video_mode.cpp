@@ -1,4 +1,5 @@
 #include "video_mode.hpp"
+#include <nlohmann/json.hpp>
 #include "video_gl.hpp"
 #include "video_player.hpp"
 #include <GLES2/gl2.h>
@@ -15,6 +16,7 @@ bool VideoMode::set_accent(std::array<float, 3> accent) { return card_.set_accen
 
 void VideoMode::open(int fd, const VideoFormat& format, std::string title, wl_display* display, double now_ms, bool audio) {
     if (active_) card_.set_visible(false, 0);  // as close(): the open fades the card in again
+    format_drawn_.reset();filter_drawn_.reset();
     active_ = true; format_ = format; title_ = std::move(title); why_.clear(); ++opened_;
     if (!sphere_) sphere_ = VideoSphere::create(why_);
     const VideoPlayer::Options options{audio, true, display};
@@ -30,7 +32,7 @@ void VideoMode::open(int fd, const VideoFormat& format, std::string title, wl_di
 void VideoMode::close() {
     player_.reset();  // mpv render context first, while the GL context is current
     if (active_) card_.set_visible(false, 0);  // the next open fades it in again
-    active_ = false; menu_ = false;
+    active_ = false; menu_ = false;format_drawn_.reset();filter_drawn_.reset();
 }
 
 void VideoMode::set_quality(const VideoQuality& quality) { quality_ = quality; apply_quality(); }
@@ -92,7 +94,7 @@ void VideoMode::draw(const Mat3& view, float diagonal_fov_deg, std::uint32_t wid
         if (picture) sphere_->draw(tex, player_->flip_y(), format_, e.eye, view, half[0], half[1], behind);
     }
     glViewport(0, 0, GLsizei(width), GLsizei(height));
-    if (picture) ++frames_drawn_;
+    if (picture) {++frames_drawn_;format_drawn_=format_;filter_drawn_=sphere_->filter();}
 }
 
 void VideoMode::after_swap() { if (player_) player_->report_swap(); }
@@ -105,7 +107,15 @@ const HudImage* VideoMode::card(double now_ms, float& alpha, std::uint64_t& gene
 bool VideoMode::animating(double now_ms) const { return card_.animating(now_ms); }
 
 std::string VideoMode::report() const {
-    return "{\"opened\":" + std::to_string(opened_) + ",\"frames_drawn\":" + std::to_string(frames_drawn_) + ",\"card_shown\":" +
+    using J=nlohmann::json;
+    auto format=[](const VideoFormat& f)->J{return {{"projection",f.projection==VideoProjection::equirect360?"360":f.projection==VideoProjection::equirect180?"180":"fisheye"},{"stereo",f.stereo==VideoStereo::mono?"mono":f.stereo==VideoStereo::sbs?"sbs":"tb"},{"fov",f.fov_deg}};};
+    J player=player_?J::parse(player_->report()):J(nullptr);
+    J observed=player.is_object()?player.value("readback",J::object()):J::object();
+    J typed={{"format_state",format(format_)},{"format_applied",format_drawn_?format(*format_drawn_):J(nullptr)},
+      {"playback",{{"state",video_state_name(state())},{"paused",observed.value("paused",J(nullptr))},{"position_s",observed.value("position_s",J(nullptr))},{"duration_s",observed.value("duration_s",J(nullptr))},{"revision",observed.value("revision",J(0))},{"command_replies",observed.value("command_replies",J(0))},{"command_errors",observed.value("command_errors",J(0))},{"command_error",observed.value("command_error",J(""))},{"error",(player_?player_->error():why_).substr(0,256)}}},
+      {"quality_readback",{{"filter_requested",video_filter_name(quality_.filter)},{"deband_requested",quality_.deband},{"filter_applied",filter_drawn_?J(video_filter_name(*filter_drawn_)):J(nullptr)},{"deband_applied",observed.value("deband_applied",J(nullptr))}}}};
+    const std::string prefix=typed.dump();
+    return prefix.substr(0,prefix.size()-1)+",\"opened\":" + std::to_string(opened_) + ",\"frames_drawn\":" + std::to_string(frames_drawn_) + ",\"card_shown\":" +
            std::to_string(card_.shown_count()) + ",\"state\":\"" + video_state_name(state()) + "\",\"format\":\"" +
            video_format_label(format_, true) + "\",\"filter\":\"" + video_filter_name(sphere_ ? sphere_->filter() : quality_.filter) + "\",\"forced\":" + (sphere_ && sphere_->forced() ? "true" : "false") + ",\"setting\":\"" + video_filter_name(quality_.filter) +
            "\",\"deband\":" + (quality_.deband ? "true" : "false") + ",\"player\":" + (player_ ? player_->report() : std::string("null")) + "}";

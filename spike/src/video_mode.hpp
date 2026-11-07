@@ -58,10 +58,22 @@ private:
     std::unique_ptr<VideoSphere> sphere_;
     VideoControlsOverlay card_;
     VideoQuality quality_;
+    std::optional<VideoFormat> format_drawn_;
+    std::optional<VideoFilter> filter_drawn_;
     bool menu_ = false;
     std::vector<VideoMenuRow> menu_rows_;
     std::uint32_t menu_selected_ = 0;
     void apply_quality();
     std::uint64_t opened_ = 0, frames_drawn_ = 0;
 };
+// The renderer's saved next-video defaults exist before the first player/mode.
+// Reporting them constructs only a closed CPU VideoMode, never a sphere/player.
+class VideoDefaults {
+ VideoQuality quality_;
+public:
+ void set(const VideoQuality& q){quality_=q;}
+ const VideoQuality& quality()const{return quality_;}
+ std::string report()const{VideoMode closed;closed.set_quality(quality_);return closed.report();}
+};
+
 }

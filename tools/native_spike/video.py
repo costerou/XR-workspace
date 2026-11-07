@@ -429,6 +429,10 @@ class VideoControl:
         self.last_input = self.opened_at = self.error_seen_at = None
         self.supervisor = None
         self.opens = 0
+        self._owner_pending = []
+        self._stream_seek_owner = None
+        self._stream_open_owner = None
+        self._opening_owner = None
         self._results = queue.SimpleQueue()
         self._worker = None
         self._bind_lock = threading.Lock()
@@ -449,6 +453,7 @@ class VideoControl:
 
     def renderer_restarted(self):
         """The video went with the old renderer (survive.py): its modal keys go too, or Space would stay swallowed."""
+        self._finish_video(False,'Renderer restarted')
         self._close()
         self.view.renderer_restarted()
 
@@ -481,13 +486,22 @@ class VideoControl:
     def _quality_frame(self):
         return self._frame(quality.renderer_payload(self.quality()))
 
-    def _set_quality(self, settings):
+    def _set_quality(self, settings, done=None):
         """Apply live (renderer) and save with the view settings (layout.json / the glasses profile)."""
         settings = quality.validate(settings)
+        if done is not None and len(self._owner_pending)>=32:
+            from .send import complete
+            complete(done,False,'Too many pending video operations'); return b''
+        if done is not None:
+            self._owner_pending.append(dict(op='quality',done=done,before=(getattr(self.view,'owner_readback',None) or {}).get('video'),error=self.error,quality=dict(settings),inactive=not self.active))
         if settings == self.quality(): return b''
         self.view.state.video_quality = settings
         try: self.view.settings.save(self.view.state.settings())
-        except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+        except (OSError, ValueError) as exc:
+            if done is not None:
+                from .send import complete
+                self._owner_pending=[p for p in self._owner_pending if p['done'] is not done]
+                complete(done,False,'Could not save video quality: '+str(exc))
         return self._quality_frame()
 
     def _on_menu_key(self, op):
@@ -520,12 +534,33 @@ class VideoControl:
         return self._controls_frame(not self.menu_hidden) or None
 
     # control socket
-    def on_message(self, message):
+    def on_message(self, message, done=None):
+        op = message.get('op') if isinstance(message,dict) else None
+        if done is None: return self._on_message(message)
+        from .send import complete
+        if len(self._owner_pending)>=32:
+            complete(done,False,'Too many pending video operations'); return None
+        before=(getattr(self.view,'owner_readback',None) or {}).get('video')
+        if op in SEEK_S and (not isinstance(before,dict) or not isinstance(before.get('player'),dict) or type((before.get('playback') or {}).get('position_s')) not in (int,float)):
+            complete(done,False,'Native video position readback unavailable'); return None
+        if op!='video_open' and not self.active:
+            complete(done,False,'No active video'); return None
+        pending=dict(op=op,done=done,before=before,error=self.error)
+        self._owner_pending.append(pending)
+        try:
+            out=self._on_message(message,owner=pending)
+            pending['format']=dict(self.format) if self.format else None
+            pending['quality']=dict(self.quality())
+            return out
+        except Exception as exc:
+            self._owner_pending.remove(pending); complete(done,False,str(exc)); return None
+
+    def _on_message(self, message, owner=None):
         op = message.get('op') if isinstance(message, dict) else None
         if op == PLAYBACK_MENU_OP: return self._menu_toggle()
         if op in VIDEO_OPS:
             self.view.last_input = self.last_input = self.clock()
-            return self._on_video(op, message.get('payload') or {})
+            return self._on_video(op, message.get('payload') or {}, owner=owner)
         if op == 'typing_toggle':  # view.TYPING_OP: typing mode releases the video's bare keys too, and gives them back
             out = self.view.on_message(message)
             self._sync_binds()
@@ -537,14 +572,15 @@ class VideoControl:
             if op in IGNORED_WHILE_PLAYING: return None
         return self.view.on_message(message)
 
-    def _on_video(self, op, payload):
+    def _on_video(self, op, payload, owner=None):
         if op == 'video_open':
             if self._worker is not None and self._worker.is_alive():
                 self.error = 'still opening the previous video'; return None
             chosen = payload.get('format')
-            if 'path' in payload: target, args = self._prepare, (payload.get('path'), chosen)
-            else: target, args = self._prepare_web, ({k: payload[k] for k in ('url', 'web') if k in payload}, chosen)
+            if 'path' in payload: target, args = self._prepare, (payload.get('path'), chosen, owner)
+            else: target, args = self._prepare_web, ({k: payload[k] for k in ('url', 'web') if k in payload}, chosen, owner)
             self.opening, self.error = True, None
+            self._opening_owner=owner
             if self.threads:
                 self._worker = threading.Thread(target=target, args=args, daemon=True)
                 self._worker.start()
@@ -561,6 +597,9 @@ class VideoControl:
         out = b'' if self.menu_hidden else self._controls_frame(True)
         if op == 'video_pause': out += self._frame({'action': 'pause'})
         elif op in SEEK_S and self.stream is not None:  # a pipe cannot seek: poll() restarts the relay once the keys settle
+            previous=self._stream_seek_owner
+            if previous is not None and previous is not owner: self._discard_deferred(previous,'Video seek superseded')
+            self._stream_seek_owner=owner
             if not self.stream.request_seek(SEEK_S[op], self.clock()): self.error = 'a live stream cannot seek'
         elif op in SEEK_S: out += self._frame({'action': 'seek', 'seconds': SEEK_S[op]})
         elif op == 'video_format':
@@ -568,7 +607,7 @@ class VideoControl:
             out += self._frame({'action': 'format', **self.format})
         return out or None
 
-    def _prepare(self, path, chosen):
+    def _prepare(self, path, chosen, owner=None):
         """Worker: open, probe and detect. Result (or the refusal) goes to poll() on the supervisor loop."""
         try:
             fd = open_video_file(path)
@@ -579,11 +618,11 @@ class VideoControl:
                 warnings = check_limits(info)
             except BaseException:
                 os.close(fd); raise
-            self._results.put(('open', fd, ascii_title(path), fmt, source, warnings, None))
+            self._results.put(('open', fd, ascii_title(path), fmt, source, warnings, None, owner))
         except (VideoRejected, OSError, ValueError) as exc:
-            self._results.put(('refused', str(exc) or 'cannot open the video'))
+            self._results.put(('refused', str(exc) or 'cannot open the video', owner))
 
-    def _prepare_web(self, payload, chosen):
+    def _prepare_web(self, payload, chosen, owner=None):
         """Worker: check the web request, pick the source, probe it over the network, start the relay (web_video.py)."""
         from . import web_video as wv
         stream = None
@@ -602,10 +641,10 @@ class VideoControl:
             if not stream.seekable: warnings.append('live stream: no seeking')
             start = web['start'] if web['start'] >= 2 and (not stream.duration or web['start'] < stream.duration - 5) else 0.0
             fd = stream.start(start)
-            self._results.put(('open', fd, ascii_text(target['title']), fmt, source, warnings, stream))
+            self._results.put(('open', fd, ascii_text(target['title']), fmt, source, warnings, stream, owner))
         except (VideoRejected, OSError, ValueError) as exc:
             if stream is not None: stream.stop()
-            self._results.put(('refused', str(exc) or 'cannot open the web video'))
+            self._results.put(('refused', str(exc) or 'cannot open the web video', owner))
 
     def _open(self, fd, title, fmt, source, warnings, stream=None):
         out = b''
@@ -629,15 +668,19 @@ class VideoControl:
         self._sync_binds()
         return FdFrame(out, [fd])
 
-    def _restart_stream(self, at, now):
+    def _restart_stream(self, at, now, owner=None):
         """Seek or resume a web video: a new relay from `at`, handed to the renderer as a fresh open (same format)."""
+        if not self._retain_deferred(owner,b''): return None
         try: fd = self.stream.start(at)
         except (VideoRejected, OSError, ValueError) as exc:
             return self._close(str(exc) or 'the stream could not be restarted')
         self.controls, self.menu = True, False  # the renderer shows the card on open, its menu closed; quality is kept
         self.opened_at, self.error_seen_at, self.last_input = now, None, now
         out = self._frame({'action': 'open', **self.format, 'title': self.title})
-        return FdFrame(out + self._hide_if_hidden(), [fd])
+        frame=FdFrame(out + self._hide_if_hidden(),[fd])
+        if not self._retain_deferred(owner,bytes(frame)):
+            frame.close_fds(); return None
+        return frame
 
     def _close(self, error=None):
         if self.stream is not None: self.stream.stop(); self.stream = None
@@ -655,16 +698,27 @@ class VideoControl:
         while True:
             try: result = self._results.get_nowait()
             except queue.Empty: break
+            owner=result[-1]
+            if not self._retain_deferred(owner,b''):
+                if self._opening_owner is owner: self.opening=False
+                if result[0]=='open':
+                    os.close(result[1])
+                    if result[-2] is not None: result[-2].stop()
+                continue
             if result[0] == 'open':
                 if self.supervisor is not None and self.supervisor.stopping_at is not None:
                     os.close(result[1])
-                    if result[-1] is not None: result[-1].stop()
+                    if result[-2] is not None: result[-2].stop()
                     continue
-                frame = self._open(*result[1:])
+                frame = self._open(*result[1:-1])
+                if not self._retain_deferred(owner,bytes(frame)):
+                    frame.close_fds(); self._close('Deferred video request became stale'); continue
+                self._stream_open_owner=owner
                 out += bytes(frame); fds += frame.fds
             else:
                 self.opening, self.error = False, result[1]
                 self._tell(result[1])
+                self._discard_deferred(owner,result[1]) if owner is not None else self._finish_video(False,result[1])
         dt = now - self.last_poll if self.last_poll is not None else 0.0
         self.last_poll = now
         if self.active and self.stream is not None:
@@ -673,12 +727,14 @@ class VideoControl:
             target = self.stream.due_seek(now)
             failure = self.stream.failure()
             frame = None
-            if target is not None: frame = self._restart_stream(target, now)
+            if target is not None:
+                owner,self._stream_seek_owner=self._stream_seek_owner,None
+                frame = self._restart_stream(target,now,owner=owner)
             elif failure and state in ('ended', 'error'):
                 # The connection broke for good (ffmpeg's own reconnects failed): resume once or twice, then give up.
                 if self.stream_retries < 2 and self.stream.position() > 0:
                     self.stream_retries += 1
-                    frame = self._restart_stream(self.stream.position(), now)
+                    frame = self._restart_stream(self.stream.position(),now,owner=self._stream_open_owner if any(p is self._stream_open_owner for p in self._owner_pending) else None)
                 else:
                     self.error = failure; self._tell(failure)
                     out += self._close(failure)
@@ -698,8 +754,68 @@ class VideoControl:
                 self.error_seen_at = None
                 if state in (None, 'off') and now - self.opened_at >= START_GRACE_S:
                     out += self._close('video playback is not available in this session (renderer without video support)')
+        self._poll_owner_readback()
         if fds: return FdFrame(out, fds)
         return out or None
+
+    def _discard_deferred(self,owner,detail):
+        from .send import complete
+        self._owner_pending=[p for p in self._owner_pending if p is not owner]
+        if owner is not None: complete(owner['done'],False,detail)
+
+    def _retain_deferred(self,owner,frames):
+        """Loop-thread registration using the original job's immutable callback.
+
+        Empty preflight checks staleness before opening a result/stream; actual
+        emitted bytes are registered before typed readback can call done.
+        """
+        if owner is None: return True
+        if not any(p is owner for p in self._owner_pending): return False
+        registrar=getattr(owner['done'],'retain_frames',None)
+        if registrar is None: return True # legacy non-menu caller
+        if registrar(frames): return True
+        self._discard_deferred(owner,'Deferred video request superseded or stale')
+        return False
+
+    def _finish_video(self, success, detail):
+        from .send import complete
+        pending,self._owner_pending=self._owner_pending,[]
+        for item in pending: complete(item['done'],success,detail)
+
+    def _poll_owner_readback(self):
+        from .send import complete
+        report=(getattr(self.view,'owner_readback',None) or {}).get('video')
+        playback=(report.get('playback') or {}) if isinstance(report,dict) else {}
+        for item in list(self._owner_pending):
+            if self.error and self.error!=item['error']:
+                self._owner_pending.remove(item); complete(item['done'],False,self.error); continue
+            before=item['before']; old=(before.get('playback') or {}) if isinstance(before,dict) else {}
+            new_error=(playback.get('state')=='error' or playback.get('error')) and (playback.get('revision',0)>old.get('revision',0) or playback.get('error')!=old.get('error') or (isinstance(report,dict) and report.get('opened',0)>(before.get('opened',0) if isinstance(before,dict) else 0)))
+            if new_error:
+                self._owner_pending.remove(item); complete(item['done'],False,playback.get('error') or 'Native video playback failed'); continue
+            if playback.get('command_errors',0)>old.get('command_errors',0):
+                self._owner_pending.remove(item); complete(item['done'],False,playback.get('command_error') or 'Native video command failed'); continue
+            if report is before and item['op'] not in ('quality','video_format'): continue
+            op=item['op']; ok=False
+            state=playback.get('state')
+            fresh=playback.get('revision',0)>old.get('revision',0)
+            if op=='video_exit': ok=report is None or (isinstance(report,dict) and report.get('state')=='off')
+            elif isinstance(report,dict):
+                if op=='video_open': ok=state in ('playing','paused') and report.get('opened',0)>(before.get('opened',0) if isinstance(before,dict) else 0)
+                elif op=='video_pause': ok=fresh and type(old.get('paused')) is bool and type(playback.get('paused')) is bool and playback['paused'] != old['paused']
+                elif op=='quality':
+                    actual=report.get('quality_readback',{})
+                    filter_key='filter_requested' if item.get('inactive') else 'filter_applied'
+                    deband_key='deband_requested' if item.get('inactive') else 'deband_applied'
+                    ok=actual.get(filter_key)==item['quality']['filter'] and type(actual.get(deband_key)) is bool and actual[deband_key]==item['quality']['deband']
+                elif op=='video_format': ok=report.get('format_applied')==item['format']
+                elif op in SEEK_S:
+                    pos=playback.get('position_s')
+                    target=max(0,old['position_s']+SEEK_S[op])
+                    if type(old.get('duration_s')) in (int,float) and old['duration_s']>0: target=min(target,old['duration_s'])
+                    ok=fresh and type(pos) in (int,float) and abs(pos-target)<=2 and playback.get('command_replies',0)>old.get('command_replies',0)
+            if ok:
+                self._owner_pending.remove(item); complete(item['done'],True,'Saved for next video' if item.get('inactive') else 'Native video state verified')
 
     def renderer_state(self):
         status = getattr(self.supervisor, 'status', None)
@@ -750,6 +866,7 @@ class VideoControl:
             self._binds_installed = want
 
     def close(self, timeout=2.5):
+        self._finish_video(False,'Video owner stopped')
         """Run end: no later bind change; remove the video keys if they are up; close descriptors never sent."""
         import time
         deadline = time.monotonic() + timeout
@@ -767,4 +884,4 @@ class VideoControl:
             except queue.Empty: break
             if result[0] == 'open':
                 os.close(result[1])
-                if result[-1] is not None: result[-1].stop()
+                if result[-2] is not None: result[-2].stop()

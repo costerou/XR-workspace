@@ -1,0 +1,146 @@
+[
+  {
+    "drop": "2026-11-04T10:38:58.512-05:00",
+    "folder": "20261104-103858",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 0,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {},
+    "mic_event_types": []
+  },
+  {
+    "drop": "2026-11-04T10:46:04.583-05:00",
+    "folder": "20261104-104604",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 0,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {},
+    "mic_event_types": []
+  },
+  {
+    "drop": "2026-11-04T10:46:28.776-05:00",
+    "folder": "20261104-104604",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 48,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {
+      "-32": 1
+    },
+    "mic_event_types": [
+      [
+        "S",
+        2,
+        128,
+        13
+      ],
+      [
+        "C",
+        2,
+        128,
+        13
+      ],
+      [
+        "S",
+        2,
+        0,
+        11
+      ],
+      [
+        "C",
+        2,
+        0,
+        11
+      ]
+    ]
+  },
+  {
+    "drop": "2026-11-04T10:46:43.281-05:00",
+    "folder": "20261104-104629",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 48,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {
+      "-32": 1
+    },
+    "mic_event_types": [
+      [
+        "S",
+        2,
+        128,
+        13
+      ],
+      [
+        "C",
+        2,
+        128,
+        13
+      ],
+      [
+        "S",
+        2,
+        0,
+        11
+      ],
+      [
+        "C",
+        2,
+        0,
+        11
+      ]
+    ]
+  },
+  {
+    "drop": "2026-11-04T10:50:06.473-05:00",
+    "folder": "20261104-105006",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 0,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {},
+    "mic_event_types": []
+  },
+  {
+    "drop": "2026-11-04T10:57:33.424-05:00",
+    "folder": "20261104-105733",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 0,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {},
+    "mic_event_types": []
+  },
+  {
+    "drop": "2026-11-04T10:57:44.885-05:00",
+    "folder": "20261104-105733",
+    "window": "preceding30s excluding last10ms",
+    "mic_events": 48,
+    "mic_last5s_events": 0,
+    "mic_completion_errors": {
+      "-32": 1
+    },
+    "mic_event_types": [
+      [
+        "S",
+        2,
+        128,
+        13
+      ],
+      [
+        "C",
+        2,
+        128,
+        13
+      ],
+      [
+        "S",
+        2,
+        0,
+        11
+      ],
+      [
+        "C",
+        2,
+        0,
+        11
+      ]
+    ]
+  }
+]

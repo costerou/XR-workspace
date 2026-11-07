@@ -1,0 +1,28 @@
+.........../home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/native_spike/test_supervisor.py:281: ResourceWarning: unclosed <socket.socket fd=3, family=1, type=1, proto=0>
+  self.launch(_Renderer(), report)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/native_spike/test_supervisor.py:274: ResourceWarning: unclosed <socket.socket fd=3, family=1, type=1, proto=0>
+  self.launch(_Renderer(), report)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.................................xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+xr-workspace: tracking: tracking.json needs {"lost_timeout_s": 1..3600}; using 60 s
+.............................../home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/native_spike/test_survive.py:251: ResourceWarning: unclosed <socket.socket fd=4, family=1, type=1, proto=0>
+  peer = struct.unpack('3i', socket.socketpair()[0].getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/native_spike/test_survive.py:251: ResourceWarning: unclosed <socket.socket fd=3, family=1, type=1, proto=0>
+  peer = struct.unpack('3i', socket.socketpair()[0].getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/native_spike/test_survive.py:281: ResourceWarning: unclosed <socket.socket fd=5, family=1, type=1, proto=0>
+  code = real()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............
+----------------------------------------------------------------------
+Ran 91 tests in 11.488s
+
+OK

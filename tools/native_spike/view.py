@@ -1079,8 +1079,149 @@ class ViewControl:
         self.immersive_stereo = self.immersive_failed = False
         self.immersive_hover, self.immersive_on_tail = -1, False
         self._immersive_sent = IMMERSIVE_START  # the renderer starts with nothing on
+        from .options_menu import OptionsMenu
+        self.options = OptionsMenu(self, clock=clock)
+        self.options_binds = None  # optional (owned: bool) -> None; outer runner supplies subscription
+        self._options_owned = False
+        self._options_sent = None
+        self.owner_readback = None
+        self.options_output_done = None
+        self.options_immersive_done = None
+        self.options_video = None
         self.depth_memory = None  # immersive.DepthMemory, if the engine is installed; set by managed.view_controls
         self.immersive_failures = 0  # diagnostics
+
+    def _options_frame(self, force=False):
+        pending_output, self.options.output = self.options.output, b''
+        snapshot = self.options.snapshot()
+        if not self.options.visible:
+            snapshot['open']=False
+            self.options.capture=None
+        owned = self.options.keyboard_owned
+        if owned != self._options_owned:
+            self._options_owned = owned
+            if self.options_binds is not None: self.options_binds(owned)
+        if self._options_sent is None and not snapshot['open'] and not force: return pending_output
+        if not force and snapshot == self._options_sent: return pending_output
+        self._options_sent = snapshot
+        frame = (json.dumps(dict(schema=1, run_id=self.run_id, session=self.session,
+                                 request_id=self.next_id, op='options_menu', payload=snapshot),
+                            separators=(',', ':'), allow_nan=False)+'\n').encode()
+        if len(frame) > 512*1024: raise ValueError('options snapshot too large')
+        self.next_id += 1
+        return pending_output + frame
+
+    def options_intent(self, name, **fields):
+        from .options_menu import validate_intent
+        try: validate_intent(name, fields)
+        except (ValueError, TypeError): return b''
+        out = b''
+        if name == 'options_open':
+            if fields['monitor'] not in self.state.names or self.state.typing or self.video_active: return b''
+            if self.keys_open: out += self.keys.close()
+            if self.state.menu_open: out += self.pill_close()
+            if self.state.zoomed: out += self._zoom_out()
+            self.state.selected = self.state.names.index(fields['monitor'])
+            out += self._frame()
+        if name in ('options_activate', 'options_set', 'options_confirm') and fields.get('row_id') == 'binds_toggle' and self._options_owned:
+            if self.options_binds is not None: self.options_binds(False)
+            self._options_owned = False
+        self.options.intent(name, **fields)
+        return out + self._options_frame()
+
+    def options_key(self, key):
+        """Called by the outer input subscription only while this menu owns keys."""
+        if not self.options.keyboard_owned: return b''
+        d = self.options.snapshot()
+        editor = getattr(self, 'options_editor', None)
+        if editor is not None and editor.kind in ('url','file') and editor.text_field in ('editor.text','editor.path') and key not in ('Tab','Shift+Tab','Up','Down'):
+            if key == 'BackSpace': editor.text=editor.text[:-1]
+            elif key == 'Return':
+                target='editor.submit' if any(r['id']=='editor.submit' for r in d['rows']) else ('editor.play' if editor.kind=='url' else 'editor.path')
+                return self.options_intent('options_activate',row_id=target,monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=editor.text)
+            elif key != 'Escape': return b''
+            if key != 'Escape':
+                self.options.refresh()
+                return self._options_frame()
+        if key == 'Escape':
+            self.options.escape()
+            return self._options_frame()
+        if key in ('Tab','Shift+Tab'):
+            if editor is not None: editor.text_field=None
+            order=list(range(-4,len(d['rows'])))
+            index=order.index(d['focus']) if d['focus'] in order else 0
+            return self.options_intent('options_focus',focus=order[(index+(-1 if key=='Shift+Tab' else 1))%len(order)])
+        if d['focus']<0 and key in ('Return','space','Left','Right'):
+            if d['focus']==-4:
+                return self.options_intent('options_scope',scope='workspace' if d['scope']=='monitor' else 'monitor')
+            if d['focus'] in (-3,-2):
+                from .options_menu import CATEGORIES
+                step=4 if d['focus']==-2 else (-1 if key=='Left' else 1)
+                return self.options_intent('options_category',category=CATEGORIES[(CATEGORIES.index(d['category'])+step)%len(CATEGORIES)])
+            if key in ('Return','space'): return self.options_intent('options_close')
+        if key in ('Up', 'Down'):
+            if editor is not None: editor.text_field=None
+            step = -1 if key == 'Up' else 1
+            return self.options_intent('options_focus', focus=min(max(d['focus']+step, -4), len(d['rows'])-1))
+        if key in ('PageUp', 'PageDown'):
+            return self.options_intent('options_scroll', delta=-304 if key == 'PageUp' else 304)
+        if key in ('Left', 'Right') and 0 <= d['focus'] < len(d['rows']):
+            return self.options_adjust(d['focus'], -1 if key == 'Left' else 1)
+        if key in ('Return', 'space') and 0 <= d['focus'] < len(d['rows']):
+            return self.options_activate(d['focus'])
+        return b''
+
+    def options_text(self, text):
+        """Committed UTF-8 from the native key translator, while URL child owns input."""
+        editor = getattr(self, 'options_editor', None)
+        if not self.options.keyboard_owned or editor is None or editor.kind not in ('url','file'): return b''
+        if editor.text_field not in ('editor.path','editor.text'): return b''
+        if not isinstance(text, str) or any(ord(c)<32 for c in text): return b''
+        try:
+            updated=editor.text+text
+            if len(updated.encode())>256: raise ValueError('text too long')
+            editor.text=updated
+        except ValueError: return b''
+        self.options.last_input = self.clock()
+        self.options.refresh()
+        return self._options_frame()
+
+    def options_adjust(self, index, direction):
+        d = self.options.snapshot()
+        row = d['rows'][index]
+        try:
+            if row['kind'] == 'range':
+                value = min(max(float(row['value']) + direction*row['step'], row['minimum']), row['maximum'])
+            elif row['kind'] == 'choice':
+                choices = row.get('choices', [])
+                if not choices: return b''
+                current = choices.index(row['value']) if row['value'] in choices else 0
+                value = choices[(current+direction)%len(choices)]
+            else: return b''
+        except (ValueError, KeyError): return b''
+        return self.options_intent('options_set', row_id=row['id'], monitor=d['monitor'], scope=d['scope'], revision=d['revision'], value=value)
+
+    def options_activate(self, index):
+        d = self.options.snapshot()
+        if not 0 <= index < len(d['rows']): return b''
+        row = d['rows'][index]
+        value = row['value']
+        if row['kind']=='text':
+            editor=getattr(self,'options_editor',None)
+            if editor is not None: editor.text_field=row['id']
+            return self._options_frame()
+        if row['kind'] in ('choice', 'range'): return self.options_adjust(index, 1)
+        if row['kind'] == 'toggle': value = value.lower() not in ('true', 'on', '1')
+        return self.options_intent('options_activate', row_id=row['id'], monitor=d['monitor'],
+                                   scope=d['scope'], revision=d['revision'], value=value)
+
+    def maximize_monitor(self, monitor):
+        """Identity-stable button action, using the existing view transition only."""
+        if monitor not in self.state.names or self.state.typing or self.video_active: return b''
+        selected = self.state.names.index(monitor)
+        if self.state.zoomed and self.state.selected == selected: return self._zoom_out()
+        self.state.selected = selected
+        return self.on_message({'op': 'zoom_in'}) or b''
 
     @property
     def keys_open(self):
@@ -1106,6 +1247,15 @@ class ViewControl:
     def renderer_restarted(self):
         """A new renderer in the same run (survive.py). It starts knowing what initial_frame says; what was only ever sent as
         a change goes again, and what it would not be showing is shut."""
+        if hasattr(self,'owner_readback'): self.owner_readback=None
+        if hasattr(self,'options_output_done'): self.options_output_done=None
+        if hasattr(self,'options_immersive_done'): self.options_immersive_done=None
+        pointer = getattr(self, 'overview_pointer', None)
+        if pointer is not None and hasattr(pointer, 'set_maximize_geometry'): pointer.set_maximize_geometry(None)
+        if hasattr(self, 'options'):
+            self.options.close('renderer restart')
+            self._options_sent = None
+            self._options_frame()  # release keyboard ownership immediately
         self.help_visible = False
         self._immersive_sent = IMMERSIVE_START  # nothing on, as far as it knows: initial_frame tells it
         pointer = self.overview_pointer
@@ -1159,7 +1309,14 @@ class ViewControl:
         renderer stops drawing 3D before the glasses leave it. Frames (bytes), b'' if nothing changed."""
         s, wanted = self.state, self._immersive_wanted()
         if not wanted: self.immersive_stereo = False
-        if self.immersive_run is not None: self.immersive_run.request(wanted)
+        done,self.options_immersive_done=self.options_immersive_done,None
+        if self.immersive_run is not None:
+            if done is None:
+                if hasattr(self.immersive_run,'observe_renderer'):
+                    self.immersive_run.request(wanted,setting=_immersive.validate(s.immersive))
+                else: self.immersive_run.request(wanted)  # legacy engine API
+            else: self.immersive_run.request(wanted,done=done,setting=_immersive.validate(s.immersive))
+        elif done is not None: done(False,'3D owner unavailable')
         flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
         every = bool(flags) and all(flags)  # lights the tails
         flags += [False] * (MAX_DESKTOPS - len(flags))  # the wire's length, so a desktop added with nothing on sends nothing
@@ -1299,7 +1456,7 @@ class ViewControl:
         return frame
 
     def status_reply(self, status):
-        reply = dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
+        reply = dict(capabilities=[*USER_OPS, "options_runtime_complete"], view=self.state.view(), status=dict(status),
                      placements=self.state.wanted_placements(), names=list(self.state.names), immersive=self._immersive_status())
         if self.desktops is not None: reply['desktops'] = self.desktops.desktops()  # live sizes (Ultrawide, Add)
         return reply
@@ -1383,7 +1540,8 @@ class ViewControl:
         desktop if it was on another, and its modal keys come off: they are plain keys (R, U, N, Shift+Delete, arrows, Tab, Escape),
         and the typing is the window's now. A press on the panel or its pill brings them back (panel_keys_on), and a collapse
         forgets it. Renderer frames (bytes), b'' if the panel stayed where it was."""
-        out = self.follow_focus()
+        self.options.desktop_press()
+        out = self._options_frame() + self.follow_focus()
         if self.state.menu_open and not self.menu_keys_off:
             self.menu_keys_off = True
             self._sync_menu_binds()
@@ -1570,6 +1728,9 @@ class ViewControl:
         s = self.state
         self.flush()  # a pending panel change is saved first
         self._desktops_before = (list(s.names), [dict(p) for p in s.placements], list(s.wide))
+        selected_before=s.selected
+        menu_before=(s.menu_open,s.menu_desktop)
+        sizes_before=None if s.sizes is None else [dict(d) for d in s.sizes]
         out = b''
         if change.remove is not None:  # the renderer lets go of that output before the broker removes it
             gone = s.names.index(change.remove['name'])
@@ -1582,8 +1743,20 @@ class ViewControl:
             self._desktops_changed()
         if self.supervisor is not None: self.supervisor.pause_guard()
         s.desktops_busy = True
-        if not self.desktops.start(change):
+        done,self.options_output_done=self.options_output_done,None
+        started=self.desktops.start(change) if done is None else self.desktops.start(change,done=done)
+        if not started:
+            if done is not None: done(False,'Output owner refused transaction')
             s.desktops_busy = False
+            if change.remove is not None:
+                names,placements,wide=self._desktops_before
+                s.set_desktops(names,placements,wide,sizes=sizes_before)
+                s.selected=selected_before
+                s.menu_open,s.menu_desktop=menu_before
+                self._sync_menu_binds()
+                out += self._desktops_frame(names)+self._frame()+self._placement_frame()
+                self._desktops_changed()
+            self._desktops_before=None
             if self.supervisor is not None: self.supervisor.replace_guard(self.desktops.guard())
         return out + self._menu_frame()
 
@@ -1822,6 +1995,21 @@ class ViewControl:
         if self.state.mode == 'anchor': return {'center': True}
         return {'pan': True} if panned else {'cut': True}
 
+    def set_owner_readback(self, value):
+        from .options_menu import validate_owner_readback
+        self.owner_readback=validate_owner_readback(value)
+        observer=getattr(self.immersive_run,'observe_renderer',None)
+        if observer is not None: observer(self.owner_readback['immersive'])
+        pointer=self.overview_pointer
+        if pointer is not None and pointer.maximize_geometry is not None:
+            target=pointer.maximize_geometry['monitor']
+            if not any(o['name']==target and o['ready'] for o in self.owner_readback['outputs']):
+                pointer.set_maximize_geometry(None)
+
+    def set_maximize_geometry(self, geometry):
+        """Renderer status: settled UI mesh used only for region-gated Restore input."""
+        if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(geometry)
+
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing.
         It only reports one that changed, so desktops may overlap now: poll pushes them apart (_settle)."""
@@ -1853,6 +2041,7 @@ class ViewControl:
         """Supervisor loop tick: the overview free pointer, a debounced panel placement save once it is due, and closing
         the help card and an open panel once they have been up OVERLAY_IDLE_CLOSE_S without input. Frames or None."""
         now = self.clock() if now is None else now
+        self.options.tick()
         out = self._reset_tick(now) if self.reset is not None else b''  # Ctrl+Alt+R easing every desktop flat (its rolls
         # go out with the pointer's `roll` frame just below)
         out += self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
@@ -1873,13 +2062,19 @@ class ViewControl:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
         if self.keys is not None: out += self.keys.poll(now)  # the key bind panel: its own idle close, a change's timeout
-        return out or None
+        # Workers enqueue completion before publishing terminal owner events.
+        # A result can arrive after options.tick's first drain but before the
+        # event reads above; apply that real result before this poll's snapshot.
+        self.options.drain_completions()
+        return (out + self._options_frame()) or None
 
     def _typing_toggle(self):
         """Ctrl+Alt+T: typing mode on (an open panel collapses, the help card closes, every run bind but this one goes,
         and the free pointer with its pills is off) or back off."""
         out = b''
         if not self.state.typing:
+            self.options.close('typing')
+            out += self._options_frame()
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves; releases the panel keys
             if self.help_visible: out += self._help_toggle()
             if self.keys_open: out += self.keys.close()
@@ -1941,6 +2136,43 @@ class ViewControl:
         except (OSError, ValueError): pass
 
     def on_message(self, message):
+        if isinstance(message, dict) and message.get('op') == 'options_scroll':
+            payload=message.get('payload', {})
+            from .options_menu import validate_intent
+            try: validate_intent('options_scroll',payload)
+            except (ValueError,TypeError): return None
+            pointer=self.overview_pointer
+            return pointer.options_wheel(payload['delta'])[1] if pointer is not None else None
+        if isinstance(message, dict) and str(message.get('op', '')).startswith('options_'):
+            payload = message.get('payload', {})
+            if not isinstance(payload, dict): return None
+            return self.options_intent(message['op'], **payload) or None
+        if isinstance(message, dict) and message.get('op') == 'binds_key' and self.options.keyboard_owned:
+            payload = message.get('payload', {})
+            from .keybinds import KEYCODES
+            name = KEYCODES.get(payload.get('code'))
+            aliases = {'up':'Up','down':'Down','left':'Left','right':'Right','Page_Up':'PageUp','Page_Down':'PageDown'}
+            key = aliases.get(name, name)
+            if key=='Tab' and payload.get('mods',0)&1: key='Shift+Tab'
+            if key in ('Escape','BackSpace','Return','space','Up','Down','Left','Right','Tab','Shift+Tab','PageUp','PageDown'):
+                editor = getattr(self, 'options_editor', None)
+                editing=editor is not None and (editor.kind=='url' or (editor.kind=='file' and editor.text_field=='editor.path'))
+                if key != 'space' or not editing: return self.options_key(key)
+            translator = getattr(self, 'options_key_text', None)
+            if translator is not None:
+                if not getattr(translator,'authoritative_state',False):
+                    editor=getattr(self,'options_editor',None)
+                    if editor is not None and editor.kind in ('url','file'):
+                        self.options.data.update(status='error',message='Hardware text unavailable: compositor XKB lock/group state missing; use character controls')
+                        return self._options_frame()
+                    return None
+                try: return self.options_text(translator(payload.get('mods'), payload.get('code')))
+                except (ValueError, OSError) as exc:
+                    self.options.data.update(status='error', message=self.options._detail(exc))
+                    return self._options_frame()
+            return None
+        if isinstance(message, dict) and message.get('op') == 'menu_back' and self.options.keyboard_owned:
+            return self.options_key('Escape') or None
         if isinstance(message, dict) and isinstance(message.get('op'), str):
             self.last_input = self.clock()  # any run key, click or panel change keeps an open card or panel up
         if isinstance(message, dict) and message.get('op') == 'stabilization':
@@ -2081,6 +2313,10 @@ class ViewControl:
     def stop_menu_binds(self, timeout=2.5):
         """Run end: no later panel or typing bind change, and wait (bounded in total) for any in flight, so none outlives
         the run."""
+        self.options.close('stop')
+        self.owner_readback=None
+        if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(None)
+        self._options_frame()
         self.menu_binds = self.typing_binds = None
         deadline = time.monotonic() + timeout
         for t in self._menu_threads: t.join(max(0.0, deadline - time.monotonic()))

@@ -20,7 +20,7 @@ from tools.native_spike.ipc import read_private_json
 from tools.native_spike.profiles import log
 from .incident_detect import (Correlator, DriverLog, KernelLog, RunWatch, Signal, classify_end, crash_expected, exit_metrics, parse_unit_exit,
                               signal_name)
-from .incident_report import RateLimit, Scrubber, build_bundle, markdown, notify_text, pin_of, run_hook
+from .incident_report import RateLimit, Scrubber, amend_bundle, build_bundle, markdown, notify_text, pin_of, run_hook
 
 CONTROLLER_UNIT = 'viture-workspace-controller.service'
 LIVE = ('starting', 'running', 'stopping', 'failed')
@@ -227,11 +227,12 @@ class _Live:
         self.instance = (consent or {}).get('instance')
         self.hypr_pid = None
         self.result = self.unit = None
+        self.report_ids = []
 
     def saved(self, boot):
         w = self.watch
         return dict(boot=boot, run_id=w.run_id, instance=self.instance, hypr_pid=self.hypr_pid, running_since=w.running_since, stopped=w.stopped,
-                    ports=sorted(self.kernel.ports))
+                    ports=sorted(self.kernel.ports), report_ids=self.report_ids)
 
 
 class IncidentMonitor:
@@ -329,6 +330,7 @@ class IncidentMonitor:
             live = self._context(saved['run_id'], o['at'])
             live.instance, live.hypr_pid = saved.get('instance'), saved.get('hypr_pid')
             live.watch.running_since, live.watch.stopped = saved.get('running_since'), saved.get('stopped') is True
+            live.report_ids = [s for s in saved.get('report_ids', []) if isinstance(s, str)]
             if isinstance(saved.get('ports'), list): live.kernel.note_ports(saved['ports'])
             if run_id == saved['run_id'] and o.get('state') in LIVE: self.live = live
             else: self._finish(live, o, stranded=run_id == saved['run_id'] and o.get('state') in STRANDED, away=True)
@@ -402,7 +404,13 @@ class IncidentMonitor:
         for old in sorted(self.ended, key=self.ended.get)[:-MAX_ENDED]: del self.ended[old]
         episode = self.correlator.open
         hyprland = episode is not None and episode.run_id == run_id and any(s.kind == 'hyprland-crash' for s in episode.signals)
-        ended = 'ended' if signals and not watch.stopped else 'stopped'
+        reason = (live.result or {}).get('stop_reason')
+        # A later Stop cannot change why the supervisor already began shutdown.
+        stopped = reason == 'interrupted' or (watch.stopped and not reason)
+        ended = 'stopped' if stopped else 'ended'
+        if live.report_ids:
+            self.correlator.add(Signal(at, 'run-failed' if signals else 'renderer-exit', 'controller',
+                                       'the monitored run ended; see its recorded outcome'), run_id, live, now=at)
         self.correlator.run_ended(run_id, at, ended, CORE_WAIT_S if crash_expected(live.result) or hyprland else 0.0)
         self._save()
 
@@ -450,8 +458,24 @@ class IncidentMonitor:
 
     def _report(self, episode, now):
         kind = episode.kind
-        if not self.limit.allow(kind, episode.ended, now):
-            log(f'incident: another {kind} within the rate limit; counted for the next report')
+        live = episode.context
+        ids = live.report_ids if live is not None else []
+        terminal_update = bool(episode.ended and ids)
+        allowed = False if terminal_update else self.limit.allow(kind, episode.ended, now)
+        # Suppression limits notifications, not evidence. A terminal outcome belongs to every
+        # report from this exact run, even when the last incident was much earlier.
+        targets = ids if terminal_update else ids[-1:] if not allowed else []
+        updated = False
+        for stem in targets:
+            previous = self._safe(self.reports.read, stem)
+            if not isinstance(previous, dict) or previous.get('run_id') != episode.run_id: continue
+            bundle = amend_bundle(previous, episode, self._evidence(episode, {}), now, self.scrub)
+            path = self._safe(self.reports.update, bundle)
+            if path is None: continue
+            updated = True
+            if self.latest and self.latest['id'] == stem:
+                self.latest['summary'] = bundle['summary']
+        if updated or not allowed and not terminal_update:
             self._save()
             return
         bundle = build_bundle(episode, self._evidence(episode, self.limit.take_suppressed()), now, self.scrub)
@@ -459,6 +483,7 @@ class IncidentMonitor:
         except (OSError, ValueError) as exc:
             self._say(f'incident: could not save the {kind} report: {exc}')
             return
+        if live is not None: live.report_ids.append(path.stem)
         self.latest = dict(id=path.stem, kind=kind, summary=bundle['summary'], at=bundle['first_signal_at'], path=str(path))
         self._save()
         log(f'incident: {path.name}: {bundle["summary"]}')

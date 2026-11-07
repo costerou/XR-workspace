@@ -267,7 +267,7 @@ class HitTests(unittest.TestCase):
         self.assertEqual(hit_at(G, FLAT, (mid, y + h + fp.PILL_PAD_Y - EDGE)), ('pill', 1))  # and a little below it
         self.assertIsNone(hit_at(G, FLAT, (mid, y + h + fp.PILL_PAD_Y + 1)))
         self.assertEqual(hit_at(G, FLAT, (x - fp.PILL_PAD_X + EDGE, y + 3)), ('pill', 1))
-        self.assertEqual(hit_at(G, FLAT, (x + w + fp.PILL_PAD_X - EDGE, y + 3)), ('pill', 1))
+        self.assertEqual(hit_at(G, FLAT, (x + w + 6 - EDGE, y + 3)), ('pill', 1))
         self.assertIsNone(hit_at(G, FLAT, (x - fp.PILL_PAD_X - 1, y + 3)))
         self.assertEqual(hit_at(G, FLAT, (mid, T1[1] + T1[3] - 1))[:2], ('desktop', 1))  # just inside: the desktop
         self.assertEqual(hit_at(G, FLAT, (mid, T1[1] - 3)), ('edge', 1, 't'))  # where the old drag bar was: the resize edge

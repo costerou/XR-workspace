@@ -14,6 +14,41 @@
 namespace xr {
 namespace {
 using Json = nlohmann::json;
+bool options_menu(const Json& p, OptionsMenuState& out, const Json& session) {
+ auto exact=[](const Json& v, std::initializer_list<const char*> keys) {
+  if(!v.is_object() || v.size()!=keys.size())return false;
+  for(auto k:keys)if(!v.contains(k))return false;
+  return true;
+ };
+ auto str=[](const Json& v, std::size_t n){return v.is_string() && v.get_ref<const std::string&>().size()<=n;};
+ auto one=[](const Json& v, std::initializer_list<const char*> names){for(auto n:names)if(v==n)return true;return false;};
+ auto num=[](const Json& v, double lo,double hi){return v.is_number_integer() && v.get<double>()>=lo && v.get<double>()<=hi;};
+ if(!exact(p,{"open","namespace","monitor","scope","category","focus","scroll","revision","status","message","rows"}))return false;
+ if(!p["open"].is_boolean() || !str(p["namespace"],64) || p["namespace"]!=session || !str(p["monitor"],32))return false;
+ const auto monitor=p["monitor"].get<std::string>();
+ if(monitor.size()<4 || monitor.substr(0,3)!="XR-" || monitor[3]=='0' || !std::all_of(monitor.begin()+3,monitor.end(),[](char c){return c>='0' && c<='9';}))return false;
+ if(!one(p["scope"],{"monitor","workspace"}) || !one(p["category"],{"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"}) || !one(p["status"],{"idle","pending","applied","error"}))return false;
+ if(!num(p["focus"],-4,63)||!num(p["scroll"],0,4096)||!num(p["revision"],0,4294967295.)||!str(p["message"],256)||!p["rows"].is_array()||p["rows"].size()>64)return false;
+ std::set<std::string> ids;
+ for(auto r:p["rows"]) {
+  if(!r.is_object())return false;
+  const std::set<std::string> allowed{"id","label","scope","kind","value","minimum","maximum","step","unit","enabled","choices"};
+  for(const auto& [key,v]:r.items())if(!allowed.contains(key))return false;
+  for(auto key:{"id","label","scope","kind","value","enabled"})if(!r.contains(key))return false;
+  if(r["kind"]=="range")for(auto key:{"minimum","maximum","step"})if(!r.contains(key))return false;
+  for(auto key:{"minimum","maximum","step"})if(!r.contains(key))r[key]=0;
+  if(!r.contains("unit"))r["unit"]="";
+  if(!r.contains("choices"))r["choices"]=Json::array();
+  if(!str(r["id"],64)||!str(r["label"],96)||!str(r["value"],256)||!str(r["unit"],16)||!r["enabled"].is_boolean()||r["scope"]!=p["scope"]||!one(r["kind"],{"action","toggle","range","choice","text","readonly"}))return false;
+  if(!ids.insert(r["id"].get<std::string>()).second)return false;
+  for(auto k:{"minimum","maximum","step"})if(!r[k].is_number()||!std::isfinite(r[k].get<double>()))return false;
+  if(!r["choices"].is_array()||r["choices"].size()>32)return false;
+  for(const auto& c:r["choices"])if(!str(c,96))return false;
+  out.rows.push_back({r["id"],r["label"],r["scope"],r["kind"],r["value"],r["unit"],r["minimum"],r["maximum"],r["step"],r["enabled"],r["choices"].get<std::vector<std::string>>()});
+ }
+ out.open=p["open"];out.name_space=p["namespace"];out.monitor=monitor;out.scope=p["scope"];out.category=p["category"];out.status=p["status"];out.message=p["message"];out.focus=p["focus"];out.scroll=p["scroll"];out.revision=p["revision"];
+ return true;
+}
 bool token(const Json& value) {
     if (!value.is_string()) return false;
     const auto& s = value.get_ref<const std::string&>();
@@ -403,7 +438,7 @@ bool roll(const Json& p, RollPayload& out) {
 }
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
-    if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid("bad framing");
+    if (frame.empty() || frame.size() > 524288 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid("bad framing");
     try {
         std::vector<std::set<std::string>> keys;
         auto callback = [&](int depth, Json::parse_event_t event, Json& parsed) {
@@ -419,9 +454,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         for (auto field : {"schema", "request_id", "run_id", "session", "op", "payload"})
             if (!j.contains(field)) return invalid("bad envelope");
         if (!j["schema"].is_number_unsigned() || j["schema"] != 1 || !j["request_id"].is_number_unsigned() || j["request_id"].get<std::uint64_t>() == 0) return invalid("bad envelope");
-        if (!token(j["run_id"]) || !token(j["session"]) || !j["op"].is_string() || !j["payload"].is_object()) return invalid("bad envelope");
+        if (!token(j["run_id"]) || !token(j["session"]) || !j["op"].is_string()) return invalid("bad envelope");
         ControlOp op;
         const auto name = j["op"].get<std::string>();
+        if(name != "options_menu" && (frame.size()>16384 || !j["payload"].is_object()))return invalid("bad envelope");
         const auto bad = [&name] { return invalid("bad " + name + " payload"); };
         if (name == "status") op = ControlOp::status;
         else if (name == "video") op = ControlOp::video;
@@ -434,6 +470,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "style") op = ControlOp::style;
         else if (name == "help") op = ControlOp::help;
         else if (name == "placement") op = ControlOp::placement;
+        else if (name == "options_menu") op = ControlOp::options_menu;
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "move_handle") op = ControlOp::move_handle;
@@ -523,6 +560,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 placements.desktops.push_back(w);
             }
             payload = std::move(placements);
+        } else if (op == ControlOp::options_menu) {
+            OptionsMenuState menu;
+            if (!options_menu(j["payload"], menu, j["session"])) return Error{kInvalidOptionsMenuCode, "Ignored malformed options_menu payload"};
+            payload = std::move(menu);
         } else if (op == ControlOp::placement_menu) {
             PlacementMenuPayload menu;
             if (!placement_menu(j["payload"], menu)) return Error{kInvalidMenuCode, "Ignored malformed placement_menu payload"};
@@ -568,7 +609,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = e;
         } else if (!j["payload"].empty()) return bad();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
-    } catch (const Json::exception&) { return invalid("not JSON"); }
+    } catch (const Json::exception&) { return invalid(frame.size()>16384 ? "bad framing" : "not JSON"); }
     catch (const std::exception& e) { return invalid(e.what()); }  // the parser's callback: a duplicate key, nesting too deep
 }
 ControlQueue::ControlQueue(std::string run_id, std::string session)

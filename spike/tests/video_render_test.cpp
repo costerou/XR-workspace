@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 // VR video on a surfaceless EGL context (no display, window or compositor):
 //  1. the projection pass (VideoSphere) against the CPU maths (video_uv) for every projection/stereo layout, both eyes
 //     and a turned head, on a gradient texture;
@@ -368,12 +369,15 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
         // Controls: pause, seek, end.
         player->toggle_pause();
         CHECK(wait_for(*player, [&] { return player->state() == VideoState::paused; }, 5));
+        CHECK(nlohmann::json::parse(player->report())["readback"]["paused"]==true);
         player->toggle_pause();
         CHECK(wait_for(*player, [&] { return player->state() == VideoState::playing; }, 5));
+        {auto observed=nlohmann::json::parse(player->report())["readback"];CHECK(observed["paused"]==false);CHECK(observed["duration_s"].is_number());}
         CHECK(player->duration_s() > 2.5 && player->duration_s() < 3.5);
         const double before = player->position_s();
         player->seek(1);
         CHECK(wait_for(*player, [&] { return player->position_s() >= before + 0.9; }, 5));
+        {auto observed=nlohmann::json::parse(player->report())["readback"];CHECK(observed["position_s"].is_number());CHECK(observed["position_s"].get<double>()>=before+.9);CHECK(observed["command_errors"]==0);}
         // Plays to the end: keep-open holds the last frame and reports ended; seeking back plays again.
         CHECK(wait_for(*player, [&] { return player->state() == VideoState::ended; }, 10));
         CHECK(player->texture() != 0);
@@ -438,6 +442,7 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
         if (player) {
             CHECK(wait_for(*player, [&] { return player->state() == VideoState::error; }, 10));
             CHECK(!player->error().empty() && player->texture() == 0);
+            auto failure=nlohmann::json::parse(player->report());CHECK(failure["state"]=="error");CHECK(!failure["error"].get<std::string>().empty());
             std::printf("decode not-a-video: error \"%s\"\n", player->error().c_str());
         }
     }
@@ -577,6 +582,7 @@ void quality_live(const std::string& dir) {
     CHECK(mode.report().find("\"filter\":\"nearest\",\"forced\":false,\"setting\":\"nearest\",\"deband\":true") != std::string::npos);
     CHECK(mode.report().find("\"quality_errors\":0") != std::string::npos);  // mpv took `deband` (each open sets it too)
     CHECK(mode.report().find("\"quality_set\":0") == std::string::npos);
+    {auto readback=nlohmann::json::parse(mode.report());CHECK(readback["quality_readback"]["filter_applied"]=="nearest");CHECK(readback["quality_readback"]["deband_applied"]==true);CHECK(readback["playback"]["command_errors"]==0);CHECK(readback["format_applied"]["projection"]=="360");}
     mode.close();
     mode.open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), {}, "q", nullptr, now, false);  // kept for the next video
     CHECK(until_playing());
@@ -631,7 +637,9 @@ void background_behind(const std::string& dir) {
     CHECK(calls == 0 && !is_green(W / 4, H / 2) && !is_green(3 * W / 4, H / 2));
     VideoFormat half_sphere; half_sphere.projection = VideoProjection::equirect180;
     mode.set_format(half_sphere);
-    frame(ahead);  // ahead: the picture, drawn over the background in each eye
+    frame(ahead);
+    {auto readback=nlohmann::json::parse(mode.report());CHECK(readback["format_applied"]["projection"]=="180");CHECK(readback["format_applied"]["stereo"]=="mono");CHECK(readback["format_applied"]["fov"]==180);}
+    // ahead: the picture, drawn over the background in each eye
     CHECK(calls == 2 && !is_green(W / 4, H / 2) && !is_green(3 * W / 4, H / 2));
     frame(behind);  // turned round, past the picture's edge: the background, in each eye
     CHECK(calls == 2 && is_green(W / 4, H / 2) && is_green(3 * W / 4, H / 2));

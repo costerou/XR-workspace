@@ -1,3 +1,8 @@
+#include "options_evidence.hpp"
+#include "maximize_geometry.hpp"
+#include "owner_readback.hpp"
+#include "xr/options_geometry.hpp"
+#include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include <wayland-client.h>
 #include "presentation-time-client-protocol.h"
@@ -261,7 +266,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::unique_ptr<VideoMode> video;     // VR video (video_mode.hpp); created on the first open
-    VideoQuality video_quality;           // the last `quality` frame, for a VideoMode created after it
+    VideoDefaults video_defaults;           // the last `quality` frame, for a VideoMode created after it
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     std::vector<std::uint64_t> drawn;     // per capture: `uploaded` as of the last draw (SHM: one upload ahead at most)
@@ -471,6 +476,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
     bool binds_drawn = false;  // last frame showed it: draw once more so it clears
+    OptionsEvidence options_evidence;bool options_in_frame=false;
+    OptionsMenuState options; std::optional<Placement> options_surface; HudImage options_image; std::uint64_t options_generation=1000000;
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
@@ -487,6 +494,8 @@ struct Presentation::Impl : SurfaceRequests {
         PointerLook look = PointerLook::plain;
     } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
+    OwnerReadbackStream owner_readback;
+    std::string maximize_geometry_line="{\"maximize_geometry\":null}", maximize_geometry_sent;
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
     double help_geometry_ms = -1e9;      // when it was sent
     Mat3 last_head{1, 0, 0, 0, 1, 0, 0, 0, 1};  // head rotation of the last desktop frame (help card hit testing)
@@ -699,6 +708,7 @@ struct Presentation::Impl : SurfaceRequests {
         for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
         const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
         if (!names) return;
+        if(options.open && std::find(names->begin(),names->end(),options.monitor)==names->end()){options.open=false;options_surface.reset();}
         std::vector<std::string> was;  // the tiles of an eased change follow their desktops by name
         for (const auto& c : captures) was.push_back(c->name);
         auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
@@ -1071,6 +1081,7 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
            ",\"renders\":" + std::to_string(impl_->glass.renders()) +
            ",\"view_shift_mrad\":" + std::to_string(int(std::lround(impl_->panel_shift.value(double(monotonic_ms())) * 1000.f))) + "}";
+    out += ",\"options_menu\":"+impl_->options_evidence.report(impl_->options).dump();
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
@@ -1264,7 +1275,7 @@ void Presentation::video_open(int fd, const VideoFormat& format, const std::stri
         s.video = std::make_unique<VideoMode>();
         std::string why; s.video->set_font(HudFont::load(kHudFontFamily, why));
         s.video->set_accent({s.accent[0] / 255.f, s.accent[1] / 255.f, s.accent[2] / 255.f});  // the theme colour so far
-        s.video->set_quality(s.video_quality);
+        s.video->set_quality(s.video_defaults.quality());
     }
     s.video->open(fd, format, title, s.display, double(monotonic_ms()));
     s.cadence.invalidate();
@@ -1280,7 +1291,7 @@ void Presentation::video_controls(bool visible) {
 }
 void Presentation::video_quality(const VideoQuality& quality) {
     if (!impl_) return;
-    impl_->video_quality = quality;  // kept for a VideoMode created later (the first open)
+    impl_->video_defaults.set(quality);  // kept for a VideoMode created later (the first open)
     if (impl_->video) { impl_->video->set_quality(quality); impl_->cadence.invalidate(); }
 }
 void Presentation::video_menu(bool visible, const std::vector<VideoMenuRow>& rows, std::uint32_t selected) {
@@ -1300,6 +1311,13 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
 }
 void Presentation::set_binds(const BindPanelState& state) {
     if (impl_ && impl_->binds.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
+}
+void Presentation::set_options_menu(const OptionsMenuState& state) {
+ if(!impl_)return;
+ if(!state.open || state.monitor!=impl_->options.monitor)impl_->options_surface.reset();
+ impl_->options=state;impl_->options_evidence.accepted();
+ if(state.open && std::none_of(impl_->captures.begin(),impl_->captures.end(),[&](const auto& c){return c->name==state.monitor;}))impl_->options.open=false;
+ impl_->options_image=render_options_panel(state);++impl_->options_generation;impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
@@ -1402,6 +1420,25 @@ std::optional<std::string> Presentation::take_overview_geometry() {
     return line;
 }
 void Presentation::resend_overview_geometry() { if (impl_) impl_->overview_geometry_sent.clear(); }
+std::optional<std::string> Presentation::take_owner_readback(double now){
+ if(!impl_)return std::nullopt;
+ auto& s=*impl_;if(!s.owner_readback.due(now))return std::nullopt;using J=nlohmann::json;
+ J outputs=J::array();J immersive=s.gl?J::parse(s.gl->stereo_readback()):J(nullptr);
+ for(std::size_t i=0;i<s.captures.size();++i){const auto& c=*s.captures[i];auto texture=s.gl?s.gl->source_texture(i):GlCompositor::SourceTexture{};
+ const auto* shown=c.ready>=0 && c.slots[c.ready]?c.slots[c.ready].get():c.held_shm.get();
+ const bool ready=!c.stopped && (s.gl?texture.id!=0:shown!=nullptr);
+ outputs.push_back({{"name",c.name},{"ready",ready},{"width",s.gl?texture.width:shown?shown->width:0},{"height",s.gl?texture.height:shown?shown->height:0}});
+ if(immersive.is_object()&&i<immersive["desktops"].size())immersive["desktops"][i]["monitor"]=c.name;
+ }
+ if(immersive.is_object()) {immersive["engine"]=s.depth?J::parse(s.depth->report()):J(nullptr);immersive["engine_error"]=s.depth_why.substr(0,256);}
+ return s.owner_readback.next({{"video",J::parse(s.video?s.video->report():s.video_defaults.report())},{"immersive",immersive},{"outputs",outputs}},now);
+}
+void Presentation::resend_owner_readback(){if(impl_)impl_->owner_readback.resend();}
+std::optional<std::string> Presentation::take_maximize_geometry(){
+ if(!impl_ || impl_->maximize_geometry_line==impl_->maximize_geometry_sent)return std::nullopt;
+ impl_->maximize_geometry_sent=impl_->maximize_geometry_line;return impl_->maximize_geometry_line;
+}
+void Presentation::resend_maximize_geometry(){if(impl_)impl_->maximize_geometry_sent.clear();}
 std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
     if (!impl_ || !impl_->gl) return std::nullopt;
     auto& s = *impl_;
@@ -1617,6 +1654,7 @@ Status Presentation::draw_test_pattern() {
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = s.binds_drawn = false;
             s.panel_shift.set(0.f, video_now);  // a video closes the panel
+            s.options_in_frame=false;
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
@@ -1631,7 +1669,9 @@ Status Presentation::draw_test_pattern() {
         {  // Glass pills and the open placement panel: overview only (a zoom hides them, and holds an expanding pill's
            // morph until the overview is reached: GlassPills::frame), never moving on their own.
             const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
+            s.options_in_frame=false;
             GlassFrame glass = s.glass.frame(overview, help_now);
+            glass.maximized=s.view.zoom()>=.99f && !s.view.switching();
             glass.pills = s.pills.visible && overview;
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
@@ -1642,17 +1682,26 @@ Status Presentation::draw_test_pattern() {
             glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
+            if(s.options.open && overview) {
+                for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options.monitor){
+                  if(s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
+                  if(!s.free_pointer.held)s.options_surface.reset();
+                  glass.surface=s.options_surface;glass.surface_desktop=int(i);
+                  s.options_in_frame=true;glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
+                  glass.image=&s.options_image;glass.generation=s.options_generation;glass.content_alpha=1;
+                }
+            }
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
             float shift = 0;  // for the panel as it is drawn: on the surface a held slider keeps it on
-            const int open = overview && s.glass.open() ? s.glass.content_desktop() : -1;
+            const int open = glass.options ? glass.content : overview && s.glass.open() ? s.glass.content_desktop() : -1;
             if (open >= 0 && std::size_t(open) < tiles.size()) {
                 const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
-                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)));
+                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)), glass.options);
             }
             s.panel_shift.set(shift, help_now);
         }
-        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
+        const bool free_pointer = s.free_pointer.visible && !s.view.switching();  // overview only; world-locked on the canvas
         if (const auto dot = s.pan_dot(tiles, s.resolved_placements(tiles)))  // the hand's: the real cursor is hidden and held
             // (degrees, as the frames below)
             s.gl->set_free_pointer(true, float(s.width) / 2, float(s.height) / 2, kFreePointerLevel, true, (*dot)[0] * float(180 / M_PI), (*dot)[1] * float(180 / M_PI), PointerLook::plain);
@@ -1666,9 +1715,15 @@ Status Presentation::draw_test_pattern() {
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
         s.last_drawn = glass_view_shift(s.turned(head), panel_shift);
+        s.maximize_geometry_line="{\"maximize_geometry\":null}";
+        const auto selected=s.view.focus();
+        if(s.view.zoom()>=.99f && !s.view.switching() && selected<tiles.size() && selected<placed.size() && selected<s.captures.size()){
+          s.maximize_geometry_line=maximize_geometry_json(s.captures[selected]->name,Canvas{float(s.width),float(s.height),s.half_w,s.half_h},tiles[selected],placed[selected],s.last_drawn);
+        }
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
+        if(s.options_in_frame)s.options_evidence.drawn(s.options);
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
         return {};

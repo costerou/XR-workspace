@@ -1,0 +1,25 @@
+# B1+C1 release report
+
+Implementation is integrated on xr-options-build, based on ff7b26a. No master update, installation, live XR/services/Hyprland/glasses/driver changes or compositor hooks. The user's 60Hz tracking session remains untouched.
+
+B1 gear and C1 category tabs expose runtime controls through the existing owners. Scope filters rows by workspace or stable selected XR-n. Native file/URL character and Unicode entry, paged browsing, keybind, help, placement and retained playback editors operate inside XR. Startup-only settings remain before Start. Live placement edits apply immediately through the existing placement owner; the old desktop form's buffered Apply is not presented as a second live configuration authority.
+
+Overview Maximize stays immediately left of the top tilt pill. Approved adjustment: maximized Restore uses the same icon near the top, inset inside the captured picture and actual visible viewport. Its resolved position is shared by drawing and native hit-mesh serialization. 432 production geometry cases traverse real app-bound coordinates, acquisition, press/release and existing overview action, preserving selection/mode/placements. No reachable mesh injection or pointer excursion. Existing level/roll and Connected Tail controls retain their geometry/actions.
+
+Async privacy/window-send/output/video/3D operations complete from authoritative backend readback, not forwarding. Deferred video frames retain the original request token and wait for actual renderer receipts plus observed player state. Stale jobs discard descriptors. Backend failures, output rollback/untrusted-recovery errors and renderer refusals remain errors across child transitions. 3D engine/SBS/drawing are distinct; completion is drained after terminal events in the same supervisor poll. Retry-backoff, calibration/pose restart and stabilization regressions pass.
+
+The independent acceptance contract02401a0 is integrated. All116 routes have executable preserved-owner and applicable C1/native child/input/readback/recovery scenarios in docs/xr-options-build-coverage.json. Wire fuzz covers all6 row kinds, all categories/scopes, real child/confirmation snapshots and240 isolated malformed/valid pairs. The ledger alone is not acceptance. After the combined functional gates passed, static build equivalence and options_runtime_complete enable the minimal external running surface: status+Stop, state-gated Recover, no duplicate running runtime editors. Older renderers retain fallback compatibility. Real offscreen Qt tests check both paths and startup preservation.
+
+## Verification and evidence
+
+Shared preview root: /home/cody/.hermes/profiles/coder/previews/xr-options/build/.
+
+- v4-combined-final/: clean Release build, ownership plugin ON,112/112 CTests passed146.19s. Every Python suite, QML/panel and bind_check passed. Final v4-release-pass native-spike2555passed,1skipped,11316subtests; integration348passed. Optional offline recording/model fixtures account for7 total Python skips; no skipped live test is counted as hardware validation.
+- v4-enabled-final/: enabled implementation112/112 native tests passed139.84s; QML/panel and bind passed. One obsolete exact-capability assertion failed, was corrected without production changes, and the full Python suites rerun in v4-release-pass/. An additional immediate-engine-error detail race found in v4-final-python/ was fixed with a deterministic teardown-boundary regression; the original cause is latched atomically before cleanup. All logs retained.
+- Both native runs use private HOME/runtime/config, remove real session socket/bus environment, fake Wayland socketpairs and explicit renderD129. FD manifests record only renderD129 and no isolation violation. No live compositor calls. bind_check uses a disposable Lua fixture, not user configuration; no new global binding.
+- native-wire-roundtrip/native-options-0.png through6.png and native-options.mp4: production native CPU raster before opening, maximized Restore normal/hover, return/open and category navigation. capture-scenes.json records production resolved Restore rectangles. These contain labelled placeholder app content, not projected GPU or live glasses recordings. Earlier native-navigation.mp4 uses real supervisor snapshots through the C++ decoder.
+- docs/xr-options-live-test-plan.md: bounded future5minute trial; no current installation or live test authorization. Parent/Cody control stop/install/start.
+
+Remaining limits: physical text input requires authoritative XKB masks/group; documented compositor events do not supply these, so internal character/Unicode controls provide complete bounded text entry. IME integration is not claimed. Offline tests do not establish glasses readability, physicalR1 behavior or live scanout health. Those require the separately approved bounded trial.
+
+Integrated final owner commits: native c5b64dc, supervisor0f44611, adaptersce881f0, app85f2756, QA db62535; independent acceptance02401a0. Commits use costerou <257170158+costerou@users.noreply.github.com>. Integration branch only; no install recommendation before parent verification.

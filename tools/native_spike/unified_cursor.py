@@ -788,6 +788,9 @@ class UnifiedSampler(il.LockedSampler):
                     self.outputs = outputs
             except (OSError, ValueError, TypeError, KeyError):
                 self.errors += 1
+            if not self.pointer.overview() and self.sample_restore(outputs):
+                self._stop.wait(self.period)
+                continue
             if not self.pointer.overview():
                 self._release()
                 # The normal cursor outside the overview, but for a hand's pan: the dot shows where the hand is, until it lands.

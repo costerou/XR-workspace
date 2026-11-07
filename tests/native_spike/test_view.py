@@ -554,7 +554,7 @@ class ConfigReloadTests(unittest.TestCase):
 class StatusReplyTests(unittest.TestCase):
     def test_status_op_reply_shape(self):
         c = view.ViewControl(view.ViewState(['XR-1']), 'run', 'session', None, None, None)
-        self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2},
+        self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=[*view.USER_OPS, "options_runtime_complete"], view=c.state.view(), status={'missed':2},
                                                             placements=[dict(DEFAULT_PLACEMENT)], names=['XR-1'],
                                                             immersive={'setting': view.DEFAULT_SETTINGS['immersive'], 'names': [], 'stereo': False, 'failed': False, 'phase': 'off', 'installed': False, 'switching': False}))
         self.assertNotIn('placement', c.status_reply({})['capabilities'])  # the panel renders capabilities as buttons

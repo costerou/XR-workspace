@@ -820,7 +820,9 @@ class NoScopeChangeTests(unittest.TestCase):
     def test_panel_capabilities_unchanged(self):
         """capabilities become panel buttons (RunningEditor.qml); menu actions are glasses hotkeys, not buttons."""
         c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', None, None, None)
-        self.assertEqual(c.status_reply({})['capabilities'], BASE_CAPABILITIES)
+        capabilities=c.status_reply({})['capabilities']
+        self.assertEqual([op for op in capabilities if op!='options_runtime_complete'], BASE_CAPABILITIES)
+        self.assertIn('options_runtime_complete',capabilities)
 
     def test_bind_commands_only_run_the_control_helper(self):
         lua = view.install_binds_lua(*LIVE_BIND_ARGS)

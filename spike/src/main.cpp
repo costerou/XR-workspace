@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include "xr/pose.hpp"
@@ -182,6 +183,9 @@ int main(int argc, char** argv) {
         else if (m->op == xr::ControlOp::binds) {  // display only; malformed payloads are dropped above
             if (const auto* b = std::get_if<xr::BindPanelState>(&m->payload)) presentation.set_binds(*b);
         }
+        else if (m->op == xr::ControlOp::options_menu) {
+            if(const auto* menu=std::get_if<xr::OptionsMenuState>(&m->payload)) presentation.set_options_menu(*menu);
+        }
         else if (m->op == xr::ControlOp::placement_menu) {
             // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
             if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
@@ -249,8 +253,16 @@ int main(int argc, char** argv) {
     };
     // Further supervisor frames (view, stop) on the same private socket, replay-protected. A bad one is dropped (ipc.hpp).
     std::uint64_t refusals = 0;
-    xr::ControlStream stream(args["--run-id"], args["--session"], control_errors_fatal, [&](xr::ControlMessage& m) { apply(&m); },
+    xr::ControlStream stream(args["--run-id"], args["--session"], control_errors_fatal, [&](xr::ControlMessage& m) {
+        apply(&m);
+        if (status_fd >= 0) {
+            const std::string receipt="{\"control_applied\":"+std::to_string(m.request_id)+"}\n";
+            (void)send(status_fd,receipt.data(),receipt.size(),MSG_NOSIGNAL|MSG_DONTWAIT);
+        }
+    },
                              [&](const xr::ControlRefusal& r) {
+        if(status_fd>=0){const std::string line=nlohmann::json{{"control_refused",{{"request_id",r.request_id},{"op",r.op.substr(0,64)},{"detail",r.error.detail.substr(0,256)}}}}.dump()+"\n";(void)send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT);}
+
         if (++refusals <= 20 || refusals % 1000 == 0)  // bounded: a supervisor that keeps doing this must not fill the journal
             std::cerr << "control: refused frame " << r.request_id << " (" << (r.op.empty() ? "unreadable" : r.op) << "): " << r.error.code
                       << ": " << r.error.detail << " (" << refusals << " so far): " << r.frame << '\n';
@@ -303,6 +315,15 @@ int main(int argc, char** argv) {
                 const auto line = *geometry + "\n";
                 if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
                     presentation.resend_help_geometry();
+            }
+        }
+        if(status_fd>=0)if(const auto geometry=presentation.take_maximize_geometry()){
+            const auto line=*geometry+"\n";
+            if(send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT)!=ssize_t(line.size()))presentation.resend_maximize_geometry();
+        }
+        if(status_fd>=0){timespec ts{};clock_gettime(CLOCK_MONOTONIC,&ts);
+            if(const auto snapshot=presentation.take_owner_readback(double(ts.tv_sec)*1000+double(ts.tv_nsec)/1e6)){
+              const auto line=*snapshot+"\n";if(send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT)!=ssize_t(line.size()))presentation.resend_owner_readback();
             }
         }
         const auto now = std::chrono::steady_clock::now();

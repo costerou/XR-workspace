@@ -1,0 +1,290 @@
+{
+  "journal_records": 76068,
+  "cases": [
+    "2026-11-03T11:12:02.372-05:00",
+    "2026-11-03T15:05:10.624-05:00",
+    "2026-11-03T15:13:16.474-05:00",
+    "2026-11-03T15:34:20.959-05:00",
+    "2026-11-03T15:35:42.203-05:00",
+    "2026-11-03T15:38:57.301-05:00",
+    "2026-11-03T17:18:19.433-05:00",
+    "2026-11-03T17:42:33.528-05:00",
+    "2026-11-03T19:18:33.150-05:00",
+    "2026-11-03T20:02:21.248-05:00",
+    "2026-11-03T20:04:03.596-05:00",
+    "2026-11-03T20:06:12.325-05:00",
+    "2026-11-03T22:59:51.362-05:00",
+    "2026-11-03T23:01:56.448-05:00",
+    "2026-11-04T00:57:58.363-05:00",
+    "2026-11-04T10:38:58.512-05:00",
+    "2026-11-04T10:46:04.583-05:00"
+  ],
+  "controls": 170,
+  "seed": 20261104,
+  "exclusions": {
+    "unknown_identity_or_model_or_no_session": 15,
+    "later_same_session": 20,
+    "too_short": 1,
+    "slow_return": 1
+  },
+  "patterns": {
+    "mtp": "mtp-probe|libmtp",
+    "udev": "udev",
+    "wireplumber": "wireplumber",
+    "pipewire": "pipewire",
+    "power": "power-profiles|upower|tlp|tuned",
+    "steam": "steam",
+    "logind": "logind",
+    "reset_or_authorize": "reset|authorized to connect|power cycle|unbind",
+    "renderer": "renderer|xr-overlay|xr_overlay",
+    "systemd": "systemd",
+    "usb_kernel": "kernel.*(?:usb |xhci|uvcvideo|hid-generic)",
+    "xr_driver": "xrlinuxdriver|xr-luma-driver|luma:|viture-workspace"
+  },
+  "windows": {
+    "5": {
+      "mtp": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "udev": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "wireplumber": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "pipewire": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "power": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "steam": {
+        "cases": {
+          "windows": 2,
+          "messages": 5
+        },
+        "controls": {
+          "windows": 7,
+          "messages": 13
+        }
+      },
+      "logind": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "reset_or_authorize": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "renderer": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "systemd": {
+        "cases": {
+          "windows": 6,
+          "messages": 11
+        },
+        "controls": {
+          "windows": 40,
+          "messages": 75
+        }
+      },
+      "usb_kernel": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "xr_driver": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 2,
+          "messages": 3
+        }
+      }
+    },
+    "10": {
+      "mtp": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "udev": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "wireplumber": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "pipewire": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "power": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "steam": {
+        "cases": {
+          "windows": 3,
+          "messages": 8
+        },
+        "controls": {
+          "windows": 13,
+          "messages": 31
+        }
+      },
+      "logind": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "reset_or_authorize": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "renderer": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "systemd": {
+        "cases": {
+          "windows": 9,
+          "messages": 27
+        },
+        "controls": {
+          "windows": 79,
+          "messages": 183
+        }
+      },
+      "usb_kernel": {
+        "cases": {
+          "windows": 0,
+          "messages": 0
+        },
+        "controls": {
+          "windows": 0,
+          "messages": 0
+        }
+      },
+      "xr_driver": {
+        "cases": {
+          "windows": 1,
+          "messages": 1
+        },
+        "controls": {
+          "windows": 2,
+          "messages": 3
+        }
+      }
+    }
+  }
+}

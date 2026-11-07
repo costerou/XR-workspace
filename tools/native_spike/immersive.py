@@ -337,6 +337,9 @@ class ProcessEngine:
             except subprocess.TimeoutExpired: pass
 
 
+from .send import complete
+
+
 class ImmersiveRun:
     """A run's 3D: its worker takes the engine and the glasses to what the loop asked for (module docstring). request()
     and take_events() never block. Events: ('active', names) up and drawing; ('off',) all down; ('failed', kind, why)
@@ -345,6 +348,7 @@ class ImmersiveRun:
     def __init__(self, engine, sbs):
         self.engine, self.sbs = engine, sbs
         self._cond = threading.Condition()
+        self._emit_lock = threading.RLock()
         self._target, self._current = [], []  # what the loop wants; what is really up
         self._events = []
         self._stopping = self._reassert = False
@@ -353,11 +357,28 @@ class ImmersiveRun:
         self._thread = None
         self.starts = 0  # diagnostics: engine starts
         self.phase = 'off'
+        self.error = ''
+        self._completions = []
+        self._renderer_readback = None
+        self._expected = {}
 
-    def request(self, desktops):
+    def request(self, desktops, done=None, setting=None):
         """Bring up these desktops ([]: all of it down). The worker starts here, so a run that never uses 3D never has one."""
         desktops = list(desktops)
         with self._cond:
+            changed=desktops!=self._target or (setting is not None and any(self._expected.get(callback)!=setting for _,callback in self._completions))
+            if changed:
+                previous,self._completions=self._completions,[]
+                self._expected={}
+                for _,callback in previous: complete(callback,False,'3D request superseded by another owner action')
+            if done is not None:
+                if self._stopping or (desktops and (self._failure_pending or self._failed)):
+                    complete(done,False,self.error or '3D stopped or failure latched; explicit off/retry required'); return
+                if desktops == self._current and self._verified(desktops,setting):
+                    complete(done,True,'Saved for next 3D' if not desktops and setting is not None else 'Engine, physical mode and native drawing verified'); return
+                for _, previous in self._completions: complete(previous,False,'3D request superseded')
+                self._completions = [(list(desktops),done)]
+                self._expected = {done:setting}
             if not desktops: self._failed = False
             if self._stopping or desktops == self._target or (desktops and (self._failure_pending or self._failed)): return
             self._target = desktops
@@ -395,6 +416,8 @@ class ImmersiveRun:
         engine is then stopped from here and the worker abandoned (a daemon)."""
         with self._cond:
             self._stopping = True
+            for _,done in self._completions: complete(done,False,'3D session stopping')
+            self._completions=[]
             self._target = []
             self._cond.notify_all()
             thread = self._thread
@@ -403,7 +426,52 @@ class ImmersiveRun:
         if thread.is_alive(): self.engine.stop()
 
     def _emit(self, *event):
-        with self._cond: self._events.append(event)
+        # Serialise worker/native emissions, but release _cond for callbacks:
+        # take_events/request stay available while completion is being queued.
+        with self._emit_lock:
+            callbacks=[]
+            with self._cond:
+                if event[0] in ('failed','leave'): self.error=': '.join(str(x) for x in event[1:])
+                elif event[0]=='active': self.error=''
+                if event[0] in ('failed','leave'):
+                    callbacks,self._completions=self._completions,[]
+                elif event[0] in ('active','off'):
+                    target=event[1] if event[0]=='active' else []
+                    callbacks=[item for item in self._completions if item[0]==target and self._verified(target,self._expected.get(item[1]))]
+                    self._completions=[item for item in self._completions if item not in callbacks]
+            for _,done in callbacks:
+                complete(done,event[0] in ('active','off'),
+                         ('Saved for next 3D' if event[0]=='off' and self._expected.get(done) is not None else 'Engine, physical mode and native drawing verified') if event[0] in ('active','off') else ': '.join(str(x) for x in event[1:]))
+
+            # Publish only after callbacks have queued their completion. Readers
+            # of take_events can never observe terminal state ahead of that queue.
+            with self._cond: self._events.append(event)
+
+
+    def _verified(self,names,setting=None):
+        report=self._renderer_readback
+        if not isinstance(report,dict) or report.get('error') or report.get('engine_error'): return False
+        if not names:
+            return self.phase=='off' and not self._current and report.get('enabled') is False and report.get('physical_sbs') is False and not self._parked()
+        if self.phase!='on' or self._current!=names or report.get('physical_sbs') is not True or report.get('available') is not True: return False
+        rows=report.get('desktops',[])
+        if any(not any(r.get('monitor')==name and r.get('drawing') is True and r.get('depth_ready') is True for r in rows) for name in names): return False
+        if setting is not None:
+            p=wire_params(setting); actual=report.get('params',{})
+            expected={'strength':p['strength']/100,'convergence':p['convergence']/100,'near_deg':p['near']/60,'far_deg':p['far']/60,'text_keep':p['text']/100}
+            if any(type(actual.get(k)) not in (int,float) or abs(actual[k]-v)>0.0001 for k,v in expected.items()): return False
+            for name in names:
+                wanted=setting.get('strengths',{}).get(name,setting['strength'])/100
+                if not any(r.get('monitor')==name and type(r.get('strength')) in (int,float) and abs(r['strength']-wanted)<0.0001 for r in rows): return False
+        return True
+
+    def observe_renderer(self,report):
+        """Supervisor calls with bounded actual native readback on its loop."""
+        self._renderer_readback=report
+        if isinstance(report,dict) and (report.get('error') or report.get('engine_error')):
+            self._emit('failed','renderer',report.get('error') or report['engine_error'])
+        elif self.phase=='on': self._emit('active',list(self._current))
+        elif self.phase=='off': self._emit('off')
 
     def _cancelled(self):
         with self._cond: return self._stopping or not self._target
@@ -434,6 +502,9 @@ class ImmersiveRun:
         """Back to flat from any point. The target goes too: the loop latches this until a new press (ViewControl)."""
         with self._cond:
             was_up, self._target, self._reassert = bool(self._current), [], False
+            # Late callback registration may observe the latch while teardown
+            # is still running: publish its authoritative reason atomically.
+            self.error = f'{kind}: {why}'
             self._failure_pending = True
             self._failed = True
         if was_up or kind == 'sbs': self._down()

@@ -316,6 +316,73 @@ def parse_overview_geometry(value):
     return {'w': w, 'h': h, 'half': half, 'tiles': out}
 
 
+def parse_maximize_geometry(value):
+    """Validate display-only settled Restore geometry; never accept arbitrary meshes."""
+    if value is None: return None
+    keys = {'monitor','maximized','canvas','tile','placement','rect','hit_mesh','view'}
+    if type(value) is not dict or set(value) != keys: raise ValueError('invalid maximize geometry')
+    from .options_menu import monitor
+    monitor(value['monitor'])
+    if value['maximized'] is not True: raise ValueError('unsettled maximize geometry')
+    def numbers(v, count):
+        if type(v) is not list or len(v)!=count or any(type(n) not in (int,float) or not math.isfinite(n) or abs(n)>1e6 for n in v):
+            raise ValueError('invalid maximize coordinates')
+        return list(v)
+    out = dict(value)
+    for key,count in (('canvas',4),('tile',4),('placement',5),('rect',4),('view',9)):
+        out[key]=numbers(value[key],count)
+    if any(v<=0 for v in out['canvas']) or any(out['canvas'][i]>MAX_POINTER_PX for i in (0,1)) or out['placement'][2]<=0 or any(out['tile'][i]<=0 or out['rect'][i]<=0 for i in (2,3)):
+        raise ValueError('invalid maximize extent')
+    mesh=value['hit_mesh']
+    if type(mesh) is not list or not 3<=len(mesh)<=1024: raise ValueError('invalid maximize mesh')
+    out['hit_mesh']=[numbers(v,3) for v in mesh]
+    m=out['view']
+    for i in range(3):
+        for j in range(3):
+            if abs(sum(m[3*i+k]*m[3*j+k] for k in range(3))-(1 if i==j else 0))>1e-3:
+                raise ValueError('invalid maximize rotation')
+    return out
+
+
+def restore_cursor_ray(geometry, output, cursor):
+    """Real app cursor -> actual captured surface -> world ray (never screen-UV fiction).
+
+    Native placement uses radians/ratio, unlike the supervisor wire placement.
+    The emitted view checks whether that surface point is currently visible.
+    """
+    if cursor is None or not output['x']<=cursor[0]<output['x']+output['width'] or not output['y']<=cursor[1]<output['y']+output['height']: return None
+    w,h,hw,hh=geometry['canvas']
+    tile=geometry['tile']
+    x,y,d,c,r=geometry['placement']
+    placed=dict(x=math.degrees(x)*10,y=math.degrees(y)*10,distance=d*100,curvature=math.degrees(c),roll=math.degrees(r)*100)
+    px=tile[0]+(cursor[0]-output['x'])/output['width']*tile[2]
+    py=tile[1]+(cursor[1]-output['y'])/output['height']*tile[3]
+    world=orbit.place_point(dict(w=w,h=h,half=(hw,hh)),tile,placed,px,py)
+    m=geometry['view']
+    eye=tuple(sum(m[i*3+j]*world[j] for j in range(3)) for i in range(3))
+    if eye[2]>=-1e-6 or abs(eye[0]/-eye[2])>hw or abs(eye[1]/-eye[2])>hh: return None
+    return world
+
+
+def restore_mesh_hit(geometry, ray):
+    """Moller-Trumbore ray intersection with native padded triangle strip."""
+    if ray is None: return False
+    dot=lambda a,b: sum(x*y for x,y in zip(a,b))
+    sub=lambda a,b: tuple(x-y for x,y in zip(a,b))
+    cross=lambda a,b: (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+    mesh=geometry['hit_mesh']
+    for j in range(len(mesh)-2):
+        a,b,c=mesh[j:j+3]
+        e1,e2=sub(b,a),sub(c,a)
+        h=cross(ray,e2); det=dot(e1,h)
+        if abs(det)<1e-10: continue
+        inv=1/det; v0=tuple(-v for v in a)
+        u=dot(v0,h)*inv
+        q=cross(v0,e1); v=dot(ray,q)*inv; t=dot(e2,q)*inv
+        if u>=-1e-7 and v>=-1e-7 and u+v<=1+1e-7 and t>0: return True
+    return False
+
+
 def parse_roll_geometry(value):
     """The renderer's `roll_geometry` status line (wayland.cpp take_roll_geometry) -> list of each desktop's tilt from level
     (int, 1/100 degree, counter-clockwise positive) or None where it is not measured. ValueError if bad."""
@@ -342,6 +409,18 @@ def level_bar_rect(tile):
     if not s > 0: return (0.0, 0.0, 0.0, 0.0)
     w, h = LEVEL_BAR_W * s, LEVEL_BAR_H * s
     return (tile[0] + (tile[2] - w) / 2, tile[1] - LEVEL_BAR_GAP * s - h, w, h)
+
+
+def maximize_rect(tile):
+    s = level_bar_scale(tile)
+    x, y, _, _ = level_bar_rect(tile)
+    return x - 38*s, y, 26*s, 26*s
+
+def maximize_hit(tile, q):
+    from .options_geometry import inside
+    x,y,w,h = maximize_rect(tile)
+    pad = 4*level_bar_scale(tile)
+    return w > 0 and inside((x-pad,y-pad,w+2*pad,h+2*pad), q)
 
 
 def level_bar_segment(tile, q):
@@ -823,6 +902,7 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     if below is not None: return edge if edge is not None else below
     for i in order:
         if icons is None or i >= len(icons) or icons[i] != 'bar': continue
+        if maximize_hit(g['tiles'][i], qs[i]): return ('maximize', i)
         part = immersive_part(g['tiles'][i], qs[i])  # shows with the bar, under the same rules; asked first: see immersive_part
         if part is not None: return ('immersive', i, part)
         segment = level_bar_segment(g['tiles'][i], qs[i])
@@ -837,7 +917,7 @@ def on_pill(tile, p, q):
     if q is None: return False
     gx, gy = desktop_to_glass(tile, p, q)
     px, py, pw, ph = pill_rect(tile)
-    return px - PILL_PAD_X <= gx <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
+    return px - PILL_PAD_X <= gx <= px + pw + min(PILL_PAD_X, 6) and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
 
 
 def on_drawn_pill(tile, q):
@@ -985,6 +1065,11 @@ class OverviewPointer:
         self.shape_pushed = False  # pushes arrive and the reads agree with them, so the sampler only checks (SHAPE_CHECK_S)
         self.shape_gated = False   # the beam's gate shut on a word: when it opens the sampler reads at SHAPE_S (_step_text)
         self.text_hold = TextHold()  # the Serif Beam is on (_step_text, _look)
+        self.maximize_geometry = None
+        self._restore_cursor = None
+        self._restore_output = None
+        self._restore_press = None
+        self._restore_epoch = 0
         self.geometry = None       # parse_overview_geometry, from the renderer
         self.layout_stale = False  # the desktops changed since it came (_layout_ready)
         self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
@@ -1042,6 +1127,83 @@ class OverviewPointer:
         s = self.control.state
         return (not s.zoomed and not getattr(self.control, 'video_active', False) and not getattr(s, 'typing', False)
                 and not getattr(self.control, 'keys_open', False))
+
+    def restore_sampling(self):
+        """Read-only cursor sampling at zoom; no grab until the exact UI mesh is hit."""
+        s=self.control.state
+        g=self.maximize_geometry
+        return bool(g and s.zoomed and not getattr(s,'typing',False) and not getattr(self.control,'video_active',False)
+                    and not getattr(self.control,'keys_open',False) and not getattr(self,'super_drag',None) and 0<=s.selected<len(s.names) and s.names[s.selected]==g['monitor'])
+
+    def set_maximize_geometry(self, geometry):
+        # Parse first: malformed datagrams cannot replace good geometry or acquire input.
+        parsed=parse_maximize_geometry(geometry)
+        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k!='view'}
+        if structural(parsed)!=structural(self.maximize_geometry):
+            self._restore_epoch+=1
+            self._restore_press=None
+        self.maximize_geometry=parsed
+        if parsed is None and self.mode=='restore': self._restore_release()
+        self._poke()
+
+    def _restore_release(self):
+        self._restore_press=None
+        point=self._restore_cursor
+        output=self._restore_output
+        if point is not None and output is not None:
+            point=tuple(min(max(point[i],output[k]),output[k]+output[size]-1) for i,k,size in ((0,'x','width'),(1,'y','height')))
+        if self.mode=='restore':
+            self.mode='off'
+            self._set_want('desktop', tuple(int(round(v)) for v in point) if point else None, sync=True)
+
+    def _restore_frame(self, ray=None):
+        visible=ray is not None and self.mode=='restore'
+        want=dict(visible=visible,x=0,y=0,held=visible and self._restore_press is not None)
+        if visible:
+            az=math.atan2(ray[0],-ray[2]); el=math.atan2(ray[1],math.hypot(ray[0],ray[2]))
+            want.update(az=min(max(round(math.degrees(az)*100),-MAX_POINTER_AZ),MAX_POINTER_AZ),
+                        el=min(max(round(math.degrees(el)*100),-MAX_POINTER_EL),MAX_POINTER_EL))
+        if want==self.sent: return b''
+        self.sent=want
+        return self._send(overview_pointer_frame,want)
+
+    def _poll_restore(self, cursor, motion, applied):
+        g=self.maximize_geometry
+        names=self.control.state.names
+        output=next((o for o in self.outputs if type(o.get('index')) is int and 0<=o['index']<len(names) and names[o['index']]==g['monitor']),None)
+        if output is None:
+            self._restore_release()
+            return self._restore_frame()
+        if self.mode=='restore':
+            if applied>=self._sync and self._restore_cursor is not None:
+                self._restore_cursor=tuple(self._restore_cursor[i]+motion[i] for i in range(2))
+        else:
+            self._restore_cursor=cursor
+        point=self._restore_cursor
+        ray=restore_cursor_ray(g,output,point)
+        if not restore_mesh_hit(g,ray):
+            self._restore_release()
+            return self._restore_frame()
+        if self.mode!='restore':
+            self.mode='restore'
+            self._restore_output=dict(output)
+            park=(int(output['x']+output['width']/2),int(output['y']+output['height']/2))
+            self._set_want('free',park,sync=True)
+        return self._restore_frame(ray)
+
+    def _restore_op(self, op):
+        if op=='resize_press':
+            if self.restore_sampling() and self.mode=='restore':
+                self._restore_press=(self.maximize_geometry['monitor'],self._restore_epoch)
+            return self._restore_frame(restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)) if self.restore_sampling() else b''
+        pressed=self._restore_press
+        self._restore_press=None
+        valid=(self.restore_sampling() and pressed==(self.maximize_geometry['monitor'],self._restore_epoch)
+               and restore_mesh_hit(self.maximize_geometry,restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)))
+        self._restore_release()
+        out=self._restore_frame()
+        if valid: out+=self.control.maximize_monitor(pressed[0])
+        return out
 
     def active(self):
         return self.overview() and self._layout_ready() and len(self.outputs) > 0
@@ -1103,6 +1265,7 @@ class OverviewPointer:
         they change, so a dropped one may never come again (dot-cursor-new-desktop). Once the pointer is back it brings
         the cursor onto the selected desktop (rehome), wherever the change left it."""
         self.drag = self.hover = None
+        self.set_maximize_geometry(None)  # no capture/press survives output identity changes
         self.layout_stale = True
         names = list(self.control.state.names)  # each desktop keeps its own levelling roll and last measured tilt
         by_name = dict(zip(self.roll_names, self.rolls))
@@ -1191,10 +1354,41 @@ class OverviewPointer:
 
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
-        return self._on_help() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons(),
+        return self._on_help() or self._options_hit() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons(),
                                       picker=bool(getattr(self.control.state, 'scale_picker', False)),
                                       resolution_picker=bool(getattr(self.control.state, 'resolution_picker', False)),
                                       background_picker=bool(getattr(self.control.state, 'background_picker', False)))
+
+    def _options_hit(self):
+        from . import options_geometry as og
+        g = self.geometry
+        if g is None or self.pointer is None: return None
+        menu = getattr(self.control, 'options', None)
+        d = menu.snapshot() if menu is not None else None
+        placements = self._rolled()
+        if d and menu.visible and d['monitor'] in self.control.state.names:
+            i = self.control.state.names.index(d['monitor'])
+            if i < len(g['tiles']):
+                tile = g['tiles'][i]
+                p = menu.capture['placement'] if menu.capture else placements[i]
+                q = desktop_to_glass(tile, p, unproject(g, tile, p, self.pointer))
+                r = og.panel_rect(tile, pill_rect(tile))
+                if og.inside(r, q): return ('options_panel', i, q[0]-r[0], q[1]-r[1])
+        order=front_order(g,placements)
+        qs={i:unproject(g,g['tiles'][i],placements[i],self.pointer) for i in order}
+        picture=next((i for i in order if qs[i] is not None and inside_by(g['tiles'][i],qs[i])>=ENTER_PX),None)
+        if picture is not None: return None  # gear atlas is drawn before captured desktop pictures
+        for i in order:
+            tile = g['tiles'][i]
+            q = desktop_to_glass(tile, placements[i], qs[i])
+            if og.gear_hit(pill_rect(tile), q): return ('options_gear', i)
+        return None
+
+    def options_wheel(self, delta):
+        """Outer wheel subscription must pass through when False is returned."""
+        h = self._options_hit()
+        if h is None or h[0] != 'options_panel': return False, b''
+        return True, self.control.options_intent('options_scroll', delta=min(max(int(delta), -4096),4096))
 
     def _on_help(self, margin=0.0):
         """help_hit for the dot: the card is reported on the overview's plane, so the dot's ray is met there."""
@@ -1307,6 +1501,10 @@ class OverviewPointer:
     def poll(self, now):
         """Supervisor tick: apply the newest cursor sample; returns renderer frames (bytes)."""
         fresh, cursor, motion, applied = self._take()
+        if self.restore_sampling(): return self._poll_restore(cursor,motion,applied)
+        if self.mode=='restore':
+            self._restore_release()
+            return self._restore_frame()
         out = b''
         if not self.active():
             if self.mode != 'off':
@@ -1421,6 +1619,7 @@ class OverviewPointer:
     def on_op(self, op):
         """resize_press / resize_release: the left button, bound only in free mode (module docstring: Clicks)."""
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
+        if self.mode=='restore' or self._restore_press is not None: return self._restore_op(op)
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
         self.last_move = now  # a click is input: the pointer, pills, bars and caps come back
@@ -1430,6 +1629,21 @@ class OverviewPointer:
                 self.drag = None  # maximized since the press: a maximized desktop is level, so no turn lands behind it
             d = self.drag
             out += self._apply_drag()
+            if d is not None and d['kind'] == 'options_range':
+                menu = self.control.options
+                if menu.capture is d:
+                    q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry,d['tile'],d['placement'],self.pointer))
+                    if q is not None:
+                        from . import options_geometry as og
+                        x = q[0]-og.panel_rect(d['tile'],pill_rect(d['tile']))[0]
+                        r = d['row']
+                        value=og.range_value(r,x)
+                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=min(max(value,r['minimum']),r['maximum']))
+                    menu.capture=None
+                self.drag=None
+            if d is not None and d['kind'] == 'maximize':
+                self.drag = None
+                out += self.control.maximize_monitor(d['monitor'])
             if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse
                 if self._open() == d['open_at_press']:
                     self.drag = None
@@ -1463,6 +1677,41 @@ class OverviewPointer:
                 self.help_clicks += 1
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
+            if h is not None and h[0] == 'options_gear':
+                return self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
+            if h is not None and h[0] == 'options_panel':
+                from . import options_geometry as og
+                menu = self.control.options
+                menu.focused = True
+                d = menu.snapshot()
+                row = og.row_at(h[2], h[3], d['scroll'], len(d['rows']))
+                if h[3] < 44:
+                    if h[2] >= 530: out += self.control.options_intent('options_close')
+                    elif 350 <= h[2] < 440: out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
+                    elif 440 <= h[2] < 530:
+                        from .options_menu import CATEGORIES
+                        out += self.control.options_intent('options_category', category=CATEGORIES[(CATEGORIES.index(d['category'])//4*4+4)%len(CATEGORIES)])
+                elif 44 <= h[3] < 80:
+                    from .options_menu import CATEGORIES
+                    n = CATEGORIES.index(d['category'])//4*4 + int((h[2]-16)//142)
+                    if h[2]>=16 and 0 <= n < len(CATEGORIES): out += self.control.options_intent('options_category', category=CATEGORIES[n])
+                elif row is not None:
+                    out += self.control.options_intent('options_focus', focus=row)
+                    r = d['rows'][row]
+                    if r['kind']=='range' and all(k in r for k in ('minimum','maximum','step')):
+                        from . import options_geometry as og
+                        if not og.TRACK_X0-5 <= h[2] <= og.TRACK_X1+5:
+                            return out + self.control._options_frame()
+                        i = h[1]
+                        self.drag = dict(kind='options_range', index=i, start=self.pointer, tile=self._tile(i),
+                                         placement=dict(self._rolled()[i]), row=dict(r), monitor=d['monitor'],
+                                         scope=d['scope'], revision=d['revision'])
+                        menu.capture=self.drag
+                    else: out += self.control.options_activate(row)
+                return out + self.control._options_frame()
+            if h is not None and h[0] == 'maximize':
+                self.drag = {'kind': 'maximize', 'monitor': self.control.state.names[h[1]], 'index': h[1], 'start': self.pointer}
+                return out
             own = open_ is not None and h is not None and h[1] == open_ and h[0] in PANEL_KINDS
             if own: self.control.panel_keys_on()  # the panel is in use: its keys are back if a window had them
             if open_ is not None and not own and not (h is not None and h[0] == 'desktop'):
@@ -1613,6 +1862,7 @@ class OverviewPointer:
         d = self.drag
         if d is None or self.pointer is None: return b''
         c = self.control
+        if d['kind'] in ('maximize', 'options_range'): return b''
         if d['kind'] == 'slider':
             # Measured on the panel as it was at the press, where the renderer keeps drawing it until the release (the
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
@@ -1671,6 +1921,7 @@ class OverviewPointer:
         d = self.drag
         if d is None: return b''
         self.drag = None
+        if d['kind']=='options_range': self.control.options.capture=None
         out = self.control.pill_release() if d['kind'] == 'slider' else b''
         self.control.flush()  # saved at once on release (no-op if nothing changed)
         return out
@@ -1831,9 +2082,49 @@ class PointerSampler:
             self.grabbed = False
         self.cursor.stop(self.client)  # and the overview's hidden cursor (any order with the line above is safe)
 
+    def sample_restore(self, outputs):
+        """Shared with UnifiedSampler: call before its non-overview confinement branch.
+
+        Return True only during UI ownership or its pending release. A miss returns
+        False so the caller retains existing maximized app confinement/edge push.
+        Uses base _apply: returning to apps must REMOVE modal binds, not install
+        UnifiedSampler's overview desktop-click subscription.
+        """
+        active=getattr(self,'_restore_sampling_active',False)
+        enabled=self.pointer.restore_sampling()
+        if not enabled and not active: return False
+        if active:
+            if not enabled: self.pointer._restore_release()
+            PointerSampler._apply(self)
+        cursor,motion=self._sample()
+        self.pointer.feed(cursor,motion,outputs,self.applied if self.applied is not None else -1)
+        owns=self.pointer.mode=='restore'
+        if owns:
+            self._restore_sampling_active=True
+            self._recentre(cursor)
+            return True
+        if active:
+            # A null/status/lifecycle change can stop loop-side polling. Release
+            # on the sampler too so no modal subscription survives the gate.
+            if not enabled:
+                self.pointer._restore_release()
+                PointerSampler._apply(self)
+            self._restore_sampling_active=False
+            return True
+        return False
+
     def _run(self):
         outputs, refreshed = [], None
         while not self._stop.is_set():
+            if not self.pointer.overview() and self.pointer.restore_sampling():
+                try:
+                    if refreshed is None or self.names_changed or time.monotonic()-refreshed>=OUTPUTS_REFRESH:
+                        outputs=resize.outputs_from_monitors(self.client.query('monitors',timeout=0.5),list(self.names))
+                        refreshed=time.monotonic(); self.names_changed=False
+                except (OSError,ValueError,TypeError,KeyError): self.errors+=1
+            if not self.pointer.overview() and self.sample_restore(outputs):
+                self._stop.wait(self.period)
+                continue
             if not self.pointer.overview():
                 self._release()
                 self.cursor.step(self.client, False)  # the normal cursor outside the overview

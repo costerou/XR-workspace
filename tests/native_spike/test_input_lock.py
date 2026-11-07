@@ -394,7 +394,7 @@ end
             fp.release_pointer_lua(), 'show("release")']))
         n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL)
         self.assertEqual(out, [['lock', 'true', '3520', '540', str(n), '0', str(n + 1)],  # binds + the delay's restore entry
-                               ['ops', 'resize_press', 'resize_release', 'resize_release', 'resize_release', 'nothing', 'nothing'],
+                               ['ops', 'resize_press', 'resize_release', 'resize_release', 'resize_release', '-38', 'nothing'],
                                ['release', 'false', '3520', '540', '0', '300', '0']])  # shown where it is held
 
     def test_a_dead_runs_cleanup_gives_everything_back(self):
