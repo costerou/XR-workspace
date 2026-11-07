@@ -134,6 +134,7 @@ import threading
 import time
 
 from . import edge_pan
+from . import options_geometry as og
 from . import environment as _environment
 from . import immersive as _immersive
 from . import quality as _quality
@@ -1162,31 +1163,48 @@ class ViewControl:
         if key == 'Escape':
             self.options.escape()
             return self._options_frame()
+        if d['list'] >= 0:  # the open list has the keys: Up and Down walk it, Return picks, and anything else leaves it shut unpicked
+            if key in ('Up', 'Down'):
+                self.options.move_list(-1 if key == 'Up' else 1)
+                return self._options_frame()
+            if key in ('Return', 'space'): return self.options_pick(d['list'])
+            self.options.close_list()
+            if key not in ('Tab', 'Shift+Tab'): return self._options_frame()
+            d = self.options.snapshot()
         if key in ('Tab','Shift+Tab'):
             if editor is not None: editor.text_field=None
-            order=list(range(-4,len(d['rows'])))
+            order=[og.FOCUS_SCOPE,og.FOCUS_SECTION,og.FOCUS_CLOSE,*range(len(d['rows']))]
             index=order.index(d['focus']) if d['focus'] in order else 0
             return self.options_intent('options_focus',focus=order[(index+(-1 if key=='Shift+Tab' else 1))%len(order)])
         if d['focus']<0 and key in ('Return','space','Left','Right'):
             if d['focus']==-4:
                 return self.options_intent('options_scope',scope='workspace' if d['scope']=='monitor' else 'monitor')
-            if d['focus'] in (-3,-2):
-                from .options_menu import CATEGORIES, next_page
-                if d['focus']==-2: return self.options_intent('options_category',category=next_page(d['category']))
-                step=-1 if key=='Left' else 1
-                return self.options_intent('options_category',category=CATEGORIES[(CATEGORIES.index(d['category'])+step)%len(CATEGORIES)])
+            if d['focus'] in (og.FOCUS_SECTION,og.FOCUS_LIST):
+                if key in ('Return','space'):  # the section box opens its list, and shuts it
+                    return self.options_intent('options_focus',focus=og.FOCUS_LIST if d['focus']==og.FOCUS_SECTION else og.FOCUS_SECTION)
+                return self._options_step_section(d,-1 if key=='Left' else 1)
             if key in ('Return','space'): return self.options_intent('options_close')
         if key in ('Up', 'Down'):
             if editor is not None: editor.text_field=None
             step = -1 if key == 'Up' else 1
-            return self.options_intent('options_focus', focus=min(max(d['focus']+step, -4), len(d['rows'])-1))
+            if d['focus']==og.FOCUS_LIST: return self._options_step_section(d,step)
+            focus = d['focus']+step
+            if focus==og.FOCUS_LIST: focus += step   # the list opens from its box: Up and Down walk past it
+            return self.options_intent('options_focus', focus=min(max(focus, og.FOCUS_SCOPE), len(d['rows'])-1))
         if key in ('PageUp', 'PageDown'):
-            return self.options_intent('options_scroll', delta=-304 if key == 'PageUp' else 304)
+            return self.options_intent('options_scroll', delta=-og.BODY_H if key == 'PageUp' else og.BODY_H)
         if key in ('Left', 'Right') and 0 <= d['focus'] < len(d['rows']):
             return self.options_adjust(d['focus'], -1 if key == 'Left' else 1)
         if key in ('Return', 'space') and 0 <= d['focus'] < len(d['rows']):
             return self.options_activate(d['focus'])
         return b''
+
+    def _options_step_section(self, d, step):
+        from .options_menu import CATEGORIES
+        keep=d['focus']
+        out=self.options_intent('options_category',category=CATEGORIES[(CATEGORIES.index(d['category'])+step)%len(CATEGORIES)])
+        if keep==og.FOCUS_LIST: out+=self.options_intent('options_focus',focus=og.FOCUS_LIST)  # walking the open list leaves it open
+        return out
 
     def options_text(self, text):
         """Committed UTF-8 from the native key translator, while URL child owns input."""
@@ -1209,7 +1227,9 @@ class ViewControl:
         try:
             if row['kind'] == 'range':
                 value = min(max(float(row['value']) + direction*row['step'], row['minimum']), row['maximum'])
-            elif row['kind'] == 'choice':
+            elif row['kind'] == 'choice' and row['id'].startswith('editor.'):
+                # A text child's character wheels: a candidate, nothing changes until Insert. A setting's choice changes only by a pick
+                # from its list (options_pick), so Left and Right can never move Resolution by accident.
                 choices = row.get('choices', [])
                 if not choices: return b''
                 current = choices.index(row['value']) if row['value'] in choices else 0
@@ -1227,10 +1247,21 @@ class ViewControl:
             editor=getattr(self,'options_editor',None)
             if editor is not None: editor.text_field=row['id']
             return self._options_frame()
-        if row['kind'] in ('choice', 'range'): return self.options_adjust(index, 1)
+        if row['kind'] == 'range': return self.options_adjust(index, 1)
+        if row['kind'] == 'choice':
+            self.options.open_list(index)
+            return self._options_frame()
         if row['kind'] == 'toggle': value = value.lower() not in ('true', 'on', '1')
         return self.options_intent('options_activate', row_id=row['id'], monitor=d['monitor'],
                                    scope=d['scope'], revision=d['revision'], value=value)
+
+    def options_pick(self, item):
+        """Item `item` of the open list, deliberately: the only way a choice row changes."""
+        d = self.options.snapshot()
+        if d['list'] < 0 or not 0 <= d['focus'] < len(d['rows']): return b''
+        row = d['rows'][d['focus']]
+        if not 0 <= item < len(row.get('choices', [])): return b''
+        return self.options_intent('options_set', row_id=row['id'], monitor=d['monitor'], scope=d['scope'], revision=d['revision'], value=row['choices'][item])
 
     def maximize_monitor(self, monitor):
         """Identity-stable button action, using the existing view transition only."""

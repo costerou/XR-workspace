@@ -36,6 +36,10 @@ class MenuDriver:
         self.intent('options_focus',focus=index)
         return rows[index]
     def key(self,key): self.add(self.c.options_key(key))
+    def change(self,row):
+        """One deliberate change by the keys: a slider's step, a choice's next item picked from its list, an action's Return."""
+        if row['kind']=='choice': self.key('Return');self.key('Down');self.key('Return')
+        else: self.key('Right' if row['kind']=='range' else 'Return')
     def native(self):
         tool=os.environ.get('CONTROL_WIRE_CHECK')
         assert tool,'CONTROL_WIRE_CHECK required; native decode cannot be silently skipped'
@@ -75,7 +79,7 @@ def test_c1_setting_keyboard_owner_readback_native_wire_and_restart(id,scope,cat
     if id=='background_brightness': c.set_environment(dict(background='grid',last='grid',brightness=60))
     d=MenuDriver(c);d.enter('XR-3',scope,category)
     row=d.focus(id); before=copy.deepcopy(read(c)); untouched=copy.deepcopy(c.state.placements[0])
-    d.key('Right' if row['kind'] in ('range','choice') else 'Return')
+    d.change(row)
     after=read(c)
     assert after!=before, f'{id}: key accepted but owner state did not change'
     assert c.state.placements[0]==untouched
@@ -166,7 +170,7 @@ def test_c1_output_transaction_actual_broker_readback_or_rollback(id,refuse):
     try:
         scope='workspace' if id=='add_monitor' else 'monitor'
         d.enter('XR-3',scope,'layout' if id=='add_monitor' else 'output')
-        row=d.focus(id);d.key('Right' if row['kind']=='choice' else 'Return')
+        row=d.focus(id);d.change(row)
         if id=='remove_monitor':
             assert c.options.confirmation is not None
             d.focus('confirmation.apply');d.key('Return')

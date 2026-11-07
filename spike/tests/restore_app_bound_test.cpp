@@ -30,7 +30,7 @@ int main(int argc,char**){
    auto e=xr::apply(view,{v.x,v.y,v.z});if(e[2]>=0||std::abs(e[0]/e[2])>canvas.half_w+1e-5f||std::abs(e[1]/e[2])>canvas.half_h+1e-5f){std::cerr<<"padded native mesh clipped by actual view\n";return 11;}
   }
   auto original_rect=xr::options_maximize(tile,false);float scale=xr::level_bar_scale(tile);
-  if(rect.width!=26*scale)return 9;
+  if(rect.width!=xr::kMaximizeW*scale||rect.height!=xr::kMaximizeH*scale)return 9;
   (void)original_rect;
   auto hit=xr::options_restore_hit(rect,tile);
   if(hit.x<tile.x||hit.y<tile.y||hit.x+hit.width>tile.x+tile.width||hit.y+hit.height>tile.y+tile.height){std::cerr<<"Restore padded mesh is outside actual captured picture\n";return 1;}
