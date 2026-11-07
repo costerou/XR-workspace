@@ -418,7 +418,15 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   the side or behind you is never picked by mistake, and a desktop off at an angle can be in reach from one end of an edge
   and not the other. Far round you, it goes the way you pushed. A short push does nothing, so a quick touch (to reach a bar
   at the top, say) doesn't switch. Not in typing mode or during a VR video. Every other switch is instant, with no
-  zoom or turn: Ctrl+Alt+Left / Right, the panel, Ctrl+Alt+G sends and anything in the overview.
+  zoom or turn: Ctrl+Alt+Left / Right, the panel and Ctrl+Alt+G sends.
+- **In the overview too** (new 7 November 2026, not yet tried in the glasses): push the mouse past a desktop's edge
+  toward another desktop and keep pushing. A short push still stops on the edge (to resize it, as before). Push on and
+  the dot waits at the edge instead of drifting onto the next desktop, then the whole room turns with your hand toward
+  it, at the speed the dot moves, with the dot riding across the gap. Pull back or stop for half a second and it goes
+  back. Once the dot gets there, that desktop is selected, the mouse comes in at the matching height, and the room settles
+  with it in the middle of your view and stays turned that way. The same 45° rule picks the desktop, so if nothing is
+  that way the dot just goes free as before. The pill under a desktop, its level bar and an open panel can still be
+  reached on the way. Moving off along the edge (about 50 px) makes it the plain free dot again.
 - **Scrolling layout: the columns come first** (new, not yet tried in the glasses): maximized on a workspace in
   Hyprland's scrolling layout, pushing the mouse against the left or right edge scrolls the windows waiting past it
   into view first, one column at a time, as on your normal monitor. The mouse stays at the edge meanwhile. Once the

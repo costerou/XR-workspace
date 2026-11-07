@@ -233,6 +233,7 @@ constexpr float kViewEaseMs = 220.f;
 //          overview position), at the rate it had on the desktop.
 // `zoom` is as far as this pair needs (edge_pan.py pan_zoom), and that is as far as the hand takes it. side: 0 right, 1 left, 2 up, 3 down.
 struct EdgePan { bool active = false; std::uint32_t from = 0, to = 0; std::uint8_t side = 0; float exit = 0, entry = 0, peek = 0, cross = 0, turn = 0, way = 0, zoom = 0; };
+constexpr float kPanAxisMinRad = 0.1f;  // edge_pan_path: two points closer than this give no direction of their own (a row's gap)
 constexpr float kPanEaseMs = 30.f;      // time constant taking the hand's ~250 Hz samples to the display's frames
 constexpr float kPanEaseRest = 1e-5f;   // this near it has arrived: well under one wire step, or a gentle hand's lag would count as arrived and the ease would do nothing
 constexpr float kPanStaleMs = 2000.f;   // no frame for this long (the supervisor stopped): the view goes back to the desktop
@@ -240,9 +241,9 @@ constexpr float kPanSettleMs = 520.f;   // the landing, from the hand's last fra
 constexpr float kPanBorderShare = 0.25f;  // of the landing: the border goes over from the desktop being left to the target
 // The pixel `f` (0..1, left / top first) along `side` of `tile`.
 std::array<float, 2> edge_point(const FRect& tile, std::uint8_t side, float f);
-// The dot's way across (canvas frame, unit vectors): `from` E, `to` P, `angle` how far apart, radians.
+// The dot's way across (canvas frame, unit vectors): `from` E, `to` P, `axis` the turn from one to the other (the overview pan's), `angle` how far apart, radians.
 // nullopt if an index is out of range or the canvas is empty.
-struct EdgePanPath { Vec3 from, to; float angle = 0; };
+struct EdgePanPath { Vec3 from, to, axis; float angle = 0; };
 std::optional<EdgePanPath> edge_pan_path(const Canvas& canvas, std::span<const Size> sources, float spacing, std::span<const FRect> overview,
                                          std::span<const Placement> placements, const EdgePan& pan);
 // The unit direction `cross` of the way from `start` to the path's P, along the great circle.
@@ -292,18 +293,27 @@ private:
 // goes on down to its placed size (left_zoom) and the target comes up from its own (zoom), all at once, none of it waiting
 // for the rest. `pan` with no pan under way is a cut. A cut or a return to the overview drops a pan where it is, but a desktop
 // still on its way out finishes that.
+// The overview's edge pan (overview-edge-pan, 2026-11-07; tools/native_spike/edge_pan.py: Overview): the same frames with
+// zoom 0, taken at rest in the overview. Nothing zooms; the room (anchor mode) turns 1:1 with the hand by `turn` about the
+// path's axis, and the dot is drawn on its way across as maximized (wayland.cpp turned, pan_dot). Pulling back, resting or
+// a stale feed eases it back. set_target with `pan`, still in the overview, on `to` lands it: the highlight moves at once and
+// over turn_ms (pan_land) the turn eases on to the one that puts `to` where the centre of the view was when the pan began,
+// a centred turn (its own serial()), which then lands like a centred switch's (take_landed_turns -> turn_anchor) in the same
+// frame. A maximize, a cut or another desktop selected ends it; one cut short mid-landing hands the whole turn to the room.
+// switching() is true throughout, so the pills and the overview's own dot hide while it lasts (wayland.cpp shows the dot
+// again for the landing: it is the real cursor's then, on `to`).
 class ViewAnimator {
 public:
     // Same-build private restart state: visit values, never vector storage/pointers.
     template<class Archive> void checkpoint(Archive& a) {
-        a(duration_, turn_, pan_, pan_on_, pan_landing_, pan_peek_, pan_cross_, pan_turn_,
+        a(duration_, turn_, pan_, pan_on_, pan_landing_, pan_overview_, pan_land_ms_, pan_peek_, pan_cross_, pan_turn_,
           pan_zoom_, pan_zoom_speed_, pan_ms_, pan_seen_ms_, land_, start_ms_, spacing_start_ms_,
           look_start_ms_, t_, spacing_t_, look_t_, from_zoom_, to_zoom_, from_spacing_,
           to_spacing_, from_look_, from_turn_, landed_, serial_, turn_centred_, to_selected_,
           shown_, look_from_, look_to_, switch_);
     }
     void pause_clock(double ms) {
-        pan_ms_ += ms; pan_seen_ms_ += ms; land_.start_ms += ms;
+        pan_ms_ += ms; pan_seen_ms_ += ms; pan_land_ms_ += ms; land_.start_ms += ms;
         start_ms_ += ms; spacing_start_ms_ += ms; look_start_ms_ += ms; switch_.start_ms += ms;
     }
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
@@ -311,10 +321,12 @@ public:
     explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
                     bool cut = false, bool pan = false);
-    // A frame of the hand's pan. Ignored unless maximized at rest on p.from, or that pan is under way.
+    // A frame of the hand's pan. Ignored unless at rest on p.from (maximized, or in the overview), or that pan is under way.
     void set_pan(const EdgePan& p, double now_ms);
     bool pan_active() const { return pan_on_; }      // under way, easing back, or landing
     bool pan_landing() const { return pan_landing_; }
+    bool pan_overview() const { return pan_on_ && pan_overview_; }  // the pan under way is the overview's (below)
+    float pan_land() const;  // the overview pan's landing, [0,1] smootherstep over turn_ms; 0 unless one is landing
     const EdgePan& pan() const { return pan_; }
     float pan_cross() const { return pan_cross_; }   // eased EdgePan::cross
     float pan_turn() const { return pan_turn_; }     // eased EdgePan::turn; through a landing, on to EdgePan::way
@@ -358,12 +370,12 @@ private:
     void step_pan(double now_ms);
     void land_pan(std::uint32_t to, double now_ms);
     void step_landing(double now_ms);
-    void end_pan() { pan_on_ = pan_landing_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; pan_zoom_speed_ = 0; }
+    void end_pan() { pan_on_ = pan_landing_ = pan_overview_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; pan_zoom_speed_ = 0; }
     float duration_, turn_;
     EdgePan pan_{};
-    bool pan_on_ = false, pan_landing_ = false;
+    bool pan_on_ = false, pan_landing_ = false, pan_overview_ = false;
     float pan_peek_ = 0, pan_cross_ = 0, pan_turn_ = 0, pan_zoom_ = 1, pan_zoom_speed_ = 0;  // speed: per ms, falling positive
-    double pan_ms_ = 0, pan_seen_ms_ = 0;
+    double pan_ms_ = 0, pan_seen_ms_ = 0, pan_land_ms_ = 0;
     struct Landing {
         bool active = false;
         double start_ms = 0;

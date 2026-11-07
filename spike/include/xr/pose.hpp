@@ -14,6 +14,7 @@ Quat quat_conj(Quat q);
 std::optional<Quat> quat_normalized(Quat q);  // nullopt if non-finite or near zero length
 using Mat3 = std::array<float, 9>;            // row-major
 Mat3 quat_to_mat3(Quat q);
+Quat mat3_to_quat(const Mat3& m);             // quat_to_mat3's inverse, for a rotation matrix (identity if degenerate)
 // Driver frame (x forward, y left, z up) to GL eye frame (x right, y up, z backward).
 Mat3 driver_to_gl(const Mat3& driver);
 Mat3 transpose(const Mat3& m);

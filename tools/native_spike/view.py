@@ -1978,19 +1978,22 @@ class ViewControl:
             except (OSError, ValueError, TypeError): pass
         t = threading.Thread(target=work, daemon=True); t.start(); self._threads.append(t)
 
-    def select_desktop(self, desktop):
+    def select_desktop(self, desktop, panned=False):
         """A circle-cursor (free pointer) click on `desktop` in the overview: select it, and stay in the overview, anchored
         (anchor-no-click-maximize, 2026-11-03: a click never maximizes; Ctrl+Alt+Up and the panel's Maximize do). The
         highlight moves there, as Ctrl+Alt+Left / Right move it. The free pointer then brings the real cursor back onto
         that desktop under the dot, and that warp gives its monitor Hyprland's focus (focus-follows-mouse; no focus thread
         here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel goes to that desktop
         (follow_focus; free_pointer: Clicks, a press on a desktop does not collapse it). Frames (bytes): a view frame and
-        the panel's if it moved, b'' when stale (zoomed in, typing mode, a VR video, no such desktop) or nothing changed."""
+        the panel's if it moved, b'' when stale (zoomed in, typing mode, a VR video, no such desktop) or nothing changed.
+        `panned`: the free dot's push past an edge got there by hand (unified_cursor.py: Overview push, edge_pan.py): the view
+        frame carries `pan`, and the renderer lands the pan, the room turning on until the desktop is centred."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
         if desktop == self.state.selected: return self.follow_focus()  # Tab may have taken the panel elsewhere
         self.state.selected = desktop
-        return self._frame() + self.follow_focus()
+        if panned: self.last_input = self.clock()
+        return self._frame(**({'pan': True} if panned else {})) + self.follow_focus()
 
     def switch_desktop(self, desktop, panned=False):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the

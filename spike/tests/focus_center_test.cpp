@@ -137,8 +137,33 @@ void edge_pan_tests() {
     std::cout << "edge pan aim passed\n";
 }
 
+// The overview's edge pan (overview-edge-pan, wayland.cpp overview_pan_turn) turns the room: world points rotate by -turn about
+// the path's axis, so the view turns toward the target; its landing slerps to look_turn_from at 1 through mat3_to_quat.
+void overview_pan_turn_tests() {
+    for (const Quat q : {Quat{}, axis_angle(0, 1, 0, 30), axis_angle(0.6f, 0.8f, 0, -150), axis_angle(0, 0, 1, 179), axis_angle(1, 0, 0, 90)}) {
+        const Mat3 a = quat_to_mat3(q), b = quat_to_mat3(mat3_to_quat(a));
+        for (int i = 0; i < 9; ++i) CHECK(std::fabs(a[i] - b[i]) < 1e-5f);
+    }
+    {  // E straight ahead, P 20 degrees right: the axis E x P is -y; world rotated by -turn brings P toward the centre.
+        const std::array<float, 3> e{0, 0, -1}, p{std::sin(rad(20)), 0, -std::cos(rad(20))};
+        const std::array<float, 3> axis{0, -1, 0};
+        const float turn = rad(20), s = std::sin(-turn / 2);
+        const Mat3 m = quat_to_mat3(Quat{axis[0] * s, axis[1] * s, axis[2] * s, std::cos(-turn / 2)});
+        const auto moved = apply(m, p);
+        CHECK(std::fabs(moved[0] - e[0]) < 1e-5f && std::fabs(moved[2] - e[2]) < 1e-5f);  // the target is where E was
+    }
+    {  // The landing's end is look_turn_from at 1 exactly: the turn land_turns hands to the room.
+        const auto overview = overview_layout(kSizes, 1920, 1200, 40);
+        const Mat3 fin = look_turn_from(kCanvas, overview, kPlaced, {rad(-5), rad(2)}, 0, 1.f);
+        const Mat3 back = quat_to_mat3(mat3_to_quat(fin));
+        for (int i = 0; i < 9; ++i) CHECK(std::fabs(fin[i] - back[i]) < 1e-5f);
+    }
+    std::cout << "overview pan turn passed\n";
+}
+
 int main() {
     edge_pan_tests();
+    overview_pan_turn_tests();
     const auto overview = overview_layout(kSizes, 1920, 1200, 40);
     // focus_direction is the slot's direction plus the orbit; the middle slot is straight ahead.
     {

@@ -689,6 +689,11 @@ bounce: the clips in `~/.hermes/profiles/coder/previews/switch-anim/seamless.htm
 | P18 | Resize one desktop small and the next one big, and the other way round. Push between them | The small one grows straight to full, the big one comes straight down to full. No dip on the way. |
 | P19 | During a landing, press Ctrl+Alt+Down | The new desktop zooms out from where it is, and the one you left finishes coming down with no jump. |
 | P20 | Put two desktops apart at very different heights, push between them with your head still, then again turning your head | The view goes straight from one to the other. On a big diagonal it leans a few degrees half way (about 8° on an 80° turn with 55° of height in it) and comes back level. Say if that shows. Follow lands in front of you, locked on the view. |
+| P21 | In the overview, on XR-1, push the mouse just past its right edge and stop | The dot sits on the right edge's resize handle; a press and drag there resizes XR-1. Nothing turns. |
+| P22 | Push on to the right | The dot stays at the edge (it does not drift onto XR-2), then the room turns right with your hand and the dot rides across the gap. The pills hide while it turns. |
+| P23 | Part way across, pull back; then push again and stop still for a second | Pulling back turns the room back with the dot back at the edge; resting turns it back too. XR-1 stays selected. |
+| P24 | Push all the way | XR-2 is highlighted, the mouse comes in at the height it left, and the room settles with XR-2 in the middle of the view and stays there; turning your head shows the room still fixed, turned. |
+| P25 | Push down from a desktop with another placed below it, and from one with none below | Over the pill on the way the dot stops counting (the pill lights and can be dragged); with nothing below, the dot just goes free as before. |
 
 Say how much mouse travel feels right: a row neighbour takes about a fifth of a desktop's width of mouse past the edge, and a
 desktop far round you several desktop widths, as the view turns at the mouse's speed.

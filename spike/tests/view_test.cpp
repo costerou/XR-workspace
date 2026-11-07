@@ -355,10 +355,13 @@ void edge_pan_tests() {
         v.advance(1700);
         CHECK(v.zoom() == 0);
     }
-    {  // Frames that do not fit are ignored: the overview, another desktop, mid switch; an unchanged view frame changes nothing.
+    {  // Frames that do not fit are ignored: another desktop, mid switch; an unchanged view frame changes nothing. (The overview
+       // takes them now, as its own pan: overview_pan_tests.)
         ViewAnimator o; o.set_target(false, 0, 40, 0); o.advance(500);
-        o.set_pan(pan_frame(1), 500);
+        o.set_pan(pan_frame(1, 0, 0, 0.2f, 1, 2), 500);  // not from the desktop it is on
         CHECK(!o.pan_active());
+        o.set_pan(pan_frame(1), 500);
+        CHECK(o.pan_active() && o.pan_overview());
         auto v = maximized_on(0);
         v.set_pan(pan_frame(1, 0, 0, 0.2f, 1, 2), 1000);
         CHECK(!v.pan_active());
@@ -515,9 +518,111 @@ void curve_tests() {
     std::cout << "pan curves passed\n";
 }
 
+// The overview's edge pan (overview-edge-pan, 2026-11-07; tools/native_spike/edge_pan.py: Overview).
+namespace {
+ViewAnimator overview_on(std::uint32_t desktop) {
+    ViewAnimator v; v.set_target(false, desktop, 40, 0); v.advance(1000);
+    CHECK(v.zoom() == 0 && !v.animating() && v.focus() == desktop);
+    return v;
+}
+}
+void overview_pan_tests() {
+    {  // Taken at rest in the overview: nothing zooms, the hand's turn is drawn, the pills and dot hide (switching).
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(0.5f, 0, 0.2f, 0.7f), 1000);  // whatever zoom it says: the overview's is 0
+        CHECK(v.pan_active() && v.pan_overview() && v.switching() && v.pan().zoom == 0);
+        CHECK(!v.pan_layers() && v.highlight_alpha() == 1);  // the room as placed, and the border where it was
+        for (double t = 1000; t < 1300; t += 8) { v.advance(t); CHECK(v.zoom() == 0 && v.focus() == 0); }
+        CHECK(near(v.pan_turn(), 0.2f, 1e-3f));
+    }
+    {  // A new pan has a centred serial of its own (the room turns from the centre of the view as it is).
+        auto v = overview_on(0);
+        const auto s = v.serial();
+        v.set_pan(pan_frame(0.2f, 0, 0.05f), 1000);
+        CHECK(v.serial() == s + 1 && v.turn_centred());
+        v.set_pan(pan_frame(0.4f, 0, 0.1f), 1010);  // the same pan goes on: no new serial
+        CHECK(v.serial() == s + 1);
+    }
+    {  // Pulled back: it eases out and ends, the selection never moved, nothing landed.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 0.5f, 0.3f), 1000);
+        for (double t = 1000; t < 1200; t += 8) v.advance(t);
+        v.set_pan(EdgePan{}, 1200);
+        for (double t = 1200; t < 1600; t += 8) v.advance(t);
+        CHECK(!v.pan_active() && !v.switching() && v.focus() == 0 && v.take_landed_turns().empty());
+    }
+    {  // An unchanged overview view frame (same desktop) keeps it going; another desktop, a cut or a maximize ends it.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 0, 0.3f), 1000);
+        v.set_target(false, 0, 40, 1050);
+        CHECK(v.pan_active());
+        v.set_target(false, 2, 40, 1060);
+        CHECK(!v.pan_active() && v.focus() == 2 && v.take_landed_turns().empty());
+        auto m = overview_on(0);
+        m.set_pan(pan_frame(1, 0, 0.3f), 1000);
+        m.set_target(true, 0, 40, 1050);
+        CHECK(!m.pan_active());
+    }
+    {  // The hand got there: `pan` on the target lands it. The highlight is there at once; pan_land eases 0 -> 1 over turn_ms
+       // (300), then one centred turn lands with the pan's serial, in the same advance the pan ends.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 1, 0.4f), 1000);
+        for (double t = 1000; t < 1200; t += 8) v.advance(t);
+        const auto s = v.serial();
+        v.set_target(false, 1, 40, 1200, false, false, true);
+        CHECK(v.pan_landing() && v.focus() == 1 && v.highlight_alpha() == 1 && !v.pan_layers());  // the maximized landing's border fade is not the overview's
+        CHECK(v.pan_landing() && v.pan_overview() && v.focus() == 1 && v.selected() == 1 && v.zoom() == 0);
+        float last = 0;
+        double ended = 0;
+        for (double t = 1204; t < 1700 && !ended; t += 4) {
+            v.advance(t);
+            if (!v.pan_active()) { ended = t; break; }
+            CHECK(v.pan_land() >= last); last = v.pan_land();
+        }
+        CHECK(ended && ended - 1200 >= 296 && ended - 1200 <= 304);
+        const auto landed = v.take_landed_turns();
+        CHECK(landed.size() == 1 && landed[0].centred && landed[0].serial == s && landed[0].from == 0 && landed[0].to == 1);
+        CHECK(!v.switching() && v.focus() == 1 && v.zoom() == 0);
+        v.set_pan(EdgePan{}, 1800);  // the supervisor's late end of pan is nothing now
+        CHECK(!v.pan_active());
+    }
+    {  // During the landing frames are ignored and a same view frame keeps it; maximizing cuts it short and the room still
+       // gets the whole turn.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 1, 0.4f), 1000);
+        v.set_target(false, 1, 40, 1100, false, false, true);
+        v.set_pan(pan_frame(0.1f), 1150);
+        v.set_target(false, 1, 40, 1160);
+        CHECK(v.pan_landing());
+        v.set_target(true, 1, 40, 1200);
+        CHECK(!v.pan_active());
+        const auto landed = v.take_landed_turns();
+        CHECK(landed.size() == 1 && landed[0].centred && landed[0].to == 1);
+    }
+    {  // `pan` for a desktop that is not the pan's target is a plain selection that ends it unlanded.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 1, 0.4f), 1000);
+        v.set_target(false, 2, 40, 1100, false, false, true);
+        CHECK(!v.pan_active() && v.focus() == 2 && v.take_landed_turns().empty());
+    }
+    {  // Stale: no frame for kPanStaleMs and it goes back.
+        auto v = overview_on(0);
+        v.set_pan(pan_frame(1, 0, 0.2f), 1000);
+        for (double t = 1000; t < 1000 + double(kPanStaleMs) + 600; t += 16) v.advance(t);
+        CHECK(!v.pan_active());
+    }
+    {  // The maximized pan is untouched by all of it: not the overview's.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1), 1000);
+        CHECK(v.pan_active() && !v.pan_overview() && v.pan_land() == 0);
+    }
+    std::cout << "overview pan passed\n";
+}
+
 int main() {
     edge_pan_tests();
     curve_tests();
+    overview_pan_tests();
     tile_ease_tests();
     every_desktop_tests();
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};

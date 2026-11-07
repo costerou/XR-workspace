@@ -561,5 +561,167 @@ class SamplerTests(unittest.TestCase):
         self.assertEqual(self.control.state.selected, 0)
 
 
+# --- the overview push (overview-edge-pan, 2026-11-07; edge_pan.py: Overview, unified_cursor.py: Overview push) -------------
+from test_unified_cursor import UnifiedBase  # noqa: E402  (after the maximized tests, which do not need it)
+
+
+class OverviewPlanTests(unittest.TestCase):
+    def test_nothing_zooms_and_the_rate_is_the_desktops_own_as_placed(self):
+        p = flat()
+        pl = ep.plan(G, p, 0, 1, 'right', 0.5, SIZE, overview=True)
+        self.assertEqual(pl.zoom, 0.0)
+        e0, e1 = ep.point(G, G['tiles'][0], p[0], 'left', 0.5), ep.point(G, G['tiles'][0], p[0], 'right', 0.5)
+        self.assertAlmostEqual(pl.rate * 1920, ep._angle(e0, e1))  # across home in the overview, its own angle
+        self.assertLess(pl.rate, ep.rate(G, G['tiles'][0], 'right', SIZE))  # smaller than it is maximized
+        self.assertEqual(pl.frame(100)['zoom'], 0)
+        for px in (5, pl.total_px / 2, pl.total_px):  # the view turns 1:1 every px of the way, as maximized
+            self.assertAlmostEqual(pl.frame(px)['turn'] / 10000 * math.pi, px * pl.rate, places=3)
+
+    def test_the_same_peek_and_crossing_from_the_same_points(self):
+        p = flat()
+        o, m = ep.plan(G, p, 0, 1, 'right', 0.3, SIZE, overview=True), plan(p, along=0.3)
+        self.assertEqual((o.exit, o.entry, o.side, o.target), (m.exit, m.entry, m.side, m.target))
+        centres = ep._angle(nb.frame(G, G['tiles'][0], p[0])[0], nb.frame(G, G['tiles'][1], p[1])[0])
+        self.assertAlmostEqual(o.total_px * o.rate, max(centres * ep.MEET_SHARE, o.gap_px * o.rate + ep.PEEK_PX * o.rate), places=4)
+        self.assertGreater(o.gap_px, 0)  # the overview's row has a gap: a crossing after the peek
+
+    def test_select_with_pan_is_the_landing_frame(self):
+        control = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda name: None, None, None)
+        self.addCleanup(control.join_focus, 2); self.addCleanup(control.stop_menu_binds)
+        self.assertIs(last(frames(control.select_desktop(1, panned=True)), 'view')['pan'], True)
+        self.assertNotIn('pan', last(frames(control.select_desktop(2)), 'view'))  # a click is never one
+
+
+class OverviewPushTests(UnifiedBase):
+    def exit_right(self, y=540):
+        self.at(X1 + 1000, y); self.at(X1 + 1919, y)
+        self.assertEqual(self.p.mode, 'free')
+
+    def push(self, px, step=4, dy=0, ops=None):
+        out = []
+        for _ in range(int(abs(px / step))): out += self.move(step, dy, ops=ops)
+        return out
+
+    def land(self):
+        """Push on until the pan lands, and no further (the fake sampler never applies the warp to the target)."""
+        out = []
+        for _ in range(2000):
+            if self.p.span is None: break
+            out += self.move(8, 0)
+        return out
+
+    def pans(self, out):
+        return [f['payload'] for f in out if f['op'] == 'edge_pan']
+
+    def test_leaving_toward_a_desktop_arms_it_and_the_dot_is_on_the_handle(self):
+        self.exit_right()
+        self.assertIsNotNone(self.p.arm)
+        self.assertEqual((self.p.arm['plan'].target, self.p.arm['plan'].side), (1, 'right'))
+        self.assertEqual(self.p.hover, ('edge', 0, 'r'))  # the resize handle, as ever: a press there resizes
+
+    def test_a_short_push_shows_nothing_and_never_enters_the_neighbour(self):
+        self.exit_right()
+        out = self.push(ep.START_PX - 4)
+        self.assertEqual(self.pans(out), [])
+        self.assertIsNone(self.p.span)
+        self.assertEqual((self.p.mode, self.control.state.selected), ('free', 0))
+        h = self.p.hover
+        self.assertTrue(h is None or h[1] == 0, h)  # never XR-2's content or handles
+
+    def test_the_push_pans_from_the_overview(self):
+        self.exit_right()
+        out = self.push(ep.START_PX + 40)
+        pans = self.pans(out)
+        self.assertTrue(pans)
+        self.assertEqual((pans[-1]['from'], pans[-1]['to'], pans[-1]['side'], pans[-1]['zoom']), (0, 1, 'right', 0))
+        self.assertGreater(pans[-1]['turn'], 0)
+        self.assertIsNotNone(self.p.span)
+        self.assertEqual(self.control.state.selected, 0)  # nothing selected until the hand gets there
+
+    def test_reaching_the_target_selects_it_with_pan_and_the_cursor_comes_in_at_the_entry_point(self):
+        self.exit_right(324)
+        self.push(ep.START_PX + 8)
+        total = self.p.span['plan'].total_px
+        entry = self.p.span['plan'].entry
+        out = self.land()
+        v = last(out, 'view')
+        self.assertEqual((v['selected'], v['zoomed'], v['pan']), (1, False, True))
+        self.assertIsNone(self.p.span)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
+        self.assertEqual(self.p.want[1], 'desktop')
+        x, y = self.p.want[2]
+        self.assertLessEqual(abs(x - (X2 + uc.ENTRY_PX)), 2)
+        self.assertLessEqual(abs(y - entry * 1079), 3)
+        self.assertEqual(self.p.overview_pans, 1)
+
+    def test_pulling_back_undoes_it_with_the_dot_where_it_was_and_still_armed(self):
+        self.exit_right()
+        self.push(ep.START_PX)
+        dot = self.p.pointer
+        self.push(60)
+        self.assertIsNotNone(self.p.span)
+        out = self.push(60, step=-4)  # exactly back to where it started
+        self.assertEqual(self.pans(out)[-1], {'active': False})
+        self.assertIsNone(self.p.span)
+        self.assertEqual((self.p.mode, self.p.pointer, self.control.state.selected), ('free', dot, 0))
+        self.assertIsNotNone(self.p.arm)
+        self.assertTrue(self.pans(self.push(16)))  # pushing again pans again straight away
+
+    def test_a_rest_ends_it(self):
+        self.exit_right()
+        self.push(ep.START_PX + 40)
+        self.clock.now += ep.REST_S + 0.05
+        out = frames(self.control.poll())
+        self.assertEqual(self.pans(out)[-1], {'active': False})
+        self.assertIsNone(self.p.span)
+        self.assertEqual(self.control.state.selected, 0)
+
+    def test_a_press_mid_pan_only_ends_it(self):
+        self.exit_right()
+        self.push(ep.START_PX + 40)
+        out = self.op('resize_press')
+        self.assertEqual(self.pans(out)[-1], {'active': False})
+        self.assertIsNone(self.p.span)
+        self.assertIsNone(self.p.drag)
+        self.assertEqual(self.control.state.placements[0], DEFAULT_PLACEMENT)
+
+    def test_moving_off_along_the_edge_is_just_the_free_dot(self):
+        self.exit_right()
+        self.push(8)
+        self.move(0, uc.OVERVIEW_LATERAL_PX + 4)
+        self.assertIsNone(self.p.arm)
+        self.assertEqual(self.pans(self.push(ep.START_PX + 40)), [])
+
+    def test_nothing_that_way_and_corners_never_arm(self):
+        self.at(X1 + 960, 300); self.at(X1 + 960, 0)  # up: nothing above the row
+        self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.arm)
+        self.setUp()
+        self.at(X1 + 1800, 1000); self.at(X1 + 1919, 1079)  # the bottom-right corner: its cap
+        self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.arm)
+
+    def test_a_pill_on_the_way_holds_the_count_so_it_can_still_be_reached(self):
+        self.control.state.placements = [at_direction(0, A[1], 0), at_direction(1, A[1], -30), at_direction(2, 150, 0)]
+        x, _, w, _ = fp.pill_rect(G['tiles'][0])
+        lx = round(((x + w / 2) - G['tiles'][0][0]) / G['tiles'][0][2] * 1919)
+        self.at(X1 + lx, 900); self.at(X1 + lx, 1079)
+        self.assertEqual(self.p.arm['plan'].target, 1)
+        for _ in range(40):
+            self.move(0, 2)
+            if self.p.hover == ('pill', 0): break
+        self.assertEqual(self.p.hover, ('pill', 0))
+        travel = self.p.arm['travel']
+        self.move(0, 1)
+        if self.p.hover == ('pill', 0): self.assertEqual(self.p.arm['travel'], travel)
+
+    def test_no_push_arms_just_after_a_landing(self):
+        self.exit_right(324)
+        self.push(ep.START_PX + 8)
+        self.land()
+        self.p._arm_push(1, OUTPUTS[1], 1919, 540, self.clock.now)
+        self.assertIsNone(self.p.arm)
+        self.p._arm_push(1, OUTPUTS[1], 1919, 540, self.clock.now + uc.OVERVIEW_LAND_S + 0.01)
+        self.assertIsNotNone(self.p.arm)
+
+
 if __name__ == '__main__':
     unittest.main()

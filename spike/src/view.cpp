@@ -585,7 +585,16 @@ std::optional<EdgePanPath> edge_pan_path(const Canvas& c, std::span<const Size> 
     const auto to = unit(place_point(c, overview[pan.to], placed[pan.to], p[0], p[1]));
     if (!from || !to) return std::nullopt;
     const Vec3 normal = cross3(*from, *to);
-    return EdgePanPath{*from, *to, std::atan2(std::sqrt(dot3(normal, normal)), dot3(*from, *to))};
+    const float angle = std::atan2(std::sqrt(dot3(normal, normal)), dot3(*from, *to));
+    // Under kPanAxisMinRad the two points are too close to give a direction: the axis from the opposite edge of home instead.
+    auto axis = angle >= kPanAxisMinRad ? unit(normal) : std::nullopt;
+    if (!axis && angle < kPanAxisMinRad) {
+        const auto b = edge_point(overview[pan.from], opposite, pan.exit);
+        const auto back = unit(place_point(c, overview[pan.from], placed[pan.from], b[0], b[1]));
+        if (back) axis = unit(cross3(*back, *to));
+    }
+    if (!axis) return std::nullopt;
+    return EdgePanPath{*from, *to, *axis, angle};
 }
 
 Vec3 edge_pan_dot(const EdgePanPath& path, const Vec3& start, float cross) {
@@ -611,11 +620,24 @@ void ViewAnimator::set_pan(const EdgePan& p, double now_ms) {
     if (pan_landing_) return;
     if (!p.active) { pan_.active = false; pan_.peek = pan_.cross = pan_.turn = 0; return; }  // back to the desktop, eased
     const bool same = pan_on_ && pan_.from == p.from && pan_.to == p.to && pan_.side == p.side;
-    if (!same && (switch_.active || to_zoom_ != 1.f || t_ < 1.f || p.from != shown_ || p.to == p.from || p.to > kMaxIndex)) return;
+    // At rest on p.from, maximized or in the overview (to_zoom_ is only ever 1 or 0).
+    if (!same && (switch_.active || land_.active || t_ < 1.f || p.from != shown_ || p.to == p.from || p.to > kMaxIndex)) return;
+    if (!same) {
+        pan_overview_ = to_zoom_ == 0.f;
+        // The overview's pan turns the room from the centre of the view as it is now, as a centred switch does
+        // (wayland.cpp capture_centre): a serial of its own, so its landing can hand the turn over (land_turn).
+        if (pan_overview_) { ++serial_; turn_centred_ = true; }
+    }
     pan_ = p;
     pan_.peek = clampf(p.peek, 0, 1); pan_.cross = clampf(p.cross, 0, 1); pan_.zoom = clampf(p.zoom, 0, 1);
     pan_.way = clampf(p.way, 0, 2 * float(M_PI)); pan_.turn = clampf(p.turn, 0, pan_.way);
+    if (pan_overview_) pan_.zoom = 0;
     pan_on_ = true; pan_seen_ms_ = now_ms;
+}
+
+float ViewAnimator::pan_land() const {
+    if (!pan_landing_ || !pan_overview_) return 0;
+    return turn_ > 0 ? smootherstep(clampf(float((pan_ms_ - pan_land_ms_) / turn_), 0, 1)) : 1.f;
 }
 
 void ViewAnimator::land_pan(std::uint32_t to, double now_ms) {
@@ -654,11 +676,17 @@ void ViewAnimator::step_pan(double now_ms) {
     const double dt = std::max(now_ms - pan_ms_, 0.0);
     pan_ms_ = now_ms;
     if (land_.active) step_landing(now_ms);
-    if (!pan_on_ || pan_landing_) return;
+    if (!pan_on_ || (pan_landing_ && !pan_overview_)) return;
     if (!pan_landing_ && pan_.active && now_ms - pan_seen_ms_ > double(kPanStaleMs)) { pan_.active = false; pan_.peek = pan_.cross = pan_.turn = 0; }
     const float k = std::exp(-float(dt) / kPanEaseMs);
     auto ease = [&](float v, float to) { const float e = to + (v - to) * k; return std::fabs(e - to) < kPanEaseRest ? to : e; };
     pan_peek_ = ease(pan_peek_, pan_.peek); pan_cross_ = ease(pan_cross_, pan_.cross); pan_turn_ = ease(pan_turn_, pan_.turn);
+    if (pan_overview_) {  // nothing zooms; landed, the room takes the turn in this same frame (land_turns)
+        pan_zoom_ = 1;
+        if (pan_landing_ && pan_land() >= 1.f) { land_turn(pan_.from, pan_.to, true); end_pan(); }
+        else if (!pan_landing_ && !pan_.active && pan_peek_ == 0 && pan_cross_ == 0 && pan_turn_ == 0) end_pan();
+        return;
+    }
     const float want = lerp(1.f, pan_.zoom, smoothstep(pan_peek_));
     const float step = duration_ > 0 ? float(dt) / duration_ : 1.f;
     const float moved = clampf(want - pan_zoom_, -step, step);
@@ -676,11 +704,24 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
     }
     const float z = zoom();
     if (pan && !pan_on_) { pan = false; cut = true; }  // the frames of the pan never came: nothing to land from
+    if (pan_on_ && pan_overview_) {  // the overview's pan: only its own landing, a maximize, a cut or another desktop end it
+        if (pan && !zoomed && !pan_landing_ && selected == pan_.to && selected != shown_) {  // the hand reached it
+            pan_.active = false;  // cross and turn stay as the last frame left them; pan_land() eases on from there
+            pan_landing_ = true; pan_land_ms_ = now_ms;
+            shown_ = to_selected_ = selected;  // the highlight is there at once
+            return;
+        }
+        if (zoomed || cut || selected != to_selected_) {
+            if (pan_landing_) land_turn(pan_.from, pan_.to, true);  // cut short: the room takes the whole turn now
+            end_pan();
+        }
+        pan = false;  // nothing of the maximized pan's below
+    }
     if (pan && zoomed && !pan_landing_ && !switch_.active && selected != shown_) {  // the hand reached it: on from there
         land_pan(selected, now_ms);
         return;
     }
-    if (pan_on_ && (cut || !zoomed || selected != to_selected_)) {  // over: from_zoom_ takes up what the pan had drawn
+    if (pan_on_ && !pan_overview_ && (cut || !zoomed || selected != to_selected_)) {  // over: from_zoom_ takes up what the pan had drawn
         end_pan();
         from_zoom_ = to_zoom_ = z; t_ = 1.f;
         if (zoomed) land_.active = false;  // a cut leaves nothing of it; un-maximizing, the desktop on its way out carries on
@@ -753,14 +794,14 @@ void ViewAnimator::advance(double now_ms) {
 float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)) * pan_zoom_; }
 float ViewAnimator::look() const { return switch_.active ? switch_.look_now : from_look_ * (1 - smoothstep(look_t_)); }
 std::optional<PanLayers> ViewAnimator::pan_layers() const {
-    if (!pan_on_ && !land_.active) return std::nullopt;
+    if ((!pan_on_ && !land_.active) || pan_overview()) return std::nullopt;  // the overview's pan draws the room as placed
     if (!land_.active) return PanLayers{pan_.from, pan_.to, 0, 0};  // the hand: the desktop on top of the target, as maximized
     const bool over = land_.left_now > land_.until + 1e-4f;
     return PanLayers{over ? land_.left : shown_, over ? shown_ : land_.left, land_.left, land_.border * (1 - land_.border_now)};
 }
 float ViewAnimator::highlight_alpha() const {
     const float own = 1 - zoom();
-    return pan_landing_ ? land_.border * land_.border_now * own : own;
+    return pan_landing_ && !pan_overview_ ? land_.border * land_.border_now * own : own;
 }
 float ViewAnimator::turn() const { return switch_.active ? switch_.turn_now : from_turn_ * (1 - smoothstep(look_t_)); }
 void ViewAnimator::land_turn(std::uint32_t from, std::uint32_t to, bool centred) {
