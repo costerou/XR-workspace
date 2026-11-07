@@ -282,6 +282,7 @@ def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
         if op.startswith('send_'): notify_no_session()  # nothing moves
         if op == 'privacy_display': _eval_stale(os.environ, WAKE_ALL_DISPLAYS)  # never leave the main display dark
         if op in (KEY_OP, 'binds_toggle'): _eval_stale(os.environ, LEAVE_KEY_PANEL)  # give the keyboard back
+        if op == KEY_OP: drop_stale_menu_binds()  # the options menu's keys (view.OPTIONS_BINDS); harmless if none are left
         return 1
     return 0
 

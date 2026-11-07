@@ -721,7 +721,7 @@ class UnifiedPointer(fp.OverviewPointer):
         out = b''
         if op == 'resize_press':
             self.click = {'start': self.pointer, 'at': now, 'moved': False} if live and not idle else None
-            if live and self.control.state.menu_open:
+            if live and (self.control.state.menu_open or self.control.options.keyboard_owned is True):
                 self.desktop_presses += 1
                 out += self.control.desktop_press()
         else:

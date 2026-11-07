@@ -3,6 +3,13 @@
 #include <algorithm>
 namespace xr {
 constexpr float kOptionsTrackX0=300, kOptionsTrackX1=450;
+// The header's controls (x ranges) and the tab cells: render_options_panel draws them, options_header_at / options_tab_at are their
+// hit regions, and tools/native_spike/options_geometry.py mirrors both (spike/tests/options_geometry_test.cpp dumps them, tests compare).
+constexpr float kOptionsScopeX0=346, kOptionsNextX0=440, kOptionsCloseX0=530, kOptionsCloseX1=594, kOptionsTabsX=16, kOptionsTabW=136, kOptionsTabPitch=142;
+constexpr int kOptionsTabsPerPage=4;
+enum class OptionsHeader{none,scope,next,close};
+constexpr OptionsHeader options_header_at(float x,float y){if(y<0||y>=44)return OptionsHeader::none;return x>=kOptionsScopeX0&&x<kOptionsNextX0?OptionsHeader::scope:x>=kOptionsNextX0&&x<kOptionsCloseX0?OptionsHeader::next:x>=kOptionsCloseX0&&x<kOptionsCloseX1?OptionsHeader::close:OptionsHeader::none;}
+constexpr int options_tab_at(float x,float y,int category,int count){if(y<44||y>=80||x<kOptionsTabsX)return -1;const int cell=int((x-kOptionsTabsX)/kOptionsTabPitch);const int index=category/kOptionsTabsPerPage*kOptionsTabsPerPage+cell;return cell<kOptionsTabsPerPage&&x-kOptionsTabsX-float(cell)*kOptionsTabPitch<kOptionsTabW&&index<count?index:-1;}
 constexpr float kOptionsW=600, kOptionsH=440, kOptionsHeaderH=44, kOptionsTabsTop=44, kOptionsTabsH=36, kOptionsBodyTop=88, kOptionsBodyBottom=392, kOptionsRowH=38, kOptionsPad=16, kOptionsFooterTop=400;
 inline FRect options_panel(const FRect& tile){auto p=glass_pill(tile);return {tile.x+(tile.width-kOptionsW)/2,p.y,kOptionsW,kOptionsH};}
 inline FRect options_gear(const FRect& tile){auto p=glass_pill(tile);return {p.x+p.width+12,p.y,28,14};}

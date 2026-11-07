@@ -56,6 +56,7 @@ def test_native_keybind_child_capture_escape_and_keyboard_reacquisition(tmp_path
         c.keys.stop(); c.keys.stopped=False
         assert c.keys_open
         assert not c.options.keyboard_owned
+        for t in list(c._menu_threads): t.join(2)
         assert subscriptions[-1] is False
         c.on_message(dict(op='binds_key',payload=dict(mods=0,code=36)))
         assert c.keys.capturing
@@ -66,6 +67,7 @@ def test_native_keybind_child_capture_escape_and_keyboard_reacquisition(tmp_path
         c.poll()
         assert c.options.snapshot()['open']
         assert c.options.keyboard_owned
+        for t in list(c._menu_threads): t.join(2)
         assert subscriptions[-1] is True
         c.on_message(dict(op='binds_key',payload=dict(mods=0,code=9)))
         assert not c.options.snapshot()['open']

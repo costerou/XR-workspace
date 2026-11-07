@@ -321,8 +321,8 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
     for(int state=0;state<4;++state) {
       float x=2+state*84,y=float(kAtlasOldH)+2;
       md_fill_rounded(im,x,y,x+78,y+78,14,state>=2?m.secondary_container:m.surface_container_high,1);
-      if(state%2)md_stroke_rounded(im,x+27,y+17,x+61,y+51,2,4,m.primary,1);
-      md_stroke_rounded(im,x+18,y+26,x+52,y+60,2,4,m.primary,1);
+      if(state%2){md_stroke_rounded(im,x+27,y+17,x+61,y+51,2,4,m.primary,1);md_stroke_rounded(im,x+18,y+26,x+52,y+60,2,4,m.primary,1);}  // Restore: two windows, together centred
+      else md_stroke_rounded(im,x+22,y+22,x+56,y+56,2,4,m.primary,1);  // Maximize: one window, centred in the 78 px cell
     }
     for(int state=0;state<2;++state){float x=2+state*260,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,12,m.surface_container_high,1);text(im,font,state?"Restore":"Maximize",40,true,x+12,y+30,m.on_surface);}
     const float gx=360,gy=float(kAtlasOldH)+2;
@@ -523,16 +523,16 @@ HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font)
  const auto& m=glass_theme_scheme({.45f,.65f,.8f});
  HudImage im{600,440,std::vector<std::uint8_t>(600*440*4,0)};
  md_fill_rounded(im,0,0,600,440,18,m.surface_container_high,1);
- if(state.focus==-4)md_fill_rounded(im,346,4,440,40,6,m.secondary_container,1);
- if(state.focus==-2)md_fill_rounded(im,440,4,530,40,6,m.secondary_container,1);
- if(state.focus==-1)md_fill_rounded(im,530,4,594,40,6,m.secondary_container,1);
+ if(state.focus==-4)md_fill_rounded(im,kOptionsScopeX0,4,kOptionsNextX0,40,6,m.secondary_container,1);
+ if(state.focus==-2)md_fill_rounded(im,kOptionsNextX0,4,kOptionsCloseX0,40,6,m.secondary_container,1);
+ if(state.focus==-1)md_fill_rounded(im,kOptionsCloseX0,4,kOptionsCloseX1,40,6,m.secondary_container,1);
  text(im,font,state.scope=="monitor"?state.monitor:"Workspace / All monitors",18,true,16,22,m.on_surface);
  text(im,font,"Close",16,false,530,22,m.on_surface_variant);
  text(im,font,state.scope=="monitor"?"Workspace >":"< Monitor",14,false,350,22,m.on_surface_variant);
  const std::vector<std::string> tabs={"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"};
  text(im,font,"Next >",14,false,446,22,m.on_surface_variant);
- auto at=std::find(tabs.begin(),tabs.end(),state.category);std::size_t start=at==tabs.end()?0:(std::size_t(at-tabs.begin())/4)*4;
- for(std::size_t i=start;i<std::min(start+4,tabs.size());++i){float x=16+float(i-start)*142;if(tabs[i]==state.category){md_fill_rounded(im,x,44,x+136,80,8,m.secondary_container,1);if(state.focus==-3)md_stroke_rounded(im,x,44,x+136,80,8,2,m.primary,1);}text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
+ auto at=std::find(tabs.begin(),tabs.end(),state.category);std::size_t start=at==tabs.end()?0:(std::size_t(at-tabs.begin())/kOptionsTabsPerPage)*kOptionsTabsPerPage;
+ for(std::size_t i=start;i<std::min<std::size_t>(start+kOptionsTabsPerPage,tabs.size());++i){float x=kOptionsTabsX+float(i-start)*kOptionsTabPitch;if(tabs[i]==state.category){md_fill_rounded(im,x,44,x+kOptionsTabW,80,8,m.secondary_container,1);if(state.focus==-3)md_stroke_rounded(im,x,44,x+kOptionsTabW,80,8,2,m.primary,1);}text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
 
 
  HudImage body{600,304,std::vector<std::uint8_t>(600*304*4,0)};
@@ -549,7 +549,8 @@ HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font)
   if(r.kind=="toggle")md_stroke_rounded(body,302,y+9,336,y+29,10,2,m.primary,r.enabled?1:.38f);
   if(r.kind=="choice")md_icon(body,MdIcon::arrow_drop_down,570,y+19,16,m.primary);
   auto v=r.value+(r.unit.empty()?"":" "+r.unit);
-  text(body,font,v,16,false, std::max(310.f,584.f-float(text_width(font,v,16,false))),y+19,m.on_surface_variant,r.enabled?1:.38f);
+  const float right=r.kind=="choice"?558:584;  // a choice's arrow keeps its own column
+  text(body,font,v,16,false, std::max(310.f,right-float(text_width(font,v,16,false))),y+19,m.on_surface_variant,r.enabled?1:.38f);
  }
  for(unsigned y=0;y<304;++y)std::copy_n(body.rgba.begin()+y*2400,2400,im.rgba.begin()+(y+88)*2400);
  text(im,font,state.status+" "+state.message,14,false,16,418,m.on_surface_variant);

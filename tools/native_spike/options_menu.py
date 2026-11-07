@@ -6,13 +6,21 @@ import re
 import time
 import threading
 from collections import deque
+from .options_geometry import TABS_PER_PAGE
 
 CATEGORIES = ('placement','output','3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')
 SCOPES = ('monitor', 'workspace')
 KINDS = ('action','toggle','range','choice','text','readonly')
+PENDING_TIMEOUT_S = 5  # a change with no owner callback: how long the footer may say pending before it says so
 OPS = tuple('options_'+n for n in ('open','close','scope','category','focus','scroll','activate','set','confirm','cancel'))
 ROW_KEYS = {'id','label','scope','kind','value','minimum','maximum','step','unit','enabled','choices'}
 SNAP_KEYS = {'open','namespace','monitor','scope','category','focus','scroll','revision','status','message','rows'}
+
+def next_page(category):
+    """The first tab of the page after `category`'s, the last page leading back to the first: the header's Next >, by
+    mouse and by keyboard alike."""
+    start=(CATEGORIES.index(category)//TABS_PER_PAGE+1)*TABS_PER_PAGE
+    return CATEGORIES[start if start<len(CATEGORIES) else 0]
 
 def string(value, limit):
     if type(value) is not str or len(value.encode('utf-8')) > limit: raise ValueError('invalid options string')
@@ -168,6 +176,8 @@ class OptionsMenu:
         self.focused=False
         self.confirmation=None
         self.child=self.capture=self.pending=None
+        self.preview=None  # (row id, value) a held slider shows until its release
+        self.scope_choice='monitor'  # what the header asks for; a tab with rows in only the other scope shows those
         self.last_input=clock()
         self.data=dict(open=False,namespace=control.session,monitor=control.state.names[0],scope='monitor',category='placement',focus=-1,scroll=0,revision=0,status='idle',message='',rows=[])
     @property
@@ -177,6 +187,9 @@ class OptionsMenu:
     @property
     def keyboard_owned(self):
         return self.data['open'] and self.focused and not self.control.keys_open
+    def touch(self):
+        """The pointer moved: someone is using the screen, so the idle close waits."""
+        self.last_input=self.clock()
     def _bump(self): self.data['revision']=(self.data['revision']+1) % 2**32
     def snapshot(self): return validate_snapshot(self.data)
     @staticmethod
@@ -320,7 +333,7 @@ class OptionsMenu:
         if not preserve: self._invalidate_owner()
         self.data.update(open=False,namespace=self.control.session,rows=[],focus=-1,scroll=0)
         if not preserve: self.data.update(status='idle',message=''); self.pending=None
-        self.focused=False; self.child=self.capture=None; self.confirmation=None; self._bump()
+        self.focused=False; self.child=self.capture=self.preview=None; self.confirmation=None; self._bump()
     def desktop_press(self): self.focused=False
     def escape(self):
         if not self.keyboard_owned: return False
@@ -353,8 +366,10 @@ class OptionsMenu:
                 rows=validate_rows(editor.rows())
             else:
                 self.child=None
-                rows=validate_rows(callback(self.control,self.data['scope'],self.data['monitor'],self.data['category']))
+                rows=self._page(callback)
             rows=[r for r in rows if r['scope']==self.data['scope']]
+            if self.preview is not None:
+                rows=[dict(r,value=self.preview[1]) if r['id']==self.preview[0] else r for r in rows]
             if rows!=self.data['rows']: self.data['rows']=rows; self._bump()
             if self.pending and self._owner_active is None:
                 rid,expected=self.pending
@@ -364,17 +379,40 @@ class OptionsMenu:
                 if row is not None and row['kind']=='range':
                     try: equal=float(actual)==float(expected)
                     except (ValueError,TypeError): pass
-                if row is not None and row['kind']=='action': equal=False
+                if row is not None and row['kind']=='action': equal=False  # a receipt is not completion: nothing reads an action back
                 if equal and not self.pending_ids:
                     self.data.update(status='applied',message=''); self.pending=None
+                elif self.clock()-self.pending_since>=PENDING_TIMEOUT_S:
+                    # Pending for ever says nothing. What is known, no more: the renderer took it, or nobody answered.
+                    taken=self.action_has_receipt and not self.pending_ids
+                    self.data.update(status='idle' if taken else 'error',message='Sent; nothing reports back for this' if taken else 'No confirmation from the owner')
+                    self.pending=None; self.pending_ids.clear()
 
             if self.data['focus']>=len(rows): self.data['focus']=-1
+            self.data['scroll']=min(self.data['scroll'],self.scroll_limit(rows))
         except Exception as exc:
             self.data.update(status='error',message=str(exc).encode('utf-8')[:256].decode('utf-8','ignore'))
+    @staticmethod
+    def scroll_limit(rows): return min(4096,max(0,len(rows)*38-304))
+    def _page(self, callback):
+        """The open tab's rows in the scope the header chose, or in the other scope if it has none in that one: a tab is
+        never blank because of the scope it was reached in. data['scope'] is the scope shown."""
+        def rows_in(scope):
+            return [r for r in validate_rows(callback(self.control,scope,self.data['monitor'],self.data['category'])) if r['scope']==scope]
+        scope=self.scope_choice
+        rows=rows_in(scope)
+        if not rows:
+            other=SCOPES[1-SCOPES.index(scope)]
+            shown=rows_in(other)
+            if shown: scope,rows=other,shown
+        if scope!=self.data['scope']: self.data['scope']=scope; self._bump()
+        return rows
     def tick(self):
         self._drain_owner()
         if not self.data['open']: return
-        if self.data['monitor'] not in self.control.state.names or self.data['namespace']!=self.control.session: self.close('session changed')
+        # Drawn in the overview only: a menu left open behind a maximized desktop or a video would be invisible and keep the keys.
+        if getattr(self.control.state,'zoomed',False) or getattr(self.control,'video_active',False): self.close('native child')
+        elif self.data['monitor'] not in self.control.state.names or self.data['namespace']!=self.control.session: self.close('session changed')
         elif self.capture is None and self.clock()-self.last_input>=30: self.close('idle')
         else: self.refresh()
     def intent(self, name, **fields):
@@ -386,7 +424,15 @@ class OptionsMenu:
         if name=='options_close': self.close(); return True
         if name=='options_cancel': return self.escape()
         if name in ('options_scope','options_category'):
-            key=name[8:]; self.data[key]=fields[key]; self.data.update(focus=self.data['focus'] if self.data['focus']<0 else -3,scroll=0); self.child=None; self._bump(); self.refresh(); return True
+            key=name[8:]
+            if key=='scope': self.scope_choice=fields[key]
+            else: self.data[key]=fields[key]
+            if self.pending and self._owner_active is None: self.pending=None; self.pending_ids.clear(); self.data.update(status='idle')
+            if self.data['status']=='idle': self.data['message']=''
+            self.data.update(focus=self.data['focus'] if self.data['focus']<0 else -3,scroll=0); self.child=None; self._bump(); self.refresh()
+            if key=='scope' and self.data['scope']!=fields[key] and self.data['status']=='idle':
+                self.data['message']='This page has only '+('per-monitor' if self.data['scope']=='monitor' else 'workspace')+' settings'
+            return True
         if name=='options_focus':
             if fields['focus']>=len(self.data['rows']): return False
             self.data['focus']=fields['focus']; self.focused=True
@@ -401,7 +447,7 @@ class OptionsMenu:
                 self.data['scroll']=min(max(self.data['scroll'],top+38-304),top)
             return True
         if name=='options_scroll':
-            self.data['scroll']=min(max(self.data['scroll']+fields['delta'],0),min(4096,max(0,len(self.data['rows'])*38-304))); return True
+            self.data['scroll']=min(max(self.data['scroll']+fields['delta'],0),self.scroll_limit(self.data['rows'])); return True
         if fields['revision']!=self.data['revision'] or fields['monitor']!=self.data['monitor'] or fields['monitor'] not in self.control.state.names or fields['scope']!=self.data['scope']: return False
         row=next((r for r in self.data['rows'] if r['id']==fields['row_id']),None)
         if row is None or not row['enabled'] or row['kind']=='readonly': return False
