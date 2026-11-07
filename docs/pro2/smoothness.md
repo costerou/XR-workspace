@@ -32,6 +32,8 @@ The speed comes from the last three samples over their real device-time gap. The
 | `snap_deg` | 30 | 1500 deg/s in a 20 ms gap, past any head: taken at once. A recentre resets the smoother instead |
 | `max_gap_ms` | 60 | A longer gap has no usable speed: no prediction |
 | Stabilization | 25 | Unchanged |
+| Health age limit | 2 s | Was 0.5 s |
+| Tilt limit | 0.1 degrees of lean per 10 of turn, turn alone | |
 
 ## Offline acceptance
 
@@ -59,6 +61,61 @@ Held in this table is the live test's behaviour: the replay's 28 ms lag and 50% 
 About 49 pixels is one degree here, so 0.22 degrees of overshoot is about 11 pixels for a moment at a hard stop. It is not zero: the limit is 0.30, and only `hold` is truly zero. The reference path's own floor is about 0.03 degrees of step error.
 
 Limits of this evidence: three captures from one wearer, 65 seconds in all, none of it a fast whip turn (peak 72 deg/s). The overshoot figures rest on few real stops: 4 in the directional capture and 1 or 2 in the roll one, each seen at four display phases. The parameters were tuned on these same captures; there is no hold-out. `Lag` is software-visible only: panel delay cannot be seen from a capture. Whether it feels right is the live test's question.
+
+## Why the picture leaned in turns
+
+First smoothing run, `pro2-supervised-20261106-215652`: smoothing on was better and off clearly worse, but "the image tilts when I turn my head": turning right the picture leaned left, turning left it leaned right.
+
+The Pro 2's SDK pose is gravity-referenced: its heading starts near 0, but its pitch does not. The captures start 17.3, 19.5 and 26.8 degrees pitched against gravity. The head turns about gravity, and `PoseState` applied that turn in the glasses' pitched frame (`conj(center) * q`), where a turn about gravity has a roll in it of sin(pitch) of the turn: sin 19.5 degrees is 0.33, the 0.32/0.34 cross-axis fractions of the first directional analysis.
+
+Through the real path, in the directional capture's left and right turns, with a horizontal line at the screen's centre as the measure:
+
+| | Unlevelled (Run A) | Levelled |
+| --- | --- | --- |
+| Turn right | 26.4 degrees, leans left 8.66 | 27.6 degrees, leans right 1.54 |
+| Turn left | 18.8 degrees, leans right 6.16 | 19.8 degrees, leans left 0.64 |
+| Lean per 10 degrees of turn, turn alone | **3.67** | **0.012** |
+| Fit error, rms degrees | 0.067 | 0.036 |
+
+"Turn alone" splits the rendered lean by least squares into the wearer's own roll (the SDK's gravity roll, coefficient 0.97), the true perspective of a head both turned and pitched (coefficient 1.04), and what is left for yaw. Cody's head rolled and pitched a little in those turns, by up to 3.6 and 5.4 degrees. That is the 1.54 degrees that remains, and any glasses would show it.
+
+Hypotheses, against this evidence:
+
+| Hypothesis | Verdict | Evidence |
+| --- | --- | --- |
+| A pitched reference, yaw about a tilted axis | **The cause** | The left turn's axis is `[0, 1, -0.025]` in the reference frame, within 1.5 degrees of reference up in body axes (9.6 on the right turn, where the head also pitched). Reference up is 19.5 degrees from body up. The lean follows that: the right sign on both sides, and 3.67 per 10 degrees against 3.34 from sin(19.5) |
+| H1 axis or sign mix-up | No | All 24 proper signed permutations of the turn axis leave the same 0.346 off-axis fraction: relabelling axes cannot remove an angle between them. The sign pattern also fits the pitch |
+| Active or passive convention | No | `q * conj(c)` is the pure turn, and looking up raises the forward axis from -20 to +15.6 degrees: `q` is body to reference, as used |
+| Pose relative to the start, not gravity | No, as worded | Pitch is absolute; only heading starts near 0 |
+| Unmeasured mount pitch | Partly, and it does not matter | Upstream's constant -8.5 leaves 1.24 degrees of total lean per 10, and +8.5 makes it 4.58. Levelling also cuts the yaw that head roll leaks into the view from 4.43 to 1.30 per 10, which suggests most of the pitch is a frame offset, not the wearer looking down. Gravity gives it per session, so nothing needs measuring |
+| The smoother | No | Held and smoothed show the same 2.85 per 10 |
+
+**The fix:** `PoseState::level_reference`, on for the Pro 2's feed only. Each recentre takes the fixed turn from the head to a frame with the same heading and no pitch or roll, and everything after works in that frame. The status line reports what it took out, as `levelled_deg`. Other feeds take the old path unchanged; `tests` compare them bit for bit. Smoothness numbers do not change.
+
+It levels at the recentre, so put the glasses on before a start, or recentre (Ctrl+Alt+space) once they are on. A view recentred while looking far up or down is levelled there, which is what is wanted for a desktop, though it is not strict world-locking. The renderer-restart continuity snapshot does not carry the level turn; the Pro 2 has no mode handover that uses it.
+
+## Why the run stopped at about 60 seconds
+
+Run A ended with `stop_reason guard-failed` after 60.2 s of a 120 s lease. The bridge did not end it: `seconds`, SDK and USB were all fine, and its orderly stop is the supervisor's teardown. The stop has no recorded reason, because the guard worker threw every exception away and sent one byte. So one cause is proven as a defect, and this run's own cause is not proven:
+
+- **Proven:** `health.json` is replaced 50 times a second, and `read_private_json` refuses `st_nlink != 1`. A read that opens just before a replace holds the old copy, whole and valid, with no links left: it raises, and any exception ends the guard. Against the real writer and reader that is 514 failures in 5.9 million reads, or one in 2424 with reads spaced as the guard's are: about 20 minutes on average on an idle machine, so about a 9% chance by 58 seconds, more under load.
+- **Possible:** the monitor scanned every process's `/proc/*/maps` on the heartbeat thread (48 to 78 ms here, unbounded under memory pressure) against a 0.5 s age limit.
+
+Fixed: a health read accepts the unlinked copy. The scan has its own thread, once a second. The age limit is 2 s; the bridge still stops itself on 100 ms of silence. The guard names any failure on the run's stderr, and the parent's `MEASURED` shows `stop_reason`, `guard_reason` and `provider.failure`, so the next stop explains itself.
+
+## The prediction cap
+
+`max_predicted_deg` reached 6 in Run A. That is normal motion, and my "under about 2.5" was wrong: it came from captures that peak at 54 deg/s, and Run A asked for normal turns and sharp stops. The horizon is 17 to 37 ms, so 6 degrees needs at least 160 to 350 deg/s, and a brisk head turn peaks around there. The real capture sped up, on the same sample clock:
+
+| Head speed | Peak deg/s | Most predicted, degrees | Frames at the cap | Snaps |
+| --- | --- | --- | --- | --- |
+| Captured | 54 | 1.74 | 0 | 0 |
+| x3 | 169 | 3.93 | 0 | 0 |
+| x5 | 222 | 5.97 | 0 | 0 |
+| x6 | 285 | 6.0 | 0.68% | 0 |
+| x8 | 359 | 6.0 | 2.49% | 0 |
+
+Run A recorded only the maximum, so its peak speed is not known. Nothing changed: the cap does its job, for a few frames at the fastest part of a turn. `peak_speed_dps` and `capped_frames` are now in the run's stats.
 
 ## Pose rate
 

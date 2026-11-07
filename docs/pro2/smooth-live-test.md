@@ -12,38 +12,34 @@ XR must be stopped: no `viture-xr-*` unit, no XR-n output. The script checks and
 
 Expect the source in `release.json`, `plugin_command_path:"validated"`, `sdk_started:false`, `compositor_contacted:false`.
 
-## Run A: the comparison (60 Hz)
+## Run A: tilt and duration (60 Hz)
 
     RELEASE/runtime/bin/pro2-supervised-parent --bundle RELEASE/runtime
 
-It gives 30 seconds to put the glasses on, and stops the run after 90 seconds. Ask Cody to:
+Cody puts the glasses on within the 30 seconds and sits facing forward, looking straight ahead as it starts: that moment sets the level. Then:
 
-1. Turn slowly left and right for about 20 seconds, then at normal speed, and look at text.
-2. Press **Ctrl+Alt+P**. The pop-up says prediction is off: that is how the first test looked. Turn the same way for about 15 seconds.
-3. Press **Ctrl+Alt+P** again. Turn, and stop sharply a few times: does the picture run on past the stop and come back?
-4. Try the desktop panel's Add once. It should refuse with a notice, and stay at one desktop.
+1. Turn slowly about 30 degrees right, back, 30 degrees left, back, a few times. Watch the desktop's top and bottom edges: do they stay level, or lean?
+2. Leave it running until it stops by itself at 90 seconds. Nothing else is needed. The run must last the whole time.
 
 Stop at once on any discomfort: take the glasses off, and press Ctrl+C in the script's terminal.
 
-The last lines print `MEASURED` and `FINAL_STATE`. `measured.json` in that directory holds the same aggregates. Private logs stay there; do not commit them.
-
-Expected in `MEASURED`:
+Expected in `MEASURED`, printed at the end and saved as `measured.json`:
 
 | Field | Expect | If not |
 | --- | --- | --- |
-| `complete` | `true` | Follow the run's result; recovery is in runtime-runbook.md |
-| `look_ahead_cfg` | `[0.0, 0.0, 0.0, 40.0]` or the same as text | The bundle is the wrong one |
-| `predicted_frames` | well over 0; share near 1 less the time prediction was off. Read with `smoothing.max_predicted_deg`, which must be over 0 | Stop: root cause not fixed live |
-| `unpredicted_frames` | about 0 | As above |
-| `smoothing.snaps` | 0 | Report it: motion is being read as a jump |
-| `smoothing.max_predicted_deg` | under about 2.5 | Report it |
-| `desktops` | `["XR-1"]` | Report it: the lock failed |
+| `complete` | `true` | Recovery is in runtime-runbook.md |
+| `stop_reason` | `interrupted`: the parent's own stop at 90 s | Report it with the next two |
+| `guard_reason`, `provider.failure` | `null`, absent | They now say what stopped the run: report them exactly |
+| `provider.seconds` | about 90 | |
+| `levelled_deg` | about 15 to 30 | Near 0: levelling did not run |
+| `predicted_frames` | near `presented` | Stop: prediction not running |
+| `smoothing.snaps` | 0 | Report it |
+| `smoothing.max_predicted_deg`, `peak_speed_dps`, `capped_frames` | Up to 6 is normal. At the cap, `peak_speed_dps` should be over about 200, and `capped_frames` a small share | A cap with a low peak speed: report it |
+| `desktops` | `["XR-1"]` | Report it |
 | `fov_source`, `diagonal_fov_deg` | `pro2-supervised-approximate`, `44.5` | Stop: wrong projection |
-| `provider.pose_rate_hz` | 60 | Wrong run |
-| `provider.gap_ms_counts` | about two thirds in slot 3 (13..18 ms), one third in slot 4 (18..25) | Report it: the cadence changed |
-| `interval_histogram` | nearly all in slot 3, as the first test | Report it: frames really were lost |
+| `provider.gap_ms_counts` | about two thirds in slot 3, one third in slot 4 | Report it |
 
-Then ask Cody: does it now feel as smooth as the other glasses? Any swimming, overshoot or wobble at stops? Was the off period clearly worse?
+Then ask Cody: do the edges stay level through a turn? A small lean when the head itself tips is expected and is real. Is it still as smooth?
 
 ## Run B: the pose rate desk test (optional, only after Run A is good)
 
