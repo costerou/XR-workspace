@@ -26,8 +26,10 @@ ACTIONS = {
 }
 MONITOR_ACTIONS = {'zoom_in', 'prev', 'next', 'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'menu_toggle', 'menu_reset', 'placement_flat', 'placement_apply', 'roll_ccw', 'roll_level', 'roll_cw', 'ultrawide', 'remove_monitor'}
 MONITOR_ACTIONS.update(('mode_follow','mode_locked'))
-LABELS = {'menu_toggle':'Placement editor', 'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)', 'remove_monitor':'Remove monitor (evacuate to physical fallback)'}
+PLACEMENT_LABELS = {'x': 'Left / right', 'y': 'Down / up', 'distance': 'Distance', 'curvature': 'Curvature'}
+LABELS = {'menu_toggle':'Fine placement editor', 'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)', 'remove_monitor':'Remove monitor (evacuate to physical fallback)'}
 LABELS.update(mode_follow='Maximize in Follow mode',mode_locked='Maximize in Locked mode')
+LABELS.update(roll_ccw='Tilt left',roll_level='Level',roll_cw='Tilt right',placement_flat='Make flat',menu_reset='Reset placement')
 
 
 def _index(control, scope, monitor):
@@ -57,7 +59,7 @@ def options_rows(control, scope, monitor, category):
             out.append({**row(id, LABELS.get(id, id.replace('_', ' ').capitalize())), 'scope': rs})
     if category == 'placement' and scope == 'monitor':
         for key, bounds in geometry.PLACEMENT_BOUNDS.items():
-            out.append(_range('placement_'+key, key.capitalize(), s.placements[i][key], bounds, scope,
+            out.append(_range('placement_'+key, PLACEMENT_LABELS.get(key, key.capitalize()), s.placements[i][key], bounds, scope,
                               '0.1 deg' if key in ('x', 'y') else 'deg' if key == 'curvature' else '%'))
     if category == 'stabilization' and scope == 'workspace':
         out += [_range('stabilization', 'Display stabilization', s.stabilization, (0,100), scope, '%'),
