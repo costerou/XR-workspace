@@ -1,0 +1,53 @@
+{
+  "native_commit": "c5b64dcaac426f31f9e25c5fd23eeca870df2a1c",
+  "artifacts": [
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-0.png",
+      "bytes": 13517,
+      "sha256": "ed1a3729e7c6043dab3620f03b2e69d7bc6d7b56c9125f5dae876270e45c9bb2",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-1.png",
+      "bytes": 11456,
+      "sha256": "9af7029b03051cd76d928c8e0b3dd122f424dacf52154d0d28f78263a2b06956",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-2.png",
+      "bytes": 12453,
+      "sha256": "4fcd52fcf4dcd98e7f3bcebb185227126435ea226f3d5e863b2126af7f86174e",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-3.png",
+      "bytes": 25943,
+      "sha256": "98776d075f5ba0edac4031a1b7212106494b00384ae34cb89d18b1e4ac46c1af",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-4.png",
+      "bytes": 25237,
+      "sha256": "6a6c12800afc44e750d34d7e96c5947750b913a3035090970ac405fdb34a1c9c",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-5.png",
+      "bytes": 27144,
+      "sha256": "e51005b47faa4026c77aed5c70dcde1f00917df7ef441f5548e82d19b56b32a2",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options-6.png",
+      "bytes": 13517,
+      "sha256": "ed1a3729e7c6043dab3620f03b2e69d7bc6d7b56c9125f5dae876270e45c9bb2",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-wire-roundtrip/native-options.mp4",
+      "bytes": 39022,
+      "sha256": "34171b886216b66d9636ae6b9a6a942dd0ea610fe9a66ebbc947612c62784824",
+      "provenance": "Production native CPU raster; placeholder captured picture; production resolved Restore geometry. No live/projected GPU claim."
+    }
+  ]
+}

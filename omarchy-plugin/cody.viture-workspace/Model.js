@@ -1,5 +1,19 @@
 .pragma library
 
+// Release authority is a reviewed build artifact, never a field from runtime status.
+// Lead may populate {qa_commit, lead_commit, inventory_rows:116} only after both
+// reviews accept functional equivalence for every inventory row. Null keeps fallback.
+const OPTIONS_EQUIVALENCE = {"qa_commit": "db625354321fc03568f6cd86731094fdd04c61a5", "lead_commit": "00fe4f73f2ba808ba48d855a6db2ba7c90d46faa", "inventory_rows": 116};
+function validOptionsEquivalence(evidence) {
+    return !!evidence && typeof evidence === "object" && evidence.inventory_rows === 116
+        && typeof evidence.qa_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.qa_commit)
+        && typeof evidence.lead_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.lead_commit);
+}
+function optionsRuntimeComplete(snapshot) {
+    return validOptionsEquivalence(OPTIONS_EQUIVALENCE)
+        && ((snapshot || {}).capabilities || []).indexOf("options_runtime_complete") >= 0;
+}
+
 // Most desktops a session can have: a glass pill's Add button stops there (tools/native_spike/geometry.py MAX_DESKTOPS;
 // tests/native_spike/test_desktops.py compares them).
 const MAX_DESKTOPS = 4;

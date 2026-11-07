@@ -291,8 +291,23 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 if on: client.install_video_binds(*bind_args)
                 else: client.remove_video_binds()
         video = VideoControl(control, binds=video_binds, notify=notify_send)
+        control.options_video = video
+        from .options_text import RuntimeText
+        control.options_key_text = RuntimeText(control, client)
+        if hasattr(client, 'open_key_panel'):
+            def options_binds(owned):
+                if owned: client.open_key_panel(*bind_args)
+                else: client.close_key_panel()
+            control.options_binds = options_binds
         yield video
     finally:
+        if control is not None and getattr(control, 'options', None) is not None:
+            control.options.close('stop')
+            control.owner_readback=None
+            control.options_output_done=control.options_immersive_done=None
+            if control.overview_pointer is not None: control.overview_pointer.set_maximize_geometry(None)
+            if getattr(control, '_options_owned', False) and control.options_binds is not None:
+                control.options_binds(False)
         if desktops is not None: desktops.close()  # no desktop change starts now; one in flight lands before recovery
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this
         if control is not None and control.sender is not None:

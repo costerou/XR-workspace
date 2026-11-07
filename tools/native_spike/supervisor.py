@@ -140,7 +140,31 @@ class Supervisor:
             if not self._status_discard:
                 try:
                     value = strict_json(self._status_buffer)
-                    if isinstance(value, dict) and set(value) == {'overview_geometry'}:
+                    if isinstance(value, dict) and set(value) == {'control_applied'}:
+                        rid=value['control_applied']
+                        if type(rid) is not int or not 0 < rid < 2**64: raise ValueError('invalid receipt')
+                        target=getattr(self.control,'view',self.control)
+                        menu=getattr(target,'options',None)
+                        if menu is not None: menu.acknowledge(rid)
+                    elif isinstance(value, dict) and set(value) == {'owner_readback'}:
+                        target=getattr(self.control,'view',self.control)
+                        handler=getattr(target,'set_owner_readback',None)
+                        if handler is not None: handler(value['owner_readback'])
+                    elif isinstance(value, dict) and set(value) == {'control_refused'}:
+                        refusal=value['control_refused']
+                        from .options_menu import string,integer
+                        if type(refusal) is not dict or set(refusal)!={'request_id','op','detail'}: raise ValueError('invalid refusal')
+                        integer(refusal['request_id'],1,2**64-1);string(refusal['op'],64);string(refusal['detail'],256)
+                        target=getattr(self.control,'view',self.control)
+                        menu=getattr(target,'options',None)
+                        if menu is not None: menu.refuse(refusal['request_id'],refusal['op'],refusal['detail'])
+                    elif isinstance(value, dict) and set(value) == {'maximize_geometry'}:
+                        target=getattr(self.control,'view',self.control)
+                        handler=getattr(target,'set_maximize_geometry',None)
+                        if handler is not None:
+                            try: handler(value['maximize_geometry'])
+                            except ValueError: handler(None)
+                    elif isinstance(value, dict) and set(value) == {'overview_geometry'}:
                         # The overview's canvas and desktop slots, sent when they change (free pointer hit testing).
                         from .free_pointer import parse_overview_geometry
                         geometry = parse_overview_geometry(value['overview_geometry'])

@@ -83,7 +83,11 @@ def lock_binds_lua(python, client, control_socket, run_id, session):
             f'local c = "{python} -I {client} {control_socket} {run_id} {session} {OTHER_BUTTON_OP}" '
             f'for _, k in ipairs({{ {buttons} }}) do local ok, b = pcall(hl.bind, k, hl.dsp.exec_cmd(c)) '
             'if ok and b then t[#t + 1] = b end end '
-            f'for _, k in ipairs({{ {wheel} }}) do local ok, b = pcall(hl.bind, k, function() end) '
+            f'local wc = "{python} -I {client} {control_socket} {run_id} {session} options_scroll " '
+            f'for _, k in ipairs({{ {wheel} }}) do local action = function() end '
+            'if k == "mouse_up" then action = hl.dsp.exec_cmd(wc .. "-38") '
+            'elseif k == "mouse_down" then action = hl.dsp.exec_cmd(wc .. "38") end '
+            'local ok, b = pcall(hl.bind, k, action) '
             'if ok and b then t[#t + 1] = b end end end')
 
 

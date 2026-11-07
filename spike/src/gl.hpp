@@ -115,6 +115,7 @@ public:
     // compiles the shaders; if this GL cannot (stereo_available), the view is still two eyes, flat desktops at their real depth.
     void set_stereo(const StereoSettings& settings);
     bool stereo_available() const;
+    std::string stereo_readback() const;
     // A new depth map of desktop `source` for its current picture. False: not available, no picture yet or an invalid frame
     // (the last good one stays). Without a new frame for kStereoStaleMs the desktop eases flat, and back when frames return.
     bool set_depth(std::size_t source, const DepthInput& frame);

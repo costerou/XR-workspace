@@ -1,3 +1,4 @@
+#include <set>
 // Loopback compositor: runs the real xr-native-spike binary end to end against a minimal in-process Wayland server
 // and measures the capture and frame delivery path (wl_surface frame callbacks -> commit, capture ready -> commit and
 // -> present, renderer CPU, main-loop wakes, allocations).
@@ -101,6 +102,7 @@ struct Options {
     std::string feed_script;
     double feed_drop = 0;
     bool close_control = false;  // --close-control: the supervisor's end closes in the window. --check: the renderer stops and says why.
+    bool options_roundtrip = false; // actual renderer options/settings/receipt/refusal/readback flow
     bool bad_control = false;  // --bad-control: every kind of bad frame in the window, with a good one after each kind
     std::string control_errors = "fatal";  // the renderer's rule (ipc.hpp ControlStream): tests run strict; `--control-errors log` is the shipped one
     double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
@@ -143,7 +145,9 @@ struct Gpu {
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr; PFNEGLDESTROYIMAGEKHRPROC destroy_image = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr; PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_mods = nullptr;
     bool init(std::string& why) {
-        for (const char* node : {"/dev/dri/renderD128", "/dev/dri/renderD129"}) {
+        const char* selected_node = std::getenv("XR_BENCH_RENDER_NODE");
+        for (const char* node : {selected_node ? selected_node : "/dev/dri/renderD129",
+                                 selected_node ? selected_node : "/dev/dri/renderD128"}) {
             struct stat st{};
             if (stat(node, &st) != 0 || !S_ISCHR(st.st_mode)) continue;
             fd = ::open(node, O_RDWR | O_CLOEXEC);
@@ -773,7 +777,10 @@ void capture_tick(std::int64_t t, bool first_only) {
             const auto stride = std::uint32_t(wl_shm_buffer_get_stride(shm)) / 4;
             wl_shm_buffer_begin_access(shm);
             auto* px = static_cast<std::uint32_t*>(wl_shm_buffer_get_data(shm));
-            const std::uint32_t half_w = g->opt.maximize ? w / 2 : 32, half_h = g->opt.maximize ? h / 2 : 32;  // Options::maximize
+            // Whole-picture stamps remain attributable when options comfort-shift moves
+            // the capture beneath the fixed readback point, as in maximize tests.
+            const bool whole_picture=g->opt.maximize || g->opt.options_roundtrip;
+            const std::uint32_t half_w = whole_picture ? w / 2 : 32, half_h = whole_picture ? h / 2 : 32;
             for (std::uint32_t y = h / 2 - half_h; y < h / 2 + half_h; ++y)
                 for (std::uint32_t x = w / 2 - half_w; x < w / 2 + half_w; ++x) px[std::size_t(y) * stride + x] = 0xff000000u | stamp;
             wl_shm_buffer_end_access(shm);
@@ -873,7 +880,7 @@ void usage() {
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
-                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--close-control] [--control-errors fatal|log]\n");
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--close-control] [--control-errors fatal|log]\n");
 }
 }  // namespace
 
@@ -905,6 +912,7 @@ int main(int argc, char** argv) {
         else if (a == "--video-loss") opt.video_loss = std::stod(next());
         else if (a == "--immersive") opt.immersive = true;
         else if (a == "--engine-dies") { opt.engine_dies = std::stod(next()); opt.immersive = true; }
+        else if (a == "--options-roundtrip") opt.options_roundtrip=true;
         else if (a == "--bad-control") opt.bad_control = true;
         else if (a == "--close-control") opt.close_control = true;
         else if (a == "--control-errors") opt.control_errors = next();
@@ -915,6 +923,7 @@ int main(int argc, char** argv) {
     if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > int(xr::kMaxDesktops) || !(opt.hz > 1) || opt.capture_hz < 0 ||
         opt.maximize < 0 || opt.maximize > opt.outputs || (opt.maximize && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
+    if(opt.options_roundtrip && (opt.outputs<2 || (opt.mode!="gl-shm"&&opt.mode!="gl-dmabuf") || opt.bad_control || opt.open_panel || opt.maximize || opt.immersive || opt.control_errors!="log")){usage();return 2;}
     // The renderer's animation is at most 60 s and must outlast the measured window.
     const double pattern_ms = (opt.warmup + opt.seconds + 5) * 1000;
     if (opt.mode == "pattern" && pattern_ms > 60000) { std::fprintf(stderr, "pattern mode: warmup + seconds must be under 55 s\n"); return 2; }
@@ -1097,14 +1106,27 @@ int main(int argc, char** argv) {
         std::memcpy(CMSG_DATA(c), &fd, sizeof fd);
         (void)!::sendmsg(control[0], &msg, MSG_NOSIGNAL);
         ::close(fd);
-        raw(std::string(xr::kMaxControlPending + 8192, 'x') + "\n");  // 9. a frame with no sensible end
+        raw(std::string(16384 + 8192, 'x') + "\n");  // 9. oversized non-options frame; fits this nonblocking send
         send_frame(next_request++, "video", open);  // good, and no descriptor waits for it: stderr says so
         std::string placements;
         for (int i = 0; i < opt.outputs; ++i) placements += std::string(i ? "," : "") + "{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}";
         send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");  // good: the view shifts
     };
     constexpr int kBadControlFrames = 9;
+    using Json=nlohmann::json;
+    std::set<std::uint64_t> applied_ids,refused_ids;
+    std::vector<Json> native_refusals;
+    bool quality_a_seen=false,quality_b_seen=false,stereo_setting_seen=false;
+    int options_stage=0;std::int64_t options_stage_ns=0;
+    std::uint64_t menu_open_id=0,menu_nav_id=0,menu_close_id=0,quality_a_id=0,quality_b_id=0,stereo_id=0,bad_menu_id=0,bad_quality_id=0;
+    auto options_payload=[](bool open,bool workspace,std::uint32_t revision){
+        Json rows=workspace?Json::array({Json{{"id","video_quality"},{"label","Video quality"},{"scope","workspace"},{"kind","action"},{"value","Open"},{"enabled",true}},Json{{"id","help"},{"label","Help"},{"scope","workspace"},{"kind","readonly"},{"value","Native"},{"enabled",true}}}):Json::array({Json{{"id","placement"},{"label","Placement"},{"scope","monitor"},{"kind","action"},{"value","Open"},{"enabled",true}}});
+        return Json{{"open",open},{"namespace","s1"},{"monitor","XR-2"},{"scope",workspace?"workspace":"monitor"},{"category",workspace?"video":"placement"},{"focus",workspace?1:0},{"scroll",workspace?38:0},{"revision",revision},{"status","idle"},{"message",""},{"rows",rows}};
+    };
+    auto send_options_frame=[&](const char* op,const Json& payload){auto id=next_request++;send_frame(id,op,payload.dump());return id;};
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
+    std::uint64_t owner_lines=0,refused_lines=0;bool owner_ready=false,owner_oversize=false;
+    nlohmann::json last_owner;
     nlohmann::json last_status;  // the newest measured status (not the geometry lines the same socket carries)
     std::string stderr_text;
     // --feed-drop: the renderer's status through the drop, in order.
@@ -1120,7 +1142,7 @@ int main(int argc, char** argv) {
     bool stop_sent = false;
     std::int64_t stop_deadline = 0;
     auto drain = [&] {
-        char buf[4096];
+        char buf[16384];
         for (ssize_t n; (n = ::recv(control[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;)
             for (ssize_t i = 0; i < n; ++i) heartbeats += buf[i] == 'H';
         for (ssize_t n; (n = ::recv(status[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;) {
@@ -1138,7 +1160,21 @@ int main(int argc, char** argv) {
             }
             try {
                 auto j = nlohmann::json::parse(line);
-                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry")) {
+                if(j.contains("owner_readback")){++owner_lines;owner_oversize|=std::size_t(n)>16384;last_owner=j["owner_readback"];for(const auto& o:last_owner["outputs"])owner_ready|=o.value("ready",false);}
+                if(j.contains("control_applied")&&j["control_applied"].is_number_unsigned())applied_ids.insert(j["control_applied"].get<std::uint64_t>());
+                if(j.contains("control_refused")){++refused_lines;auto r=j["control_refused"];refused_ids.insert(r.value("request_id",std::uint64_t(0)));if(native_refusals.size()<32)native_refusals.push_back(r);}
+                if(opt.options_roundtrip && j.contains("owner_readback")){
+                  const auto& owner=j["owner_readback"];const auto& video=owner["video"];
+                  if(video.is_object()&&video.value("state","")=="off"&&video.contains("quality_readback")){
+                    const auto& q=video["quality_readback"];
+                    const bool unknown=q["filter_applied"].is_null()&&q["deband_applied"].is_null()&&video["player"].is_null();
+                    quality_a_seen|=unknown&&q["filter_requested"]=="nearest"&&q["deband_requested"]==true;
+                    quality_b_seen|=unknown&&q["filter_requested"]=="sharp"&&q["deband_requested"]==false;
+                  }
+                  const auto& immersive=owner["immersive"];
+                  if(immersive.is_object()&&immersive.contains("params"))stereo_setting_seen|=!immersive.value("enabled",true)&&!immersive.value("physical_sbs",true)&&std::abs(immersive["params"].value("strength",0.)-.95)<1e-5;
+                }
+                if (j.is_object() && !j.contains("owner_readback") && !j.contains("control_refused") && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry") && !j.contains("maximize_geometry") && !j.contains("control_applied")) {
                     if (j.contains("tracking") && j["tracking"].is_boolean()) {
                         const bool on = j["tracking"].get<bool>();
                         if (on && status_lost) status_resumed = true;
@@ -1190,6 +1226,23 @@ int main(int argc, char** argv) {
                     if (depth->publish(xr::DepthShm::Side::Output, c, out)) ++depth_maps_sent;
                 }
             }
+        }
+        if(opt.options_roundtrip && server.measuring && !stop_sent){
+            if(options_stage==0){
+              menu_open_id=send_options_frame("options_menu",options_payload(true,false,101));
+              quality_a_id=send_options_frame("video",{{"action","quality"},{"filter","nearest"},{"deband",true}});
+              stereo_id=send_options_frame("immersive",{{"desktops",{false,false,false,false}},{"global",false},{"stereo",false},{"hover",-1},{"tail",false},{"params",{{"strength",95},{"convergence",40},{"near",60},{"far",45},{"text",15},{"range_ms",2000}}}});
+              options_stage=1;options_stage_ns=t;
+            }else if(options_stage==1 && t-options_stage_ns>=250'000'000 && quality_a_seen && stereo_setting_seen && applied_ids.contains(menu_open_id)&&applied_ids.contains(quality_a_id)&&applied_ids.contains(stereo_id)){
+              auto invalid=options_payload(true,false,999);invalid["unexpected"]=true;
+              bad_menu_id=send_options_frame("options_menu",invalid);
+              bad_quality_id=send_options_frame("video",{{"action","quality"},{"filter","not-a-filter"},{"deband",false}});
+              menu_nav_id=send_options_frame("options_menu",options_payload(true,true,102));
+              quality_b_id=send_options_frame("video",{{"action","quality"},{"filter","sharp"},{"deband",false}});
+              options_stage=2;options_stage_ns=t;
+            }else if(options_stage==2 && t-options_stage_ns>=250'000'000 && quality_b_seen && applied_ids.contains(menu_nav_id)&&applied_ids.contains(quality_b_id)&&refused_ids.contains(bad_menu_id)&&refused_ids.contains(bad_quality_id)){
+              menu_close_id=send_options_frame("options_menu",options_payload(false,true,103));options_stage=3;
+            }else if(options_stage==3 && applied_ids.contains(menu_close_id))options_stage=4;
         }
         if (opt.pointer_look && server.measuring && t >= next_look && !server.tiles.empty() && !server.look_waiting) {
             const auto& tile = server.tiles[0];
@@ -1303,6 +1356,8 @@ int main(int argc, char** argv) {
     if (shim_loaded && counters) out["allocations_per_s"] = std::round(double(mallocs1 - mallocs0) / secs * 10) / 10;
     out["status_datagrams"] = status_lines; out["overview_geometry_lines"] = geometry_lines;
     if (opt.immersive) { out["depth_inputs"] = depth_inputs; out["depth_lit"] = depth_lit; out["depth_maps_sent"] = depth_maps_sent; out["engine_dead"] = engine_dead; }
+    out["owner_readback_datagrams"]=owner_lines;out["control_refused_datagrams"]=refused_lines;out["owner_readback"]=last_owner;
+    if(opt.options_roundtrip)out["options_roundtrip"]={{"stage",options_stage},{"quality_a_readback",quality_a_seen},{"quality_b_readback",quality_b_seen},{"stereo_setting_readback",stereo_setting_seen},{"applied_ids",applied_ids},{"request_ids",{{"menu_open",menu_open_id},{"menu_navigation",menu_nav_id},{"menu_close",menu_close_id},{"quality_a",quality_a_id},{"quality_b",quality_b_id},{"stereo",stereo_id},{"bad_menu",bad_menu_id},{"bad_quality",bad_quality_id}}},{"refused",native_refusals}};
     out["last_status"] = last_status;
     // The renderer's own exit reports (timing JSON, capture JSON with path/fallback), bounded.
     std::istringstream lines(stderr_text); std::string line; std::vector<nlohmann::json> reports; std::vector<std::string> other;
@@ -1314,6 +1369,7 @@ int main(int argc, char** argv) {
         if (j.contains("tracking") && j["tracking"].is_object()) out["tracking_report"] = j["tracking"];
         if (j.value("kind", "") == "control_stream") out["control_stream"] = j;
         if (j.contains("kind") && j["kind"] == "managed_output_capture") {
+            if(j.contains("options_menu"))out["options_presentation"]=j["options_menu"];
             nlohmann::json paths = nlohmann::json::array();
             for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]},
                                                                 {"reallocations", o.value("reallocations", -1)}, {"constraint_batches", o.value("constraint_batches", -1)},
@@ -1366,7 +1422,7 @@ int main(int argc, char** argv) {
         if (server.commits < std::uint64_t(opt.seconds * opt.hz * 0.25)) fail("too few commits");  // frames flow; not a speed check
         // Whatever else a run tests: the renderer took every frame it was sent. Even one it may ignore is a bug in the sender.
         if (!out.contains("control_stream")) fail("no control_stream report");
-        else if (out["control_stream"].value("refused", -1) != (opt.bad_control ? kBadControlFrames : 0)) fail("the renderer refused other frames than it was meant to");
+        else if (out["control_stream"].value("refused", -1) != (opt.bad_control ? kBadControlFrames : opt.options_roundtrip ? 2 : 0)) fail("the renderer refused other frames than it was meant to");
         if (opt.bad_control) {
             if (stderr_text.find("control: video open without a file descriptor") == std::string::npos) fail("a refused video open left its descriptor for the next one");
             if (stderr_text.find("control: refused frame") == std::string::npos) fail("the refused frames were not logged");
@@ -1378,6 +1434,21 @@ int main(int argc, char** argv) {
             if (stderr_text.find("(view): invalid_control: bad view payload") == std::string::npos) fail("a bad payload was not named as one");
             if (stderr_text.find("\"op\":\"roll\"") == std::string::npos) fail("the log did not show the frame's shape");
             if (stderr_text.find("private film") != std::string::npos || stderr_text.find("another-run") != std::string::npos) fail("a frame's text reached the log");
+        }
+        if(opt.options_roundtrip){
+          if(options_stage!=4)fail("options/settings actual native roundtrip did not complete");
+          if(applied_ids.contains(bad_menu_id)||applied_ids.contains(bad_quality_id))fail("malformed settings/menu received applied receipt");
+          for(auto id:{menu_open_id,menu_nav_id,menu_close_id,quality_a_id,quality_b_id,stereo_id})if(!id||!applied_ids.contains(id))fail("valid native request has no correlated receipt");
+          for(auto id:{bad_menu_id,bad_quality_id})if(!id||!refused_ids.contains(id))fail("bad native request has no correlated refusal");
+          bool options_report=false;
+          for(const auto& report:reports)if(report.value("kind","")=="managed_output_capture" && report.contains("options_menu")){
+            options_report=true;const auto& menu=report["options_menu"];
+            if(menu.value("updates",0)!=3||menu.value("open",true)||menu.value("revision",0)!=103||menu.value("monitor","")!="XR-2"||menu.value("scope","")!="workspace"||menu.value("category","")!="video")fail("actual native options snapshot differs from accepted final frame");
+            if(menu.value("drawn_frames",0)<=0||!menu["last_drawn"].is_object())fail("actual native options panel never drawn");
+            else {const auto& drawn=menu["last_drawn"];if(drawn.value("revision",0)!=102||drawn.value("focus",-1)!=1||drawn.value("scroll",-1)!=38||drawn.value("row_count",0)!=2||drawn.value("monitor","")!="XR-2"||drawn.value("scope","")!="workspace"||drawn.value("category","")!="video")fail("native options navigation snapshot never reached actual draw");}
+          }
+          if(!options_report)fail("no actual renderer options presentation diagnostics");
+          for(const auto& refusal:native_refusals)if((refusal.value("request_id",std::uint64_t(0))==bad_menu_id||refusal.value("request_id",std::uint64_t(0))==bad_quality_id)&&(!refusal["detail"].is_string()||refusal["detail"].get<std::string>().empty()||refusal["detail"].get<std::string>().size()>256))fail("native refusal missing bounded owner error");
         }
         if (!window_complete || !stop_sent) fail("renderer ended before the measured window did");
         if (opt.feed_drop > 0) {
@@ -1424,6 +1495,18 @@ int main(int argc, char** argv) {
         if (capture && !opt.maximize && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
         // What the incident monitor reads while a session runs (incident_detect.py). The status needs a frame to measure.
         if (capture && !last_status.is_object()) fail("no status datagram");
+        if(capture && !opt.video_loss && !opt.close_control){
+          if(owner_lines==0||!last_owner.is_object())fail("no separate owner_readback datagram");
+          if(owner_oversize)fail("owner_readback exceeded 16KiB");
+          if(last_status.contains("owner_readback")||last_status.contains("control_refused"))fail("owner datagram replaced measured status");
+          if(!owner_ready)fail("owner readback never observed a ready captured texture");
+          if(last_owner.is_object() && opt.churn.empty())for(const auto& report:reports)if(report.value("kind","")=="managed_output_capture"){
+            const auto& actual=report["outputs"];const auto& observed=last_owner["outputs"];
+            if(actual.size()!=observed.size())fail("owner output identity count differs from actual capture");
+            for(std::size_t i=0;i<std::min(actual.size(),observed.size());++i)if(actual[i]["name"]!=observed[i]["name"]||actual[i]["width"]!=observed[i]["width"]||actual[i]["height"]!=observed[i]["height"])fail("owner output name/size differs from actual capture");
+          }
+          if(opt.bad_control && refused_lines==0)fail("missing bounded native refusal datagrams");
+        }
         // A resize fails a capture or two, each ended by the next frame; only a stuck capture keeps failing (CAPTURE_STUCK there).
         if (capture && !(last_status.contains("capture_failure_run") && last_status["capture_failure_run"].is_number_unsigned())) fail("status has no count of consecutive capture failures");
         if (capture && opt.churn.empty() && last_status.value("capture_failure_run", 0) != 0) fail("a healthy run is failing captures");

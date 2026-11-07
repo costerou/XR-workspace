@@ -1,0 +1,586 @@
+{
+  "schema": 1,
+  "inventory_count": 116,
+  "rows": [
+    {
+      "identifier": "zoom_in",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "zoom_out",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "prev",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "next",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "spacing_down",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "spacing_up",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "recenter",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "layout_reset",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "mode_next",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "prediction",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "typing_toggle",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "privacy_display",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "environment_toggle",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_toggle",
+      "route": "existing pointer owner: immersive_toggle",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "menu_toggle",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_open",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_paste",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "playback_menu_toggle",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "help",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "binds_toggle",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "help_prev",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "help_next",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_glasses",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_glasses_1",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_glasses_2",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_glasses_3",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_glasses_4",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "send_back",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "menu_field_prev",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_field_next",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_dec",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_inc",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_dec_big",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_inc_big",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_desktop_next",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_desktop_prev",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_reset",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "menu_back",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_ultrawide",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_add",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "menu_delete",
+      "route": "existing placement child -> ViewControl._on_menu",
+      "status": "preserved; parent must hand input to existing child"
+    },
+    {
+      "identifier": "video_pause",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_seek_back",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_seek_fwd",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_seek_back_big",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_seek_fwd_big",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_format",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_up",
+      "route": "existing VideoControl._on_video",
+      "status": "preserved native quality navigation"
+    },
+    {
+      "identifier": "video_down",
+      "route": "existing VideoControl._on_video",
+      "status": "preserved native quality navigation"
+    },
+    {
+      "identifier": "video_exit",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_quality",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_controls",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "stabilization",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_all",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_monitor",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_preset",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_strength_presets",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_strength",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_monitor_strength",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "immersive_plane",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_x",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_y",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_distance",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_curvature",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_apply",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "placement_flat",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "mode_follow",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "mode_locked",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_browse",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_play",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "video_paste_ui",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "resolution",
+      "route": "existing pointer owner: desktops RESOLUTION",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "scale",
+      "route": "existing pointer owner: desktops SCALE",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "ultrawide",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "add_monitor",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "remove_monitor",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "background",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "background_brightness",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "roll_ccw",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "roll_level",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "roll_cw",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "drag_move",
+      "route": "existing pointer owner: placement + placement_menu.surface",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "drag_resize",
+      "route": "existing pointer owner: placement distance",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "quality_filter",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "quality_deband",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "bind_change",
+      "route": "NativeEditors keybinds -> BindControl.key",
+      "status": "implemented child; input/presentation glue pending"
+    },
+    {
+      "identifier": "bind_reset",
+      "route": "NativeEditors keybinds -> BindControl.key",
+      "status": "implemented child; input/presentation glue pending"
+    },
+    {
+      "identifier": "bind_reset_all",
+      "route": "NativeEditors keybinds -> BindControl.key",
+      "status": "implemented child; input/presentation glue pending"
+    },
+    {
+      "identifier": "bind_cancel",
+      "route": "NativeEditors keybinds -> BindControl.key",
+      "status": "implemented child; input/presentation glue pending"
+    },
+    {
+      "identifier": "bind_navigation",
+      "route": "NativeEditors keybinds -> BindControl.key",
+      "status": "implemented child; input/presentation glue pending"
+    },
+    {
+      "identifier": "fallback",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "tracking",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "tracking_driver",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "mode_switch",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "startup_desktops",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "stop",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "recover",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "start",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "confirm_start",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "confirm_recover",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "cancel",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "status",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "controller_restart",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "close_external",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "immersive_connected_tail",
+      "route": "existing pointer owner: immersive_click / immersive_tail_click",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "select_pointer",
+      "route": "existing pointer owner: select_desktop",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "edge_pan",
+      "route": "existing pointer owner: edge_pan + switch_desktop",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "background_switch",
+      "route": "options_apply",
+      "status": "implemented; outer glue pending"
+    },
+    {
+      "identifier": "profile_remember",
+      "route": "existing ViewControl.save_setup / profiles",
+      "status": "automatic; not a new command"
+    },
+    {
+      "identifier": "plugin_restart",
+      "route": "existing controller/plugin (external or pre-start)",
+      "status": "preserved; outside adapter authority"
+    },
+    {
+      "identifier": "resize_press",
+      "route": "existing pointer owner: resize_press",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "resize_release",
+      "route": "existing pointer owner: resize_release",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "resize_cancel",
+      "route": "existing pointer owner: resize_cancel",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "super_left_press",
+      "route": "existing pointer owner: super_left_press",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "super_right_press",
+      "route": "existing pointer owner: super_right_press",
+      "status": "preserved; no replacement adapter"
+    },
+    {
+      "identifier": "super_release",
+      "route": "existing pointer owner: super_release",
+      "status": "preserved; no replacement adapter"
+    }
+  ]
+}

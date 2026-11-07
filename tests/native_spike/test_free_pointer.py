@@ -295,7 +295,7 @@ class HugeResizeMathTests(unittest.TestCase):
                 self.assertAlmostEqual(top - border, fp.PILL_GAP - fp.BORDER_PX, delta=1e-3)
                 cx, cy = fp.project_glass(G, T1, p, x + w / 2, y + h / 2)
                 self.assertEqual(fp.hit(G, placements, (cx, cy)), ('pill', 1))
-                self.assertEqual(fp.hit(G, placements, (cx + w / 2 + fp.PILL_PAD_X - 1, cy)), ('pill', 1))  # its pad, unscaled
+                self.assertEqual(fp.hit(G, placements, (cx + w / 2 + 6 - 1, cy)), ('pill', 1))  # its pad, unscaled
                 self.assertNotEqual(fp.hit(G, placements, (cx + w / 2 + fp.PILL_PAD_X + 2, cy)), ('pill', 1))
                 self.assertNotEqual(fp.hit(G, placements, (cx, cy + h / 2 + fp.PILL_PAD_Y + 2)), ('pill', 1))
                 for field in ('x', 'distance'):

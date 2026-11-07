@@ -33,6 +33,7 @@ still has to be on.
 """
 import re
 import threading
+from .send import complete
 
 PRIVACY_OP = 'privacy_display'
 PRIVACY_BIND = ('CTRL + ALT + D', PRIVACY_OP)
@@ -94,7 +95,7 @@ def wake(client, name, deadline=2.0):
     try:
         if dpms_status(client.query('monitors', timeout=deadline), name) is not False: return False
         client.set_dpms(name, True)
-        return True
+        return dpms_status(client.query('monitors',timeout=deadline),name) is True
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         return False
 
@@ -113,35 +114,45 @@ class PrivacyDisplay:
         self.blanked = None            # the output this run turned off, while it is off
         self._threads = []
 
-    def request(self):
+    def request(self, done=None):
         """From the supervisor loop: never blocks on the compositor."""
-        if self.closed: return
-        t = threading.Thread(target=self._work, daemon=True); t.start()
+        if self.closed:
+            complete(done,False,'Privacy owner closed'); return
+        t = threading.Thread(target=self._work, args=(done,), daemon=True); t.start()
         self._threads = [x for x in self._threads if x.is_alive()] + [t]
 
-    def _work(self):
+    def _work(self, done=None):
         with self._lock:
-            if self.closed: return
-            try: message = self.toggle()
-            except (OSError, ValueError, TypeError, KeyError, AttributeError): message = 'Could not change the main display.'
+            if self.closed:
+                complete(done,False,'Privacy owner closed'); return
+            try: success, message = self._toggle()
+            except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+                success, message = False, str(exc) or 'Could not change the main display.'
+        complete(done,success,message)
         if message and self.notify is not None: self.notify(message)
 
     def toggle(self):
+        return self._toggle()[1]
+
+    def _toggle(self):
         """Do it now (caller holds the lock). Returns the message for the user."""
         monitors = self.client.query('monitors', timeout=self.deadline)
         target = main_display(monitors, self.glasses, self.fallback)
-        if target is None: return 'No single main display found to turn off.'
+        if target is None: return False, 'No single main display found to turn off.'
         on = dpms_status(monitors, target)
-        if on is None: return f'{target} is not available.'
+        if on is None: return False, f'{target} is not available.'
         if on:
             self.client.set_dpms(target, False, keep=self.glasses)
             if dpms_status(self.client.query('monitors', timeout=self.deadline), target) is not False:
-                return f'{target} did not turn off.'
+                return False, f'{target} did not turn off.'
             self.blanked = target
-            return f'Privacy on: {target} is off, only the glasses show content. Ctrl+Alt+D turns it back on.'
+            return True, f'Privacy on: {target} is off, only the glasses show content. Ctrl+Alt+D turns it back on.'
         self.client.set_dpms(target, True)
+        if dpms_status(self.client.query('monitors',timeout=self.deadline),target) is not True:
+            self.blanked = target
+            return False, f'{target} did not turn on.'
         self.blanked = None
-        return f'Privacy off: {target} is back on.'
+        return True, f'Privacy off: {target} is back on.'
 
     def close(self, timeout=None):
         """Run end, before the binds go and recovery starts: no toggle starts after this; the display comes back on."""

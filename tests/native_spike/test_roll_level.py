@@ -168,7 +168,7 @@ class PureTests(unittest.TestCase):
                         bare, shown = fp.hit(g, placements, point), fp.hit(g, placements, point, icons=icons)
                         if bare is not None and bare[0] != 'edge': self.assertEqual(shown, bare, (i, u, v, placements))
                         elif shown != bare:
-                            self.assertIn(shown[0], ('roll', 'immersive'), (i, u, v))  # the 3D button beside the bar: same rules
+                            self.assertIn(shown[0], ('roll', 'immersive', 'maximize'), (i, u, v))  # the 3D button beside the bar: same rules
                             bars += 1
             self.assertGreater(bars, 50, placements)  # and the bars are there to press
 
