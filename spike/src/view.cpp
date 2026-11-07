@@ -588,10 +588,23 @@ void ViewAnimator::set_pan(const EdgePan& p, double now_ms) {
     if (pan_landing_) return;
     if (!p.active) { pan_.active = false; pan_.peek = pan_.cross = pan_.turn = 0; return; }  // back to the desktop, eased
     const bool same = pan_on_ && pan_.from == p.from && pan_.to == p.to && pan_.side == p.side;
-    if (!same && (switch_.active || to_zoom_ != 1.f || t_ < 1.f || p.from != shown_ || p.to == p.from || p.to > kMaxIndex)) return;
+    // At rest on p.from, maximized or in the overview (to_zoom_ is only ever 1 or 0).
+    if (!same && (switch_.active || t_ < 1.f || p.from != shown_ || p.to == p.from || p.to > kMaxIndex)) return;
+    if (!same) {
+        pan_overview_ = to_zoom_ == 0.f;
+        // The overview's pan turns the room from the centre of the view as it is now, as a centred switch does
+        // (wayland.cpp capture_centre): a serial of its own, so its landing can hand the turn over (land_turn).
+        if (pan_overview_) { ++serial_; turn_centred_ = true; }
+    }
     pan_ = p;
     pan_.peek = clampf(p.peek, 0, 1); pan_.cross = clampf(p.cross, 0, 1); pan_.zoom = clampf(p.zoom, 0, 1); pan_.turn = clampf(p.turn, 0, float(M_PI));
+    if (pan_overview_) pan_.zoom = 0;
     pan_on_ = true; pan_seen_ms_ = now_ms;
+}
+
+float ViewAnimator::pan_land() const {
+    if (!pan_landing_ || !pan_overview_) return 0;
+    return turn_ > 0 ? smootherstep(clampf(float((pan_ms_ - pan_land_ms_) / turn_), 0, 1)) : 1.f;
 }
 
 void ViewAnimator::step_pan(double now_ms) {
@@ -602,6 +615,12 @@ void ViewAnimator::step_pan(double now_ms) {
     const float k = std::exp(-float(dt) / kPanEaseMs);
     auto ease = [&](float v, float to) { const float e = to + (v - to) * k; return std::fabs(e - to) < 1e-3f ? to : e; };
     pan_peek_ = ease(pan_peek_, pan_.peek); pan_cross_ = ease(pan_cross_, pan_.cross); pan_turn_ = ease(pan_turn_, pan_.turn);
+    if (pan_overview_) {  // nothing zooms; landed, the room takes the turn in this same frame (land_turns)
+        pan_zoom_ = 1;
+        if (pan_landing_ && pan_land() >= 1.f) { land_turn(pan_.from, pan_.to, true); end_pan(); }
+        else if (!pan_landing_ && !pan_.active && pan_peek_ == 0 && pan_cross_ == 0 && pan_turn_ == 0) end_pan();
+        return;
+    }
     if (pan_landing_) return;  // the switch has the zoom
     const float want = lerp(1.f, pan_.zoom, smoothstep(pan_peek_)) * (1 - smoothstep(pan_cross_));
     const float step = duration_ > 0 ? float(dt) / duration_ : 1.f;
@@ -618,6 +637,19 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
     }
     const float z = zoom();
     if (pan && !pan_on_) { pan = false; cut = true; }  // the frames of the pan never came: nothing to land from
+    if (pan_on_ && pan_overview_) {  // the overview's pan: only its own landing, a maximize, a cut or another desktop end it
+        if (pan && !zoomed && !pan_landing_ && selected == pan_.to && selected != shown_) {  // the hand reached it
+            pan_.active = false;  // cross and turn stay as the last frame left them; pan_land() eases on from there
+            pan_landing_ = true; pan_land_ms_ = now_ms;
+            shown_ = to_selected_ = selected;  // the highlight is there at once
+            return;
+        }
+        if (zoomed || cut || selected != to_selected_) {
+            if (pan_landing_) land_turn(pan_.from, pan_.to, true);  // cut short: the room takes the whole turn now
+            end_pan();
+        }
+        pan = false;  // nothing of the maximized pan's below
+    }
     if (pan && zoomed && !pan_landing_ && !switch_.active && selected != shown_) {  // the hand reached it: land from there
         pan_.active = false;  // peek, cross and turn stay as the last frame left them, the end of the way
         pan_landing_ = true; pan_zoom_ = 1;
@@ -625,7 +657,7 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
         to_selected_ = selected;
         return;
     }
-    if (pan_on_ && (cut || !zoomed || selected != to_selected_)) {  // over: from_zoom_ takes up what the pan had drawn
+    if (pan_on_ && !pan_overview_ && (cut || !zoomed || selected != to_selected_)) {  // over: from_zoom_ takes up what the pan had drawn
         end_pan();
         from_zoom_ = to_zoom_ = z; t_ = 1.f;
     }

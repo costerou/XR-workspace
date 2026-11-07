@@ -682,6 +682,11 @@ Python from the same build, three desktops at least, and head tracking on.
 | P12 | Press Ctrl+Alt+Right, use the panel, send with Ctrl+Alt+G, switch in the overview, in typing mode | All instant: no zoom, no turn, no dot. |
 | P13 | On a scrolling-layout workspace with columns past the edge, push right | The columns scroll first; only then does the pan start. |
 | P14 | During a push part way across, press Ctrl+Alt+Down, then repeat with Ctrl+Alt+Right | Un-maximizes from where it is with no jump; the key is an instant cut. |
+| P15 | In the overview, on XR-1, push the mouse just past its right edge and stop | The dot sits on the right edge's resize handle; a press and drag there resizes XR-1. Nothing turns. |
+| P16 | Push on to the right | The dot stays at the edge (it does not drift onto XR-2), then the room turns right with your hand and the dot rides across the gap. The pills hide while it turns. |
+| P17 | Part way across, pull back; then push again and stop still for a second | Pulling back turns the room back with the dot back at the edge; resting turns it back too. XR-1 stays selected. |
+| P18 | Push all the way | XR-2 is highlighted, the mouse comes in at the height it left, and the room settles with XR-2 in the middle of the view and stays there; turning your head shows the room still fixed, turned. |
+| P19 | Push down from a desktop with another placed below it, and from one with none below | Over the pill on the way the dot stops counting (the pill lights and can be dragged); with nothing below, the dot just goes free as before. |
 
 Say how much mouse travel feels right: a row neighbour takes about a fifth of a desktop's width of mouse past the edge, and a
 desktop far round you several desktop widths, as the view turns at the mouse's speed.

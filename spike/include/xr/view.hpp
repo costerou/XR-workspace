@@ -270,6 +270,15 @@ private:
 // of it, so nothing of the overview's (pills, the dot's own frames) shows. set_target's `pan` lands one that reached its
 // target: phases 2 and 3 above from where the hand left it (phase 1 too if the zoom has not got to 0), about 0.52 s, 0.74 s at
 // most. `pan` with no pan under way is a cut. A cut or a return to the overview drops a pan where it is.
+// The overview's edge pan (overview-edge-pan, 2026-11-07; tools/native_spike/edge_pan.py: Overview): the same frames with
+// zoom 0, taken at rest in the overview. Nothing zooms; the room (anchor mode) turns 1:1 with the hand by `turn` about the
+// path's axis, and the dot is drawn on its way across as maximized (wayland.cpp turned, pan_dot). Pulling back, resting or
+// a stale feed eases it back. set_target with `pan`, still in the overview, on `to` lands it: the highlight moves at once and
+// over turn_ms (pan_land) the turn eases on to the one that puts `to` where the centre of the view was when the pan began,
+// a centred turn (its own serial()), which then lands like a centred switch's (take_landed_turns -> turn_anchor) in the same
+// frame. A maximize, a cut or another desktop selected ends it; one cut short mid-landing hands the whole turn to the room.
+// switching() is true throughout, so the pills and the overview's own dot hide while it lasts (wayland.cpp shows the dot
+// again for the landing: it is the real cursor's then, on `to`).
 class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
@@ -277,10 +286,12 @@ public:
     explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
                     bool cut = false, bool pan = false);
-    // A frame of the hand's pan. Ignored unless maximized at rest on p.from, or that pan is under way.
+    // A frame of the hand's pan. Ignored unless at rest on p.from (maximized, or in the overview), or that pan is under way.
     void set_pan(const EdgePan& p, double now_ms);
     bool pan_active() const { return pan_on_; }      // under way, easing back, or landing
     bool pan_landing() const { return pan_landing_; }
+    bool pan_overview() const { return pan_on_ && pan_overview_; }  // the pan under way is the overview's (below)
+    float pan_land() const;  // the overview pan's landing, [0,1] smootherstep over turn_ms; 0 unless one is landing
     const EdgePan& pan() const { return pan_; }
     float pan_cross() const { return pan_cross_; }   // eased EdgePan::cross
     float pan_turn() const { return pan_turn_; }     // eased EdgePan::turn
@@ -314,12 +325,12 @@ public:
 private:
     void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center);
     void step_pan(double now_ms);
-    void end_pan() { pan_on_ = pan_landing_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; }
+    void end_pan() { pan_on_ = pan_landing_ = pan_overview_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; }
     float duration_, turn_;
     EdgePan pan_{};
-    bool pan_on_ = false, pan_landing_ = false;
+    bool pan_on_ = false, pan_landing_ = false, pan_overview_ = false;
     float pan_peek_ = 0, pan_cross_ = 0, pan_turn_ = 0, pan_zoom_ = 1;
-    double pan_ms_ = 0, pan_seen_ms_ = 0;
+    double pan_ms_ = 0, pan_seen_ms_ = 0, pan_land_ms_ = 0;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
     float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;

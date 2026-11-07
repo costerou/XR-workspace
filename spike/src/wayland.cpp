@@ -320,14 +320,15 @@ struct Presentation::Impl : SurfaceRequests {
     // and on the view in locked; the switch then hands over to the plain aim with nothing moving.
     Quat focus_aim() const {
         const float w = focus_weight(view);
-        if ((!(w > 0.f) && !view.pan_active()) || !half_w) return Quat{};
+        const bool maximized_pan = view.pan_active() && !view.pan_overview();  // the overview's turns the room instead (turned)
+        if ((!(w > 0.f) && !maximized_pan) || !half_w) return Quat{};
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         std::array<Placement, kMaxDesktops> placed{};
         const std::size_t n = std::min(captures.size(), placed.size());
         for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
         const std::span<const Placement> ps(placed.data(), n);
         const Canvas c{float(width), float(height), half_w, half_h};
-        if (view.pan_active()) {
+        if (maximized_pan) {
             const auto from = focus_direction(c, overview, ps, view.pan().from), to = focus_direction(c, overview, ps, view.pan().to);
             Quat aim = aim_rotation(from[0], from[1]);
             if (const auto path = edge_pan_path(c, capture_sizes().span(), view.spacing(), overview, ps, view.pan()))
@@ -393,11 +394,31 @@ struct Presentation::Impl : SurfaceRequests {
     // A desktop switch's view turn (ViewAnimator::turn, view.hpp look_turn) applied to this frame's head rotation: the
     // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest. Anchor
     // mode only: follow and locked already turn to the target through the aim (focus_aim).
+    // The overview's edge pan (view.hpp ViewAnimator, overview-edge-pan) turns the room the same way: about the dot's path's
+    // axis by the hand's turn (world points the other way: the view turns toward the target), and landing, on to the centred
+    // turn that puts the target where the centre of the view was (look_turn_from at 1), which land_turns then hands over.
+    Mat3 overview_pan_turn() const {
+        const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
+        std::array<Placement, kMaxDesktops> placed{};
+        const std::size_t n = std::min(captures.size(), placed.size());
+        for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
+        const Canvas c{float(width), float(height), half_w, half_h};
+        Quat q{};
+        if (const auto path = edge_pan_path(c, capture_sizes().span(), view.spacing(), overview, std::span<const Placement>(placed.data(), n), view.pan())) {
+            const float s = std::sin(-view.pan_turn() / 2);
+            q = Quat{path->axis.x * s, path->axis.y * s, path->axis.z * s, std::cos(-view.pan_turn() / 2)};
+        }
+        if (view.pan_landing())
+            q = quat_slerp(q, mat3_to_quat(look_turn_from(c, overview, own, centre_of(view.serial()), view.pan().to, 1.f)), view.pan_land());
+        return quat_to_mat3(q);
+    }
     Mat3 turned(const Mat3& head) const {
-        if (!(view.turn() > 0.f) || modes.mode() != ViewMode::anchor) return head;
+        const bool overview_pan = view.pan_overview() && modes.mode() == ViewMode::anchor && half_w > 0;
+        if ((!(view.turn() > 0.f) && !overview_pan) || modes.mode() != ViewMode::anchor) return head;
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         const Canvas c{float(width), float(height), half_w, half_h};
-        const Mat3 m = view.turn_centred() ? look_turn_from(c, overview, own, centre_of(view.serial()), view.look_to(), view.turn())
+        const Mat3 m = overview_pan ? overview_pan_turn()
+                     : view.turn_centred() ? look_turn_from(c, overview, own, centre_of(view.serial()), view.look_to(), view.turn())
                                            : look_turn(c, overview, own, view.look_from(), view.look_to(), view.turn());
         Mat3 out{};
         for (int r = 0; r < 3; ++r)
@@ -1548,7 +1569,9 @@ Status Presentation::draw_test_pattern() {
             }
             s.panel_shift.set(shift, help_now);
         }
-        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
+        // Overview only; world-locked on the canvas. The overview pan's landing shows it again: the real cursor is on the target.
+        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f &&
+                                  (!s.view.switching() || (s.view.pan_overview() && s.view.pan_landing()));
         if (const auto dot = s.pan_dot(tiles, s.resolved_placements(tiles)))  // the hand's: the real cursor is hidden and held
             // (degrees, as the frames below)
             s.gl->set_free_pointer(true, float(s.width) / 2, float(s.height) / 2, kFreePointerLevel, true, (*dot)[0] * float(180 / M_PI), (*dot)[1] * float(180 / M_PI), PointerLook::plain);

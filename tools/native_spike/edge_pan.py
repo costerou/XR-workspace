@@ -27,6 +27,15 @@ general direction and try to make it as 1:1 as possible with where the cursor is
     there is a way across, and the far edges of the two within the view with KEEP_IN_VIEW of it to spare. Where no zoom can get both in view (a desktop far round you) it is the
     highest that does not cover the target, at most MAX_ZOOM, which keeps the dot off the very edge of the glasses. Across the
     crossing it goes on down to 0, because that is the one zoom where the renderer can hand from one desktop to the other.
+  * Overview (overview-edge-pan, 2026-11-07; Cody: "similar to the maximized panning with the cursor but in overview mode ...
+    snaps in the direction where the next monitor is ... the same kind of animation"; his picks: the view turns and the room
+    re-centres on the target, and the snap comes after the resize handle). The free dot pushed on past the edge it left
+    (unified_cursor.UnifiedPointer: Overview push) toward a desktop in the same cone, from the same edge point, pans there by
+    hand the same way: START_PX first, the same peek and crossing with the dot on the same path, the view (the room, which is
+    anchored) turning 1:1 the same way about the same axis. Nothing zooms (zoom 0: the overview already shows both as
+    placed), and the rate is home's own as placed in the overview (overview_rate), so the view turns as fast as the dot
+    went over it. Reaching the target selects it in the overview (`pan`), the cursor comes in at the entry point, and the
+    renderer eases the rest of the way until the target is where the centre of the view was, which the room keeps.
 The renderer's mirror: view.hpp edge_pan_path (the `edge_pan_contract` ctest compares them).
 """
 import json
@@ -98,6 +107,17 @@ def drawn_home(g, tile, p, zoom):
     return now, {'x': math.remainder(p['x'] * orbit.TENTH + a0 - a1, 2 * math.pi) / orbit.TENTH,
                  'y': (p['y'] * orbit.TENTH + e0 - e1) / orbit.TENTH,
                  'distance': (rigid + (1 - rigid) * z) * 100, 'curvature': p['curvature']}
+
+
+def overview_rate(g, tile, p, side, size):
+    """Radians per logical px of the cursor on a desktop in the overview, along the push: its angle as placed, from edge to
+    edge through its middle, over its width (or height). The overview pan's 1:1 (module docstring: Overview). None if
+    degenerate."""
+    a, b, n = ('left', 'right', size[0]) if side in ('right', 'left') else ('up', 'down', size[1])
+    e0, e1 = point(g, tile, p, a, 0.5), point(g, tile, p, b, 0.5)
+    if e0 is None or e1 is None or n <= 0: return None
+    r = _angle(e0, e1) / n
+    return r if r > 0 else None
 
 
 def rate(g, tile, side, size):
@@ -190,9 +210,10 @@ class Plan:
                 'turn': wire(travel * self.rate / math.pi), 'zoom': wire(self.zoom)}
 
 
-def plan(g, placements, home, target, side, along, size):
+def plan(g, placements, home, target, side, along, size, overview=False):
     """The Plan for that push, `size` home's logical (width, height), or None (no geometry for it, or degenerate: the
-    switch is then a plain cut)."""
+    switch is then a plain cut). `overview`: the push past a desktop's edge in the overview (module docstring: Overview):
+    nothing zooms, and the rate is the desktop's own as placed (overview_rate)."""
     n = len(g['tiles'])
     if not (0 <= home < n and 0 <= target < n) or home == target or home >= len(placements) or target >= len(placements):
         return None
@@ -203,7 +224,12 @@ def plan(g, placements, home, target, side, along, size):
     if entry is None: return None
     entry = round(entry * _TO_WIRE) / _TO_WIRE  # what the renderer will read
     exit_ = round(max(0.0, min(1.0, along)) * _TO_WIRE) / _TO_WIRE
-    zoom = round(pan_zoom(g, home_tile, home_p, target_tile, target_p, side, exit_, entry) * _TO_WIRE) / _TO_WIRE
+    if overview:
+        zoom, r = 0.0, overview_rate(g, home_tile, home_p, side, size)
+        if r is None: return None
+    else:
+        zoom = round(pan_zoom(g, home_tile, home_p, target_tile, target_p, side, exit_, entry) * _TO_WIRE) / _TO_WIRE
+        r = rate(g, home_tile, side, size)
     t, q = drawn_home(g, home_tile, home_p, zoom)
     e, p = point(g, t, q, side, exit_), point(g, target_tile, target_p, OPPOSITE[side], entry)
     frame, other = neighbors.frame(g, home_tile, home_p), neighbors.frame(g, target_tile, target_p)
@@ -211,7 +237,6 @@ def plan(g, placements, home, target, side, along, size):
     axis = {'right': frame[1], 'left': frame[1], 'up': frame[2], 'down': frame[2]}[side]
     sign = 1.0 if side in ('right', 'up') else -1.0
     ahead = sign * orbit._dot(tuple(a - b for a, b in zip(p, e)), axis)
-    r = rate(g, home_tile, side, size)
     # Desktops that touch or overlap there have no way across: only the peek. Far round, the short way is the push's already.
     gap = _angle(e, p) / r if ahead > 0 or _angle(e, p) > math.pi / 2 else 0.0
     peek = max(PEEK_PX, _angle(frame[0], other[0]) * MEET_SHARE / r - gap)

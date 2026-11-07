@@ -58,6 +58,19 @@ scrolling and typing, and a click never maximizes):
     it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so the keyboard goes to that
     monitor's focused window and focus-follows-mouse picks the window under the dot. It feels like one cursor: the same
     dot, the same speed either side of an edge (_gain), and a look that always says what a press would do.
+  * Overview push (overview-edge-pan, 2026-11-07; edge_pan.py: Overview). The maximized push past an edge, in the overview:
+    the cursor leaving home over one edge (not a corner) with a desktop that way from that point of the edge (neighbors.pick_at,
+    the same 45-degree cone) arms it (_arm_push). The dot goes free on that edge's resize handle as ever, so a short push
+    still stops there and a press takes the handle. Pushed on, the dot does not go onto another desktop or its handles (in a
+    row the neighbour's edge is a couple of px away): it waits where it is while the hand's push counts, wherever the dot is
+    over space or that edge; a pill, bar or open panel on the way holds the count, so each can still be reached, and moving
+    off along the edge more than OVERVIEW_LATERAL_PX makes it just the free dot again. edge_pan.START_PX of push starts the
+    pan (_span_move, as EdgePush._pan): the dot and the pills hide, the renderer draws the dot on its way across and turns
+    the view (the room) 1:1 from the `edge_pan` frames; pulling back to the start ends it with the dot back where it was,
+    still armed, and resting edge_pan.REST_S or a press ends it the same way. Reaching Plan.total_px selects the target in
+    the overview with `pan` (ViewControl.select_desktop) and hands it the real cursor ENTRY_PX inside its near edge at the
+    entry point (_enter); the renderer turns on until the target is where the centre of the view was and the room keeps
+    that turn. No push arms for OVERVIEW_LAND_S after a landing. A Super drag ends a pan under way; none starts during one.
   * Over text (the Serif Beam; Cody's pick, 2026-11-03). The ownership plugin announces which cursor the app under the hidden
     real cursor wants as it changes (`xrcursor` on socket2, OverviewPointer.push_shape; Hyprland keeps the name while
     cursor.invisible hides it), and in desktop mode the sampler reads the same name from the broker (ownership.cursor_reader):
@@ -115,6 +128,10 @@ ENTRY_PX = 24             # the cursor enters the new desktop this far inside th
 # the window shows every pixel of that.
 CARRY_INSET_PX, CARRY_LEASH_PX = 12, 6
 PENDING_S = 0.5           # a requested switch the loop has not made by then is dropped
+# The overview push (UnifiedPointer: the free dot pushed on past the edge it left pans to the desktop that way, edge_pan.py).
+OVERVIEW_LATERAL_PX = 48  # hand motion along the edge past this (logical px) since it left: no push any more, just the free dot
+OVERVIEW_LAND_S = 0.35    # after an overview pan lands no push arms for this long (the renderer's landing: 0.3 s)
+SIDE_EDGE = {'right': 'r', 'left': 'l', 'up': 't', 'down': 'b'}  # a push side -> free_pointer's name for that resize edge
 
 CLICK_OPTS = '{ non_consuming = true }', '{ release = true, non_consuming = true }'
 
@@ -383,6 +400,13 @@ class UnifiedPointer(fp.OverviewPointer):
         self.landings = 0           # diagnostics: drops that asked for a landing
         self.super_window = None    # the window under the cursor at its press (send.window_at's dict), once looked up
         self.carries = 0            # diagnostics: Super drags that left a desktop
+        # The overview push (module docstring): `arm` from the exit until the pan starts: {'plan' (edge_pan.Plan, overview),
+        # 'travel' (logical px of push so far), 'lateral' (along the edge)}; `span` the pan under way: {'plan', 'travel' (past
+        # START_PX), 'moved' (when the hand last moved), 'pointer' (the free dot it took over from)}.
+        self.arm = self.span = None
+        self._span_sent = None      # the last `edge_pan` payload sent for it
+        self.landed_at = -math.inf  # when the last overview pan landed
+        self.overview_pans = self.overview_pulls = 0  # diagnostics: overview pans that landed / ended on home
 
     def overview(self):
         """As free_pointer's, and in typing mode too while a Super move lasts: that is what carries it across the gaps. It
@@ -471,6 +495,10 @@ class UnifiedPointer(fp.OverviewPointer):
         out = self._super_end() if self.super_drag is not None and now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S else b''
         out += self._take_pan()
         out += self._take_switch()
+        if self.span is not None and (not self.active() or self.mode != 'free' or self.drag is not None
+                                      or now - self.span['moved'] >= edge_pan.REST_S):
+            out += self._span_end()  # gone from under it, or the hand rested: the view goes back
+        if self.arm is not None and (not self.active() or self.mode != 'free'): self.arm = None
         if self.active() and self.mode in fp.DOT_MODES and self.desktop != self._home():
             out += self._to_home(now)  # a key changed the selected desktop: the cursor goes with it
             self.rehomes += 1
@@ -541,7 +569,137 @@ class UnifiedPointer(fp.OverviewPointer):
         self.exits += 1
         self._set_want('free', self._park(o, (cx, cy)))  # the grab parks it back on home
         self.hover = self._hit()
+        self._arm_push(home, o, lx, ly, now)
         return self._wants()
+
+    # --- the overview push ----------------------------------------------------------------------------------------
+    def _arm_push(self, home, o, lx, ly, now):
+        """The cursor left home at monitor-local (lx, ly) and the dot is free: if it left over one edge (not a corner, whose
+        cap it is on) and a desktop lies that way from that point of the edge (neighbors.pick_at, as maximized), pushing on
+        will pan there (module docstring: Overview push)."""
+        self.arm = None
+        if self.super_drag is not None or now - self.landed_at < OVERVIEW_LAND_S: return
+        w, h = o['width'], o['height']
+        sides = [s for s, on in (('left', lx < fp.EDGE_PX), ('right', lx > w - 1 - fp.EDGE_PX),
+                                 ('up', ly < fp.EDGE_PX), ('down', ly > h - 1 - fp.EDGE_PX)) if on]
+        if len(sides) != 1: return
+        side = sides[0]
+        g, s = self.geometry, self.control.state
+        if g is None or len(g['tiles']) != len(s.names): return
+        t = along(o, (o['x'] + lx, o['y'] + ly), side)
+        target = neighbors.pick_at(g, s.placements, home, side, t)
+        if target is None: return
+        plan = edge_pan.plan(g, s.placements, home, target, side, t, (w, h), overview=True)
+        if plan is None: return
+        over = {'left': -lx, 'right': lx - (w - 1), 'up': -ly, 'down': ly - (h - 1)}[side]  # Hyprland let it that far
+        self.arm = {'plan': plan, 'travel': max(float(over), 0.0), 'lateral': 0.0}
+
+    def _move(self, dx, dy, now):
+        """Free mode (free_pointer._move), and the overview push: armed, the dot never goes onto another desktop (it waits
+        on home's edge while the hand pushes on: in a row the neighbour's edge is only px away), and the hand's push counts
+        wherever the dot is on nothing but space or that edge (a pill or bar on the way holds the count, so each can still be
+        reached); START_PX of it starts the pan. Under way, the hand's motion is the pan's (_span_move)."""
+        if self.span is not None: return self._span_move(dx, dy, now)
+        a = self.arm
+        if a is None or self.drag is not None:
+            self.arm = None
+            return super()._move(dx, dy, now)
+        plan, gain = a['plan'], self.gain or 1.0
+        step, lateral = self._axis(plan.side, dx / gain, dy / gain)
+        a['lateral'] += lateral
+        if abs(a['lateral']) > OVERVIEW_LATERAL_PX:  # gone off along the edge: just the free dot
+            self.arm = None
+            return super()._move(dx, dy, now)
+        before = self.pointer
+        elsewhere = lambda h: h is not None and h[0] in ('desktop', 'edge', 'corner') and h[1] != plan.home
+        h = self._hit()  # already on another desktop's content (put there, not pushed there): it goes on as ever. Its border
+        was = h is not None and h[0] == 'desktop' and h[1] != plan.home  # may reach over home's edge in a tight row: no
+        self.pointer = self._clamp((before[0] + dx, before[1] + dy))
+        self.last_move = now
+        if self.control.state.menu_open: self.control.last_input = now
+        hover = self._hit()
+        blocked = elsewhere(hover) and not was
+        if blocked:  # not onto another desktop, nor its handles: the dot waits where it was
+            self.pointer = before
+            hover = self._hit()
+        self.hover = hover
+        if blocked or hover is None or hover == ('edge', plan.home, SIDE_EDGE[plan.side]):
+            a['travel'] = max(a['travel'] + step, 0.0)
+        out = b'' if blocked else self._settle()  # back onto home's content: the cursor is there again
+        if self.mode != 'free':
+            self.arm = None
+            return out
+        if a['travel'] >= edge_pan.START_PX:
+            self.arm = None
+            self.span = {'plan': plan, 'travel': a['travel'] - edge_pan.START_PX, 'moved': now, 'pointer': self.pointer}
+            self.hover = None
+            out += self._span_frame()
+        return out
+
+    @staticmethod
+    def _axis(side, dx, dy):
+        """(along the push, along the edge) of a motion: + is the push's way."""
+        if side in ('left', 'right'): return (dx if side == 'right' else -dx), dy
+        return (dy if side == 'down' else -dy), dx
+
+    def _span_frame(self):
+        payload = self.span['plan'].frame(self.span['travel'])
+        if payload == self._span_sent: return b''
+        self._span_sent = payload
+        return self.control.pan_frame(payload)
+
+    def _span_move(self, dx, dy, now):
+        """The overview pan under way (as EdgePush._pan, maximized): the hand's motion along the push, signed, is the pan's;
+        back to its start ends it on home, reaching Plan.total_px lands it."""
+        p = self.span
+        plan, gain = p['plan'], self.gain or 1.0
+        step, _ = self._axis(plan.side, dx / gain, dy / gain)
+        self.last_move = now
+        if step:
+            p['travel'] = max(p['travel'] + step, 0.0)
+            p['moved'] = now
+        if step < 0 and p['travel'] <= 0:  # pulled back: the dot is free past the edge again, still armed
+            out = self._span_end()
+            self.arm = {'plan': plan, 'travel': float(edge_pan.START_PX), 'lateral': 0.0}
+            return out
+        if p['travel'] >= plan.total_px: return self._span_land(now)
+        return self._span_frame()
+
+    def _span_end(self):
+        """The overview pan ends on home: the view goes back, and the free dot is where it was when the pan took over."""
+        p, self.span, self._span_sent = self.span, None, None
+        if p is None: return b''
+        self.overview_pulls += 1
+        if self.mode == 'free':
+            self.pointer = p['pointer']
+            self.hover = self._hit()
+        return self.control.pan_frame(None)
+
+    def _span_land(self, now):
+        """The hand reached the target: it is selected in the overview with `pan` (the renderer lands the turn, the room
+        keeping it), and the real cursor comes in just inside its near edge at the entry point (_enter: desktop mode there)."""
+        p, self.span, self._span_sent = self.span, None, None
+        plan = p['plan']
+        target = plan.target
+        out = self.control.select_desktop(target, panned=True)
+        tile, o, placement = self._tile(target), self._output(target), self._placement(target)
+        if self.control.state.selected != target or not self.active() or tile is None or o is None or placement is None:
+            self.pointer = p['pointer']  # stale: the view goes back, the dot stays free
+            return out + self.control.pan_frame(None)
+        near = edge_pan.OPPOSITE[plan.side]
+        x, y = edge_pan.edge_pixel(tile, near, plan.entry)
+        if plan.side in ('left', 'right'):
+            inset = ENTRY_PX * tile[2] / o['width']
+            q = (x + inset, y) if near == 'left' else (x - inset, y)
+        else:
+            inset = ENTRY_PX * tile[3] / o['height']
+            q = (x, y + inset) if near == 'up' else (x, y - inset)
+        out += self._enter(target, q)
+        point = fp.project(self.geometry, tile, placement, *q)
+        if point is not None: self.pointer = point
+        self.last_move = self.landed_at = now
+        self.overview_pans += 1
+        return out
 
     def _wants(self):
         """The click binds go with desktop mode, and nothing is bound away from the desktops."""
@@ -567,6 +725,11 @@ class UnifiedPointer(fp.OverviewPointer):
         if op not in view.SUPER_OPS: raise ValueError('unsupported Super drag operation')
         now = self.clock()
         self.last_move = now
+        self.arm = None
+        pan_end = self._span_end() if op != 'super_release' else b''  # Hyprland's drag wins over an overview pan
+        if pan_end:
+            out = self.on_super(op)
+            return pan_end + (out or b'')
         if op == 'super_release':
             self._land()
             return self._super_end() or None
@@ -699,6 +862,10 @@ class UnifiedPointer(fp.OverviewPointer):
     # --- the left button ------------------------------------------------------------------------------------------
     def on_op(self, op):
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
+        self.arm = None  # a press is no push: on the edge it left it takes that resize handle as ever
+        if self.span is not None:  # a press mid-pan only ends it, on home
+            self.last_move = self.clock()
+            return (self._span_end() + self._frames(False)) if op == 'resize_press' else None
         # A plain press means no button is held: a Super drag's release was lost. A plain release mid drag (Super let go
         # first) is nothing: its own release bind says when it ends.
         stale = self._super_end() if op == 'resize_press' and self.super_drag is not None else b''

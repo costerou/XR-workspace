@@ -26,6 +26,25 @@ Mat3 quat_to_mat3(Quat q) {
             2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)};
 }
 Mat3 transpose(const Mat3& m) { return {m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]}; }
+Quat mat3_to_quat(const Mat3& m) {
+    // Shepperd: from the largest of w, x, y, z, so no square root is taken of a small difference.
+    const float tr = m[0] + m[4] + m[8];
+    Quat q;
+    if (tr > 0) {
+        const float s = std::sqrt(tr + 1) * 2;
+        q = {(m[7] - m[5]) / s, (m[2] - m[6]) / s, (m[3] - m[1]) / s, s / 4};
+    } else if (m[0] > m[4] && m[0] > m[8]) {
+        const float s = std::sqrt(1 + m[0] - m[4] - m[8]) * 2;
+        q = {s / 4, (m[1] + m[3]) / s, (m[2] + m[6]) / s, (m[7] - m[5]) / s};
+    } else if (m[4] > m[8]) {
+        const float s = std::sqrt(1 + m[4] - m[0] - m[8]) * 2;
+        q = {(m[1] + m[3]) / s, s / 4, (m[5] + m[7]) / s, (m[2] - m[6]) / s};
+    } else {
+        const float s = std::sqrt(1 + m[8] - m[0] - m[4]) * 2;
+        q = {(m[2] + m[6]) / s, (m[5] + m[7]) / s, s / 4, (m[3] - m[1]) / s};
+    }
+    return quat_normalized(q).value_or(Quat{});
+}
 namespace {
 Mat3 mul(const Mat3& a, const Mat3& b) {
     Mat3 r{};
