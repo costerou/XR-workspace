@@ -134,6 +134,25 @@ Estimates of the axis: -11.3 from the lean in motion, -11.2 and -11.1 from the a
 
 Now shipped: `mount_pitch_deg`, -11 by default, -30 to 30, set in the consent or with `--mount-pitch`, applied by the bridge through the same publisher option the Luma uses. `level_gravity` keeps gravity levelling as a comparison, off by default. The renderer now measures the turn axis in each run, as `turn_axis_forward_deg`, `turn_axis_left_deg` and `turn_seconds`. On the directional capture that reads -10.29 with no mount and -0.14 at -11. The mount that would zero a run is its mount plus `turn_axis_forward_deg`.
 
+## XRLinuxDriver's Pro 2 path
+
+At 22:36:22 on 2026-11-06 a normal panel session ran the Pro 2 through `/usr/bin/xrDriver`, about 9.5 minutes, unit `viture-xr-50e8c22f1b2c19df8399126a58eaffee`. Its consent says `model: unknown`, `tracking: xrlinuxdriver`. So there are two live paths to compare, and any report from that session is not the bridge.
+
+From the 2.11.9 source, line by line, its pose reaches the renderer in the same frame as a bridge run with this mount:
+
+| Step | Source | Value |
+| --- | --- | --- |
+| Axes | `src/imu.c:60-61` `quaternion_eus_to_nwu`, used at `src/devices/viture.c:454` for the Pro 2 (`:728`) | `(w, -z, -x, y)`: the bridge's H1 |
+| Pitch | `src/devices/viture.c:65` `viture_pitch_adjustments` | **-8.5 for the Pro 2**, the same as the Luma family |
+| Applied | `src/driver.c:121-122`, `src/imu.c:225` | `q * (cos, 0, sin, 0)`: the publisher's `mount_pitch_deg` |
+| Reference | `src/driver.c` `conj(reference) * pose` | The same as `PoseState` |
+
+So its yaw-into-roll is the -8.5 row: **+0.50 per 10 degrees in motion, +1.60 end to end, +1.23 over the whole window**, or 4.3 degrees at a 27 degree turn right and 3.2 at 20 left, on the directional capture. That leans **against** the turn: the sign of the first runs, about a third to a half of the size. It is not the sign of the bridge's Run B. Its other differences are `look_ahead_cfg [20, 0.6, 10, 40]` and rate. They do not put roll into a yaw.
+
+**A caution on the fit above.** The sign constraint that rules out -15 and -17 assumes the "tilts with the turn" report came from Run B, at frame -14.47. If it came from the XRLinuxDriver session, the frame was -8.5, the true axis would be less tilted than that, and -11 would be the wrong way. The next run's `turn_axis_forward_deg` settles it either way, and which session the report belongs to should be recorded.
+
+**Rate.** `viture_best_frequency` (`viture.c:147`) takes the highest rate the SDK allows, which for the Pro 2 in pose mode is code 3, 240 Hz, with `imu_buffer_size` 4. The session's `pose_age` p50 of 3.1 ms, against 9.4 at 60 Hz, fits that. No log records the delivered rate, so this is inference. If it holds, `--pose-rate 240` may be a better desk test than 120.
+
 ## Why the run stopped at about 60 seconds
 
 Run A ended with `stop_reason guard-failed` after 60.2 s of a 120 s lease. The bridge did not end it: `seconds`, SDK and USB were all fine, and its orderly stop is the supervisor's teardown. The stop has no recorded reason, because the guard worker threw every exception away and sent one byte. So one cause is proven as a defect, and this run's own cause is not proven:

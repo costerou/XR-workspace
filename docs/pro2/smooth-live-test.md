@@ -38,6 +38,8 @@ Ask Cody four things:
 | Does chin down change it? | No | Turn axis fixed to the head, as the Luma's capture says |
 | | Yes, it flips | Some head pitch is in it. Report it |
 
+Note which session each report belongs to: the bundle, or a normal panel session, which on master runs the Pro 2 through XRLinuxDriver at mount -8.5.
+
 Then read `MEASURED`, printed at the end and saved as `measured.json`:
 
 | Field | Expect | If not |
@@ -54,17 +56,17 @@ If the measured value and what Cody sees disagree, report both. To see the old b
 
 ## Run B: the pose rate desk test (optional, only after the lean check is good)
 
-One question: does the Pro 2 really deliver 120 Hz pose in this firmware, and on what cadence?
+One question: does the Pro 2 really deliver a higher pose rate in this firmware, and on what cadence? XRLinuxDriver already asks for 240 Hz in pose mode, and its `pose_age` of 3.1 ms suggests it gets near that, so try 240 first, then 120.
 
-    RELEASE/runtime/bin/pro2-supervised-parent --bundle RELEASE/runtime --pose-rate 120 --stop-after 40
+    RELEASE/runtime/bin/pro2-supervised-parent --bundle RELEASE/runtime --pose-rate 240 --stop-after 40
 
 Cody sits still, then turns slowly. Read `provider` in `MEASURED`:
 
 - `error: capability` or a run that ends early: the SDK refused. Nothing is lost; stay at 60.
-- `samples / seconds` near 120, and `gap_ms_counts` mostly in slots 1 and 2: it works. Report the slots: an uneven cadence (for example 5 and 10 ms) matters as much as the rate.
+- `samples / seconds` near the rate asked for: it works. At 240 Hz nearly every gap is in slot 0, under 7 ms, so the slots say little beyond that. At 120, look at slots 1 and 2: an uneven cadence (for example 5 and 10 ms) matters as much as the rate.
 - Near 60: the rate was accepted and ignored.
 
-Only if 120 looks right and Cody finds it better: report it, and the default can change in a later branch. Nothing here changes the default. 240 Hz is accepted by the SDK's check but is not part of this test.
+Only if the rate looks right and Cody finds it better: report it, and the default can change in a later branch. Nothing here changes the default.
 
 ## After
 
