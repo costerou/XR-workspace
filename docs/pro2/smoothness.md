@@ -195,7 +195,7 @@ A supervised test now keeps its consent: no DesktopManager, and Add, Remove and 
 
 ## The panel route
 
-`tools/xr_controller/pro2_route.py`, on as soon as `python -m tools.xr_controller install` has pinned a bundle under `~/.local/share/viture-workspace/pro2/`. The opt-in this section first described is gone: [own-drivers-default.md](../own-drivers-default.md). With no opt-in, detection, consent and managed runs refuse the Pro 2 exactly as before.
+`tools/xr_controller/pro2_route.py`, on as soon as `python -m tools.xr_controller install` has pinned a bundle under `~/.local/share/viture-workspace/pro2/`. The opt-in this section first described is gone: [own-drivers-default.md](../own-drivers-default.md). With no pin, detection, consent and managed runs refuse the Pro 2 exactly as before.
 
 - It runs one pinned bundle: bridge, renderer and plugin, by manifest hash. Not `installed.json`, so it cannot change another model's pins, and a bundle that changes on disk turns the route off until installed again.
 - Projection lives in `pro2-settings.json`: 44.5 by default, then 45.5, 46.5, 47.5, 48.5, 49.5 and 50, labelled approximate in the panel and the consent box. An unreadable value is 44.5.

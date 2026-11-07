@@ -203,6 +203,9 @@ class Run(Base):
         self.assertEqual(kwargs['renderer'],str(self.bundle/'bin/xr-native-spike'))
         client.plugin_unload.assert_called_once_with(str(self.bundle/'bin/libxr-ownership.so'))
         client.apply_session_mode.assert_not_called()
+    def test_a_session_stops_our_own_driver_left_from_the_other_glasses_first(self):
+        with patch('tools.native_spike.tracking.stop') as stop:self.run_it()
+        stop.assert_called_once_with(self.dir)
     def test_after_a_failed_run_only_an_unfinished_journal_keeps_the_plugin(self):
         from tools.xr_controller.pro2_test import journal_unfinished
         path=self.dir/'journal.json'

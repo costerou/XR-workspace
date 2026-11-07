@@ -117,7 +117,7 @@ Then, with XR still stopped, point the panel at the checkout and restart:
     systemctl --user restart viture-workspace-controller.service
     omarchy-restart-shell
 
-The install is the only change needed for the Pro 2: nothing has to be enabled.
+The install is the only change needed for the Pro 2: nothing has to be enabled. Its plugin has the same bytes as the installed one, at a new path, so if Hyprland asks to allow it at the first Pro 2 start, that is expected.
 
 ## Rollback
 
