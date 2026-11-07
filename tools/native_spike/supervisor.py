@@ -463,7 +463,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
         capture_argv += ['--pose-feed', 'xrld']
         if pro2_scope is not None:
             pro2_scope.healthy()
-            capture_argv += ['--pro2-test-pose-prefix',pro2_scope.prefix,'--pro2-test-projection',str(pro2_scope.projection)]
+            capture_argv += ['--pro2-test-pose-prefix',pro2_scope.prefix,'--pro2-test-projection',str(pro2_scope.projection),'--pro2-test-smooth-ms',str(pro2_scope.smooth_ms)]
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')

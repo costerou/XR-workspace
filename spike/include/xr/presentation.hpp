@@ -93,7 +93,7 @@ public:
                   bool prediction = false, bool typing = false, bool center = false, bool cut = false, bool pan = false, std::uint32_t stabilization = 25);
     void set_edge_pan(const EdgePan& pan);  // the hand's pan past a maximized desktop's edge (view.hpp); display only
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
-    void enable_tracking(std::string prefix, float supervised_projection = 0);
+    void enable_tracking(std::string prefix, float supervised_projection = 0, float smooth_ms = 0);  // smooth_ms: motion_smooth.hpp, 0 = off
     void recenter();
     bool restore_continuity(int fd);
     void save_continuity(int fd);
