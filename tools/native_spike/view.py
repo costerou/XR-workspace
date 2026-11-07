@@ -1056,6 +1056,7 @@ class ViewControl:
         # guard a change pauses and replaces (attach_supervisor), callbacks told the new output names once a change is
         # done (the free pointer's sampler), and `notify` (text) -> None for a refusal (a desktop notification).
         self.desktops = None
+        self.fixed_desktops = False  # a supervised test: the consent's desktops, no Add / Remove / reshape (managed._run_owned)
         self.supervisor = None
         self.desktop_listeners = []
         self.notify = None
@@ -1707,6 +1708,9 @@ class ViewControl:
         starts."""
         from .desktops import ACTIONS, REMOVE_ARM_S, RESOLUTION, SCALE, plan
         s = self.state
+        if self.fixed_desktops and action in ACTIONS + (SCALE, RESOLUTION):  # said, not silently dropped
+            self._tell('This test keeps the desktops it was approved with.')
+            return self._menu_frame()
         if self.desktops is None or action not in ACTIONS + (SCALE, RESOLUTION) or type(desktop) is not int or \
                 not 0 <= desktop < len(s.names): return b''
         if s.typing or self.video_active or not s.menu_open or s.menu_desktop != desktop: return b''

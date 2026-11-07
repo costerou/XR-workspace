@@ -489,7 +489,9 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             return base
         if guard is None:
             guard = ManagedGuard(broker, output, specs)
-            if capture and isinstance(broker, OwnershipBrokerClient):  # the pills' Ultrawide / Add / Remove (desktops.py)
+            # The pills' Ultrawide / Add / Remove (desktops.py). A supervised Pro 2 test has none: its consent names the desktops
+            # (the first live test asked for one and ended with XR-2, added from a pill mid-run: docs/pro2/smoothness.md).
+            if capture and isinstance(broker, OwnershipBrokerClient) and not getattr(pro2_scope, 'fixed_desktops', False):
                 from .desktops import DesktopManager
                 manager = DesktopManager(broker, journal, specs, guard_factory=make_guard,
                                          windows=client if hasattr(client, 'fit_windows') else None)
@@ -516,6 +518,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
                            memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode) as control:
+            if control is not None and getattr(pro2_scope, 'fixed_desktops', False): control.fixed_desktops = True
             def launch():
                 report.clear()
                 # A later renderer: the desktops as they are now, which a pill may have changed since the start.
