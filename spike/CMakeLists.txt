@@ -282,6 +282,9 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(motion_smooth_test tests/motion_smooth_test.cpp)
   target_link_libraries(motion_smooth_test PRIVATE xr_predict)
   add_test(NAME motion_smooth COMMAND motion_smooth_test)
+  add_executable(level_reference_test tests/level_reference_test.cpp)
+  target_link_libraries(level_reference_test PRIVATE xr_pose)
+  add_test(NAME level_reference COMMAND level_reference_test)
   add_executable(pro2_smooth_replay tests/pro2_smooth_replay.cpp)  # offline: tools/pro2_runtime/smooth_acceptance.py
   target_link_libraries(pro2_smooth_replay PRIVATE xr_predict)
   # Head-tracking benchmark (offline): per-frame CPU, allocations, lock stalls, prediction error/jitter.

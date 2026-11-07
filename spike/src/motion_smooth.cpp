@@ -60,6 +60,8 @@ Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, do
     if (!count_ || device_ms != t_[0]) new_sample_ms_ = now_ms;
     learn(relative, device_ms);
     Vec v = velocity();
+    peak_speed_dps_ = std::max(peak_speed_dps_, norm(v) * kRadToDeg * 1000.f);
+    ++frames_;
     // The newest interval against the window: 1 at a steady speed, towards 0 as the head stops, 0 when it turns back.
     float keep = 1;
     if (count_ == 3 && t_[0] > t_[1]) {
@@ -73,7 +75,7 @@ Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, do
     float horizon = std::isfinite(horizon_ms) ? std::max(horizon_ms, 0.f) : 0.f;
     Vec ahead{v[0] * horizon, v[1] * horizon, v[2] * horizon};
     const float angle = norm(ahead), limit = p_.max_predict_deg / kRadToDeg;
-    if (angle > limit) for (auto& c : ahead) c *= limit / angle;
+    if (angle > limit) { for (auto& c : ahead) c *= limit / angle; ++capped_frames_; }
     const Quat target = unit(quat_mul(q_[0], exp_of(ahead)));
     last_horizon_ms_ = horizon;
     last_predicted_deg_ = std::min(angle, limit) * kRadToDeg;

@@ -1,0 +1,5 @@
+c78da7b562de01298e00113e7012a929417cc5ff
+unlevelled, 19.5 degree start: right 18.81 yaw 6.93 roll, left -18.81 yaw -6.93 roll
+FAILED: std::fabs(s.yaw_deg - yaw) < 0.05f at line 38
+
+smooth, directional capture, level_reference has no effect yet: roll per +10deg yaw(right): 2.85 roll range -6.2 8.66

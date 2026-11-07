@@ -1097,7 +1097,7 @@ std::string Presentation::capture_report() const {
            ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
            ",\"reanchors\":" + std::to_string(impl_->pose.reanchors()) + ",\"hints\":" + std::to_string(impl_->tracking_hints) +
-           ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
+           ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"levelled_deg\":" + std::to_string(impl_->pose.levelled_deg()) + ",\"fov_source\":\"" +
            (impl_->supervised_projection > 0 ? "pro2-supervised-approximate" : impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
     out += ",\"surface\":{\"logical\":[" + std::to_string(impl_->width) + "," + std::to_string(impl_->height) + "],\"buffer\":[" +
@@ -1123,6 +1123,7 @@ std::string Presentation::capture_report() const {
                ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json +
                (s.smooth_ms > 0 ? ",\"smoothing\":{\"tau_ms\":" + std::to_string(s.smooth_ms) + ",\"frames\":" + std::to_string(s.smoothed_frames) +
                                   ",\"snaps\":" + std::to_string(s.smoother.snaps()) + ",\"max_predicted_deg\":" + std::to_string(s.smoother.max_predicted_deg()) +
+                                  ",\"capped_frames\":" + std::to_string(s.smoother.capped_frames()) + ",\"peak_speed_dps\":" + std::to_string(s.smoother.peak_speed_dps()) +
                                   ",\"last_correction_deg\":" + std::to_string(s.smoother.last_correction_deg()) + "}" : std::string()) + "}}";
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
@@ -1250,6 +1251,7 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
 void Presentation::enable_tracking(std::string prefix, float supervised_projection, float smooth_ms) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     if (const auto params = motion_smooth_params(smooth_ms)) { impl_->smoother = MotionSmoother(*params); impl_->smooth_ms = smooth_ms; }
+    impl_->pose.level_reference(supervised_projection > 0);  // the Pro 2's feed is the one with gravity in it (PoseState::level_reference)
     impl_->supervised_projection = supervised_projection;
     if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();

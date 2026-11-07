@@ -89,7 +89,7 @@
         "step_err_p95": 0.1058,
         "step_err_max": 0.256,
         "jerk_p95": 0.0987,
-        "slow_jerk_p95": 0.053,
+        "slow_jerk_p95": 0.0531,
         "slow_frames": 2498,
         "lag_ms": 8.1,
         "err_rms": 0.219,
@@ -100,6 +100,44 @@
         "rest_frames": 2923,
         "horizon_max_ms": 38.12,
         "predicted_max_deg": 1.944
+      },
+      "tilt": {
+        "unlevelled": {
+          "frames": 1202,
+          "roll_per_10deg_yaw": 2.843,
+          "right": {
+            "yaw": 26.4,
+            "roll": 8.66
+          },
+          "left": {
+            "yaw": -18.8,
+            "roll": -6.16
+          },
+          "split": {
+            "perspective": 0.969,
+            "head_roll": 1.08,
+            "roll_per_10deg_yaw_alone": 3.672,
+            "rms_deg": 0.067
+          }
+        },
+        "levelled": {
+          "frames": 1202,
+          "roll_per_10deg_yaw": -0.79,
+          "right": {
+            "yaw": 27.6,
+            "roll": -1.54
+          },
+          "left": {
+            "yaw": -19.8,
+            "roll": 0.64
+          },
+          "split": {
+            "perspective": 1.035,
+            "head_roll": 0.972,
+            "roll_per_10deg_yaw_alone": 0.012,
+            "rms_deg": 0.036
+          }
+        }
       }
     },
     "roll": {

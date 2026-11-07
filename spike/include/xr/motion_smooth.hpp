@@ -56,6 +56,9 @@ public:
     float last_predicted_deg() const { return last_predicted_deg_; }
     float last_horizon_ms() const { return last_horizon_ms_; }
     float max_predicted_deg() const { return max_predicted_deg_; }
+    float peak_speed_dps() const { return peak_speed_dps_; }           // the fastest the head was measured going
+    std::uint64_t capped_frames() const { return capped_frames_; }     // frames that wanted more than max_predict_deg
+    std::uint64_t frames() const { return frames_; }
 private:
     void learn(Quat relative, float device_ms);
     std::array<float, 3> velocity() const;
@@ -66,7 +69,8 @@ private:
     std::array<Quat, 3> q_{};            // newest first, distinct device times
     std::array<float, 3> t_{};
     std::uint32_t count_ = 0;
-    std::uint64_t snaps_ = 0;
+    std::uint64_t snaps_ = 0, capped_frames_ = 0, frames_ = 0;
+    float peak_speed_dps_ = 0;
     float last_correction_deg_ = 0, last_predicted_deg_ = 0, last_horizon_ms_ = 0, max_predicted_deg_ = 0;
 };
 }

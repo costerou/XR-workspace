@@ -59,6 +59,23 @@ class Metrics(unittest.TestCase):
         self.assertRegex(header,r'max_predict_deg = 6\.f');self.assertRegex(header,r'snap_deg = 30\.f')
 
 
+class Tilt(unittest.TestCase):
+    def test_the_split_finds_each_cause(self):
+        frames=[];times=[];rolls=[];pitches=[]
+        for k in range(900):
+            t=k*8.3333;yaw=25*math.sin(k/60);roll=2*math.sin(k/37);pitch=4*math.sin(k/23)
+            times.append(t-A.READ_TO_PRESENT_MS);rolls.append(roll);pitches.append(pitch)
+            persp=math.degrees(math.atan(math.sin(math.radians(pitch))*math.tan(math.radians(yaw))))
+            frames.append(dict(present=t,yaw=yaw,roll=persp+roll+.3*yaw))
+        split=A.explained_tilt(frames,(times,rolls,pitches),0,9e9)
+        self.assertAlmostEqual(split['perspective'],1,places=1);self.assertAlmostEqual(split['head_roll'],1,places=1)
+        self.assertAlmostEqual(split['roll_per_10deg_yaw_alone'],3,places=1)
+    def test_the_replayed_tilt_passes_its_limit(self):
+        tilt=json.loads((ROOT/'docs/pro2/smooth-evidence/replay-aggregates.json').read_text())['results']['directional']['tilt']
+        self.assertGreater(tilt['unlevelled']['split']['roll_per_10deg_yaw_alone'],3)
+        self.assertLess(abs(tilt['levelled']['split']['roll_per_10deg_yaw_alone']),A.TILT_LIMIT)
+
+
 class Summary(unittest.TestCase):
     def line(self):
         return json.dumps(dict(kind='managed_output_capture',outputs=[dict(name='XR-1',frames=9)],tracking=dict(samples=5368,lost_events=0,fov_source='pro2-supervised-approximate',diagonal_fov_deg=44.5),
@@ -75,6 +92,10 @@ class Summary(unittest.TestCase):
         s=summarize('PRO2 SUPERVISED TEST\n'+timing+'\n'+self.line()+'\n{"kind":"x"}\nnot json\n',dict(complete=True,provider=dict(samples=5400)))
         self.assertEqual((s['predicted_share'],s['desktops'],s['provider']['samples'],s['complete']),(.9,['XR-1'],5400,True))
         self.assertEqual(s['smoothing']['tau_ms'],35);self.assertEqual(s['look_ahead_cfg'],[0,0,0,40])
+    def test_summarize_carries_why_a_run_stopped(self):
+        from tools.pro2_runtime.supervised_parent import summarize
+        s=summarize('xr-workspace: run guard: ValueError: gone\n',dict(complete=True,run=dict(stop_reason='guard-failed')))
+        self.assertEqual((s['stop_reason'],s['guard_reason']),('guard-failed','ValueError: gone'))
     def test_summarize_survives_an_empty_log(self):
         from tools.pro2_runtime.supervised_parent import summarize
         self.assertEqual(summarize('',None)['presented'],0)
@@ -91,6 +112,24 @@ class Replay(unittest.TestCase):
         self.assertLess(smooth['jerk_p95']*2,hold['jerk_p95'])
         self.assertLess(smooth['lag_ms'],hold['lag_ms']/2)
         self.assertLessEqual(smooth['predicted_max_deg'],6.0);self.assertLessEqual(smooth['horizon_max_ms'],40.0)
+    def pitched_head(self,pitch):
+        """Cody's report as a feed: a head starting `pitch` below level, turning right then left about gravity, with no roll of its own."""
+        rows=[];t=0.0;i=0;p=math.radians(pitch)/2
+        while t<6000:
+            yaw=math.radians(25*math.sin(2*math.pi*t/3000))/2
+            rows.append((t+.5,t,A.qmul((0.0,0.0,-math.sin(yaw),math.cos(yaw)),(0.0,math.sin(p),0.0,math.cos(p)))))
+            t+=(15.0,15.0,20.0)[i%3];i+=1
+        return rows
+    def test_a_turn_about_gravity_stays_level_through_the_real_view(self):
+        rows=self.pitched_head(19.5)
+        before=A.tilt(A.replay(REPLAY,rows,mode='smooth',level=0)[1]);after=A.tilt(A.replay(REPLAY,rows,mode='smooth',level=1)[1])
+        self.assertGreater(before['roll_per_10deg_yaw'],2.5)                     # right leans left, left leans right
+        self.assertGreater(before['right']['roll'],0);self.assertLess(before['left']['roll'],0)
+        self.assertLess(abs(after['roll_per_10deg_yaw']),.1)
+        self.assertLess(abs(after['right']['roll']),.3);self.assertLess(abs(after['left']['roll']),.3)
+    def test_levelling_leaves_the_motion_measures_alone(self):
+        rows=self.pitched_head(19.5)
+        self.assertLess(A.evaluate(REPLAY,rows,mode='smooth',level=1)['stuck_pct'],5)
     def test_private_capture_data_stays_out_of_the_summary(self):
         text=json.dumps(A.evaluate(REPLAY,A.synthetic(seconds=4),mode='smooth'))
         self.assertNotIn('sdk_values',text);self.assertNotRegex(text,r'"q"')

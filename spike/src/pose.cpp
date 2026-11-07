@@ -172,6 +172,16 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
     if (sample) {
         if (auto q = quat_normalized(sample->orientation)) {
             if (sample->device_ms != last_device_ms_) {
+                if (level_reference_) {
+                    if (recenter_pending_ || !center_) {
+                        const Mat3 m = quat_to_mat3(*q);  // the left axis holds its heading through any pitch of the head
+                        const float half = std::atan2(-m[1], m[4]) / 2;
+                        const Quat turn = quat_mul(quat_conj(*q), Quat{0, 0, std::sin(half), std::cos(half)});
+                        level_turn_ = turn;
+                        levelled_deg_ = quat_angle(Quat{}, turn) * 180.f / 3.14159265f;
+                    }
+                    q = quat_normalized(quat_mul(*q, level_turn_));
+                }
                 const double since_ms = now_ms - last_change_ms_;
                 last_device_ms_ = sample->device_ms; last_change_ms_ = now_ms; ++samples_;
                 if (center_ && !tracking_ && !dropped_ && since_ms > kReanchorAfterMs) dropped_ = true;
