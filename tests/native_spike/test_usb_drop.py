@@ -164,6 +164,10 @@ class LostTimeoutConfigTests(unittest.TestCase):
 class DriverReconnectsItselfTests(unittest.TestCase):
     """A start just after a drop finds the driver reconnecting. It must be left to finish: 18 of 53 drops came within 30 s of
     the one before, so a stop and start here lands on glasses that are about to drop again."""
+    def setUp(self):
+        usb = patch.object(tracking, 'SYS_USB', Path('/nonexistent/offline-usb'))
+        usb.start(); self.addCleanup(usb.stop)
+
     healthy = dict(running=True, network_isolated=True, calibrated=True, driver=tracking.XRDRIVER, binary=tracking.DRIVER)
     reconnecting = dict(healthy, calibrated=False)
 

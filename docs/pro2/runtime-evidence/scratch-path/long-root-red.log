@@ -1,0 +1,185 @@
+test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+
+ERROR
+test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+Traceback (most recent call last):
+OSError: AF_UNIX path too long
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+
+ERROR
+test_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+
+ERROR
+test_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/compositor.py", line 52, in serve
+    s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+                                    ~~~~~~^^^^^^^^^^^
+OSError: AF_UNIX path too long
+
+ERROR
+
+======================================================================
+ERROR: test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 88, in test_partial_output_failure_rolls_back
+    def test_partial_output_failure_rolls_back(self):self.run_case('create-fail')
+                                                     ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 46, in run_case
+    wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()]
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/cody/.hermes/profiles/coderbotxr/cache/scratch/p2cli-v2ecvv_z/r/wire.jsonl'
+
+======================================================================
+ERROR: test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 86, in test_real_packaged_cli
+    def test_real_packaged_cli(self):self.run_case('success')
+                                     ~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 46, in run_case
+    wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()]
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/cody/.hermes/profiles/coderbotxr/cache/scratch/p2cli-_8lngw69/r/wire.jsonl'
+
+======================================================================
+ERROR: test_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 87, in test_renderer_failure_rolls_back
+    def test_renderer_failure_rolls_back(self):self.run_case('renderer-fail')
+                                               ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 46, in run_case
+    wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()]
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/cody/.hermes/profiles/coderbotxr/cache/scratch/p2cli-45fc5xzc/r/wire.jsonl'
+
+======================================================================
+ERROR: test_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 89, in test_sdk_open_failure_before_plugin
+    def test_sdk_open_failure_before_plugin(self):self.run_case('sdk-open-fail')
+                                                  ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 46, in run_case
+    wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()]
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/cody/.hermes/profiles/coderbotxr/cache/scratch/p2cli-5psjx67h/r/wire.jsonl'
+
+----------------------------------------------------------------------
+Ran 4 tests in 7.785s
+
+FAILED (errors=4)

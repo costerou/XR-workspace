@@ -19,8 +19,11 @@ RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset
 included, as a one-step backup in the profile's `previous_setup` (each real reset overwrites it; a reset of a layout that
 already is the default leaves it). Nothing reads the backup back yet: it is there for a future restore, or by hand.
 
-`tracking_driver` is the head tracking driver a start launches (the panel's Startup option): tracking.DRIVERS. The
-controller's start decides what becomes of a choice that is not installed: see Controller._tracking_scope.
+`tracking_driver` says which head tracking driver a model runs. It is no longer a choice: load_profile always gives
+tracking.default_driver(model), so a saved "xrdriver" or "3dof" on a Luma Ultra reads as our own driver, and a saved "luma" on
+a model that driver cannot run reads as XRLinuxDriver. That happens at every read and is written back by the next save, so
+the file needs no migration step and an older install can still read it. The controller's start decides what a model runs
+and what happens when it is not installed: see Controller._tracking_scope.
 
 Where the windows were is not part of the setup: window_memory.py keeps that in its own file beside this one, which nothing
 here touches, so a reset or a discarded setup leaves it alone.
@@ -35,7 +38,7 @@ import sys
 import tempfile
 
 from . import view
-from .tracking import DRIVERS, XRDRIVER
+from .tracking import DRIVERS, XRDRIVER, default_driver
 from .environment import environment
 from .immersive import immersive
 from .quality import video_quality
@@ -43,7 +46,7 @@ from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_
                        validate_placement, validate_placements, validate_rolls)
 from .ipc import token
 
-MODELS = ('beast', 'luma-ultra', 'unknown')
+MODELS = ('beast', 'luma-ultra', 'pro2', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'rolls': [0] * 3, 'tracking': True,
@@ -201,8 +204,12 @@ def load_profile(path, model):
     _model(model)
     path = Path(path)
     raw = _read_profiles(path).get(model)
-    if isinstance(raw, dict): return _clean(raw)
-    return _clean(view.load_settings(path.with_name('layout.json')))  # seed from the v1 file, else defaults
+    if model == 'pro2':
+        # No legacy layout migration or Luma startup choices before exact-model proof.
+        return {**_clean(raw if isinstance(raw, dict) else {}), 'tracking': False,
+                'tracking_driver': XRDRIVER, 'mode_switch': False}
+    cleaned = _clean(raw) if isinstance(raw, dict) else _clean(view.load_settings(path.with_name('layout.json')))  # seed from the v1 file, else defaults
+    return {**cleaned, 'tracking_driver': default_driver(model)}
 
 
 def _check(profile):

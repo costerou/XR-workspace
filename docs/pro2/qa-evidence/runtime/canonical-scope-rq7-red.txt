@@ -1,0 +1,34 @@
+test_actual_spawn_guard_worker_resolves_scope_class (test_scope_canonical.CanonicalScopeQA.test_actual_spawn_guard_worker_resolves_scope_class) ... ok
+test_guard_and_bundle_client_pickle_into_fresh_interpreter (test_scope_canonical.CanonicalScopeQA.test_guard_and_bundle_client_pickle_into_fresh_interpreter) ... FAIL
+test_public_aliases_are_canonical_stable_module_classes (test_scope_canonical.CanonicalScopeQA.test_public_aliases_are_canonical_stable_module_classes) ... FAIL
+test_structural_impostor_rejected_before_managed_or_client (test_scope_canonical.CanonicalScopeQA.test_structural_impostor_rejected_before_managed_or_client) ... ok
+
+======================================================================
+FAIL: test_guard_and_bundle_client_pickle_into_fresh_interpreter (test_scope_canonical.CanonicalScopeQA.test_guard_and_bundle_client_pickle_into_fresh_interpreter)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_scope_canonical.py", line 67, in test_guard_and_bundle_client_pickle_into_fresh_interpreter
+    self.assertEqual(child.returncode,0,child.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : Traceback (most recent call last):
+  File "<string>", line 9, in <module>
+    from tools.pro2_runtime.scope import TestScope,ScopedGuard,BundleClient
+ModuleNotFoundError: No module named 'tools.pro2_runtime.scope'
+
+
+======================================================================
+FAIL: test_public_aliases_are_canonical_stable_module_classes (test_scope_canonical.CanonicalScopeQA.test_public_aliases_are_canonical_stable_module_classes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_scope_canonical.py", line 42, in test_public_aliases_are_canonical_stable_module_classes
+    self.assertEqual(cls.__module__,'tools.pro2_runtime.scope',name)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'tools.xr_controller.pro2_test' != 'tools.pro2_runtime.scope'
+- tools.xr_controller.pro2_test
++ tools.pro2_runtime.scope
+ : TestScope
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.115s
+
+FAILED (failures=2)

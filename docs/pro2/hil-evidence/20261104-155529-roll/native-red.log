@@ -1,0 +1,35 @@
+test_private_capture_native_reader (test_native_contract.NativeContractTests.test_private_capture_native_reader) ... ERROR
+test_synthetic_all_axes (test_native_contract.NativeContractTests.test_synthetic_all_axes) ... ERROR
+
+======================================================================
+ERROR: test_private_capture_native_reader (test_native_contract.NativeContractTests.test_private_capture_native_reader)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_diagnostic/test_native_contract.py", line 40, in test_private_capture_native_reader
+    self.run_rows([r for r in rows if r.get('kind')=='pose'])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_diagnostic/test_native_contract.py", line 28, in run_rows
+    result=subprocess.run(['unshare','-Ur','-i','--',str(self.binary)],input=data,capture_output=True,check=True)
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['unshare', '-Ur', '-i', '--', '/tmp/tmpniuo9ko6/native-contract']' died with <Signals.SIGABRT: 6>.
+
+======================================================================
+ERROR: test_synthetic_all_axes (test_native_contract.NativeContractTests.test_synthetic_all_axes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_diagnostic/test_native_contract.py", line 36, in test_synthetic_all_axes
+    self.run_rows(rows)
+    ~~~~~~~~~~~~~^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_diagnostic/test_native_contract.py", line 28, in run_rows
+    result=subprocess.run(['unshare','-Ur','-i','--',str(self.binary)],input=data,capture_output=True,check=True)
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['unshare', '-Ur', '-i', '--', '/tmp/tmp2yjigl7q/native-contract']' died with <Signals.SIGABRT: 6>.
+
+----------------------------------------------------------------------
+Ran 2 tests in 2.551s
+
+FAILED (errors=2)

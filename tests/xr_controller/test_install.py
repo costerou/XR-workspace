@@ -253,7 +253,7 @@ class TrackingDriverPinTests(unittest.TestCase):
         self.assertFalse(tracking_drivers(self.data)[2]['available'])
         pin = dict(path='/pinned/xr-luma-driver', sha256='b' * 64)
         luma = tracking_drivers(self.data, dict(luma_driver=pin))[2]
-        self.assertEqual((luma['key'], luma['label'], luma['path'], luma['available']), ('luma', 'New driver', pin['path'], True))
+        self.assertEqual((luma['key'], luma['label'], luma['path'], luma['available']), ('luma', 'XR Luma driver', pin['path'], True))
 
     def test_the_new_driver_has_no_path_of_its_own_here(self):
         with self.assertRaisesRegex(ValueError, 'unknown tracking driver'): tracking_driver_path('luma', self.data)

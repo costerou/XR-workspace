@@ -150,7 +150,7 @@ class QuietDriverScopeTests(unittest.TestCase):
         runtime = Path(tmp.name); seen = {}
         class Stop(Exception): pass
         def popen(argv, **options): seen.update(options); raise Stop
-        with patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
+        with patch.object(tracking, 'SYS_USB', runtime / 'fake-sysfs'), patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
              patch.object(tracking, '_ours', lambda data: False), patch.object(tracking, 'DRIVER_LOG', runtime / 'none.log'), \
              patch.object(tracking, '_open_luma_log', lambda: (0, os.open(os.devnull, os.O_WRONLY))), patch.object(tracking, 'LUMA_FLAGS', runtime / 'none'), \
              patch.object(tracking, '_driver_env', lambda: {'LD_PRELOAD': 'quiet'}), patch.object(tracking.subprocess, 'Popen', popen):
@@ -180,7 +180,7 @@ class DiedDuringStartTests(unittest.TestCase):
             def poll(self): return 1 if child_exits else None
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         runtime = Path(tmp.name)
-        with patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
+        with patch.object(tracking, 'SYS_USB', runtime / 'fake-sysfs'), patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
              patch.object(tracking, '_driver_env', lambda: {}), patch.object(tracking, '_ours', lambda data: False), patch.object(tracking, 'DRIVER_LOG', runtime / 'none.log'), \
              patch.object(tracking.subprocess, 'Popen', lambda *a, **k: Child()), patch.object(tracking, '_start_tick', lambda pid: 7), \
              patch.object(tracking, '_state', lambda rt: rt / 'state.json'), patch.object(tracking, 'stop', lambda rt: None), \

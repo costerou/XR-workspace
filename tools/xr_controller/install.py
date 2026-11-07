@@ -13,6 +13,7 @@ from tools.native_spike.tracking import DOF3, DRIVER as STANDARD_DRIVER, LUMA, X
 RENDERER, PLUGIN, SHIM = 'xr-native-spike', 'libxr-ownership.so', 'libxr-quiet-driver.so'
 SHIM_PIN = 'quiet-driver.pin.json'
 LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
+PRO2_DIR = 'pro2'  # bundles live in <root>/pro2/<manifest hash>; pro2_route.py reads the pin, this writes it
 ENGINE, ENGINE_PYTHON = 'xr-depth-engine', ('.cache', 'viture-depth', 'venv', 'bin', 'python')
 REPO = Path(__file__).resolve().parents[2]
 _HEX = re.compile(r'[0-9a-f]{64}')
@@ -106,7 +107,7 @@ def install(build_dir, data_home):
     build_dir = Path(build_dir)
     sources = {'renderer': build_dir / RENDERER, 'plugin': build_dir / PLUGIN}
     luma = _luma_output(build_dir)
-    if luma: sources[LUMA_KEY] = luma  # optional: without it the panel just offers XRLinuxDriver
+    if luma: sources[LUMA_KEY] = luma  # main() refuses a build without it: here an older build dir can still be read back
     try:
         shas = {key: _sha(path) for key, path in sources.items()}
     except OSError as e:
@@ -144,6 +145,28 @@ def install(build_dir, data_home):
     return entry
 
 
+def install_pro2_bundle(build_dir, data_home, builder=None):
+    """Build the Pro 2's bundle (bridge, renderer, plugin, this checkout's tools) and pin it as the one a Pro 2 start runs. The
+    folder is named by manifest hash and never replaced, like bin/: a running session's pins stay true, and the bundle before
+    this one stays for a rollback. Compiles the bridge; loads no SDK and opens no device. Nothing is pinned unless it all worked."""
+    from . import pro2_route
+    if builder is None:
+        from tools.pro2_runtime.package import build as builder
+    root = _root(data_home)
+    (root / PRO2_DIR).mkdir(mode=0o700, parents=True, exist_ok=True)
+    staging = root / PRO2_DIR / ('.stage-' + os.urandom(4).hex())
+    try:
+        builder(build_dir, staging)
+        name = pro2_route.manifest_sha(staging)[:12]
+        final = root / PRO2_DIR / name
+        if final.exists():
+            if pro2_route.manifest_sha(final)[:12] != name: raise ValueError('an installed Pro 2 bundle changed')
+        else: os.rename(staging, final)
+    finally:
+        if staging.exists(): shutil.rmtree(staging)
+    return pro2_route.write_pin(final, data_home)
+
+
 def _check_entry(entry, bin_dir):
     if type(entry) is not dict or set(entry) != {'path', 'sha256'}: raise ValueError('malformed installed.json')
     path, sha = entry['path'], entry['sha256']
@@ -173,13 +196,14 @@ def verify_pinned(entry):
 
 
 def tracking_drivers(data_home, installed=None):
-    """The panel's Head tracking driver choices. Read every controller tick, so `available` is only a stat, no hash.
-    `installed` is the probe's installed.json, whose pin says where the new driver is."""
+    """Every driver a start can run, for the controller; the panel gets no list (Controller._driver_in_use), and which one runs
+    is decided per model. Read every controller tick, so `available` is only a stat, no hash. `installed` is the probe's
+    installed.json, whose pin says where our driver is."""
     path = _root(data_home) / 'xrdriver-3dof' / DRIVER_3DOF_VERSION / 'xrDriver'
     luma = (installed or {}).get(LUMA_KEY) or {}
-    return [dict(key=XRDRIVER, label='Standard', path=STANDARD_DRIVER, sha256=None, available=True),
+    return [dict(key=XRDRIVER, label='XRLinuxDriver', path=STANDARD_DRIVER, sha256=None, available=True),
             dict(key=DOF3, label='3DoF test', path=str(path), sha256=DRIVER_3DOF_SHA256, available=path.is_file()),
-            dict(key=LUMA, label='New driver', path=luma.get('path', ''), sha256=luma.get('sha256'), available=bool(luma))]
+            dict(key=LUMA, label='XR Luma driver', path=luma.get('path', ''), sha256=luma.get('sha256'), available=bool(luma))]
 
 
 def verify_tracking_driver(choice):
@@ -190,7 +214,7 @@ def verify_tracking_driver(choice):
 def tracking_driver_path(key, data_home):
     """The binary a run's consent names ('xrdriver' or '3dof'), its pin checked now. Never falls back to the other one:
     a 3DoF session that quietly ran the standard driver would make the test's result wrong. The Luma driver is not here:
-    its pin travels in the consent, and it does fall back."""
+    its pin travels in the consent."""
     for choice in tracking_drivers(data_home):
         if choice['key'] == key and key != LUMA:
             verify_tracking_driver(choice)

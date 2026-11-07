@@ -34,24 +34,29 @@ def recover_managed(client, consent, path, clear_rules=()):
     # Copies must never select a different owner lock or receive recovery writes
     # while leaving the canonical journal stale. Do not resolve symlink aliases:
     # the existing no-follow directory/file opens must continue to reject them.
+    _require_supported_model(consent)
+    return _recover_managed_impl(client,consent,path,clear_rules)
+
+
+def _recover_managed_impl(client,consent,path,clear_rules=(),*,pro2_test=False):
     canonical = client.runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
     if Path(path).absolute() != canonical:
         raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
     path = canonical
     session = client.verified_session()['id']
     privacy.wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
-    immersive.restore_2d(sbs.ButtonSbs(client, consent['output'], send.notify))  # ... and a crash in 3D the glasses in side-by-side
+    if not pro2_test: immersive.restore_2d(sbs.ButtonSbs(client, consent['output'], send.notify))  # ... and a crash in 3D the glasses in side-by-side
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
         broker = OwnershipBrokerClient.from_journal(client, journal)
         if any(journal.broker[key] != consent[key] for key in ('instance', 'output', 'recovery_output')):
             raise OwnershipBlocked('consent does not match saved broker scope')
-        result = recover_restoring(client, journal, broker, consent['run_id'], clear_rules=clear_rules)
+        result = recover_restoring(client, journal, broker, consent['run_id'], clear_rules=clear_rules, **({'restore_sbs':False} if pro2_test else {}))
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining, 'reasons': result.reasons}
 
 
-def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None, *, clear_rules=()):
+def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None, *, clear_rules=(), restore_sbs=True):
     """Recovery, preceded by the run's layout restore (restore.py) while its XR outputs still exist: the snapshot
     taken at start (`snapshot`, else the one saved in the state directory). The saved one goes once recovery completes;
     an incomplete recovery keeps it, so the next attempt restores again. A monitor rule Omarchy wrote for one of the run's
@@ -61,7 +66,7 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     saved = getattr(journal, 'broker', None)
     if isinstance(saved, dict): privacy.wake(client, saved.get('recovery_output'))
     # So do the glasses, out of side-by-side 3D, as far as a program can: it says which button.
-    if isinstance(saved, dict) and saved.get('output'): immersive.restore_2d(sbs.ButtonSbs(client, saved['output'], send.notify))
+    if restore_sbs and isinstance(saved, dict) and saved.get('output'): immersive.restore_2d(sbs.ButtonSbs(client, saved['output'], send.notify))
     names = getattr(journal, 'output_names', list)()
     agreed = [name for name in names if name in clear_rules]
     unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
@@ -110,7 +115,31 @@ def _restore_output(client, consent, output):
     return restore
 
 
+def _require_supported_model(consent):
+    if consent.get('model') == 'pro2':
+        raise ValueError('VITURE PRO 2 driver and display support unverified; managed operations unavailable')
+
+
 def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None, faults=None):
+    _require_supported_model(consent)
+    return _run_managed_impl(client,consent,runtime,desktops=desktops,store=store,renderer=renderer,faults=faults)
+
+
+def run_pro2_test_managed(client,consent,runtime,*,test_scope,desktops=None,store=None,renderer=None,faults=None):
+    from tools.pro2_runtime.scope import TestScope
+    if not isinstance(test_scope,TestScope) or consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
+        raise ValueError('explicit Pro2 supervised test scope required')
+    test_scope.healthy()
+    return _run_managed_impl(client,consent,runtime,desktops=desktops,store=store,renderer=renderer,faults=faults,pro2_scope=test_scope)
+
+
+def recover_pro2_test_managed(client,consent,path,clear_rules=()):
+    if consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
+        raise ValueError('Pro2 supervised recovery scope required')
+    return _recover_managed_impl(client,consent,path,clear_rules,pro2_test=True)
+
+
+def _run_managed_impl(client,consent,runtime,*,desktops=None,store=None,renderer=None,faults=None,pro2_scope=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
@@ -129,8 +158,9 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     with managed_owner(directory / 'journal.json'):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
-                          pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
-                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output),
+                          pose_feed=pro2_scope is not None or consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
+                          **({'pro2_scope':pro2_scope} if pro2_scope is not None else {}),
+                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=None if pro2_scope is not None else _restore_output(client, consent, output),  # no hold: its bridge has no reconnect
                           sbs_mode=consent.get('sbs_mode'), faults=faults)
 
 
@@ -181,7 +211,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         saved = store.load()
         bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
         mode = None
-        if output is not None:
+        if output is not None and getattr(store,'model',None)!='pro2':
             try: mode = view.session_mode(next((m for m in client.query('monitors') if m.get('name') == output), None))
             except (OSError, ValueError, TypeError, KeyError): mode = None
 
@@ -430,10 +460,10 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         if not expected: tell('The glasses are back. XR picks up where it was.')
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, faults=None, sbs_mode=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, faults=None, sbs_mode=None, pro2_scope=None):
     session = journal.session
     holds = survive.Holds()
-    holds.revive = (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
+    holds.revive = (lambda: False) if pro2_scope is not None else (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
     snapshot = memory = None
     report = {}  # why the supervisor ended the renderer, if it did (incident_detect.classify_end)
     with journal.transaction():
@@ -451,12 +481,23 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             except Exception: pass  # never in place of the create failure itself
             raise
         manager = None
+        def make_guard(live):
+            base=ManagedGuard(broker,output,live)
+            if pro2_scope is not None:
+                from tools.pro2_runtime.scope import ScopedGuard
+                return ScopedGuard(base,pro2_scope)
+            return base
         if guard is None:
             guard = ManagedGuard(broker, output, specs)
-            if capture and isinstance(broker, OwnershipBrokerClient):  # the pills' Ultrawide / Add / Remove (desktops.py)
+            # The pills' Ultrawide / Add / Remove (desktops.py). A supervised Pro 2 test has none: its consent names the desktops
+            # (the first live test asked for one and ended with XR-2, added from a pill mid-run: docs/pro2/smoothness.md).
+            if capture and isinstance(broker, OwnershipBrokerClient) and not getattr(pro2_scope, 'fixed_desktops', False):
                 from .desktops import DesktopManager
-                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live),
+                manager = DesktopManager(broker, journal, specs, guard_factory=make_guard,
                                          windows=client if hasattr(client, 'fit_windows') else None)
+        if pro2_scope is not None:
+            from tools.pro2_runtime.scope import ScopedGuard
+            guard=ScopedGuard(guard,pro2_scope)
         guard()
         if adopt and capture and hasattr(client, 'adopt_windows'):
             # Once, before the renderer starts: the physical monitor's windows onto the desktops, by workspace, in one
@@ -477,6 +518,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
                            memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode) as control:
+            if control is not None and getattr(pro2_scope, 'fixed_desktops', False): control.fixed_desktops = True
             def launch():
                 report.clear()
                 # A later renderer: the desktops as they are now, which a pill may have changed since the start.
@@ -485,7 +527,8 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                     return _launch(client, journal.run_id, session, output, wayland, None,
                                    guard=manager.guard() if manager is not None else guard,
                                    capture=[s['name'] for s in live] if capture else capture,
-                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, faults=faults, **depth_fd)
+                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, faults=faults,
+                                   **({'pro2_scope':pro2_scope} if pro2_scope is not None else {}), **depth_fd)
             # 3D's two ends, on a run with a view control (any capture run): VideoControl hands these through.
             run_3d = getattr(control, 'immersive_run', None)
             depth_memory = getattr(control, 'depth_memory', None)
@@ -503,7 +546,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
-        result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
+        result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts, **({'restore_sbs':False} if pro2_scope is not None else {}))
         if report.get('stop_reason') == 'tracking-timeout':
             send.notify('Head tracking did not come back, so XR stopped. Your windows are back on your monitor.')
     return {'journal': str(journal.path), 'renderer_returncode': returncode, 'complete': result.complete, 'remaining': result.remaining,

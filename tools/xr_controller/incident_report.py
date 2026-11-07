@@ -21,7 +21,7 @@ import tempfile
 import time
 
 from tools.native_spike.ipc import private_dir, read_private_json
-from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED, SCOPES, USB_DENIED
+from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED, PRO2_TRACKING, SCOPES, USB_DENIED
 from .incident_detect import Episode, Signal, faults_of, is_exit_report, signal_name
 
 MAX_BUNDLE = 256 * 1024
@@ -268,7 +268,8 @@ def build_bundle(episode, ev, now, scrub):
         versions=dict(source_sha=source.get('sha'), source_dirty=source.get('dirty'), bin=Path(renderer['path']).parent.name if renderer.get('path') else None,
                       renderer_sha256=renderer.get('sha256'), plugin_sha256=plugin.get('sha256')),
         glasses=dict(model=consent.get('model'), output=consent.get('output'), recovery_output=consent.get('recovery_output'),
-                     tracking=consent.get('tracking') in SCOPES, tracking_driver=ev.get('tracking_driver')),
+                     tracking=consent.get('tracking') in SCOPES + (PRO2_TRACKING,),
+                     tracking_driver=PRO2_TRACKING if consent.get('tracking') == PRO2_TRACKING else ev.get('tracking_driver')),
         display=dict(mode=ev.get('mode'), expected_mode=ev.get('expected_mode'), drm=ev.get('drm')),
         renderer=dict(returncode=rc, signal=signal_name(-rc) if type(rc) is int and rc < 0 else None, stop_reason=result.get('stop_reason'),
                       complete=result.get('complete'), phase=result.get('phase'), error=result.get('error')),

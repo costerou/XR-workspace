@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import select
 import selectors
 import socket
+import sys
 import time
 
 from .faults import Faults
@@ -24,7 +25,9 @@ def _guard_worker(guard, sender):
         while True:
             try:
                 guard()
-            except Exception:
+            except Exception as exc:
+                # The verdict is one byte, so the reason goes to the run's stderr: without it `guard-failed` says nothing.
+                print(f'xr-workspace: run guard: {type(exc).__name__}: {exc}', file=sys.stderr, flush=True)
                 sender.send_bytes(b'F')
                 return
             sender.send_bytes(b'V')
@@ -445,7 +448,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None, continuity_fd=None):
+            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None, continuity_fd=None, pro2_scope=None):
     """Shared child lifetime only; authorization remains in distinct callers. `report`: a dict that gets the stop reason.
     `depth_fd`: the depth engine's shared memory (immersive.DepthMemory), inherited."""
     import json
@@ -461,6 +464,10 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     if pose_feed:
         if not capture_argv: raise ValueError('head tracking requires managed-output capture')
         capture_argv += ['--pose-feed', 'xrld']
+        if pro2_scope is not None:
+            pro2_scope.healthy()
+            capture_argv += ['--pro2-test-pose-prefix',pro2_scope.prefix,'--pro2-test-projection',str(pro2_scope.projection),'--pro2-test-smooth-ms',str(pro2_scope.smooth_ms)]
+            if getattr(pro2_scope,'level_gravity',False): capture_argv += ['--pro2-test-level-gravity','1']
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')

@@ -1,0 +1,42 @@
+test_release_layout_real_load_and_unload_validation (test_bundle_path.BundlePathTests.test_release_layout_real_load_and_unload_validation) ... ERROR
+test_unsupported_location_preflight_precedes_client_and_sdk (test_bundle_path.BundlePathTests.test_unsupported_location_preflight_precedes_client_and_sdk) ... FAIL
+test_wrong_path_and_changed_pin_never_request (test_bundle_path.BundlePathTests.test_wrong_path_and_changed_pin_never_request) ... ok
+
+======================================================================
+ERROR: test_release_layout_real_load_and_unload_validation (test_bundle_path.BundlePathTests.test_release_layout_real_load_and_unload_validation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_runtime/test_bundle_path.py", line 27, in test_release_layout_real_load_and_unload_validation
+    client.plugin_load(path);client.plugin_unload(path)
+    ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tools/native_spike/hyprland.py", line 299, in plugin_load
+    self._plugin_command('load', path, data_home)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tools/xr_controller/pro2_test.py", line 56, in _plugin_command
+    raise ValueError('supervised bundle plugin pin required')
+ValueError: supervised bundle plugin pin required
+
+======================================================================
+FAIL: test_unsupported_location_preflight_precedes_client_and_sdk (test_bundle_path.BundlePathTests.test_unsupported_location_preflight_precedes_client_and_sdk)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_runtime/test_bundle_path.py", line 43, in test_unsupported_location_preflight_precedes_client_and_sdk
+    execute(source.data,bad,Path(self.tmp.name),client_factory=client,session_factory=session)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tools/xr_controller/pro2_test.py", line 64, in execute
+    runtime=Path(os.environ['XDG_RUNTIME_DIR']);client=client_factory(data['instance'],runtime) if client_factory else BundleClient(data['instance'],runtime,root,manifest)
+                                                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1176, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1180, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1241, in _execute_mock_call
+    raise effect
+AssertionError: no compositor client
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.007s
+
+FAILED (failures=1, errors=1)

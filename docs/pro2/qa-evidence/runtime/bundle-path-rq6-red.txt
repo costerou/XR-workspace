@@ -1,0 +1,59 @@
+test_bad_path_verb_and_changed_hash_never_request (test_bundle_plugin_path.BundlePluginPathQA.test_bad_path_verb_and_changed_hash_never_request) ... ok
+test_exact_parent_release_location_is_valid_with_pin_and_request_spy (test_bundle_plugin_path.BundlePluginPathQA.test_exact_parent_release_location_is_valid_with_pin_and_request_spy) ... ERROR
+test_normal_install_regex_unchanged (test_bundle_plugin_path.BundlePluginPathQA.test_normal_install_regex_unchanged) ... ok
+test_real_fixture_hash_gate_load_unload (test_bundle_plugin_path.BundlePluginPathQA.test_real_fixture_hash_gate_load_unload) ... ERROR
+test_symlink_plugin_never_request (test_bundle_plugin_path.BundlePluginPathQA.test_symlink_plugin_never_request) ... ok
+test_unsafe_bundle_preflight_before_client_or_sdk (test_bundle_plugin_path.BundlePluginPathQA.test_unsafe_bundle_preflight_before_client_or_sdk) ... FAIL
+
+======================================================================
+ERROR: test_exact_parent_release_location_is_valid_with_pin_and_request_spy (test_bundle_plugin_path.BundlePluginPathQA.test_exact_parent_release_location_is_valid_with_pin_and_request_spy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_bundle_plugin_path.py", line 46, in test_exact_parent_release_location_is_valid_with_pin_and_request_spy
+    client.plugin_load(path); client.plugin_unload(path)
+    ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/native_spike/hyprland.py", line 299, in plugin_load
+    self._plugin_command('load', path, data_home)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/xr_controller/pro2_test.py", line 56, in _plugin_command
+    raise ValueError('supervised bundle plugin pin required')
+ValueError: supervised bundle plugin pin required
+
+======================================================================
+ERROR: test_real_fixture_hash_gate_load_unload (test_bundle_plugin_path.BundlePluginPathQA.test_real_fixture_hash_gate_load_unload)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_bundle_plugin_path.py", line 55, in test_real_fixture_hash_gate_load_unload
+    client.plugin_load(path); client.plugin_unload(path)
+    ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/native_spike/hyprland.py", line 299, in plugin_load
+    self._plugin_command('load', path, data_home)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/xr_controller/pro2_test.py", line 56, in _plugin_command
+    raise ValueError('supervised bundle plugin pin required')
+ValueError: supervised bundle plugin pin required
+
+======================================================================
+FAIL: test_unsafe_bundle_preflight_before_client_or_sdk (test_bundle_plugin_path.BundlePluginPathQA.test_unsafe_bundle_preflight_before_client_or_sdk)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_bundle_plugin_path.py", line 91, in test_unsafe_bundle_preflight_before_client_or_sdk
+    with self.assertRaises(ValueError): execute(data, bad, self.base, client_factory=client, session_factory=sdk)
+                                        ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/xr_controller/pro2_test.py", line 64, in execute
+    runtime=Path(os.environ['XDG_RUNTIME_DIR']);client=client_factory(data['instance'],runtime) if client_factory else BundleClient(data['instance'],runtime,root,manifest)
+                                                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1176, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1180, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 1241, in _execute_mock_call
+    raise effect
+AssertionError: client reached before bundle path preflight
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.006s
+
+FAILED (failures=1, errors=2)

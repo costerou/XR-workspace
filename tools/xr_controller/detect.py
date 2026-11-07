@@ -7,13 +7,16 @@ def _rows(v):
     return (v.data or []) if hasattr(v, 'data') else (v or [])
 
 
-def identify(usb, drm, monitors):
+def identify(usb, drm, monitors, routes=()):
+    # routes: models whose own route is installed (pro2_route.py). Only the Pro 2 needs one; every other model ignores this.
     devices = [d for d in _rows(usb) if _value(d.get('vendor_id')) == '35ca' and _value(d.get('product_id')) != '1102']
     if not devices: return dict(model=None, output=None, reason='no glasses')
     if len(devices) != 1: return dict(model='unknown', output=None, reason='multiple VITURE devices')
     d = devices[0]
-    model = {('VITURE Beast XR Glasses','1201'):'beast', ('VITURE Luma Ultra XR GLASSES','1104'):'luma-ultra'}.get((_value(d.get('product')), _value(d.get('product_id'))),'unknown')
-    wanted = {'beast':('VITURE Beast',), 'luma-ultra':('VITURE',), 'unknown':('VITURE','VITURE Beast')}[model]
+    model = {('VITURE PRO 2 XR Glasses','1301'):'pro2', ('VITURE Beast XR Glasses','1201'):'beast', ('VITURE Luma Ultra XR GLASSES','1104'):'luma-ultra'}.get((_value(d.get('product')), _value(d.get('product_id'))),'unknown')
+    if model == 'pro2' and model not in routes:
+        return dict(model=model, output=None, reason='VITURE PRO 2 XR Glasses (35ca:1301) identified, but their bridge bundle is not installed, so they cannot start.')
+    wanted = {'beast':('VITURE Beast',), 'luma-ultra':('VITURE',), 'pro2':('VITURE',), 'unknown':('VITURE','VITURE Beast')}[model]
     connected = {r['name'].split('-',1)[-1] for r in _rows(drm) if _value(r.get('status')) == 'connected'}
     outputs = [m['name'] for m in monitors if m.get('model') in wanted and not m.get('disabled',False) and (not _rows(drm) or m['name'] in connected)]
     return dict(model=model,output=outputs[0] if len(outputs)==1 else None,reason=None if len(outputs)==1 else 'presentation connector is not unambiguous')

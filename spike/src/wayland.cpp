@@ -19,6 +19,7 @@
 #include "xr/pose.hpp"
 #include "xr/continuity.hpp"
 #include <sys/stat.h>
+#include "xr/motion_smooth.hpp"
 #include "xr/predict.hpp"
 #include "xr/stabilization.hpp"
 #include "xr/hud.hpp"
@@ -457,6 +458,7 @@ struct Presentation::Impl : SurfaceRequests {
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
     std::string pose_prefix;
+    float supervised_projection = 0;
     std::unique_ptr<PoseFeed> pose_feed;
     Stabilizer stabilization;
     std::string pose_why;
@@ -474,6 +476,9 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint64_t predicted_frames = 0, unpredicted_frames = 0;  // while enabled and tracking
     float last_horizon_ms = 0, last_predicted_deg = 0;
     static constexpr float kMaxPredictionDeg = 15.f;
+    MotionSmoother smoother;  // only with smooth_ms > 0 (motion_smooth.hpp): the Pro 2's slow, uneven feed
+    float smooth_ms = 0;
+    std::uint64_t smoothed_frames = 0;
     StatusPopups popups;   // viewing mode / cursor follow pop-ups (GPU composition only)
     TrackingHint tracking_hint;  // "Reconnecting tracking..." through a USB drop, in the pop-ups' place
     std::uint64_t tracking_hints = 0;  // times it came up
@@ -518,7 +523,7 @@ struct Presentation::Impl : SurfaceRequests {
         // Fill the glasses' FOV at the centre pose; diagonal FOV from the driver when published.
         const auto published = pose_feed ? pose_feed->display_fov() : std::nullopt;
         fov_from_driver = published.has_value();
-        const float diag = published.value_or(46.f);  // fallback is reported, never silent
+        const float diag = supervised_projection > 0 ? supervised_projection : published.value_or(46.f);  // fallback is reported, never silent
         fov_deg = diag;
         const double d = std::tan(diag * M_PI / 360.0), a = height ? double(width) / height : 16.0 / 10.0;
         half_w = float(d * a / std::sqrt(1 + a * a)); half_h = float(d / std::sqrt(1 + a * a));
@@ -1107,8 +1112,8 @@ std::string Presentation::capture_report() const {
            ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
            ",\"reanchors\":" + std::to_string(impl_->pose.reanchors()) + ",\"hints\":" + std::to_string(impl_->tracking_hints) +
-           ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
-           (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
+           ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"levelled_deg\":" + std::to_string(impl_->pose.levelled_deg()) + ",\"fov_source\":\"" +
+           (impl_->supervised_projection > 0 ? "pro2-supervised-approximate" : impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
     out += ",\"surface\":{\"logical\":[" + std::to_string(impl_->width) + "," + std::to_string(impl_->height) + "],\"buffer\":[" +
            std::to_string(impl_->px_w) + "," + std::to_string(impl_->px_h) + "],\"scale120\":" + std::to_string(impl_->scale120) +
@@ -1130,7 +1135,13 @@ std::string Presentation::capture_report() const {
                ",\"prediction\":{\"enabled\":" + (s.prediction ? "true" : "false") + ",\"predicted_frames\":" +
                std::to_string(s.predicted_frames) + ",\"unpredicted_frames\":" + std::to_string(s.unpredicted_frames) +
                ",\"last_horizon_ms\":" + std::to_string(s.last_horizon_ms) + ",\"last_predicted_deg\":" + std::to_string(s.last_predicted_deg) +
-               ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json + "}}";
+               ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json +
+               (s.smooth_ms > 0 ? ",\"smoothing\":{\"tau_ms\":" + std::to_string(s.smooth_ms) + ",\"frames\":" + std::to_string(s.smoothed_frames) +
+                                  ",\"snaps\":" + std::to_string(s.smoother.snaps()) + ",\"max_predicted_deg\":" + std::to_string(s.smoother.max_predicted_deg()) +
+                                  ",\"turn_axis_forward_deg\":" + std::to_string(s.smoother.turn_axis_forward_deg()) + ",\"turn_axis_left_deg\":" + std::to_string(s.smoother.turn_axis_left_deg()) +
+                                  ",\"turn_seconds\":" + std::to_string(s.smoother.turn_seconds()) +
+                                  ",\"capped_frames\":" + std::to_string(s.smoother.capped_frames()) + ",\"peak_speed_dps\":" + std::to_string(s.smoother.peak_speed_dps()) +
+                                  ",\"last_correction_deg\":" + std::to_string(s.smoother.last_correction_deg()) + "}" : std::string()) + "}}";
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + ",\"placement_updates\":" + std::to_string(impl_->placement_updates) +
@@ -1255,8 +1266,12 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
     return {};
 }
-void Presentation::enable_tracking(std::string prefix) {
+void Presentation::enable_tracking(std::string prefix, float supervised_projection, float smooth_ms, bool level_gravity) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
+    if (const auto params = motion_smooth_params(smooth_ms)) { impl_->smoother = MotionSmoother(*params); impl_->smooth_ms = smooth_ms; }
+    impl_->pose.level_reference(level_gravity);  // a comparison only: the Pro 2's frame is its mount pitch, in the feed
+    impl_->supervised_projection = supervised_projection;
+    if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
@@ -1521,7 +1536,7 @@ void Presentation::save_continuity(int fd) {
             (void)ftruncate(fd, 0);
     } catch (const std::runtime_error&) { (void)ftruncate(fd, 0); }
 }
-void Presentation::recenter() { if (impl_) { impl_->stabilization.reset(); impl_->pose.recenter(); impl_->modes.recenter(); } }
+void Presentation::recenter() { if (impl_) { impl_->stabilization.reset(); impl_->smoother.reset(); impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_edge_pan(const EdgePan& pan) {
     if (!impl_) return;
     impl_->view.set_pan(pan, double(monotonic_ms()));
@@ -1614,13 +1629,18 @@ Status Presentation::draw_test_pattern() {
                 const auto horizon = prediction_horizon(s.pose_feed ? look_ahead_from(s.pose_feed->look_ahead_cfg().value_or(std::array<float, 4>{}))
                                                                     : std::nullopt,
                                                         s.latency.expected_ms(), age.value_or(0.0), refresh ? refresh / 1e6 : 1000.0 / 120);
-                if (omega && horizon) {
+                if (s.smooth_ms > 0 && horizon && sample) {
+                    // Horizon from the feed's bound; the pose is the stabilized sample, so a still head stays still.
+                    relative = s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6);
+                    s.last_horizon_ms = s.smoother.last_horizon_ms(); s.last_predicted_deg = s.smoother.last_predicted_deg();
+                    ++s.predicted_frames; ++s.smoothed_frames;
+                } else if (omega && horizon) {
                     const Quat delta = prediction_delta(*omega, *horizon * s.stabilization.prediction_gain(), Impl::kMaxPredictionDeg);
                     relative = quat_mul(relative, delta);  // body frame: newest sample * delta
                     s.last_horizon_ms = *horizon; s.last_predicted_deg = quat_angle(Quat{}, delta) * float(180 / M_PI);
                     ++s.predicted_frames;
                 } else ++s.unpredicted_frames;
-            }
+            } else if (s.smooth_ms > 0) s.smoother.reset();  // off (Ctrl+Alt+P) or lost: the raw pose, and a fresh start after
             s.modes.set_aim(s.focus_aim());
             // A maximize holds the canvas in the room while the desktop zooms in; follow / locked take over once it lands.
             if (s.modes.holding() && !(s.view.zoom() < 1.f)) s.modes.land_maximize(double(now));

@@ -1,0 +1,12 @@
+{
+  "source_commit": "92f01a712da4403a77f6d58b74c842549a4744f8",
+  "files_verified": 287,
+  "manifest_sha256": "38d0b7edc2939b990065a6bbab1a5d1429a00c7944d0f83ccd5cf1df43bc33d3",
+  "executables": {
+    "bin/pro2-sdk-bridge": "359bf8c807b5aef1fcc1ea63bee930ad41f446d88dc7c0328cda2b67d3086a9d",
+    "bin/xr-native-spike": "c4af50d0667362f56b71168c8eb7f157b952c78f34452b9a5f4b968a42d07334",
+    "bin/libxr-ownership.so": "45ade12a6af7c80d695d33f8d334ca517b135174e661c7283e786a98b04db7f9"
+  },
+  "sdk_loaded": false,
+  "artifacts_executed": false
+}

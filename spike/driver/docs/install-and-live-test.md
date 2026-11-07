@@ -1,5 +1,7 @@
 # Installing the new driver, and its first live run
 
+**Superseded for installing and for what the panel shows:** since 2026-11-06 `xr-luma-driver` is the Luma Ultra's default, the panel has no driver box, and nothing falls back. Use [docs/own-drivers-default.md](../../../docs/own-drivers-default.md). Below stays as the record of the first runs, and for its driver-only update steps.
+
 For the orchestrator. Everything here is a live step, so each needs Cody's go-ahead. Read `live-test-plan.md`'s rules first:
 stop at once on a USB disconnect, a picture change or `luma: error`, and never try command bytes that are not in this plan.
 

@@ -1,0 +1,12 @@
+test_all_providers_reject_before_launch_or_reuse (test_tracking_pro2.Pro2ProviderTests.test_all_providers_reject_before_launch_or_reuse) ... ok
+test_conflicting_or_missing_product_still_rejects (test_tracking_pro2.Pro2ProviderTests.test_conflicting_or_missing_product_still_rejects) ... ok
+test_existing_and_unrelated_devices_are_unchanged (test_tracking_pro2.Pro2ProviderTests.test_existing_and_unrelated_devices_are_unchanged) ... ok
+test_incomplete_or_conflicting_identity_rejects_before_provider_work (test_tracking_pro2.Pro2ProviderTests.test_incomplete_or_conflicting_identity_rejects_before_provider_work) ... ok
+test_missing_product_and_mixed_models_cannot_hide_pro2 (test_tracking_pro2.Pro2ProviderTests.test_missing_product_and_mixed_models_cannot_hide_pro2) ... ok
+test_no_sdk_fallback_for_unsupported_model (test_tracking_pro2.Pro2ProviderTests.test_no_sdk_fallback_for_unsupported_model) ... ok
+test_rejection_during_luma_start_cannot_be_swallowed (test_tracking_pro2.Pro2ProviderTests.test_rejection_during_luma_start_cannot_be_swallowed) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.008s
+
+OK

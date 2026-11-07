@@ -1,0 +1,26 @@
+test_cleanup_continues_after_close_failure (test_candidate.CAbiTests.test_cleanup_continues_after_close_failure) ... ok
+test_compiled_simulated_sdk_order_and_capture (test_candidate.CAbiTests.test_compiled_simulated_sdk_order_and_capture) ... ok
+test_identity_changed_before_create (test_candidate.CAbiTests.test_identity_changed_before_create) ... ok
+test_admission_before_sdk_access (test_candidate.CandidateTests.test_admission_before_sdk_access) ... ok
+test_lifecycle_and_failure_cleanup (test_candidate.CandidateTests.test_lifecycle_and_failure_cleanup) ... ok
+test_pose_validation_and_preservation (test_candidate.CandidateTests.test_pose_validation_and_preservation) ... ok
+test_unsupported_rate_prevents_create (test_candidate.CandidateTests.test_unsupported_rate_prevents_create) ... ok
+test_receipt_time_windows_and_sign_equivalence (test_candidate.ComparisonTests.test_receipt_time_windows_and_sign_equivalence) ... ok
+test_cli_requires_authorization_before_inventory_or_load (test_candidate.FinalBoundaryTests.test_cli_requires_authorization_before_inventory_or_load) ... usage: candidate [-h] [--parent-authorized-sdk-session]
+                 [--seconds {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30}]
+                 --output OUTPUT
+candidate: error: parent-authorized active SDK session required
+ok
+test_stop_event_uses_cleanup (test_candidate.FinalBoundaryTests.test_stop_event_uses_cleanup) ... ok
+test_wrong_family_rejects_before_initialization (test_candidate.FinalBoundaryTests.test_wrong_family_rejects_before_initialization) ... ok
+test_directional_hypotheses_remain_unselected (test_candidate.HypothesisTests.test_directional_hypotheses_remain_unselected) ... ok
+test_clock_fit_with_receipt_jitter_and_offset (test_stationary.StationaryTests.test_clock_fit_with_receipt_jitter_and_offset) ... ok
+test_no_serial_or_arbitrary_metadata_export (test_stationary.StationaryTests.test_no_serial_or_arbitrary_metadata_export) ... ok
+test_paired_clock_fit_does_not_declare_units (test_stationary.StationaryTests.test_paired_clock_fit_does_not_declare_units) ... ok
+test_rejects_bad_order_and_payload (test_stationary.StationaryTests.test_rejects_bad_order_and_payload) ... ok
+test_zero_quaternion_rejected (test_stationary.StationaryTests.test_zero_quaternion_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.052s
+
+OK

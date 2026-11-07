@@ -1,0 +1,7 @@
+test_private_capture_native_reader (test_native_contract.NativeContractTests.test_private_capture_native_reader) ... ok
+test_synthetic_all_axes (test_native_contract.NativeContractTests.test_synthetic_all_axes) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 2.318s
+
+OK

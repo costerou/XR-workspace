@@ -113,6 +113,7 @@ Item {
                 }
                 Label { text:root.error || (client.connected ? root.snapshot.reason || "" : "controller not running"); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
                 Label { text:Model.incidentLine(root.snapshot); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
+                Label { objectName:"trackingInUse"; text:Model.trackingInUseLine(root.snapshot.tracking_in_use); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; horizontalAlignment:Text.AlignHCenter; opacity:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? 1 : 0.65; color:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? "#e7c78a" : palette.windowText }
                 Button {
                     visible:!client.connected || controllerService.running
                     text:controllerService.running ? "Starting controller…" : "Start / restart controller"

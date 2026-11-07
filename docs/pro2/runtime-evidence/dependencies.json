@@ -1,0 +1,48 @@
+{
+  "pro2-sdk-bridge": [
+    "0x0000000000000001 (NEEDED)             Shared library: [libcrypto.so.3]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]"
+  ],
+  "xr-native-spike": [
+    "0x0000000000000001 (NEEDED)             Shared library: [libfontconfig.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libfreetype.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libEGL.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libGLESv2.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libwayland-egl.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libwayland-client.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libgbm.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libdrm.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libmpv.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]"
+  ],
+  "libxr-ownership.so": [
+    "0x0000000000000001 (NEEDED)             Shared library: [libhyprcursor.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libhyprgraphics.so.4]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libhyprlang.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libhyprutils.so.13]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libdrm.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libEGL.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libcairo.so.2]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxkbcommon.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libinput.so.10]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libwayland-server.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-icccm.so.4]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-composite.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-xfixes.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-render.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-res.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb-errors.so.0]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libxcb.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libaquamarine.so.14]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]",
+    "0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]"
+  ]
+}

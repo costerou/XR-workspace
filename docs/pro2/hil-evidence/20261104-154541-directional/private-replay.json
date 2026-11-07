@@ -1,0 +1,11 @@
+{
+  "samples": 1805,
+  "last_relative_ms": 29987.498046875,
+  "maximum_output_norm_squared_error": 6.346232273024555e-08,
+  "teardown_closed": true,
+  "teardown_active": false,
+  "published_to_ipc": false,
+  "mapping": "H1 offline candidate only",
+  "timestamp_scale": "assumed 1e9 ticks/s for replay",
+  "optical_correction_applied": false
+}

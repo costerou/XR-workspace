@@ -597,6 +597,8 @@ camera on the lenses, tapping the glasses. Do it in stage X if Cody wants it.
 Needs Cody's acceptance, because it means the installed app uses our driver. Do it only after every
 stage above passes, as a separate request. The orchestrator handles merge and install.
 
+(Since 2026-11-06 this driver is the default and the panel has no box: X1 needs no choice, and X4 is `tracking-override set xrdriver`. See `docs/own-drivers-default.md`.)
+
 **X1.** Cody chooses New driver under Startup options and starts XR from the panel, working normally.
 
 **X2.** Watch for drops with XR running: first 30 min, then on to 3 h in total on the same build,

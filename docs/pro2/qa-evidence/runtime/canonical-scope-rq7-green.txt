@@ -1,0 +1,9 @@
+test_actual_spawn_guard_worker_resolves_scope_class (test_scope_canonical.CanonicalScopeQA.test_actual_spawn_guard_worker_resolves_scope_class) ... ok
+test_guard_and_bundle_client_pickle_into_fresh_interpreter (test_scope_canonical.CanonicalScopeQA.test_guard_and_bundle_client_pickle_into_fresh_interpreter) ... ok
+test_public_aliases_are_canonical_stable_module_classes (test_scope_canonical.CanonicalScopeQA.test_public_aliases_are_canonical_stable_module_classes) ... ok
+test_structural_impostor_rejected_before_managed_or_client (test_scope_canonical.CanonicalScopeQA.test_structural_impostor_rejected_before_managed_or_client) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.117s
+
+OK

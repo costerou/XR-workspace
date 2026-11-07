@@ -1,0 +1,10 @@
+[1/10] Building CXX object CMakeFiles/xr_presentation.dir/src/wayland.cpp.o
+[2/10] Linking CXX static library libxr_presentation.a
+[3/10] Linking CXX executable stereo_render_test
+[4/10] Linking CXX executable presentation_test
+[5/10] Linking CXX executable xr-native-spike
+[6/10] Linking CXX executable stereo_chain_bench
+[7/10] Linking CXX executable depth_link_render_test
+[8/10] Linking CXX executable environment_render_test
+[9/10] Linking CXX executable capture_bench
+[10/10] Linking CXX executable pill_border_render_test

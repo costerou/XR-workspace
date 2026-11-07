@@ -1,0 +1,37 @@
+{
+  "bundle": {
+    "source_commit": "9158428f8daeb19fb8a8dbe28358c43252cb3c2b",
+    "files_verified": 330,
+    "manifest_sha256": "088343e0ceca1f10def4042baad3ac64db26f75aca3aabb0d1a9f763762192cb",
+    "executables": {
+      "bin/pro2-sdk-bridge": "359bf8c807b5aef1fcc1ea63bee930ad41f446d88dc7c0328cda2b67d3086a9d",
+      "bin/xr-native-spike": "c4af50d0667362f56b71168c8eb7f157b952c78f34452b9a5f4b968a42d07334",
+      "bin/libxr-ownership.so": "45ade12a6af7c80d695d33f8d334ca517b135174e661c7283e786a98b04db7f9"
+    },
+    "sdk_loaded": false,
+    "artifacts_executed": false
+  },
+  "extraction_identical": true,
+  "packaged_preflight": {
+    "bundle": "/tmp/pro2-release-qa-ld96j4t4/unpacked/pro2-runtime-release/runtime",
+    "source_commit": "9158428f8daeb19fb8a8dbe28358c43252cb3c2b",
+    "files_verified": 330,
+    "plugin_command_path": "validated",
+    "sdk_started": false,
+    "compositor_contacted": false
+  },
+  "packaged_dispatch": {
+    "source_commit": "9158428f8daeb19fb8a8dbe28358c43252cb3c2b",
+    "packaged_modules": true,
+    "pin_verified": true,
+    "load_unload_requests_spied": 2,
+    "real_client_constructed": false,
+    "sdk_loaded": false,
+    "compositor_contacted": false
+  },
+  "genuine_cli_matrix": {
+    "tests_passed": 4,
+    "exit_code": 0,
+    "output": "test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back) ... ok\ntest_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli) ... ok\ntest_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back) ... ok\ntest_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 11.588s\n\nOK\n"
+  }
+}

@@ -12,10 +12,12 @@ different, and yaw will probably drift more without the cameras.
 
 ## What is being compared
 
-| Arm | Panel choice | Binary |
+The panel no longer has a driver choice (2026-11-06, [own-drivers-default.md](own-drivers-default.md)). Choose an arm from a terminal, on a Luma Ultra, with no session running: `python -m tools.xr_controller tracking-override set xrdriver` for A, `set 3dof` for B, and `clear` when finished.
+
+| Arm | Override | Binary |
 |---|---|---|
-| A, baseline | Standard | `/usr/bin/xrDriver` (2.11.9, commit `36e2139`) |
-| B, 3DoF | 3DoF test | `~/.local/share/viture-workspace/xrdriver-3dof/2.11.9-958908-pr147-pr148-3dof/xrDriver` |
+| A, baseline | `xrdriver` | `/usr/bin/xrDriver` (2.11.9, commit `36e2139`) |
+| B, 3DoF | `3dof` | `~/.local/share/viture-workspace/xrdriver-3dof/2.11.9-958908-pr147-pr148-3dof/xrDriver` |
 
 Arm B is built by `tools/xrdriver_3dof/build.sh`. Its `manifest.json` records the upstream commit, both PR commits, the source
 commit, and the patch and binary hashes. `tools/xr_controller/install.py` pins the binary's sha256.
@@ -78,7 +80,7 @@ Write the start time of each arm down. `<start>` below is that time, as `"2026-1
 ## Running an arm
 
 1. Stop any XR session. The option is locked while one runs.
-2. Panel, Startup options, Tracking driver: choose the arm. The box only shows when head tracking is ticked.
+2. Set the arm with `tracking-override` (above). The panel's line names it. Head tracking must be ticked.
 3. Start. The confirm box says "Head tracking via the 3DoF test build of XRLinuxDriver" for arm B and "Head tracking via
    XRLinuxDriver" for arm A. Keep the glasses still until it calibrates.
 4. Use the desktop normally for 20 to 30 minutes, with real head movement: looking between desktops, turning, leaning. Keep both
@@ -161,11 +163,11 @@ B. Tracking must also still be usable. If yaw drift makes it unusable, the build
 ## Switching back
 
 1. Stop the session.
-2. Panel, Startup options, Tracking driver: Standard. The next start stops the test driver and starts `/usr/bin/xrDriver`.
-3. To check: `readlink /proc/$(pgrep -x xrDriver)/exe` during that session.
+2. `python -m tools.xr_controller tracking-override clear`. The next start stops the test driver and starts our own.
+3. To check: the panel's line says XR Luma driver.
 
-If the panel will not start (for example, the build folder went away and the box says "(missing)"), the same choice fixes it: only
-the chosen driver is ever started, and a missing or changed build refuses to start rather than run the other one.
+If XR will not start (for example, the build folder went away), the same command fixes it: only the driver asked for is ever
+started, and a missing or changed build refuses to start rather than run another one.
 
 Rolling the code back needs no step of its own. Older code ignores a `tracking_driver` it does not know and uses the standard driver, and
 `installed.json` never held the pin. Do it with XR stopped, since an older controller refuses the consent of a 3DoF run still in

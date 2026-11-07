@@ -1,0 +1,16 @@
+test_connector_and_edid_cannot_prove_identity (test_acceptance.IdentityAcceptance.test_connector_and_edid_cannot_prove_identity) ... ok
+test_duplicate_identity_cannot_select_one_device (test_acceptance.IdentityAcceptance.test_duplicate_identity_cannot_select_one_device) ... ok
+test_exact_identity_has_independent_key (test_acceptance.IdentityAcceptance.test_exact_identity_has_independent_key) ... ok
+test_legacy_exact_models_preserved (test_acceptance.IdentityAcceptance.test_legacy_exact_models_preserved) ... ok
+test_product_pid_and_vendor_must_all_match (test_acceptance.IdentityAcceptance.test_product_pid_and_vendor_must_all_match) ... ok
+test_pro2_save_does_not_modify_other_models (test_acceptance.ProfileAcceptance.test_pro2_save_does_not_modify_other_models) ... ok
+test_unknown_pro2_provider_cannot_launch_even_with_saved_legacy_choice (test_acceptance.ProviderBoundaryAcceptance.test_unknown_pro2_provider_cannot_launch_even_with_saved_legacy_choice) ... xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+ok
+test_pro2_rejected_before_any_client_operation (test_managed_boundary.ManagedBoundary.test_pro2_rejected_before_any_client_operation) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.003s
+
+OK

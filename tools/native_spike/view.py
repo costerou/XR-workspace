@@ -884,7 +884,7 @@ def session_mode(monitor):
     """The approved output's placement if it is in the granted session mode, else None."""
     if not isinstance(monitor, dict) or not PHYSICAL.match(str(monitor.get('name', ''))): return None
     if (monitor.get('width'), monitor.get('height')) != SESSION_MODE[:2]: return None
-    if not isinstance(monitor.get('refreshRate'), (int, float)) or abs(monitor['refreshRate'] - SESSION_MODE[2]) > 0.5: return None
+    if type(monitor.get('refreshRate')) not in (int, float) or not math.isfinite(monitor['refreshRate']) or abs(monitor['refreshRate'] - SESSION_MODE[2]) > 0.5: return None
     x, y, scale = monitor.get('x'), monitor.get('y'), monitor.get('scale')
     if type(x) is not int or type(y) is not int or not isinstance(scale, (int, float)) or not 0.25 <= scale <= 4: return None
     return {'name': monitor['name'], 'x': x, 'y': y, 'scale': float(scale)}
@@ -1075,6 +1075,7 @@ class ViewControl:
         # guard a change pauses and replaces (attach_supervisor), callbacks told the new output names once a change is
         # done (the free pointer's sampler), and `notify` (text) -> None for a refusal (a desktop notification).
         self.desktops = None
+        self.fixed_desktops = False  # a supervised test: the consent's desktops, no Add / Remove / reshape (managed._run_owned)
         self.supervisor = None
         self.desktop_listeners = []
         self.notify = None
@@ -1758,6 +1759,9 @@ class ViewControl:
         starts."""
         from .desktops import ACTIONS, REMOVE_ARM_S, RESOLUTION, SCALE, plan
         s = self.state
+        if self.fixed_desktops and action in ACTIONS + (SCALE, RESOLUTION):  # said, not silently dropped
+            self._tell('This test keeps the desktops it was approved with.')
+            return self._menu_frame()
         if self.desktops is None or action not in ACTIONS + (SCALE, RESOLUTION) or type(desktop) is not int or \
                 not 0 <= desktop < len(s.names): return b''
         if s.typing or self.video_active or not s.menu_open or s.menu_desktop != desktop: return b''

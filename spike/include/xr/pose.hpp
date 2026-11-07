@@ -64,6 +64,15 @@ public:
     explicit PoseState(double stale_ms = 100.0) : stale_ms_(stale_ms) {}
     void update(const std::optional<FeedSample>& sample, double now_ms);
     void recenter() { recenter_pending_ = true; }
+    // For a feed whose z is the world's up, which only the Pro 2's SDK pose is: XRLinuxDriver's has no gravity in it (below). The
+    // head turns about gravity, but a glasses frame pitched against gravity at the recentre sees that turn with a roll in it, sin(pitch)
+    // of the turn, so the picture leans against every turn (docs/pro2/smoothness.md). On: each recentre takes the fixed turn from the
+    // head to a frame with the same heading and no pitch or roll, and everything after works in that frame, so a turn about gravity
+    // stays a turn. Kept as a comparison, off by default: a head does not turn about gravity. Cody's turn axis stays fixed to his head
+    // whatever the head's pitch (docs/pro2/smoothness.md), so the Pro 2's real correction is a fixed mount pitch, in the feed.
+    void level_reference(bool on) { level_reference_ = on; }
+    float levelled_deg() const { return levelled_deg_; }  // what the last recentre took out
+    Quat level_turn() const { return level_turn_; }       // head * this = the frame relative() is in; identity when off
     bool tracking() const { return tracking_; }
     // Tracking was working and has been gone for kHintAfterMs: "Reconnecting tracking...".
     bool reconnecting(double now_ms) const { return !tracking_ && center_ && now_ms - lost_at_ms_ >= kHintAfterMs; }
@@ -100,6 +109,9 @@ private:
     double last_change_ms_ = 0;
     double lost_at_ms_ = 0;         // when tracking_ last went false
     double settling_from_ms_ = -1;  // the unbroken run of fresh samples since a long silence; -1: not in one
+    bool level_reference_ = false;
+    Quat level_turn_{};     // head * level_turn_ = a frame level at the recentre
+    float levelled_deg_ = 0;
     bool tracking_ = false, recenter_pending_ = true, dropped_ = false;  // dropped_: after a long silence, until reanchored
     Mat3 view_{1, 0, 0, 0, 1, 0, 0, 0, 1};
     Quat relative_{};

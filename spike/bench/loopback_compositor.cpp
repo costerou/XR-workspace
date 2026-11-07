@@ -146,7 +146,9 @@ struct Gpu {
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr; PFNEGLDESTROYIMAGEKHRPROC destroy_image = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr; PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_mods = nullptr;
     bool init(std::string& why) {
-        const char* selected_node = std::getenv("XR_BENCH_RENDER_NODE");
+        // Either test override pins one exact device and never falls back.
+        const char* selected_node = std::getenv("XR_CAPTURE_TEST_NODE");
+        if (!selected_node) selected_node = std::getenv("XR_BENCH_RENDER_NODE");
         for (const char* node : {selected_node ? selected_node : "/dev/dri/renderD129",
                                  selected_node ? selected_node : "/dev/dri/renderD128"}) {
             struct stat st{};

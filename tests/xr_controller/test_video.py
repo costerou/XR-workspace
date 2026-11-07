@@ -33,7 +33,7 @@ class VideoControllerTests(unittest.TestCase):
         self.path = Path(tmp.name); self.fd = os.open(self.path, os.O_DIRECTORY); self.addCleanup(os.close, self.fd)
         self.observation = dict(model='luma-ultra', output='DP-2', reason=None, instance='instance',
                                 monitors=[dict(name='DP-2'), dict(name='DP-1')], journals=[], plugins=[],
-                                installed={k: dict(path='/p/' + k, sha256='a' * 64) for k in ('plugin', 'renderer')})
+                                installed={k: dict(path='/p/' + k, sha256='a' * 64) for k in ('plugin', 'renderer', 'luma_driver')})
         self.now, self.spawns, self.units = 0, [], Units()
         self.c = Controller(lambda: self.now, lambda: copy.deepcopy(self.observation), lambda *a: self.spawns.append(a),
                             self.units, Store(), self.fd, self.path)

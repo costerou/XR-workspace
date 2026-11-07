@@ -6,7 +6,7 @@ import "Model.js" as Model
 
 // The panel before a session: one big Start. Desktops, placement, view, video and the rest are set in the glasses
 // during the session (README "Everyday use" and "Placing desktops"). The few things only the panel can set before a
-// start (each desktop's startup resolution and scale, head tracking and its driver, the 120 Hz switch, which monitor windows return
+// start (each desktop's startup resolution and scale, whether to use head tracking, the 120 Hz switch, which monitor windows return
 // to) wait under "Startup options", closed each time the panel shows this page. Start only asks the controller to
 // begin (op begin_start); the one-run consent box (ConfirmDialog) follows as before.
 // Colours come from the palette Panel.qml sets from the Omarchy theme, so this page needs no shell-only imports.
@@ -23,7 +23,6 @@ ColumnLayout {
     // monitor for windows to return to. A snapshot without the field (an older controller) is left to the controller.
     readonly property bool fallbackRequired: snapshot.fallback === "choose"
     readonly property bool noFallback: snapshot.fallback === null
-    readonly property var trackingDriverChoices: Model.trackingDriverChoices(snapshot.tracking_drivers, settings.tracking_driver)
     signal request(var message)
     spacing: 14
 
@@ -169,29 +168,28 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: childrenRect.height
             spacing: 8
-            CheckBox { objectName: "trackingOption"; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
+            CheckBox { objectName: "trackingOption"; visible: !root.snapshot.pro2; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
             CheckBox { objectName: "modeSwitchOption"; visible: root.snapshot.model==="luma-ultra"; text: "120 Hz mode switch"; checked: !!root.settings.mode_switch; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{mode_switch:checked}}) }
         }
-        // Standard, the 3DoF test (docs/tracking-3dof-ab.md) and the new driver: whichever are installed, and a saved one
-        // that has gone missing. Only the new driver falls back to Standard, which the start box says.
+        // The Pro 2 with its bundle installed (tools/xr_controller/pro2_route.py): its own projection, for the next start.
         RowLayout {
-            objectName: "trackingDriverOption"
-            visible: !!root.settings.tracking && root.trackingDriverChoices.length > 1
+            objectName: "pro2ProjectionOption"
+            visible: !!root.snapshot.pro2
             Layout.fillWidth: true
             spacing: 10
-            Label { text: "Tracking driver" }
+            Label { text: "Projection" }
             ComboBox {
-                objectName: "trackingDriverCombo"
+                objectName: "pro2ProjectionCombo"
                 Layout.fillWidth: true
                 textRole: "label"
-                valueRole: "key"
-                model: root.trackingDriverChoices
-                currentIndex: Model.trackingDriverIndex(root.trackingDriverChoices, root.settings.tracking_driver)
+                valueRole: "value"
+                model: Model.projectionChoices(root.snapshot.pro2)
+                currentIndex: ((root.snapshot.pro2 || {}).choices || []).indexOf((root.snapshot.pro2 || {}).projection)
                 enabled: !root.busy
-                onActivated: root.request({op:"set_settings",settings:{tracking_driver:currentValue}})
+                onActivated: index => root.request({op:"set_pro2_projection",projection:valueAt(index)})
             }
         }
-        Label { objectName: "lumaMissing"; visible: !!root.settings.tracking && root.settings.tracking_driver === "luma" && root.snapshot.luma_available === false; text: "The XR Luma driver is not installed: starts use XRLinuxDriver."; color: "#e7c78a"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+        Label { objectName: "pro2Note"; visible: !!root.snapshot.pro2; text: "Pro 2: the projection is approximate, not calibrated. Only this model uses it. " + Model.pro2SettingsLine(root.snapshot.pro2); opacity: 0.65; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         Label { objectName: "beastNote"; visible: root.snapshot.model==="beast"; text: "Beast: native 120 Hz mode, no switch. Presentation rate is measured during a run."; wrapMode: Text.WordWrap; Layout.fillWidth: true; opacity: 0.65 }
     }
 }

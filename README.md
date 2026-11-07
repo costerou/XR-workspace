@@ -12,9 +12,11 @@ It works with the VITURE **Luma Ultra** (tested in the glasses) and **Beast** (o
 
 - A computer running [Omarchy](https://omarchy.org) (it uses the Hyprland window manager).
 - VITURE Luma Ultra or Beast glasses, plugged in.
-- XRLinuxDriver (`xr-driver-git`). It reads the glasses' motion sensors so the desktops can react to your head. Our own
-  XR Luma driver is being tested as a replacement: once a build with it is installed, *Startup options* offers it under
-  *Tracking driver*. If it fails to calibrate, a notification says so and XRLinuxDriver runs that session instead.
+- Head tracking reads the glasses' motion sensors so the desktops can react to your head. The Luma Ultra uses our own XR
+  Luma driver and the Pro 2 our own SDK bridge. Both are installed with XR Workspace, and the panel shows which one is in
+  use. If it cannot start, XR stops and says why: nothing takes over.
+- XRLinuxDriver (`xr-driver-git`) stays installed. Other VITURE glasses use it automatically, and it is the hidden way back
+  on a Luma Ultra: see [docs/own-drivers-default.md](docs/own-drivers-default.md).
 - To build it: CMake, a C++ compiler, and Python 3.10 or newer.
 - Optional, for videos: `mpv` (playing), `ffmpeg` (web videos), `zenity` (the file picker), `wl-clipboard` and Chromium
   (the browser button).
@@ -58,7 +60,7 @@ If the panel says "controller not running", click **Start / restart controller**
 
 1. Press the big **Start XR** button.
 2. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
-3. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
+3. Keep the glasses still while head tracking calibrates. Usually seconds; up to 30 seconds on our own driver, and up to two minutes on XRLinuxDriver.
 
 Your desktops now appear in the glasses, set up the way you left them last session (see
 [Your layout comes back](#placing-desktops)). The very first time there are three, called XR-1, XR-2 and XR-3, flat in a
@@ -500,7 +502,8 @@ Recover, the session has already cleaned up, and a notification tells you which 
 **Common problems:**
 
 - **"No VITURE glasses detected."** Check the cable and plug the glasses in again.
-- **Starting takes a long time.** Head tracking is calibrating. Keep the glasses still for up to two minutes.
+- **Starting takes a long time.** Head tracking is calibrating. Keep the glasses still.
+- **Head tracking did not start.** The message says what it was waiting for, and your windows stayed where they were. Press Start again. If it fails again, unplug the glasses' USB, wait 10 seconds and plug it back in.
 - **Start refuses because another tracking driver is running.** Close the other XRLinuxDriver first.
 - **A key does nothing.** The keys only work during a session. The arrows, Tab, R and Esc only act on a pill while
   one is open, and most desktop keys do nothing while a video plays.
