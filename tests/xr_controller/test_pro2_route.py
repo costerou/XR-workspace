@@ -194,6 +194,14 @@ class Run(Base):
         self.assertEqual(kwargs['renderer'],str(self.bundle/'bin/xr-native-spike'))
         client.plugin_unload.assert_called_once_with(str(self.bundle/'bin/libxr-ownership.so'))
         client.apply_session_mode.assert_not_called()
+    def test_after_a_failed_run_only_an_unfinished_journal_keeps_the_plugin(self):
+        from tools.xr_controller.pro2_test import journal_unfinished
+        path=self.dir/'journal.json'
+        self.assertFalse(journal_unfinished(path))
+        for states,keep in ((['done','done'],False),(['done','pending'],True)):
+            path.write_text(json.dumps(dict(operations=[dict(state=s) for s in states])));path.chmod(0o600)
+            self.assertEqual(journal_unfinished(path),keep,states)
+        path.write_text('{');self.assertTrue(journal_unfinished(path))    # cannot tell: keep it
     def test_a_disabled_route_stops_a_consented_start_before_anything_runs(self):
         path=self.consent_file();route.disable(self.config)
         client=Mock(side_effect=AssertionError('no client'))

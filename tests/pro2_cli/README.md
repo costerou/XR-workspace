@@ -25,9 +25,10 @@ guard RPCs execute. It does NOT execute a compositor,Lua/GPUrenderer or create a
 physical picture. Direct loopbackwire simulation does not validate Hyprland
 semantics,driver graphics or real SDK/hardware; those remain the parent gate.
 
-Cases: success; rendererexit9 truthful failure/cleanup; partialbrokercreatefailure
-retainsauthority then actual secondCLI --recover unloads withoutSDKcall; SDKopen
-failurebeforeplugin. All assert results,journalops,APIteardown,noIPCleaks. Success
+Cases: success; rendererexit9 truthful failure/cleanup; partial broker create failure
+that recovers inside the run and unloads; a recovery that cannot finish, which keeps
+the plugin until an actual second CLI --recover, without SDK calls; SDK open
+failure before plugin. All assert results,journalops,APIteardown,noIPCleaks. Success
 requires brokerinspect from a real separate guardprocess PID. Faults are external
 endpointscenarios, not shortcuts replacing runtime orchestration.
 

@@ -60,16 +60,18 @@ class FullCliTests(unittest.TestCase):
                     self.assertIn('destroy',(p/'sdk-trace').read_text());self.assertFalse(list((state/'genuine-cli').glob('pose_*')))
                     return
                 self.assertIn('broker-create',stages);self.assertIn('broker-evacuate_remove',stages)
-                if case!='create-fail':
+                if case not in ('create-fail','recovery-stuck'):
                     self.assertTrue(any(r.get('binds') for r in wire));self.assertTrue((runtime/'renderer.json').exists())
                 if case=='success':
                     self.assertTrue(any(r.get('stage')=='broker-inspect' and r.get('caller_pid')!=child.pid for r in wire),'real spawned guard must inspect through private wire')
                 sdk_trace=(p/'sdk-trace').read_text();self.assertIn('destroy',sdk_trace);self.assertNotIn('WRONG_OWNER',sdk_trace)
                 self.assertFalse(list((state/'genuine-cli').glob('pose_*')))
                 if case=='renderer-fail':self.assertEqual(report['run']['renderer_returncode'],9,debug)
-                if case=='create-fail':
+                if case=='create-fail':  # recovery finished inside the run, so nothing is left to hold the plugin for
+                    self.assertFalse([e for e in report['errors'] if 'retained' in e],debug)
+                if case=='recovery-stuck':  # it could not: the plugin stays, and a second CLI --recover finishes the job
                     self.assertNotIn('plugin-unload',stages)
-                    self.assertIn('ownership retained for explicit pro2-test --recover',report['errors'])
+                    self.assertIn('ownership retained for explicit recovery',report['errors'])
                     before=(p/'sdk-trace').read_text()
                     recovered=subprocess.run([str(bundle/'bin/pro2-supervised-test'),'--consent',str(consent),'--state-dir',str(state),'--recover'],env=env,capture_output=True,text=True,timeout=10)
                     self.assertEqual(recovered.returncode,0,(recovered.stdout,recovered.stderr))
@@ -91,4 +93,5 @@ class FullCliTests(unittest.TestCase):
     def test_real_packaged_cli(self):self.run_case('success')
     def test_renderer_failure_rolls_back(self):self.run_case('renderer-fail')
     def test_partial_output_failure_rolls_back(self):self.run_case('create-fail')
+    def test_unfinished_recovery_keeps_the_plugin_for_recover(self):self.run_case('recovery-stuck')
     def test_sdk_open_failure_before_plugin(self):self.run_case('sdk-open-fail')
