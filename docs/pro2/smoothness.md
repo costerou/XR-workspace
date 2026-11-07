@@ -57,7 +57,7 @@ Held in this table is the live test's behaviour: the replay's 28 ms lag and 50% 
 
 About 49 pixels is one degree here, so 0.22 degrees of overshoot is about 11 pixels for a moment at a hard stop. It is not zero: the limit is 0.30, and only `hold` is truly zero. The reference path's own floor is about 0.03 degrees of step error.
 
-Limits of this evidence: three captures from one wearer, 75 seconds in all, none of it a fast whip turn (peak 72 deg/s). `Lag` is software-visible only: panel delay cannot be seen from a capture. Whether it feels right is the live test's question.
+Limits of this evidence: three captures from one wearer, 65 seconds in all, none of it a fast whip turn (peak 72 deg/s). `Lag` is software-visible only: panel delay cannot be seen from a capture. Whether it feels right is the live test's question.
 
 ## Pose rate
 
