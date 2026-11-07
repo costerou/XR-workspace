@@ -687,3 +687,34 @@ def test_managed_wires_the_keys_to_the_plain_binds_not_the_submap():
     source = (ROOT / 'tools/native_spike/managed.py').read_text()
     block = source[source.index('def options_binds(owned):'):source.index('control.options_binds = options_binds')]
     assert 'install_options_binds' in block and 'open_key_panel' not in block
+
+
+# (desktop name, logical w, h): the Pro 2 session's. The maximized tile fills the canvas width (view.cpp zoomed_layout).
+RESTORE_CASES = (('XR-1', 5120 / 1.25, 1440 / 1.25), ('XR-2', 2560 / 2.0, 1440 / 2.0))
+
+
+def restore_lines(w=1920, h=1200):
+    tool = ROOT / 'build/release/options_geometry_dump'
+    if not tool.exists(): pytest.skip('options_geometry_dump not built')
+    d, a = math.tan(math.radians(23)), w / h
+    half = [d * a / math.sqrt(1 + a * a), d / math.sqrt(1 + a * a)]
+    cases = []
+    for name, lw, lh in RESTORE_CASES:
+        tile_h = min(h, w * lh / lw)
+        cases.append(dict(monitor=name, canvas=[w, h, *half], tile=[(w - tile_h * lw / lh) / 2, (h - tile_h) / 2, tile_h * lw / lh, tile_h]))
+    done = subprocess.run([str(tool), '--restore'], input=json.dumps(cases).encode(), capture_output=True, check=True, timeout=15)
+    return [fp.parse_maximize_geometry(json.loads(line)['maximize_geometry']) for line in done.stdout.splitlines()]
+
+
+def test_restore_hit_region_is_the_drawn_button_at_the_real_sizes():
+    """Current placement, unchanged (the mockups thread owns any move): its cursor region is the drawn rect plus the pad, no more."""
+    for geometry, (name, lw, lh) in zip(restore_lines(), RESTORE_CASES):
+        output = dict(index=0, x=0, y=0, width=lw, height=lh)
+        x, y, w, h = geometry['rect']
+        tx, ty, tw, th = geometry['tile']
+        assert (w, h) == (26, 26) and x > tx and y > ty, name
+        def over(px, py):
+            cursor = ((px - tx) / tw * lw, (py - ty) / th * lh)
+            return fp.restore_mesh_hit(geometry, fp.restore_cursor_ray(geometry, output, cursor))
+        assert over(x + 13, y + 13) and over(x - 3.5, y + 13) and over(x + 29.5, y + 13) and over(x + 13, y + 29.5), name
+        assert not over(x - 5, y + 13) and not over(x + 31, y + 13) and not over(x + 13, y + 31), name

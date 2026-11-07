@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include "xr/ipc.hpp"
+#include "maximize_geometry.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -22,8 +23,18 @@ static int layout(){
  }
  std::cout<<out.dump()<<"\n";return 0;
 }
+// --restore: for each {"monitor","canvas","tile"} on stdin, the production maximize_geometry line, the desktop straight ahead.
+static int restore(){
+ std::string text{std::istreambuf_iterator<char>(std::cin),std::istreambuf_iterator<char>()};
+ for(const auto& e:nlohmann::json::parse(text)){
+  xr::Canvas c{e["canvas"][0],e["canvas"][1],e["canvas"][2],e["canvas"][3]};xr::FRect t{e["tile"][0],e["tile"][1],e["tile"][2],e["tile"][3]};
+  std::cout<<xr::maximize_geometry_json(e["monitor"],c,t,xr::Placement{},{1,0,0,0,1,0,0,0,1})<<"\n";
+ }
+ return 0;
+}
 int main(int argc,char**argv){
  if(argc==2&&std::string(argv[1])=="--layout")return layout();
+ if(argc==2&&std::string(argv[1])=="--restore")return restore();
  for(float w:{80.f,240.f,640.f,1800.f})for(float x:{-800.f,0.f,1200.f}){
  xr::FRect t{x,100,w,360};auto p=xr::glass_pill(t),g=xr::options_gear(t),m=xr::options_maximize(t),b=xr::level_bar_rect(t);float s=xr::level_bar_scale(t);
  if(g.x-(p.x+p.width)!=12||g.y!=p.y||m.width!=26*s||std::abs(b.x-(m.x+m.width)-12*s)>.001)return 1;

@@ -369,6 +369,7 @@ if(XR_ENABLE_PRESENTATION)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME restore_app_bound_wire COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/restore_app_bound_wire_test.py" "$<TARGET_FILE:restore_app_bound_test>")
   add_executable(options_geometry_dump tests/options_geometry_test.cpp)
+  target_include_directories(options_geometry_dump PRIVATE src)
   target_link_libraries(options_geometry_dump PRIVATE xr_hud xr_ipc nlohmann_json::nlohmann_json)
   add_test(NAME options_geometry COMMAND options_geometry_dump)
   # The pills' theme colour (glass_theme.hpp): every Omarchy theme's hue, one brightness, the OLED cap, live recolouring.
