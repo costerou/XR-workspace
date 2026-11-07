@@ -83,7 +83,8 @@ int run() {
         float furthest = 0;
         float settled = 0;
         for (int k = 0; k < 48; ++k) { now += 8.333; settled = between(m.update(yaw(f.angle), f.t, 40, now), yaw(f.angle)); furthest = std::max(furthest, settled); }
-        CHECK(furthest <= 9.f && settled <= 6.01f);
+        CHECK(furthest <= 6.f + 200.f * 0.04f);  // the bound, then speed for stall_ms at the very most
+        CHECK(settled <= 6.01f);
     }
     {   // A gap too long for a velocity: no prediction, and a repeated device time does not disturb the history.
         MotionSmoother m; Feed f;

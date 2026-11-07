@@ -26,7 +26,7 @@ The speed comes from the last three samples over their real device-time gap. The
 | Horizon | age + read-to-present, at most 40 ms | Measured live as about 17 to 37 ms |
 | `tau_ms` | 35 | Continuity filter. 15 to 50 swept; shorter gets jerkier, longer drifts further off |
 | `max_predict_deg` | 6 | The most the prediction may add |
-| `stall_ms` | 40 | No new sample for this long: speed stops being carried. The view can run on by that much time first, at most 8.8 degrees at 200 deg/s, then settles within 6. The bridge ends a feed silent for 100 ms |
+| `stall_ms` | 40 | No new sample for this long: speed stops being carried. The view can run on by up to that long at its speed first, then settles within 6 (at 200 deg/s it went 8.8 degrees past the sample in the review's case). The bridge ends a feed silent for 100 ms |
 | `brake_power` | 3 | Speed scale while slowing is (newest interval's share of the window's speed) to this power |
 | `brake_floor` | 4 deg/s | Speeds around this are noise, not a stop |
 | `snap_deg` | 30 | 1500 deg/s in a 20 ms gap, past any head: taken at once. A recentre resets the smoother instead |
