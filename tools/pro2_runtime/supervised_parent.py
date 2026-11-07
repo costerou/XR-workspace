@@ -3,7 +3,7 @@
 Run by the orchestrator, with Cody wearing the glasses and agreeing to this run. Stops by itself. Needs no sudo. Everything it
 writes goes to a new private directory under ~/.local/state/viture-workspace/pro2-hil/. See docs/pro2/smooth-live-test.md.
 
-Ctrl+Alt+P, the existing prediction toggle, turns the smoothing off and on during the run, so one session compares both.
+The run checks two things: the picture stays level through left and right turns, and the run lasts its full time.
 """
 import argparse
 import datetime
@@ -30,8 +30,9 @@ def consent_for(run_id, instance, *, projection=44.5, pose_rate_hz=60, seconds=1
 
 def summarize(log_text, result):
     """What the run measured, for the report: aggregates from its status lines and the bridge's closing counts. No pose, no log text."""
-    timing, status = {}, {}
+    timing, status, guard = {}, {}, None
     for line in log_text.splitlines():
+        if line.startswith('xr-workspace: run guard: '): guard = line.removeprefix('xr-workspace: run guard: ')[:300]
         if not line.startswith('{'): continue
         try: data = json.loads(line)
         except ValueError: continue
@@ -47,8 +48,9 @@ def summarize(log_text, result):
                 predicted_share=round(predicted / presented, 3) if presented else 0.0, look_ahead_cfg=prediction.get('look_ahead_cfg'),
                 smoothing=prediction.get('smoothing'), last_horizon_ms=prediction.get('last_horizon_ms'),
                 read_to_present_p50_ms=(latency.get('read_to_present') or {}).get('p50_ms'), pose_age_p50_ms=(latency.get('pose_age_relative') or {}).get('p50_ms'),
-                tracking_samples=tracking.get('samples'), lost_events=tracking.get('lost_events'), fov_source=tracking.get('fov_source'), diagonal_fov_deg=tracking.get('diagonal_fov_deg'),
-                desktops=[o.get('name') for o in status.get('outputs') or []], provider=(result or {}).get('provider'), complete=(result or {}).get('complete'))
+                tracking_samples=tracking.get('samples'), lost_events=tracking.get('lost_events'), levelled_deg=tracking.get('levelled_deg'), fov_source=tracking.get('fov_source'), diagonal_fov_deg=tracking.get('diagonal_fov_deg'),
+                desktops=[o.get('name') for o in status.get('outputs') or []], provider=(result or {}).get('provider'), complete=(result or {}).get('complete'),
+                stop_reason=((result or {}).get('run') or {}).get('stop_reason'), guard_reason=guard)
 
 
 def main():
@@ -101,7 +103,7 @@ def main():
     print('STATE', state, flush=True)
     cue('Starting in 30 seconds. Put the Pro 2 glasses on and sit facing forward. It stops by itself.', 28000)
     time.sleep(30)
-    cue('Starting now. Turn your head slowly left and right. After a while press Ctrl+Alt+P to compare smoothing off and on. Take them off if anything feels wrong.')
+    cue('Starting now. Look straight ahead for a moment, then turn slowly left and right and watch the desktop edges. It stops by itself. Take them off if anything feels wrong.')
     log_path = state / 'parent-launch.private.log'
     with log_path.open('x') as log:
         process = subprocess.Popen([str(bundle / 'bin/pro2-supervised-test'), '--consent', str(path), '--state-dir', str(state)], env=env, stdout=log, stderr=subprocess.STDOUT)

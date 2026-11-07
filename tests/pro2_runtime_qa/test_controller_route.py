@@ -122,7 +122,7 @@ class ControllerRouteQA(unittest.TestCase):
             path = Path(tmp) / 'health'
             for data in [dict(nonce='wrong', ready=True, monotonic=time.monotonic()),
                          dict(nonce='ok', ready=False, monotonic=time.monotonic()),
-                         dict(nonce='ok', ready=True, monotonic=time.monotonic()-1),
+                         dict(nonce='ok', ready=True, monotonic=time.monotonic()-3),
                          dict(nonce='ok', ready=True, monotonic=time.monotonic()+1)]:
                 path.write_text(json.dumps(data)); path.chmod(0o600)
                 scope = TestScope('/offline/pose_', 44.5, str(path), 'ok')

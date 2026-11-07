@@ -1,10 +1,26 @@
 """Canonical supervised-scope/client types, stable across CLI and spawn workers."""
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import stat
 import time
 from tools.native_spike.ipc import read_private_json,strict_json
 from tools.native_spike.hyprland import HyprlandClient
 from .launch import validate_projection
+
+HEALTH_MAX_AGE=2.0  # seconds; the bridge itself stops on 100 ms of silence, so this only asks that its monitor is alive
+
+
+def read_health(path):
+    """read_private_json, for a file that is replaced 50 times a second. An open can land just before a replace, and the file it holds
+    is then a whole, valid, unlinked one with no links left: nlink 0 is the old copy, not an attack. That refusal ended a guard."""
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(fd,'rb') as stream:
+        st=os.fstat(stream.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o600 or st.st_nlink>1:
+            raise PermissionError('health must be owned regular single-link mode 0600')
+        return strict_json(stream.read(4096))
+
 
 SMOOTH_MS=35.0  # motion_smooth.hpp tau, checked by tools/pro2_runtime/smooth_acceptance.py SHIPPED and tests
 
@@ -18,10 +34,10 @@ class TestScope:
     fixed_desktops:bool=True  # a supervised test keeps exactly the desktops its consent names; a panel session may change them
     def healthy(self):
         validate_projection(self.projection,True)
-        data=read_private_json(Path(self.health_path))
+        data=read_health(self.health_path)
         age=time.monotonic()-data['monotonic']
-        if data.get('nonce')!=self.nonce or data.get('ready') is not True or not 0<=age<=.5:
-            raise ValueError('Pro2 supervised provider stale/unready')
+        if data.get('nonce')!=self.nonce or data.get('ready') is not True or not 0<=age<=HEALTH_MAX_AGE:
+            raise ValueError(f"Pro2 supervised provider stale/unready: age {age:.3f} s, {data.get('reason') or 'no reason given'}")
 
 @dataclass
 class ScopedGuard:

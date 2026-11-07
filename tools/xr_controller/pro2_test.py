@@ -41,7 +41,9 @@ def journal_unfinished(path):
 def provider_summary(provider):
     """The bridge's closing counts, for the run's result: how many samples at what rate. Aggregates only, no pose."""
     done=getattr(provider,'done',None)
-    return {k:done[k] for k in ('samples','seconds','pose_rate_hz','gap_ms_counts') if k in done} if isinstance(done,dict) else None
+    summary={k:done[k] for k in ('samples','seconds','pose_rate_hz','gap_ms_counts') if k in done} if isinstance(done,dict) else None
+    failure=getattr(provider,'failure',None)
+    return {**(summary or {}),'failure':failure} if failure else summary
 
 
 def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_factory=RuntimeSession,run=None):

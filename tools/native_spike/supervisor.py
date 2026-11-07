@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import select
 import selectors
 import socket
+import sys
 import time
 
 from .faults import Faults
@@ -24,7 +25,9 @@ def _guard_worker(guard, sender):
         while True:
             try:
                 guard()
-            except Exception:
+            except Exception as exc:
+                # The verdict is one byte, so the reason goes to the run's stderr: without it `guard-failed` says nothing.
+                print(f'xr-workspace: run guard: {type(exc).__name__}: {exc}', file=sys.stderr, flush=True)
                 sender.send_bytes(b'F')
                 return
             sender.send_bytes(b'V')

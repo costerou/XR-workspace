@@ -105,7 +105,7 @@ class RuntimeSession:
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
         self.directory=Path(run_dir).absolute();self.directory.mkdir(mode=0o700,parents=False,exist_ok=False)
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
-        self.status=None;self.started=None;self.log=None;self.last_competing=0.0
+        self.status=None;self.started=None;self.log=None;self.scanner=None
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
     def command(self,exe,sdk,write):
         return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
@@ -135,6 +135,7 @@ class RuntimeSession:
                     self.healthy()
                     self.write_health(True)
                     self.thread=threading.Thread(target=self.monitor,daemon=True);self.thread.start()
+                    self.scanner=threading.Thread(target=self.scan,daemon=True);self.scanner.start()
                     return self
                 if self.child.poll() is not None:raise ValueError('runtime exited before readiness')
                 time.sleep(.01)
@@ -158,30 +159,33 @@ class RuntimeSession:
                     if len(self.events)>8:raise ValueError('runtime status flood')
             except BlockingIOError:pass
         if self.started and time.monotonic()-self.started>self.seconds+10:raise TimeoutError('runtime wall deadline')
-    def write_health(self,ready):
+    def write_health(self,ready,reason=None):
         temp=self.directory/'health.tmp'
         fd=os.open(temp,os.O_CREAT|os.O_TRUNC|os.O_WRONLY|os.O_NOFOLLOW,0o600)
-        with os.fdopen(fd,'w') as stream:json.dump(dict(nonce=self.nonce,ready=ready,monotonic=time.monotonic()),stream)
+        with os.fdopen(fd,'w') as stream:json.dump(dict(nonce=self.nonce,ready=ready,monotonic=time.monotonic(),**({'reason':reason} if reason else {})),stream)
         os.replace(temp,self.health_path)
     def monitor(self):
         while not self.stop_monitor.wait(.02):
             try:
                 with self.lock:self.healthy();self.write_health(True)
             except Exception as exc:
-                self.failure=str(exc);self.write_health(False);return
+                self.failure=self.failure or str(exc) or type(exc).__name__;self.write_health(False,self.failure);return
+    def scan(self):
+        # Its own thread: about 50 ms of /proc/*/maps, and each read holds that process's mmap lock, so a slow one must not delay the
+        # heartbeat, and once a second is plenty.
+        while not self.stop_monitor.wait(COMPETING_EVERY_S):
+            try:
+                if competing(exclude=(self.child.pid,)):self.failure=self.failure or 'competing provider during bounded test'
+            except Exception as exc:self.failure=self.failure or f'provider scan: {exc}'
     def healthy(self):
-        if self.failure:raise ValueError('runtime health failed')
+        if self.failure:raise ValueError(self.failure)
         self.poll()
         if not self.ready or self.done is not None or self.child.poll() is not None:raise ValueError('Pro2 test provider no longer ready')
-        # About 35 ms of /proc/*/maps for every process, and each read holds that process's mmap lock: once a second, not 50 times.
-        now=time.monotonic()
-        if now-self.last_competing>=COMPETING_EVERY_S:
-            self.last_competing=now
-            if competing(exclude=(self.child.pid,)):raise ValueError('competing provider during bounded test')
     def close(self):
         self.stop_monitor.set()
         if self.thread:self.thread.join(timeout=2)
-        self.write_health(False)
+        if self.scanner:self.scanner.join(timeout=2)
+        self.write_health(False,self.failure)
         if self.child is not None:
             if self.child.poll() is None:
                 os.killpg(self.child.pid,signal.SIGTERM)

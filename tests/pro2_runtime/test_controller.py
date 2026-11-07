@@ -41,7 +41,7 @@ class ControllerTests(unittest.TestCase):
         client.apply_session_mode.assert_not_called();client.plugin_unload.assert_called_once()
         self.assertEqual(pickle.loads(pickle.dumps(kwargs['test_scope'])).projection,44.5)
     def test_health_fails_closed(self):
-        f=self.root/'health';f.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic()-1)));f.chmod(0o600)
+        f=self.root/'health';f.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic()-3)));f.chmod(0o600)
         with self.assertRaises(ValueError):TestScope('/private/pose_',44.5,str(f),'n').healthy()
 
     def test_recovery_does_not_start_sdk_and_unloads_only_after_complete(self):
