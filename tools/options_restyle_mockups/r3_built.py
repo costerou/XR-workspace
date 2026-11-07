@@ -50,10 +50,12 @@ def go(stage, path, out, results, render, suffix=''):
         probe = stage.frame(path('r3-probe.png'), selected=selected, zoom=1.0, pills=False, restore_step=1.0, **scene)
         geo = h.layout([probe])[0]
         tile, rect = geo['tiles'][selected], geo['restore_rect']
-        report = render([dict(probe, overlays=[h.bounds(rect, 'tile', selected, 'pill'), h.bounds(tile, 'tile', selected, 'picture')])], scale=1)[0]['overlays']
+        # The picture at the pill's own column: a curved desktop's corners stand further out, and the supervisor measures here too.
+        column = [tile[0] + tile[2] / 2 - 1, tile[1], 2, tile[3]]
+        report = render([dict(probe, overlays=[h.bounds(rect, 'tile', selected, 'pill'), h.bounds(column, 'tile', selected, 'picture')])], scale=1)[0]['overlays']
         pill, picture = report[0]['box'], report[1]['box']
         middle_top = (pill[3] + picture[1]) / 2
-        checks[key] = dict(step_scale=geo['step_scale'], pill=pill, picture=picture, clear=bool(pill[3] <= picture[1] + 1e-3 or tile[1] > 0), in_view=bool(pill[1] >= 0))
+        checks[key] = dict(step_scale=geo['step_scale'], pill=pill, picture=picture, clear=bool(pill[3] <= picture[1]), in_view=bool(pill[1] >= 0))
         for name, label, step, dot in STAGES:
             extra = dict(restore_step=step) if step is not None else dict(zoom=0.0, restore_step=0.0, pills=True, real_handles=True)
             if dot == 'top': extra['real_dot'] = [(pill[0] + pill[2]) / 2 + 240, middle_top]
