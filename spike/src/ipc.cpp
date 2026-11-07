@@ -362,6 +362,11 @@ bool resize_handle(const Json& p, ResizeHandlePayload& out) {
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), std::uint32_t(named - std::begin(kHandleCorners)), p["active"].get<bool>()};
     return true;
 }
+bool restore_band(const Json& p, RestoreBandPayload& out) {
+    if (!p.is_object() || p.size() != 1 || !p.contains("open") || !p["open"].is_boolean()) return false;
+    out.open = p["open"].get<bool>();
+    return true;
+}
 bool move_handle(const Json& p, MoveHandlePayload& out) {
     if (!p.is_object() || p.size() != 4) return false;
     for (const char* key : {"visible", "hover", "active"})
@@ -474,6 +479,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "move_handle") op = ControlOp::move_handle;
+        else if (name == "restore_band") op = ControlOp::restore_band;
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else if (name == "roll") op = ControlOp::roll;
         else if (name == "desktops") op = ControlOp::desktops;
@@ -572,6 +578,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             ResizeHandlePayload handle;
             if (!resize_handle(j["payload"], handle)) return Error{kInvalidHandleCode, "Ignored malformed resize_handle payload"};
             payload = handle;
+        } else if (op == ControlOp::restore_band) {
+            RestoreBandPayload band;
+            if (!restore_band(j["payload"], band)) return Error{kInvalidRestoreBandCode, "Ignored malformed restore_band payload"};
+            payload = band;
         } else if (op == ControlOp::move_handle) {
             MoveHandlePayload pill;
             if (!move_handle(j["payload"], pill)) return Error{kInvalidMoveHandleCode, "Ignored malformed move_handle payload"};

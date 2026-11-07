@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     HudImage sheet{std::uint32_t((cell * zoom + gap) * boxes + gap), std::uint32_t(cell * zoom + 2 * gap), {}};
     sheet.rgba.assign(std::size_t(sheet.width) * sheet.height * 4, 0);
     for (int b = 0; b < boxes; ++b) {
-        const auto box = options_icon_box(b == 1, false);
+        const auto box = b == 1 ? options_restore_box(false) : options_icon_box(false);
         const int x0 = int(box.u0 * float(atlas.width) + .5f), y0 = int(box.v0 * float(atlas.height) + .5f);
         for (int y = 0; y < cell * zoom; ++y)
             for (int x = 0; x < cell * zoom; ++x) {

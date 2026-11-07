@@ -468,6 +468,12 @@ class HyprlandClient:
         from .unified_cursor import enter_desktop_lua
         self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y, monitor))
 
+    def arm_click_binds(self, python, client, control_socket, run_id, session):
+        """Maximized: the non-consuming left-button binds alone, so the run can tell a click or a drag from a rest on the top edge.
+        The window gets the button as usual. Generated Lua only, the binds enter_desktop installs."""
+        from .unified_cursor import click_binds_lua
+        self._eval(click_binds_lua(python, client, control_socket, run_id, session))
+
     def confine_cursor(self, x, y, name):
         """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the
         monitor focus again; one eval of generated Lua."""

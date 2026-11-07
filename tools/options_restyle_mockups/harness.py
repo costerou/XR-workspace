@@ -27,6 +27,11 @@ PRO2 = [dict(w=5120, h=1440, scale=1.25, placement=dict(x=0, y=0, distance=100, 
         dict(w=2560, h=1440, scale=2.0, placement=dict(x=0, y=0, distance=100, curvature=0, roll=0))]
 
 
+def bounds(rect, space, desktop, name):
+    """An overlay that draws nothing: asks the renderer where `rect` lands on the canvas."""
+    return dict(w=rect[2], h=rect[3], x=rect[0], y=rect[1], ops=[], space=space, desktop=desktop, name=name)
+
+
 def run_env():
     return dict(os.environ, LIBGL_ALWAYS_SOFTWARE='1', GALLIUM_DRIVER='llvmpipe', EGL_PLATFORM='surfaceless')
 

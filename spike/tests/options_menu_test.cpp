@@ -20,5 +20,9 @@ int main() {
  p["rows"]=J::array();
  for(int i=0;i<64;++i){auto r=row;r["id"]=std::to_string(i);r["choices"]=std::vector<std::string>(32,std::string(96,'a'));p["rows"].push_back(r);}
  if(!accepts(p)){std::cerr<<"bounded maximum snapshot rejected\n";return 5;}
+ // The Step-Back Band's frame: {"open":bool} and nothing else.
+ auto band=[&](J v){auto r=xr::decode_control(J{{"schema",1},{"request_id",1},{"run_id","run"},{"session","session"},{"op","restore_band"},{"payload",v}}.dump()+"\n");return std::holds_alternative<xr::ControlMessage>(r)&&std::holds_alternative<xr::RestoreBandPayload>(std::get<xr::ControlMessage>(r).payload);};
+ if(!band(J{{"open",true}})||!band(J{{"open",false}}))return 9;
+ for(J bad:{J::object(),J{{"open",1}},J{{"open",true},{"x",1}}})if(band(bad))return 9;
  return 0;
 }

@@ -1,6 +1,6 @@
 # Options restyle previews
 
-Native before / after pictures of the Options pill, the options menu and Maximize, and mockups of where Restore could go. It changes
+Native before / after pictures of the Options pill, the options menu and Maximize, and the Step-Back Band frame by frame. It changes
 nothing in the renderer: it is a separate CMake project next to `spike/`, and nothing links it.
 
 ## What is real
@@ -10,8 +10,7 @@ Every frame is `GlCompositor::draw_and_swap` on surfaceless EGL, with Cody's sav
 real `render_options_panel`, the snapshots are the real `OptionsMenu` and `options_rows` with stub owners. "Before" comes from
 `restyle_preview` built on the tree before the change, "after" from the current tree.
 
-Only the Restore pages are mockups (`maximize_options.py`): Cody picks where Restore goes. Their shapes are the renderer's own `md_*` parts
-laid on real frames, and `checks.py` runs each place through the real `free_pointer.py` ray and hit test on the saved desktops.
+`r3_built.py` renders the Step-Back Band through the same compositor: each stage is the eased value the renderer would have reached.
 
 Rendering runs on llvmpipe with `/dev/dri` hidden by bwrap and at the lowest priority, so a frame cannot open either GPU, even while XR runs.
 

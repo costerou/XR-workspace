@@ -160,7 +160,7 @@ import socket
 import threading
 import time
 
-from . import bump, geometry, orbit, resize, view
+from . import bump, geometry, orbit, resize, restore_band, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -319,7 +319,7 @@ def parse_overview_geometry(value):
 def parse_maximize_geometry(value):
     """Validate display-only settled Restore geometry; never accept arbitrary meshes."""
     if value is None: return None
-    keys = {'monitor','maximized','canvas','tile','placement','rect','hit_mesh','view'}
+    keys = {'monitor','maximized','canvas','tile','placement','rect','picture','hit_mesh','view'}
     if type(value) is not dict or set(value) != keys: raise ValueError('invalid maximize geometry')
     from .options_menu import monitor
     monitor(value['monitor'])
@@ -329,7 +329,7 @@ def parse_maximize_geometry(value):
             raise ValueError('invalid maximize coordinates')
         return list(v)
     out = dict(value)
-    for key,count in (('canvas',4),('tile',4),('placement',5),('rect',4),('view',9)):
+    for key,count in (('canvas',4),('tile',4),('placement',5),('rect',4),('picture',4),('view',9)):
         out[key]=numbers(value[key],count)
     if any(v<=0 for v in out['canvas']) or any(out['canvas'][i]>MAX_POINTER_PX for i in (0,1)) or out['placement'][2]<=0 or any(out['tile'][i]<=0 or out['rect'][i]<=0 for i in (2,3)):
         raise ValueError('invalid maximize extent')
@@ -344,24 +344,23 @@ def parse_maximize_geometry(value):
     return out
 
 
-def restore_cursor_ray(geometry, output, cursor):
-    """Real app cursor -> actual captured surface -> world ray (never screen-UV fiction).
-
-    Native placement uses radians/ratio, unlike the supervisor wire placement.
-    The emitted view checks whether that surface point is currently visible.
-    """
-    if cursor is None or not output['x']<=cursor[0]<output['x']+output['width'] or not output['y']<=cursor[1]<output['y']+output['height']: return None
+def band_ray(geometry, x, y):
+    """Canvas point (x, y), where the band's dot is, as a world ray: the view undone, as the hit mesh is in the world."""
     w,h,hw,hh=geometry['canvas']
-    tile=geometry['tile']
+    eye=((2*x/w-1)*hw,(1-2*y/h)*hh,-1.0)
+    m=geometry['view']
+    return tuple(sum(m[j*3+i]*eye[j] for j in range(3)) for i in range(3))
+
+
+def band_canvas(geometry, px, py):
+    """Point (px, py) of the stepped desktop's surface on the canvas: where a thing there is drawn."""
+    w,h,hw,hh=geometry['canvas']
     x,y,d,c,r=geometry['placement']
     placed=dict(x=math.degrees(x)*10,y=math.degrees(y)*10,distance=d*100,curvature=math.degrees(c),roll=math.degrees(r)*100)
-    px=tile[0]+(cursor[0]-output['x'])/output['width']*tile[2]
-    py=tile[1]+(cursor[1]-output['y'])/output['height']*tile[3]
-    world=orbit.place_point(dict(w=w,h=h,half=(hw,hh)),tile,placed,px,py)
+    world=orbit.place_point(dict(w=w,h=h,half=(hw,hh)),geometry['tile'],placed,px,py)
     m=geometry['view']
-    eye=tuple(sum(m[i*3+j]*world[j] for j in range(3)) for i in range(3))
-    if eye[2]>=-1e-6 or abs(eye[0]/-eye[2])>hw or abs(eye[1]/-eye[2])>hh: return None
-    return world
+    e=tuple(sum(m[i*3+j]*world[j] for j in range(3)) for i in range(3))
+    return (e[0]/-e[2]/hw+1)*w/2,(1-e[1]/-e[2]/hh)*h/2
 
 
 def restore_mesh_hit(geometry, ray):
@@ -412,6 +411,13 @@ def level_bar_rect(tile):
 
 
 MAXIMIZE_W, MAXIMIZE_GAP = 38, 12   # options_geometry.hpp kMaximizeW, kMaximizeGap: a capsule of the bar's height
+
+def restore_band_frame(run_id, session, request_id, is_open):
+    """Renderer `restore_band` frame: the Step-Back Band open or shut (ipc.hpp RestoreBandPayload)."""
+    if type(is_open) is not bool: raise ValueError('invalid restore band')
+    return (json.dumps({'schema': 1, 'run_id': run_id, 'session': session, 'request_id': request_id, 'op': 'restore_band', 'payload': {'open': is_open}},
+                       separators=(',', ':')) + '\n').encode()
+
 
 def maximize_rect(tile):
     s = level_bar_scale(tile)
@@ -1068,10 +1074,13 @@ class OverviewPointer:
         self.shape_gated = False   # the beam's gate shut on a word: when it opens the sampler reads at SHAPE_S (_step_text)
         self.text_hold = TextHold()  # the Serif Beam is on (_step_text, _look)
         self.maximize_geometry = None
-        self._restore_cursor = None
         self._restore_output = None
         self._restore_press = None
         self._restore_epoch = 0
+        self.dwell = restore_band.Dwell()
+        self.band_point, self.band_gain, self.band_moved = None, 1.0, 0.0  # the dot while the band is open: canvas px
+        self.band_sent = False       # the renderer's band open
+        self.zoom_held = None        # maximized: when the left button went down (the click binds), None: it is up
         self.geometry = None       # parse_overview_geometry, from the renderer
         self.layout_stale = False  # the desktops changed since it came (_layout_ready)
         self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
@@ -1140,7 +1149,7 @@ class OverviewPointer:
     def set_maximize_geometry(self, geometry):
         # Parse first: malformed datagrams cannot replace good geometry or acquire input.
         parsed=parse_maximize_geometry(geometry)
-        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k!='view'}
+        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k not in ('view','picture')}  # those follow the head
         if structural(parsed)!=structural(self.maximize_geometry):
             self._restore_epoch+=1
             self._restore_press=None
@@ -1149,63 +1158,102 @@ class OverviewPointer:
         self._poke()
 
     def _restore_release(self):
+        """The band shuts: the app gets its cursor back on the column the dot was on, LAND_PX under the edge, and the rest starts over."""
         self._restore_press=None
-        point=self._restore_cursor
-        output=self._restore_output
-        if point is not None and output is not None:
-            point=tuple(min(max(point[i],output[k]),output[k]+output[size]-1) for i,k,size in ((0,'x','width'),(1,'y','height')))
+        output,point=self._restore_output,self.band_point
+        target=None
+        if output is not None and point is not None and self.maximize_geometry is not None:
+            x0,_,x1,_=self.maximize_geometry['picture']
+            along=min(max((point[0]-x0)/(x1-x0),0),1) if x1>x0 else .5
+            target=(int(output['x']+along*(output['width']-1)),int(output['y']+restore_band.LAND_PX))
+        elif output is not None:
+            target=(int(output['x']+output['width']/2),int(output['y']+restore_band.LAND_PX))
+        self.band_point=None
+        self.dwell.disarm()
         if self.mode=='restore':
             self.mode='off'
-            self._set_want('desktop', tuple(int(round(v)) for v in point) if point else None, sync=True)
+            self._set_want('desktop',target,sync=True)
 
-    def _restore_frame(self, ray=None):
-        visible=ray is not None and self.mode=='restore'
+    def band_hot(self):
+        """The dot on Restore's own mesh."""
+        g=self.maximize_geometry
+        return bool(g and self.band_point is not None and restore_mesh_hit(g,band_ray(g,*self.band_point)))
+
+    def _restore_frame(self):
+        """The dot while the band is open, and the band's own frame on any change."""
+        out=b''
+        is_open=self.mode=='restore'
+        if is_open!=self.band_sent:
+            self.band_sent=is_open
+            out+=self._send(restore_band_frame,is_open)
+        ray=band_ray(self.maximize_geometry,*self.band_point) if is_open and self.maximize_geometry is not None and self.band_point is not None else None
+        visible=ray is not None
         want=dict(visible=visible,x=0,y=0,held=visible and self._restore_press is not None)
         if visible:
             az=math.atan2(ray[0],-ray[2]); el=math.atan2(ray[1],math.hypot(ray[0],ray[2]))
             want.update(az=min(max(round(math.degrees(az)*100),-MAX_POINTER_AZ),MAX_POINTER_AZ),
                         el=min(max(round(math.degrees(el)*100),-MAX_POINTER_EL),MAX_POINTER_EL))
-        if want==self.sent: return b''
+        if want==self.sent: return out
         self.sent=want
-        return self._send(overview_pointer_frame,want)
+        return out+self._send(overview_pointer_frame,want)
 
-    def _poll_restore(self, cursor, motion, applied):
+    def _band_blocked(self, now):
+        """What a rest does not count through: a held button (a lost release expires), and a hand's edge pan."""
+        if self.zoom_held is not None and now-self.zoom_held>=restore_band.HELD_MAX_S: self.zoom_held=None
+        return self.zoom_held is not None or getattr(self,'_pan',None) is not None
+
+    def _band_open(self, cursor, output, now):
+        """The rest is up: the dot takes over where the cursor was, on the picture's top edge as it ends up stepped back."""
+        g=self.maximize_geometry
+        x0,y0,x1,_=g['picture']
+        self.band_gain=(x1-x0)/output['width'] if output['width'] else 1.0
+        self.band_point=(x0+(cursor[0]-output['x'])*self.band_gain,y0)
+        self.band_moved=now
+        self._restore_output=dict(output)
+        self.mode='restore'
+        self._set_want('free',(int(output['x']+output['width']/2),int(output['y']+output['height']/2)),sync=True)
+
+    def _poll_restore(self, cursor, motion, applied, now):
         g=self.maximize_geometry
         names=self.control.state.names
         output=next((o for o in self.outputs if type(o.get('index')) is int and 0<=o['index']<len(names) and names[o['index']]==g['monitor']),None)
         if output is None:
-            self._restore_release()
-            return self._restore_frame()
-        if self.mode=='restore':
-            if applied>=self._sync and self._restore_cursor is not None:
-                self._restore_cursor=tuple(self._restore_cursor[i]+motion[i] for i in range(2))
-        else:
-            self._restore_cursor=cursor
-        point=self._restore_cursor
-        ray=restore_cursor_ray(g,output,point)
-        if not restore_mesh_hit(g,ray):
-            self._restore_release()
+            self.dwell.reset()
+            if self.mode=='restore': self._restore_release()
             return self._restore_frame()
         if self.mode!='restore':
-            self.mode='restore'
-            self._restore_output=dict(output)
-            park=(int(output['x']+output['width']/2),int(output['y']+output['height']/2))
-            self._set_want('free',park,sync=True)
-        return self._restore_frame(ray)
+            out=b''
+            if self.mode!='off':  # maximized from free or desktop mode: what active() going false does, as this path comes first
+                out+=self._end_drag()
+                self.mode,self.hover,self.pointer,self.summoned='off',None,None,False
+                self._set_want('off')
+            if applied>=self._sync and self.dwell.step(cursor,output,self._band_blocked(now),now): self._band_open(cursor,output,now)
+            return out+self._restore_frame()
+        if applied>=self._sync and (motion[0] or motion[1]):
+            x,y=self.band_point
+            w,h,_,_=g['canvas']
+            self.band_point=(min(max(x+motion[0]*self.band_gain,2),w-2),min(max(y+motion[1]*self.band_gain,2),h-2))
+            self.band_moved=now
+        x,y=self.band_point
+        x0,y0,x1,y1=g['picture']
+        back=x0<=x<x1 and y0+restore_band.RETURN_PX<=y<y1
+        if (back and self._restore_press is None) or now-self.band_moved>=restore_band.IDLE_S: self._restore_release()
+        return self._restore_frame()
 
     def _restore_op(self, op):
+        """The left button with the band open, consumed by the grab. A press on Restore is Restore's; a press anywhere else shuts it."""
         if op=='resize_press':
-            if self.restore_sampling() and self.mode=='restore':
-                self._restore_press=(self.maximize_geometry['monitor'],self._restore_epoch)
-            return self._restore_frame(restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)) if self.restore_sampling() else b''
+            if self.mode=='restore' and self.restore_sampling():
+                if self.band_hot(): self._restore_press=(self.maximize_geometry['monitor'],self._restore_epoch)
+                else: self._restore_release()
+            return self._restore_frame()
         pressed=self._restore_press
         self._restore_press=None
-        valid=(self.restore_sampling() and pressed==(self.maximize_geometry['monitor'],self._restore_epoch)
-               and restore_mesh_hit(self.maximize_geometry,restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)))
+        valid=self.restore_sampling() and pressed==(self.maximize_geometry['monitor'],self._restore_epoch) and self.band_hot()
+        if self.mode=='restore' and pressed is not None and not valid: self._restore_release()
+        if not valid: return self._restore_frame()
         self._restore_release()
-        out=self._restore_frame()
-        if valid: out+=self.control.maximize_monitor(pressed[0])
-        return out
+        return self._restore_frame()+self.control.maximize_monitor(pressed[0])
 
     def active(self):
         return self.overview() and self._layout_ready() and len(self.outputs) > 0
@@ -1503,11 +1551,11 @@ class OverviewPointer:
     def poll(self, now):
         """Supervisor tick: apply the newest cursor sample; returns renderer frames (bytes)."""
         fresh, cursor, motion, applied = self._take()
-        if self.restore_sampling(): return self._poll_restore(cursor,motion,applied)
-        if self.mode=='restore':
-            self._restore_release()
-            return self._restore_frame()
-        out = b''
+        if self.restore_sampling(): return self._poll_restore(cursor,motion,applied,now)
+        self.dwell.reset()
+        self.zoom_held = None
+        if self.mode=='restore': self._restore_release()
+        out = self._restore_frame() if self.band_sent else b''
         if not self.active():
             if self.mode != 'off':
                 out += self._end_drag()
@@ -1628,6 +1676,10 @@ class OverviewPointer:
         """resize_press / resize_release: the left button, bound only in free mode (module docstring: Clicks)."""
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
         if self.mode=='restore' or self._restore_press is not None: return self._restore_op(op)
+        if self.restore_sampling():  # maximized, the non-consuming binds: the app's own click, and no rest
+            self.zoom_held = self.clock() if op == 'resize_press' else None
+            self.dwell.restart()
+            return None
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
         self.last_move = now  # a click is input: the pointer, pills, bars and caps come back

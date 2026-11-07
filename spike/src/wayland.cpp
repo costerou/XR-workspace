@@ -357,6 +357,13 @@ struct Presentation::Impl : SurfaceRequests {
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
                                      modes.mode() == ViewMode::anchor && maximized, view.left_zoom(), view.left());
+        // The Step-Back Band: the maximized desktop eases back about the view's centre; no tile, aim or saved placement moves.
+        restore_unstepped.reset();
+        const auto f = std::size_t(view.focus());
+        if (const float e = restore_step.value(double(monotonic_ms())); e > 0.f && f < resolved.size() && f < tiles.size()) {
+            restore_unstepped = resolved[f];
+            resolved[f] = options_stepped(resolved[f], options_step_scale(tiles[f]), e);
+        }
         return resolved;
     }
     // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
@@ -482,6 +489,9 @@ struct Presentation::Impl : SurfaceRequests {
     void render_options() { options_image = render_options_panel(options, options_font.get(), options_accent); ++options_generation; cadence.invalidate(); }
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
+    RestoreStep restore_step;  // the Step-Back Band (options_geometry.hpp); the supervisor's `restore_band`
+    std::uint64_t restore_updates = 0, restore_full_frames = 0;
+    std::optional<Placement> restore_unstepped;  // the focused desktop's placement before this frame's step
     PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
     // The background behind the desktops and a VR video (xr/environment.hpp): world-locked when drawn, in the theme colour.
     EnvironmentFade environment;
@@ -936,7 +946,7 @@ struct Presentation::Impl : SurfaceRequests {
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.panel_shift.animating(now) ||
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.restore_step.animating(now) || s.panel_shift.animating(now) ||
             (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
@@ -1078,6 +1088,8 @@ std::string Presentation::capture_report() const {
     out += ",\"binds\":{\"visible\":" + std::string(impl_->binds.visible() ? "true" : "false") +
            ",\"shown\":" + std::to_string(impl_->binds.shown_count()) + ",\"hidden\":" + std::to_string(impl_->binds.hidden_count()) +
            ",\"first\":" + std::to_string(impl_->binds.first()) + ",\"slots\":" + std::to_string(impl_->binds.slots()) + "}";
+    out += ",\"restore_band\":{\"updates\":" + std::to_string(impl_->restore_updates) + ",\"full_frames\":" + std::to_string(impl_->restore_full_frames) +
+           ",\"value_milli\":" + std::to_string(int(std::lround(impl_->restore_step.value(double(monotonic_ms())) * 1000.f))) + "}";
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
@@ -1337,6 +1349,12 @@ void Presentation::set_resize_handle(bool visible, std::uint32_t desktop, std::u
     auto& h = impl_->handle;
     if (visible && !h.visible) ++h.shown;
     h.visible = visible; h.desktop = desktop; h.corner = corner; h.active = active;
+    impl_->cadence.invalidate();
+}
+void Presentation::set_restore_band(bool open) {
+    if (!impl_) return;
+    impl_->restore_step.set(open, double(monotonic_ms()));
+    ++impl_->restore_updates;
     impl_->cadence.invalidate();
 }
 void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active) {
@@ -1673,7 +1691,8 @@ Status Presentation::draw_test_pattern() {
             const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
             s.options_in_frame=false;
             GlassFrame glass = s.glass.frame(overview, help_now);
-            glass.maximized=s.view.zoom()>=.99f && !s.view.switching();
+            glass.restore_alpha=s.view.zoom()>=.99f && !s.view.switching()?s.restore_step.value(double(monotonic_ms())):0.f;
+            if(glass.restore_alpha>=1.f)++s.restore_full_frames;
             glass.pills = s.pills.visible && overview;
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
@@ -1720,7 +1739,7 @@ Status Presentation::draw_test_pattern() {
         s.maximize_geometry_line="{\"maximize_geometry\":null}";
         const auto selected=s.view.focus();
         if(s.view.zoom()>=.99f && !s.view.switching() && selected<tiles.size() && selected<placed.size() && selected<s.captures.size()){
-          s.maximize_geometry_line=maximize_geometry_json(s.captures[selected]->name,Canvas{float(s.width),float(s.height),s.half_w,s.half_h},tiles[selected],placed[selected],s.last_drawn);
+          s.maximize_geometry_line=maximize_geometry_json(s.captures[selected]->name,Canvas{float(s.width),float(s.height),s.half_w,s.half_h},tiles[selected],s.restore_unstepped.value_or(placed[selected]),s.last_drawn);
         }
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))

@@ -27,7 +27,7 @@ int main(int argc,char**argv){
   icon(level_bar_rect(tile),level_bar_box(LevelSegment::none,false));
   icon(immersive_main_rect(tile),immersive_main_box(false,false));
   icon(immersive_tail_rect(tile),immersive_tail_box(false,false));
-  icon(options_maximize(tile),options_icon_box(false));
+  icon(options_maximize(tile),options_icon_box());
   auto pill=glass_pill(tile);auto look=glass_look({.45f,.65f,.8f},0,0);
   for(int y=int(pill.y);y<int(pill.y+pill.height);++y)for(int x=int(pill.x);x<int(pill.x+pill.width);++x){auto color=glass_shade(look,pill,pill.height/2,x+.5f,y+.5f,1);std::uint8_t rgba[4];for(int c=0;c<4;++c)rgba[c]=std::uint8_t(std::clamp(color[c],0.f,1.f)*255);put(x,y,rgba);}
   icon(options_gear(tile),options_gear_box());

@@ -137,6 +137,8 @@ Scene scene_of(const json& frame) {
     s.overview = overview_layout(s.sizes, float(kCanvasW), float(kCanvasH), s.spacing);
     s.tiles = blended_layout(s.sizes, float(kCanvasW), float(kCanvasH), s.spacing, s.zoom, float(s.selected));
     s.placements = zoomed_placements(Canvas{float(kCanvasW), float(kCanvasH), half[0], half[1]}, s.overview, s.tiles, s.placements, s.zoom, float(s.selected));
+    // The Step-Back Band, as wayland.cpp resolved_placements steps the focused desktop.
+    if (const float e = frame.value("restore_step", 0.f); e > 0.f) { const auto d = std::size_t(s.selected); s.placements[d] = options_stepped(s.placements[d], options_step_scale(s.tiles[d]), e); }
     return s;
 }
 // The view a frame is seen through: maximized, follow and locked centre it on the desktop (wayland.cpp focus_aim at full weight);
@@ -153,12 +155,11 @@ int layout(const std::string& path) {
     for (const auto& frame : job.at("frames")) {
         const Scene s = scene_of(frame);
         json f = {{"tiles", json::array()}, {"pills", json::array()}, {"bars", json::array()}, {"main", json::array()},
-                  {"tail", json::array()}, {"scale", json::array()}, {"maximize", json::array()}, {"gear", json::array()}, {"restore", json::array()}};
+                  {"tail", json::array()}, {"scale", json::array()}, {"maximize", json::array()}, {"gear", json::array()}};
         for (const auto& t : s.tiles) {
             f["tiles"].push_back(rect_json(t)); f["pills"].push_back(rect_json(glass_pill(t))); f["bars"].push_back(rect_json(level_bar_rect(t)));
             f["main"].push_back(rect_json(immersive_main_rect(t))); f["tail"].push_back(rect_json(immersive_tail_rect(t)));
             f["scale"].push_back(level_bar_scale(t)); f["maximize"].push_back(rect_json(options_maximize(t))); f["gear"].push_back(rect_json(options_gear(t)));
-            f["restore"].push_back(rect_json(options_maximize(t, true)));
         }
         const auto half = half_fov();
         const Canvas canvas{float(kCanvasW), float(kCanvasH), half[0], half[1]};
@@ -168,7 +169,8 @@ int layout(const std::string& path) {
         const auto d = std::size_t(s.selected);
         const auto& on = s.placements[d];
         f["placement"] = {on.x, on.y, on.distance, on.curvature, on.roll};
-        f["real_restore"] = rect_json(options_restore_rect(canvas, s.tiles[d], on, view));
+        f["restore_rect"] = rect_json(options_restore_rect(s.tiles[d], options_step_scale(s.tiles[d])));
+        f["step_scale"] = options_step_scale(s.tiles[d]);
         for (const auto& r : frame.value("meshes", json::array())) {
             json mesh = json::array();
             for (const auto& v : tile_mesh(canvas, s.tiles[d], on, FRect{r.at(0).get<float>(), r.at(1).get<float>(), r.at(2).get<float>(), r.at(3).get<float>()}))
@@ -460,7 +462,7 @@ int render(const std::string& path) {
         const int selected = s.selected;
         GlassFrame glass;
         glass.pills = frame.value("pills", true);
-        glass.maximized = frame.value("real_restore", false);
+        glass.restore_alpha = frame.value("restore_step", 0.f);
         for (std::size_t i = 0; i < desktops.size(); ++i) glass.bars[i] = frame.value("real_handles", false);
         if (frame.contains("hover_pill")) { glass.hover = frame["hover_pill"]; glass.hover_level = kGlassHover; }
         std::vector<json> desktop_list(desktops.begin(), desktops.end());
@@ -504,7 +506,12 @@ int render(const std::string& path) {
         const bool dot = frame.contains("dot");
         if (frame.contains("real_dot")) {
             const auto& d = frame["real_dot"];
-            gl->set_free_pointer(true, d.at(0).get<float>(), d.at(1).get<float>(), kFreePointerLevel);
+            // As the supervisor sends the dot (free_pointer._restore_frame): a direction, the view undone, so it sits where it is seen.
+            const float ex = (2 * d.at(0).get<float>() / float(kCanvasW) - 1) * half[0], ey = (1 - 2 * d.at(1).get<float>() / float(kCanvasH)) * half[1];
+            const Mat3 v = glass_view_shift(view, 0.f);
+            const float wx = v[0] * ex + v[3] * ey - v[6], wy = v[1] * ex + v[4] * ey - v[7], wz = v[2] * ex + v[5] * ey - v[8];
+            const float degrees = 180.f / std::numbers::pi_v<float>;
+            gl->set_free_pointer(true, d.at(0).get<float>(), d.at(1).get<float>(), kFreePointerLevel, true, std::atan2(wx, -wz) * degrees, std::atan2(wy, std::hypot(wx, wz)) * degrees);
         } else gl->set_free_pointer(false, 0, 0, 0);
         const float highlight_alpha = 1.f - s.zoom;
         if (!gl->draw_and_swap(s.tiles, s.placements, selected, frame.value("highlight", highlight_alpha), view, half[0], half[1])) { std::fputs("draw failed\n", stderr); return 1; }

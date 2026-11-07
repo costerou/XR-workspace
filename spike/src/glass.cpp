@@ -180,6 +180,17 @@ Mat3 glass_view_shift(const Mat3& v, float angle) {
             s * v[3] + k * v[6], s * v[4] + k * v[7], s * v[5] + k * v[8]};
 }
 
+void RestoreStep::set(bool open, double now_ms) {
+    const float to = open ? 1.f : 0.f;
+    if (to == to_) return;
+    from_ = value(now_ms); to_ = to; start_ms_ = now_ms;
+}
+float RestoreStep::value(double now_ms) const {
+    const float t = clamp01(float((now_ms - start_ms_) / kRestoreStepMs));
+    return from_ + (to_ - from_) * t * t * (3 - 2 * t);
+}
+bool RestoreStep::animating(double now_ms) const { return now_ms - start_ms_ < kRestoreStepMs; }
+
 void PanelShift::set(float target, double now_ms) {
     if (target == to_) return;
     from_ = value(now_ms); to_ = target; start_ms_ = now_ms;
@@ -262,9 +273,10 @@ constexpr std::uint32_t kAtlasMainW = std::uint32_t(kImmersiveMainW) * kHandleAt
 constexpr std::uint32_t kAtlasMainX = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap), kAtlasTailX = kAtlasMainX + kAtlasMainW + kAtlasGap;
 constexpr std::uint32_t kAtlasW = kAtlasTailX + kAtlasTailW + kAtlasGap;
 constexpr std::uint32_t kAtlasOldH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
-constexpr std::uint32_t kAtlasH = kAtlasOldH + 160;
+constexpr std::uint32_t kAtlasH = kAtlasOldH + 240;
+constexpr float kAtlasPillW = kRestorePillW * float(kHandleAtlasScale), kAtlasPillY = float(kAtlasOldH) + 150.f;
 constexpr float kAtlasMaximizeW = kMaximizeW * float(kHandleAtlasScale), kAtlasMaximizePitch = kAtlasMaximizeW + 4.f, kAtlasGearX = 2.f + 4.f * kAtlasMaximizePitch;
-static_assert(kAtlasGearX + 42.f <= float(kAtlasW), "the gear stays in the atlas");
+static_assert(kAtlasGearX + 42.f <= float(kAtlasW) && 2 * kAtlasPillW + 6.f <= float(kAtlasW), "the gear and the pills stay in the atlas");
 struct AtlasCell { std::uint32_t x = 0, y = 0, w = 0, h = 0; };
 AtlasCell bar_cell(std::uint32_t row) { return {kAtlasGap, kAtlasGap + row * (kAtlasBarH + kAtlasGap), kAtlasBarW, kAtlasBarH}; }
 std::uint32_t bar_row(LevelSegment segment, bool active) {
@@ -377,18 +389,26 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
       const bool hot=state>=2;
       md_fill_rounded(im,x,y,x+w,y+78,39,hot?m.primary:m.primary_container,1);
       const MdRgb ink=hot?m.on_primary:m.on_primary_container;
-      if(state%2){md_stroke_rounded(im,cx-12.5f,cy-21.5f,cx+21.5f,cy+12.5f,2,4,ink,1);md_stroke_rounded(im,cx-21.5f,cy-12.5f,cx+12.5f,cy+21.5f,2,4,ink,1);}  // Restore: two windows, together centred
-      else md_stroke_rounded(im,cx-17,cy-17,cx+17,cy+17,2,4,ink,1);  // Maximize: one window
+      md_stroke_rounded(im,cx-17,cy-17,cx+17,cy+17,2,4,ink,1);  // one window
     }
-    for(int state=0;state<2;++state){float x=2+state*260,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,30,m.surface_container_highest,1);md_stroke_rounded(im,x,y,x+250,y+60,30,3,m.outline_variant,1);text(im,font,state?"Restore":"Maximize",40,true,x+24,y+30,m.on_surface);}
+    {float x=2,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,30,m.surface_container_highest,1);md_stroke_rounded(im,x,y,x+250,y+60,30,3,m.outline_variant,1);text(im,font,"Maximize",40,true,x+24,y+30,m.on_surface);}
+    // The band's Restore pill: two windows and the word, in the bar's colours, the primary under the dot.
+    for(int state=0;state<2;++state){
+      const float x=2+float(state)*(kAtlasPillW+4),y=kAtlasPillY,cy=y+39,gx=x+60;
+      md_fill_rounded(im,x,y,x+kAtlasPillW,y+78,39,state?m.primary:m.primary_container,1);
+      const MdRgb ink=state?m.on_primary:m.on_primary_container;
+      md_stroke_rounded(im,gx-10,cy-19,gx+20,cy+10,2,4,ink,1);md_stroke_rounded(im,gx-20,cy-10,gx+10,cy+19,2,4,ink,1);
+      text(im,font,"Restore",font?54u:0u,true,x+108,cy,ink);
+    }
     const float gx=kAtlasGearX,gy=float(kAtlasOldH)+2;
     for(int tooth=0;tooth<8;++tooth){float a=float(tooth)*std::numbers::pi_v<float>/4;md_disc(im,gx+21+13*std::cos(a),gy+21+13*std::sin(a),4,m.on_primary_container,1);}
     md_disc(im,gx+21,gy+21,13,m.on_primary_container,1);md_disc(im,gx+21,gy+21,6,m.primary_container,1);
     return im;
 }
 AtlasBox options_gear_box(){return box_of({std::uint32_t(kAtlasGearX),kAtlasOldH+2,42,42});}
-AtlasBox options_icon_box(bool restore,bool hot){return box_of({2+(std::uint32_t(restore)+2*std::uint32_t(hot))*std::uint32_t(kAtlasMaximizePitch),kAtlasOldH+2,std::uint32_t(kAtlasMaximizeW),78});}
-AtlasBox options_hint_box(bool restore){return box_of({2+std::uint32_t(restore)*260,kAtlasOldH+84,250,60});}
+AtlasBox options_icon_box(bool hot){return box_of({2+2*std::uint32_t(hot)*std::uint32_t(kAtlasMaximizePitch),kAtlasOldH+2,std::uint32_t(kAtlasMaximizeW),78});}
+AtlasBox options_hint_box(){return box_of({2,kAtlasOldH+84,250,60});}
+AtlasBox options_restore_box(bool hot){return box_of({2+std::uint32_t(hot)*std::uint32_t(kAtlasPillW+4),std::uint32_t(kAtlasPillY),std::uint32_t(kAtlasPillW),78});}
 
 AtlasBox level_bar_box(LevelSegment segment, bool active) { return box_of(bar_cell(bar_row(segment, active))); }
 AtlasBox immersive_main_box(bool lit, bool hot) { return box_of(main_cell(lit, hot)); }

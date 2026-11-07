@@ -19,9 +19,8 @@ class NativeRestoreTests(unittest.TestCase):
   if not Path(executable).is_file(): raise RuntimeError('Build CPU restore_app_bound_test first')
   result=subprocess.run([executable,'--dump-json'],capture_output=True,text=True,timeout=20,check=True)
   cls.geometries=[json.loads(line)['maximize_geometry'] for line in result.stdout.splitlines()]
-  if len(cls.geometries)!=432: raise AssertionError('Native Restore fixture must emit all432 production geometry cases')
- def test_real_native_inset_mesh_acquires_clicks_and_restores_without_app_press(self):
-  visible=0
+  if len(cls.geometries)!=216: raise AssertionError('Native Restore fixture must emit all 216 production geometry cases')
+ def test_real_native_band_through_the_sampler_without_an_app_press(self):
   for geometry in self.geometries:
    with self.subTest(tile=geometry['tile'],placement=geometry['placement']):
     c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
@@ -39,20 +38,20 @@ class NativeRestoreTests(unittest.TestCase):
     client=Client();sampler=uc.UnifiedSampler(client,['XR-1','XR-3'],p,())
     try:
      c.set_maximize_geometry(geometry)
-     tx,ty,tw,th=geometry['tile'];rx,ry,rw,rh=geometry['rect']
-     # Compute only an admissible REAL integer app pixel; do not alter native mesh.
-     client.position=(output['x']+int((rx+rw/2-tx)/tw*output['width']),output['y']+int((ry+rh/2-ty)/th*output['height']))
-     expected=client.position
-     ray=fp.restore_cursor_ray(geometry,output,expected)
-     if ray is None:
-      sampler.sample_restore([output]);p.poll(1)
-      self.assertNotEqual(p.mode,'restore');self.assertEqual(client.calls,[])
-      continue
-     visible+=1
-     self.assertTrue(fp.restore_mesh_hit(geometry,ray))
-     for tick in (1,2,3):sampler.sample_restore([output]);p.poll(tick)
-     self.assertEqual(client.calls,['grab'])
+     client.position=(output['x']+300,output['y'])
+     for tick in range(40):sampler.sample_restore([output]);p.poll(1+tick*.01)
      self.assertEqual(p.mode,'restore')
+     sampler.sample_restore([output]);p.poll(1.5)
+     self.assertEqual(client.calls,['grab'])       # only now, after the rest
+     rx,ry,rw,rh=geometry['rect']
+     cx,cy=fp.band_canvas(geometry,rx+rw/2,ry+rh/2)
+     for step in range(60):      # a hand: short samples, the leash taking the hidden cursor back
+      dx,dy=(cx-p.band_point[0])/p.band_gain,(cy-p.band_point[1])/p.band_gain
+      if abs(dx)<1 and abs(dy)<1:break
+      k=min(1,100/math.hypot(dx,dy))
+      client.position=(client.position[0]+dx*k,client.position[1]+dy*k)
+      sampler.sample_restore([output]);p.poll(1.6+step*.01)
+     self.assertTrue(p.band_hot())
      # Only after modal UI grab exists does the button route through ViewControl.
      c.on_message({'op':'resize_press'});self.assertTrue(c.state.zoomed)
      frame=c.on_message({'op':'resize_release'})
@@ -61,6 +60,4 @@ class NativeRestoreTests(unittest.TestCase):
      self.assertEqual(c.state.maximized_mode,'locked');self.assertEqual(c.state.placements,original)
      sampler.sample_restore([output])
      self.assertIn('release',client.calls)
-     self.assertEqual(client.position,expected)
     finally:p.close()
-  self.assertEqual(visible,432,'Native fixture puts Restore in actual visible camera for every scenario')

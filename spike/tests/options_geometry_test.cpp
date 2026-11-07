@@ -24,18 +24,21 @@ static int layout(){
  }
  std::cout<<out.dump()<<"\n";return 0;
 }
-// --restore: for each {"monitor","canvas","tile"} on stdin, the production maximize_geometry line, the desktop straight ahead.
-static int restore(){
+// --band: for each {"monitor","source","canvas","placement"} on stdin, the production maximize_geometry line of that desktop maximized.
+static int band(){
  std::string text{std::istreambuf_iterator<char>(std::cin),std::istreambuf_iterator<char>()};
  for(const auto& e:nlohmann::json::parse(text)){
-  xr::Canvas c{e["canvas"][0],e["canvas"][1],e["canvas"][2],e["canvas"][3]};xr::FRect t{e["tile"][0],e["tile"][1],e["tile"][2],e["tile"][3]};
-  std::cout<<xr::maximize_geometry_json(e["monitor"],c,t,xr::Placement{},{1,0,0,0,1,0,0,0,1})<<"\n";
+  xr::Canvas c{e["canvas"][0],e["canvas"][1],e["canvas"][2],e["canvas"][3]};const std::array<xr::Size,1> sources{{{e["source"][0],e["source"][1]}}};
+  const std::array<xr::Placement,1> own{{{e["placement"][0],e["placement"][1],e["placement"][2],e["placement"][3],e["placement"][4]}}};
+  auto overview=xr::overview_layout(sources,c.view_w,c.view_h,20);auto tiles=xr::blended_layout(sources,c.view_w,c.view_h,20,1,0);auto placed=xr::zoomed_placements(c,overview,tiles,own,1,0)[0];
+  auto aim=xr::focus_direction(c,overview,own,0);auto view=xr::view_from(xr::Quat{},xr::aim_rotation(aim[0],aim[1]));
+  std::cout<<xr::maximize_geometry_json(e["monitor"],c,tiles[0],placed,view)<<"\n";
  }
  return 0;
 }
 int main(int argc,char**argv){
  if(argc==2&&std::string(argv[1])=="--layout")return layout();
- if(argc==2&&std::string(argv[1])=="--restore")return restore();
+ if(argc==2&&std::string(argv[1])=="--band")return band();
  if(argc==3&&std::string(argv[1])=="--section"){auto r=xr::options_section_item(std::size_t(std::stoi(argv[2])));std::cout<<nlohmann::json::array({r.x,r.y,r.width,r.height}).dump()<<"\n";return 0;}
  for(float w:{80.f,240.f,640.f,1800.f})for(float x:{-800.f,0.f,1200.f}){
  xr::FRect t{x,100,w,360};auto p=xr::glass_pill(t),g=xr::options_gear(t),m=xr::options_maximize(t),b=xr::level_bar_rect(t);float s=xr::level_bar_scale(t);
@@ -89,8 +92,9 @@ int main(int argc,char**argv){
  {auto a=choice("x"),b=choice(std::string(200,'5'));const unsigned W=unsigned(xr::kOptionsW);for(unsigned y=std::uint32_t(xr::kOptionsBodyTop);y<std::uint32_t(xr::kOptionsBodyTop+xr::kOptionsRowH);++y)for(unsigned x=W-unsigned(xr::kPanelPad)-22;x<W-unsigned(xr::kPanelPad);++x)for(int k=0;k<3;++k)if(a.rgba[(y*W+x)*4+std::size_t(k)]!=b.rgba[(y*W+x)*4+std::size_t(k)]){std::cerr<<"value over the arrow at "<<x<<","<<y<<"\n";return 5;}}
  // The Maximize and Restore glyphs are centred in their pill: their ink's bounding box, in atlas pixels, around the cell's middle.
  const auto atlas=xr::render_handle_atlas({.45f,.65f,.8f},nullptr);
- for(bool restore:{false,true})for(bool hot:{false,true}){
-  auto box=xr::options_icon_box(restore,hot);
+ for(bool hot:{false,true}){
+  const bool restore=false;
+  auto box=xr::options_icon_box(hot);
   const int x0=int(std::lround(box.u0*atlas.width)),y0=int(std::lround(box.v0*atlas.height)),x1=int(std::lround(box.u1*atlas.width)),y1=int(std::lround(box.v1*atlas.height));
   auto at=[&](int x,int y){return &atlas.rgba[(std::size_t(y)*atlas.width+std::size_t(x))*4];};
   const auto* fill=at((x0+x1)/2,y0+6);int lo_x=1<<20,hi_x=-1,lo_y=1<<20,hi_y=-1;
@@ -101,6 +105,6 @@ int main(int argc,char**argv){
   {"box_x0",xr::kOptionsBoxX0},{"box_x1",xr::kOptionsBoxX1},{"box_h",xr::kOptionsBoxH},{"divider_y",xr::kOptionsDividerY},{"body_top",xr::kOptionsBodyTop},{"body_h",xr::kOptionsBodyH},{"body_bottom",xr::kOptionsBodyBottom},{"footer_top",xr::kOptionsFooterTop},
   {"track_x0",xr::kOptionsTrackX0},{"track_x1",xr::kOptionsTrackX1},{"knob_lo",xr::kOptionsKnobLo},{"knob_hi",xr::kOptionsKnobHi},{"close_x0",xr::kOptionsCloseX0},{"close_x1",xr::kOptionsCloseX1},{"close_y0",xr::kOptionsCloseY0},{"close_w",xr::kOptionsCloseW},{"close_h",xr::kOptionsCloseH},
   {"gear_gap",xr::kOptionsPillGap},{"list_top",xr::kOptionsListTop},{"list_item_w",xr::kOptionsListItemW},{"list_rows",xr::kOptionsListRows},{"item_h",xr::kResItemH},{"sections",xr::kOptionsSections.size()},
-  {"focus_scope",xr::kOptionsFocusScope},{"focus_section",xr::kOptionsFocusSection},{"focus_list",xr::kOptionsFocusList},{"focus_close",xr::kOptionsFocusClose}};
+  {"step_scale",xr::kRestoreStepScale},{"step_ms",xr::kRestoreStepMs},{"band_min",xr::kRestoreBandMin},{"band_gap",xr::kRestoreBandGap},{"focus_scope",xr::kOptionsFocusScope},{"focus_section",xr::kOptionsFocusSection},{"focus_list",xr::kOptionsFocusList},{"focus_close",xr::kOptionsFocusClose}};
  std::cout<<out.dump()<<"\n";
 }
