@@ -5,8 +5,7 @@ from tools.native_spike.view import ViewControl, ViewState
 
 
 @pytest.mark.parametrize('scope', ['monitor', 'workspace'])
-@pytest.mark.parametrize('category', ['placement', 'output', '3d', 'stabilization', 'layout',
-    'environment', 'view', 'video', 'input', 'keybinds', 'windows', 'privacy', 'help', 'session'])
+@pytest.mark.parametrize('category', ['3d', 'stabilization', 'layout', 'view', 'video', 'input', 'keybinds', 'windows', 'privacy', 'help', 'session'])
 def test_rows_are_scoped_and_use_stable_monitor(scope, category):
     actions = importlib.import_module('tools.native_spike.options_actions')
     control = ViewControl(ViewState(['XR-1', 'XR-3']), 'run', 'session', None, None, None)

@@ -3,33 +3,30 @@
 Returned bytes must be sent by supervisor in order. A return is NOT applied readback:
 async desktop/video/3D/privacy/send owners must be polled by OptionsMenu.
 """
-from copy import deepcopy
 import math
-from . import environment, immersive, geometry, quality
+from . import immersive, quality
 from .options_editors import NativeEditors, row
 
-CATEGORIES = ('placement','output','3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')
+CATEGORIES = ('3d','stabilization','layout','view','video','input','keybinds','windows','privacy','help','session')
 
-ALIASES = {'video_open':'video_browse', 'video_paste_ui':'video_paste',
-           'background_switch':'environment_toggle', 'immersive_strength_presets':'immersive_strength'}
+ALIASES = {'video_open':'video_browse', 'video_paste_ui':'video_paste', 'immersive_strength_presets':'immersive_strength'}
 
 # Explicit routes; modal navigation remains owned by the existing native child.
+# Not here on purpose (Cody, 2026-11-07): what the placement pill's panel or the level bar already do (placement, tilt, resolution,
+# scale, ultrawide, add, remove, background), what a click already does (selecting a desktop) or the Maximize button, the VR
+# video's own controls (the menu is closed while a video plays), and sending a window to a named desktop (open the menu on it).
 ACTIONS = {
- 'view': ('zoom_in', 'prev', 'next', 'recenter', 'mode_follow', 'mode_locked'),
- 'layout': ('spacing_down', 'spacing_up', 'layout_reset', 'add_monitor'),
- 'input': ('typing_toggle',), 'windows': ('send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back'),
+ 'view': ('recenter', 'mode_follow', 'mode_locked'),
+ 'layout': ('spacing_down', 'spacing_up', 'layout_reset'),
+ 'input': ('typing_toggle',), 'windows': ('send_glasses', 'send_back'),
  'privacy': ('privacy_display',), 'help': ('help', 'help_prev', 'help_next'),
- 'video': ('video_browse', 'video_play', 'video_paste', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big', 'video_format', 'video_quality', 'video_controls', 'playback_menu_toggle', 'video_exit'),
- 'keybinds': ('binds_toggle',), 'placement': ('menu_toggle', 'menu_reset', 'placement_flat', 'roll_ccw', 'roll_level', 'roll_cw'),
- 'output': ('ultrawide', 'remove_monitor'),
+ 'video': ('video_browse', 'video_play', 'video_paste'),
+ 'keybinds': ('binds_toggle',),
  'session': ('stop',),
 }
-MONITOR_ACTIONS = {'zoom_in', 'prev', 'next', 'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'menu_toggle', 'menu_reset', 'placement_flat', 'placement_apply', 'roll_ccw', 'roll_level', 'roll_cw', 'ultrawide', 'remove_monitor'}
-MONITOR_ACTIONS.update(('mode_follow','mode_locked'))
-PLACEMENT_LABELS = {'x': 'Left / right', 'y': 'Down / up', 'distance': 'Distance', 'curvature': 'Curvature'}
-LABELS = {'menu_toggle':'Fine placement editor', 'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)', 'remove_monitor':'Remove monitor (evacuate to physical fallback)'}
+MONITOR_ACTIONS = {'send_glasses', 'mode_follow', 'mode_locked'}
+LABELS = {'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)'}
 LABELS.update(mode_follow='Maximize in Follow mode',mode_locked='Maximize in Locked mode')
-LABELS.update(roll_ccw='Tilt left',roll_level='Level',roll_cw='Tilt right',placement_flat='Make flat',menu_reset='Reset placement')
 
 
 def _index(control, scope, monitor):
@@ -57,18 +54,9 @@ def options_rows(control, scope, monitor, category):
         rs = 'monitor' if id in MONITOR_ACTIONS else 'workspace'
         if rs == scope:
             out.append({**row(id, LABELS.get(id, id.replace('_', ' ').capitalize())), 'scope': rs})
-    if category == 'placement' and scope == 'monitor':
-        for key, bounds in geometry.PLACEMENT_BOUNDS.items():
-            out.append(_range('placement_'+key, PLACEMENT_LABELS.get(key, key.capitalize()), s.placements[i][key], bounds, scope,
-                              '0.1 deg' if key in ('x', 'y') else 'deg' if key == 'curvature' else '%'))
     if category == 'stabilization' and scope == 'workspace':
         out += [_range('stabilization', 'Display stabilization', s.stabilization, (0,100), scope, '%'),
                 row('prediction', 'Pose prediction', 'toggle', str(s.prediction).lower())]
-    if category == 'environment' and scope == 'workspace':
-        out += [row('background','Background','choice',s.environment['background'], choices=list(environment.NAMES)),
-                _range('background_brightness','Brightness',s.environment['brightness'],environment.BRIGHTNESS_BOUNDS,scope,'%'),
-                row('environment_toggle','Background: none / last used')]
-        out[-2]['enabled'] = environment.on(s.environment)
     if category == '3d':
         status=control._immersive_status()
         run=getattr(control,'immersive_run',None)
@@ -87,11 +75,6 @@ def options_rows(control, scope, monitor, category):
         else:
             out += [{**row('immersive_monitor','Monitor 3D','toggle',str(v['desktops'].get(monitor,v['global'])).lower()),'scope':scope},
                     _range('immersive_monitor_strength','Monitor 3D strength',v.get('strengths',{}).get(monitor,v['strength']),(0,immersive.STRENGTH_MAX),scope,'%')]
-    if category == 'output' and scope == 'monitor':
-        size = s.size(i)
-        if size:
-            out += [{**row('resolution','Resolution','choice',f"{size['width']}x{size['height']}",choices=[f'{w}x{h}' for w,h in geometry.RESOLUTIONS]), 'scope':scope},
-                    {**row('scale','Scale','choice',str(size['scale']),choices=[str(v) for v in geometry.valid_scales(size['width'],size['height'])]),'scope':scope}]
     if category == 'video' and scope == 'workspace':
         video=getattr(control,'options_video',None)
         if video is not None:
@@ -107,18 +90,11 @@ def options_rows(control, scope, monitor, category):
     for item in out:
         id = item['id']
         if s.typing and id != 'typing_toggle': item['enabled'] = False
-        if id in ('add_monitor','remove_monitor','ultrawide','resolution','scale'):
-            item['enabled'] = control.desktops is not None and not s.desktops_busy and not s.typing and not control.video_active
-            if id == 'remove_monitor': item['enabled'] &= len(s.names)>1
-            if id == 'add_monitor': item['enabled'] &= len(s.names)<geometry.MAX_DESKTOPS
-        if id.startswith('video_') or id.startswith('quality_') or id == 'playback_menu_toggle':
+        if id.startswith('video_') or id.startswith('quality_'):
             item['enabled'] = getattr(control,'options_video',None) is not None
-        if id.startswith('video_') and id not in ('video_browse','video_play','video_paste','video_quality'):
-            item['enabled'] &= control.video_active
         if id == 'binds_toggle': item['enabled'] = control.keys is not None
         if id.startswith('send_'): item['enabled'] = control.sender is not None
         if id == 'privacy_display': item['enabled'] = control.privacy is not None
-        if id.startswith('roll_'): item['enabled'] = control.overview_pointer is not None
     if s.typing:
         for item in out:
             if item['id'] != 'typing_toggle': item['enabled'] = False
@@ -149,14 +125,14 @@ def options_apply(control, row_id, value, monitor, scope):
     """Validate typed input then call the original owner. Raises rather than claiming success.
 
     Revision/namespace checks belong to OptionsMenu immediately before this call.
-    Remove/reset require its explicit confirmation before calling this adapter twice.
+    Reset requires its explicit confirmation before calling this adapter twice.
     """
     i = _index(control, scope, monitor)
     s = control.state
     row_id = ALIASES.get(row_id,row_id)
     if row_id.startswith('editor.'):
         return control.options_editor.apply(row_id,value)
-    rows = [r for cat in (*ACTIONS, 'stabilization','environment','3d') for r in options_rows(control,scope,monitor,cat)]
+    rows = [r for cat in (*ACTIONS, 'stabilization','3d') for r in options_rows(control,scope,monitor,cat)]
     matches = [r for r in rows if r['id']==row_id]
     if not matches: raise ValueError('row unavailable in scope')
     if not matches[0]['enabled']: raise ValueError('owner unavailable or action disabled')
@@ -186,23 +162,8 @@ def options_apply(control, row_id, value, monitor, scope):
         if not s.zoomed: out += control.on_message({'op':'zoom_in'}) or b''
         if s.maximized_mode != row_id[5:]: out += control.on_message({'op':'mode_next'}) or b''
         return out
-    if row_id == 'placement_apply' and value is None:
-        control._save_placements()
-        return control.pill_release()
-    if row_id in ('placement_apply', 'placement_flat'):
-        p = deepcopy(s.placements)
-        p[i] = geometry.validate_placement(value) if row_id == 'placement_apply' else dict(geometry.DEFAULT_PLACEMENT)
-        return control.on_message({'op':'placement','payload':{'desktops':p}})
-    if row_id.startswith('placement_'):
-        key = row_id[len('placement_'):]
-        p = deepcopy(s.placements)
-        p[i][key] = _number(value,*geometry.PLACEMENT_BOUNDS[key])
-        return control.on_message({'op':'placement','payload':{'desktops':p}})
     if row_id == 'stabilization':
         return control.on_message({'op':row_id,'payload':{'strength':_number(value,0,100)}})
-    if row_id in ('background','background_brightness'):
-        v = environment.picked(s.environment,value) if row_id == 'background' else {**s.environment,'brightness':_number(value,*environment.BRIGHTNESS_BOUNDS)}
-        return control.set_environment(v)
     if row_id.startswith('immersive_'):
         v = immersive.immersive(s)
         if row_id in ('immersive_all','immersive_monitor'):
@@ -232,40 +193,6 @@ def options_apply(control, row_id, value, monitor, scope):
         video = getattr(control,'options_video',None)
         if video is None: raise ValueError('video owner unavailable')
         return video._set_quality(quality.validate({**s.video_quality,row_id[8:]:value}),done=owner_callback(control,row_id,monitor,scope))
-    if row_id in ('resolution','scale','ultrawide','add_monitor','remove_monitor'):
-        if control.desktops is None: raise ValueError('desktop owner unavailable')
-        if s.desktops_busy: raise ValueError('desktop change pending')
-        if row_id == 'remove_monitor' and len(s.names) <= 1: raise ValueError('minimum one monitor')
-        kwargs = {}
-        if row_id == 'resolution':
-            if isinstance(value,str) and value in [f'{w}x{h}' for w,h in geometry.RESOLUTIONS]: value = [int(v) for v in value.split('x')]
-            if not isinstance(value,list) or len(value)!=2: raise ValueError('resolution requires [width,height]')
-            geometry.with_resolution(s.size(i),*value); kwargs['size'] = value
-        if row_id == 'scale':
-            if isinstance(value,str) and value in [str(v) for v in geometry.valid_scales(s.size(i)['width'],s.size(i)['height'])]: value = float(value)
-            geometry.with_scale(s.size(i),value); kwargs['scale'] = value
-        # Existing native placement child owns transaction arming and output readback.
-        before = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
-        action={'add_monitor':'add','remove_monitor':'remove'}.get(row_id,row_id)
-        done=owner_callback(control,row_id,monitor,scope)
-        if done is not None: control.options_output_done=done
-        out=(before or b'') + (control.desktop_action(i,action,**kwargs) or b'')
-        if row_id=='remove_monitor' and value=='confirmed' and s.remove_armed:
-            out += control.desktop_action(i,action,**kwargs) or b''
-        if done is not None and getattr(control,'options_output_done',None) is done:
-            control.options_output_done=None
-            done(False,'Output transaction did not start')
-        return out
-    if row_id in ('menu_toggle','menu_reset'):
-        out = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
-        return (out or b'') + ((control.on_message({'op':'menu_reset'}) or b'') if row_id == 'menu_reset' else b'')
-    if row_id.startswith('roll_'):
-        p = control.overview_pointer
-        if p is None: raise ValueError('pointer owner unavailable')
-        if row_id == 'roll_level': return p.level(i)
-        from .free_pointer import roll_click
-        p.rolls[i] = roll_click(p._tilt(i), p.rolls[i], row_id[5:])
-        return p._roll_frame(control.clock() - p.last_move >= 30)
     if row_id == 'video_paste':
         from .xr_control import read_clipboard, clipboard_payload
         payload, error = clipboard_payload(read_clipboard())
@@ -273,9 +200,4 @@ def options_apply(control, row_id, value, monitor, scope):
         video = getattr(control, 'options_video', None)
         if video is None: raise ValueError('video owner unavailable')
         return video_request(control,'video_open',payload,row_id,monitor,scope)
-    if row_id.startswith('video_') or row_id == 'playback_menu_toggle':
-        video = getattr(control,'options_video',None)
-        if video is None: raise ValueError('video owner unavailable')
-        return video_request(control,row_id,{},row_id,monitor,scope) if row_id in ('video_open','video_pause','video_exit','video_format','video_seek_back','video_seek_fwd','video_seek_back_big','video_seek_fwd_big') else video.on_message({'op':row_id,'payload':{}})
-    prefix = control.select_desktop(i) if row_id in MONITOR_ACTIONS else b''
-    return (prefix or b'') + (control.on_message({'op':row_id}) or b'')
+    return control.on_message({'op':row_id}) or b''

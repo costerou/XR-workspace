@@ -212,19 +212,19 @@ def test_no_tab_is_ever_blank_from_either_scope(rig):
 def test_scope_choice_survives_a_tab_that_has_only_the_other_scope(pro2):
     pro2.open()
     pro2.c.options_intent('options_category', category='3d')
-    pro2.c.options_intent('options_scope', scope='workspace')
-    pro2.c.options_intent('options_category', category='placement')   # monitor only
-    assert pro2.snap()['scope'] == 'monitor' and pro2.snap()['rows']
-    pro2.c.options_intent('options_category', category='3d')          # both: the choice comes back
-    assert pro2.snap()['scope'] == 'workspace'
+    pro2.c.options_intent('options_scope', scope='monitor')
+    pro2.c.options_intent('options_category', category='stabilization')   # workspace only
+    assert pro2.snap()['scope'] == 'workspace' and pro2.snap()['rows']
+    pro2.c.options_intent('options_category', category='3d')              # both: the choice comes back
+    assert pro2.snap()['scope'] == 'monitor'
 
 
 def test_a_scope_press_on_a_one_scope_tab_says_why_nothing_changed(pro2):
     pro2.open()
-    pro2.tab('placement')
+    pro2.tab('stabilization')
     pro2.panel_xy(0, 390, 22); pro2.click()
     d = pro2.snap()
-    assert d['scope'] == 'monitor' and d['rows'] and d['message']
+    assert d['scope'] == 'workspace' and d['rows'] and d['message']
 
 
 def test_opening_the_menu_leaves_the_mouse_working(pro2):
@@ -382,9 +382,15 @@ def test_every_row_answers_a_click_at_its_drawn_place(rig, category):
         rig.c.options.data.update(status='idle', message='')
 
 
+def long_page(rig):
+    """No tab is this long since the menu lost its placement, output and playback rows; the scrolling stays for one that is."""
+    rig.c.options._rows = lambda *_: [dict(id=f'row{i}', label=f'Row {i}', scope='monitor', kind='action', value='', enabled=True) for i in range(20)]
+    rig.c.options.refresh()
+
+
 def test_the_wheel_scrolls_the_long_page_end_to_end(pro2):
     pro2.open()
-    pro2.tab('video')
+    long_page(pro2)
     assert len(pro2.snap()['rows']) * 38 > 304
     pro2.panel_xy(0, 300, 200)
     pro2.wheel(38)
@@ -395,7 +401,7 @@ def test_the_wheel_scrolls_the_long_page_end_to_end(pro2):
 
 def test_the_wheel_off_the_menu_scrolls_nothing(pro2):
     pro2.open()
-    pro2.tab('video')
+    long_page(pro2)
     pro2.aim_point((60, 1100))
     pro2.wheel(38)
     assert pro2.snap()['scroll'] == 0
@@ -403,7 +409,7 @@ def test_the_wheel_off_the_menu_scrolls_nothing(pro2):
 
 def test_a_shorter_page_never_leaves_the_rows_scrolled_away(pro2):
     pro2.open()
-    pro2.tab('video')
+    long_page(pro2)
     pro2.panel_xy(0, 300, 200); pro2.wheel(4096)
     assert pro2.snap()['scroll'] > 0
     rows = pro2.snap()['rows']
@@ -425,39 +431,39 @@ def test_next_walks_the_pages_and_comes_back_to_the_first_tab(pro2):
     for _ in range(4):
         pro2.panel_xy(0, 470, 22); pro2.click()
         seen.append(pro2.snap()['category'])
-    assert seen == ['layout', 'input', 'help', 'placement']
+    assert seen == ['video', 'privacy', '3d', 'video']
 
 
 def test_a_slider_drag_lands_even_if_the_page_refreshed_during_it(pro2):
     pro2.open()
+    pro2.tab('stabilization')
     d = pro2.snap()
-    index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'placement_distance')
-    pro2.panel_xy(0, 40, 200); pro2.wheel(4096)
-    y = 88 + index * 38 + 19 - pro2.snap()['scroll']
+    index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'stabilization')
+    y = 88 + index * 38 + 19
     pro2.panel_xy(0, og.TRACK_X0 + 10, y)
     pro2.button('resize_press')
     pro2.c.options._bump()                       # an unrelated readback changed the page mid drag
     pro2.panel_xy(0, og.TRACK_X1, y)
     pro2.button('resize_release')
-    assert pro2.c.state.placements[0]['distance'] == geometry.PLACEMENT_BOUNDS['distance'][1]
+    assert pro2.c.state.stabilization == 100
 
 
 def test_a_slider_follows_the_hand_while_held(pro2):
     pro2.open()
+    pro2.tab('stabilization')
     d = pro2.snap()
-    index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'placement_curvature')
-    pro2.panel_xy(0, 40, 200); pro2.wheel(4096)
-    y = 88 + index * 38 + 19 - pro2.snap()['scroll']
+    index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'stabilization')
+    before = pro2.c.state.stabilization
+    y = 88 + index * 38 + 19
     pro2.panel_xy(0, og.TRACK_X0 + 10, y)
     pro2.button('resize_press')
     pro2.panel_xy(0, og.TRACK_X0 + 75, y)
-    lo, hi = geometry.PLACEMENT_BOUNDS['curvature']
-    assert float(pro2.snap()['rows'][index]['value']) == pytest.approx((lo + hi) / 2, abs=1)   # what the renderer draws
-    assert pro2.c.state.placements[0]['curvature'] == 0                                        # the owner hears at the release
-    pro2.c.options.tick()                                                                      # a tick does not undo the preview
-    assert float(pro2.snap()['rows'][index]['value']) == pytest.approx((lo + hi) / 2, abs=1)
+    assert float(pro2.snap()['rows'][index]['value']) == pytest.approx(50, abs=1)   # what the renderer draws
+    assert pro2.c.state.stabilization == before                                     # the owner hears at the release
+    pro2.c.options.tick()                                                           # a tick does not undo the preview
+    assert float(pro2.snap()['rows'][index]['value']) == pytest.approx(50, abs=1)
     pro2.button('resize_release')
-    assert pro2.c.state.placements[0]['curvature'] == pytest.approx((lo + hi) / 2, abs=1)
+    assert pro2.c.state.stabilization == pytest.approx(50, abs=1)
 
 
 def test_action_rows_do_not_stay_pending_for_ever(pro2):
@@ -479,6 +485,7 @@ def test_action_rows_do_not_stay_pending_for_ever(pro2):
 
 def test_a_change_with_no_readback_ends_in_a_stated_timeout(pro2):
     pro2.open()
+    pro2.tab('layout')
     pro2.c.options._apply = lambda *_: None
     d = pro2.snap()
     pro2.panel_xy(0, 40, 88 + 19); pro2.click()
@@ -502,10 +509,10 @@ def test_every_key_route_through_the_bound_op(pro2):
     for _ in range(2): pro2.key(23, 1)
     assert pro2.snap()['focus'] == -2
     pro2.key(36)                       # Return on Next >
-    assert pro2.snap()['category'] == 'layout'
+    assert pro2.snap()['category'] == 'video'
     pro2.key(23, 1)                    # Shift+Tab: the tabs
     pro2.key(114)                      # Right: next tab
-    assert pro2.snap()['category'] == 'environment'
+    assert pro2.snap()['category'] == 'input'
     pro2.key(9)
     assert not pro2.snap()['open']
 
@@ -517,13 +524,13 @@ def test_keyboard_next_agrees_with_the_mouse(pro2):
     for _ in range(4):
         pro2.key(65)                   # space
         seen.append(pro2.snap()['category'])
-    assert seen == ['layout', 'input', 'help', 'placement']
+    assert seen == ['video', 'privacy', '3d', 'video']
 
 
 def test_page_keys_scroll(pro2):
-    pro2.open(); pro2.tab('video')
+    pro2.open(); long_page(pro2)
     pro2.key(117)
-    assert pro2.snap()['scroll'] == len(pro2.snap()['rows']) * 38 - 304
+    assert pro2.snap()['scroll'] == 304
     pro2.key(112)
     assert pro2.snap()['scroll'] == 0
 

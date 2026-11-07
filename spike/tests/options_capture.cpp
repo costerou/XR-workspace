@@ -14,13 +14,13 @@ int main(int argc,char**argv){
  if(argc!=2)return 2;
  std::string why;auto font=HudFont::load(kHudFontFamily,why);
  auto atlas=render_handle_atlas({.45f,.65f,.8f},font.get());
- OptionsMenuState menu;menu.open=true;menu.monitor="XR-2";menu.scope="monitor";menu.category="placement";menu.status="idle";menu.focus=0;
- menu.rows={{"placement","Open native placement editor","monitor","action","Open","",0,0,0,true,{}}};
+ OptionsMenuState menu;menu.open=true;menu.monitor="XR-2";menu.scope="monitor";menu.category="3d";menu.status="idle";menu.focus=0;
+ menu.rows={{"immersive_monitor","Monitor 3D","monitor","action","Open","",0,0,0,true,{}}};
  ViewAnimator animator;
  const Canvas canvas{1000,1000,1,1};const std::array<Size,1> sources{{{640,360}}};
  const std::array<FRect,1> overview{{{180,100,640,360}}};const std::array<Placement,1> original{{{.1f,-.1f,1.5f,0,0}}};
  nlohmann::json scenes=nlohmann::json::array();
- const char* phases[]={"overview closed","maximize","Restore hover","Restore then open placement","navigate output","navigate workspace video","close menu"};
+ const char* phases[]={"overview closed","maximize","Restore hover","Restore then open 3D","navigate view","navigate workspace video","close menu"};
  for(int state=0;state<7;++state){
   bool restore=state==1||state==2,hover=state==2;
   animator.set_target(restore,0,40,state*1000,false,true);animator.advance(state*1000+500);
@@ -31,8 +31,8 @@ int main(int argc,char**argv){
   auto control_rect=restore?options_restore_rect(tile,options_step_scale(tile)):options_maximize(tile);
   if(restore&&control_rect.width<=0)return 3;
   scenes.push_back({{"frame",state},{"phase",phases[state]},{"zoom",animator.zoom()},{"resolved_rect",{control_rect.x,control_rect.y,control_rect.width,control_rect.height}},{"native_geometry",restore?nlohmann::json::parse(maximize_geometry_json("XR-2",canvas,tile,placed,camera)):nlohmann::json(nullptr)}});
-  menu.scope=state==5?"workspace":"monitor";menu.category=state==4?"output":state==5?"video":"placement";
-  menu.rows={{state==4?"output":state==5?"video_quality":"placement",state==4?"Native output editor":state==5?"Native video quality":"Open native placement editor",menu.scope,"action","Open","",0,0,0,true,{}}};
+  menu.scope=state==5?"workspace":"monitor";menu.category=state==4?"view":state==5?"video":"3d";
+  menu.rows={{state==4?"recenter":state==5?"quality_filter":"immersive_monitor",state==4?"Recenter":state==5?"Native video quality":"Monitor 3D",menu.scope,"action","Open","",0,0,0,true,{}}};
   HudImage frame{1000,1000,std::vector<std::uint8_t>(1000*1000*4,0)};
   auto put=[&](int x,int y,const std::uint8_t* p){if(x<0||y<0||x>=1000||y>=1000)return;for(int c=0;c<4;++c)frame.rgba[(y*1000+x)*4+c]=std::uint8_t(std::min(255,int(p[c])+int(frame.rgba[(y*1000+x)*4+c])*(255-int(p[3]))/255));};
   std::uint8_t background[]{24,28,32,255},border[]{95,140,170,255};

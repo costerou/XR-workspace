@@ -3,7 +3,7 @@
 #include <iostream>
 int main(){using J=nlohmann::json;xr::OptionsEvidence evidence;xr::OptionsMenuState native;
  xr::ControlStream stream("run","session",true,[&](xr::ControlMessage& m){if(m.op==xr::ControlOp::options_menu){native=std::get<xr::OptionsMenuState>(m.payload);evidence.accepted();}},[](const xr::ControlRefusal&){});
- J p={{"open",true},{"namespace","session"},{"monitor","XR-2"},{"scope","monitor"},{"category","placement"},{"focus",0},{"scroll",38},{"revision",9},{"status","pending"},{"message","private value must not be logged"},{"rows",J::array({J{{"id","editor"},{"label","private label"},{"scope","monitor"},{"kind","text"},{"value","private typed value"},{"enabled",true}}})}};
+ J p={{"open",true},{"namespace","session"},{"monitor","XR-2"},{"scope","monitor"},{"category","3d"},{"focus",0},{"scroll",38},{"revision",9},{"status","pending"},{"message","private value must not be logged"},{"rows",J::array({J{{"id","editor"},{"label","private label"},{"scope","monitor"},{"kind","text"},{"value","private typed value"},{"enabled",true}}})}};
  auto frame=[](const J& p,unsigned id){return J{{"schema",1},{"run_id","run"},{"session","session"},{"request_id",id},{"op","options_menu"},{"payload",p}}.dump()+"\n";};
  if(!stream.feed(frame(p,1)))return 1;
  auto report=evidence.report(native);if(report["updates"]!=1||report["drawn_frames"]!=0||!report["last_drawn"].is_null())return 2;

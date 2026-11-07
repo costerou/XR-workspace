@@ -12,23 +12,20 @@ class AdapterTests(unittest.TestCase):
         self.store = Mock()
         self.c = ViewControl(ViewState(['XR-1','XR-3']), 'run', 'session', Mock(), self.store, Mock())
 
-    def test_actual_owner_changes_and_persists_environment(self):
-        out = options_apply(self.c,'background','grid','XR-3','workspace')
-        self.assertIn(b'"op":"environment"',out)
-        self.assertEqual(self.c.state.environment['background'],'grid')
-        self.store.save.assert_called()
-
-    def test_placement_name_gap_and_backend_bounds(self):
-        options_apply(self.c,'placement_x',200,'XR-3','monitor')
-        self.assertEqual(self.c.state.placements[1]['x'],200)
-        self.assertEqual(self.c.state.placements[0]['x'],0)
-        for value in (True, float('nan'), 1801, '2'):
-            with self.assertRaises(ValueError): options_apply(self.c,'placement_x',value,'XR-3','monitor')
-
     def test_scope_and_removed_output_rejected(self):
-        with self.assertRaises(ValueError): options_apply(self.c,'background','grid','XR-3','monitor')
-        with self.assertRaises(ValueError): options_rows(self.c,'monitor','XR-2','placement')
-        self.assertEqual(options_rows(self.c,'monitor','XR-3','environment'),[])
+        with self.assertRaises(ValueError): options_apply(self.c,'stabilization',50,'XR-3','monitor')
+        with self.assertRaises(ValueError): options_rows(self.c,'monitor','XR-2','3d')
+        self.assertEqual(options_rows(self.c,'monitor','XR-3','stabilization'),[])
+
+    def test_what_the_pill_or_a_click_already_does_is_not_in_the_menu(self):
+        from tools.native_spike.options_actions import CATEGORIES
+        self.assertFalse({'placement','output','environment'} & set(CATEGORIES))
+        shown = {r['id'] for scope in ('monitor','workspace') for cat in CATEGORIES for r in options_rows(self.c,scope,'XR-3',cat)}
+        for gone in ('menu_toggle','menu_reset','placement_flat','placement_x','roll_level','resolution','scale','ultrawide','add_monitor',
+                     'remove_monitor','background','background_brightness','environment_toggle','zoom_in','prev','next','send_glasses_1',
+                     'video_pause','video_seek_fwd','video_format','video_quality','video_controls','playback_menu_toggle','video_exit'):
+            self.assertNotIn(gone, shown)
+            with self.assertRaises(ValueError): options_apply(self.c,gone,None,'XR-3','monitor')
 
     def test_quality_calls_real_video_owner_and_validates(self):
         from tools.native_spike.video import VideoControl

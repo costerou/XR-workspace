@@ -90,29 +90,13 @@ class OwnerTests(unittest.TestCase):
         m.refuse(42,'view','renderer rejected');m.tick()
         self.assertEqual(m.snapshot()['status'],'error')
     def test_renderer_pre_release_for_output_transaction_does_not_lose_rollback_error(self):
-        c,m=self.menu();token=m.begin_owner('remove_monitor','XR-3','monitor')
+        c,m=self.menu();token=m.begin_owner('layout_reset','XR-3','monitor')
         c._desktops_before=(['XR-1','XR-3'],[],[])
         c.state.desktops_busy=True
         c.state.names=['XR-1'] # Prospective renderer set before broker transaction.
         m.close('native child');m.finish_owner(token,False,'Broker removal rolled back');m.tick()
         self.assertEqual(m.snapshot()['status'],'error')
         self.assertEqual(m.snapshot()['message'],'Broker removal rolled back')
-    def test_successful_removal_closes_only_visual_parent_preserving_completion(self):
-        c,m=self.menu()
-        m._rows=lambda *a:[dict(id='remove_monitor',label='Remove',scope='monitor',kind='action',value='',enabled=True)]
-        m.intent('options_scope',scope='monitor')
-        def apply(*args):
-            token=m.begin_owner('remove_monitor','XR-3','monitor')
-            c._desktops_before=(['XR-1','XR-3'],[],[]);c.state.desktops_busy=True;c.state.names=['XR-1']
-            m.finish_owner(token,True,'Broker removal verified')
-            return b'{"op":"desktops","request_id":82}\n'
-        m._apply=apply;d=m.snapshot()
-        m.intent('options_confirm',row_id='remove_monitor',monitor='XR-3',scope='monitor',revision=d['revision'],value='confirmed')
-        self.assertFalse(m.snapshot()['open'])
-        m.tick();self.assertEqual(m.snapshot()['status'],'pending')
-        c.state.desktops_busy=False;c._desktops_before=None
-        m.acknowledge(82);m.tick()
-        self.assertEqual(m.snapshot()['status'],'applied')
     def test_focus_notifies_child_candidate_selection_without_inserting(self):
         from types import SimpleNamespace
         c,m=self.menu();selected=[]

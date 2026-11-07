@@ -8,7 +8,7 @@ import threading
 from collections import deque
 from .options_geometry import TABS_PER_PAGE
 
-CATEGORIES = ('placement','output','3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')
+CATEGORIES = ('3d','stabilization','layout','view','video','input','keybinds','windows','privacy','help','session')
 SCOPES = ('monitor', 'workspace')
 KINDS = ('action','toggle','range','choice','text','readonly')
 PENDING_TIMEOUT_S = 5  # a change with no owner callback: how long the footer may say pending before it says so
@@ -179,7 +179,7 @@ class OptionsMenu:
         self.preview=None  # (row id, value) a held slider shows until its release
         self.scope_choice='monitor'  # what the header asks for; a tab with rows in only the other scope shows those
         self.last_input=clock()
-        self.data=dict(open=False,namespace=control.session,monitor=control.state.names[0],scope='monitor',category='placement',focus=-1,scroll=0,revision=0,status='idle',message='',rows=[])
+        self.data=dict(open=False,namespace=control.session,monitor=control.state.names[0],scope='monitor',category='3d',focus=-1,scroll=0,revision=0,status='idle',message='',rows=[])
     @property
     def visible(self):
         return self.data['open'] and not self.control.keys_open
@@ -263,16 +263,11 @@ class OptionsMenu:
 
     def _owner_target_exists(self, request):
         if request['monitor'] in self.control.state.names: return True
-        # Removal pre-releases the renderer capture before the authoritative
+        # A reset pre-releases the renderer capture before the authoritative
         # broker transaction. That prospective list is not output-loss readback.
         before=getattr(self.control,'_desktops_before',None)
-        planned=bool(getattr(self.control.state,'desktops_busy',False) and before and
-                     request['monitor'] in before[0] and request['row_id'] in
-                     ('remove_monitor','add_monitor','resolution','scale','ultrawide','layout_reset'))
-        if planned and request['row_id']=='remove_monitor': request['expected_removal']=True
-        # A verified removal can finish before its renderer receipts; retain
-        # just that correlated transaction, never an unrelated lost target.
-        return planned or bool(request.get('expected_removal') and request['queued'])
+        return bool(getattr(self.control.state,'desktops_busy',False) and before and
+                    request['monitor'] in before[0] and request['row_id']=='layout_reset')
 
     def _drain_owner(self):
         with self._owner_lock:
@@ -461,16 +456,16 @@ class OptionsMenu:
             if original is None: return False
             original['revision']=self.data['revision']
             return self.intent('options_confirm',**original)
-        if row['id'] in ('remove_monitor','layout_reset','stop') and name!='options_confirm':
+        if row['id'] in ('layout_reset','stop') and name!='options_confirm':
             self.confirmation=dict(fields); self.child='confirmation'
-            warning={'remove_monitor':'Evacuate windows to physical fallback; keep at least one monitor','layout_reset':'Reset remembered layout with window migration','stop':'Stop XR and return windows to physical fallback'}[row['id']]
+            warning={'layout_reset':'Reset remembered layout with window migration','stop':'Stop XR and return windows to physical fallback'}[row['id']]
             self.data['rows']=[dict(id='confirmation.apply',label=warning,scope=self.data['scope'],kind='action',value='',enabled=True),dict(id='confirmation.cancel',label='Cancel',scope=self.data['scope'],kind='action',value='',enabled=True)]
             self.data['focus']=0; self._bump(); return True
         if row['kind']=='toggle' and type(value) is not bool: return False
         if row['kind']=='range' and (type(value) not in (int,float) or not row.get('minimum',value)<=value<=row.get('maximum',value)): return False
         if row['kind']=='choice' and value not in row.get('choices',[]): return False
         try:
-            if name=='options_confirm' and row['id'] in ('remove_monitor','layout_reset','stop'): value='confirmed'
+            if name=='options_confirm' and row['id'] in ('layout_reset','stop'): value='confirmed'
             callback=self._apply
             if callback is None:
                 from .options_actions import options_apply

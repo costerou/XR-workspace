@@ -3,7 +3,7 @@
 #include <iostream>
 using J=nlohmann::json;
 int main() {
- J p={{"open",true},{"namespace","session"},{"monitor","XR-2"},{"scope","monitor"},{"category","placement"},{"focus",-1},{"scroll",0},{"revision",1},{"status","pending"},{"message",""},{"rows",J::array()}};
+ J p={{"open",true},{"namespace","session"},{"monitor","XR-2"},{"scope","monitor"},{"category","3d"},{"focus",-1},{"scroll",0},{"revision",1},{"status","pending"},{"message",""},{"rows",J::array()}};
  auto accepts=[&](J v){ auto r=xr::decode_control(J{{"schema",1},{"request_id",1},{"run_id","run"},{"session","session"},{"op","options_menu"},{"payload",v}}.dump()+"\n"); return std::holds_alternative<xr::ControlMessage>(r); };
  if(!accepts(p)){std::cerr<<"valid options snapshot rejected\n";return 1;}
  for(int f=-4;f<0;++f){auto q=p;q["focus"]=f;if(!accepts(q))return 7;}

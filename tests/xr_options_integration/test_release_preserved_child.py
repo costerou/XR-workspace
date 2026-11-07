@@ -1,4 +1,4 @@
-"""C1 entry into real placement child, then existing modal input/owner/persistence.
+"""Entry into the real placement child by its pill (the options menu has no placement rows), then existing modal input/owner/persistence.
 
 Owner cases run Python only. The separate native-wire companion is for the lead's
 combined native gate; no native process is needed for owner assertions.
@@ -18,7 +18,7 @@ def exercise(op,tmp_path):
     store.save_desktops([dict(geometry.DEFAULT_DESKTOP)]*2,placements,[0,0])
     c=view.ViewControl(view.ViewState(['XR-1','XR-3'],placements=placements),'run','session',lambda n:None,
                        profiles.ProfileStore(tmp_path/'profiles.json','beast'),None,placements=store)
-    d=MenuDriver(c);d.enter('XR-3','monitor','placement');d.focus('menu_toggle');d.key('Return')
+    d=MenuDriver(c);d.add(c.pill_click(1))
     assert c.state.menu_open and not c.options.keyboard_owned
     before=copy.deepcopy(c.state.placements);field=c.state.menu_field;desktop=c.state.menu_desktop
     d.intent(op)
@@ -74,7 +74,7 @@ def test_c1_placement_child_output_keys_reach_real_broker(op,tmp_path):
     c.desktops=run.manager;c.attach_supervisor(SupervisorStandIn());c.state.sizes=run.manager.desktops()
     d=MenuDriver(c)
     try:
-        d.enter('XR-3','monitor','placement');d.focus('menu_toggle');d.key('Return')
+        d.add(c.pill_click(2))
         assert c.state.menu_open and c.state.menu_desktop==2
         before=copy.deepcopy(run.manager.desktops())
         d.intent(op)

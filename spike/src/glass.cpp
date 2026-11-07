@@ -549,10 +549,9 @@ namespace {
 // header 0..44 (focus targets scope 346..440, Next 440..530, Close 530..594), tabs 44..80 at x = 16 + 142 i (w 136),
 // body 88..392 in 38 px rows (x 16..584), range track x 300..450, footer 400..440.
 struct OptionsTab { const char* id; const char* label; };
-constexpr OptionsTab kOptionsTabs[] = {{"placement", "Placement"}, {"output", "Display"},   {"3d", "3D"},       {"stabilization", "Stability"},
-                                       {"layout", "Layout"},       {"environment", "Background"}, {"view", "View"}, {"video", "Video"},
-                                       {"input", "Typing"},        {"keybinds", "Keys"},      {"windows", "Windows"}, {"privacy", "Privacy"},
-                                       {"help", "Help"},           {"session", "Session"}};
+constexpr OptionsTab kOptionsTabs[] = {{"3d", "3D"},        {"stabilization", "Stability"}, {"layout", "Layout"},  {"view", "View"},
+                                       {"video", "Video"},  {"input", "Typing"},  {"keybinds", "Keys"},  {"windows", "Windows"},
+                                       {"privacy", "Privacy"}, {"help", "Help"},  {"session", "Session"}};
 constexpr std::size_t kOptionsTabCount = sizeof(kOptionsTabs) / sizeof(kOptionsTabs[0]), kTabsPerPage = kOptionsTabsPerPage;
 
 // UTF-8 when the system font draws it, ASCII for the built-in pixel font (it has no glyphs past 0x7e).
