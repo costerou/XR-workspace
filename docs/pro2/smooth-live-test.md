@@ -67,4 +67,4 @@ If Run A is good and Cody agrees, the orchestrator can turn on the panel's Start
 
 `pro2-route status` shows it; `pro2-route disable` turns it off. This needs that bundle to stay where it is.
 
-Expect one false `run-killed` incident per supervised run: the installed incident monitor does not know a supervised run's consent. It was seen on the first test at 19:12 and means nothing here.
+While this runs the panel shows it as an external run and Start stays closed: the controller did not start it. A panel route session, by contrast, keeps its consent in the controller's state directory and shows as the controller's own.
