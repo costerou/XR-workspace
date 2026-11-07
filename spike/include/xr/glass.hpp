@@ -148,6 +148,16 @@ private:
     float from_ = 0, to_ = 0;
     double start_ms_ = -1e9;
 };
+// The Step-Back Band's ease (options_geometry.hpp), on the renderer's monotonic clock: from wherever it is to open or shut.
+class RestoreStep {
+public:
+    void set(bool open, double now_ms);
+    float value(double now_ms) const;
+    bool animating(double now_ms) const;
+private:
+    float from_ = 0, to_ = 0;
+    double start_ms_ = -1e9;
+};
 // A small grabber capsule at the top centre of an open panel (where the pill was).
 constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
@@ -224,8 +234,9 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font = 
 // Where a state is in that image (0..1 of it). A bar: `segment` hot (none: idle), `active` while it is dragged. A cap:
 // corner `corner`, `hot` under the dot or held, `active` while it is dragged.
 struct AtlasBox { float u0 = 0, v0 = 0, u1 = 0, v1 = 0; };
-AtlasBox options_icon_box(bool restore,bool hot=false);
-AtlasBox options_hint_box(bool restore);
+AtlasBox options_icon_box(bool hot=false);
+AtlasBox options_hint_box();
+AtlasBox options_restore_box(bool hot);  // the band's Restore pill: its icon and label
 AtlasBox options_gear_box();
 AtlasBox level_bar_box(LevelSegment segment, bool active);
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active);
@@ -283,7 +294,8 @@ const char* glass_fragment_shader();
 // a focus halo), filled tonal buttons with icons (primary while on, error container while armed, M3 disabled). Every
 // role is under the OLED cap, so nothing passes kCardMaxLevel.
 struct OptionsMenuState;
-HudImage render_options_panel(const OptionsMenuState&, const HudFont* font = nullptr);
+// The options menu, kOptionsW x kOptionsH (options_geometry.hpp): the placement panel's own parts, in `accent`'s scheme, on the same glass.
+HudImage render_options_panel(const OptionsMenuState&, const HudFont* font = nullptr, std::array<float, 3> accent = kGlassThemeDefault);
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font = nullptr,
                             std::array<float, 3> accent = kGlassThemeDefault);
 // Footer hint as drawn (font: arrows; pixel font: ASCII).
@@ -299,7 +311,8 @@ constexpr float kContentFrom = 0.75f;  // the panel's content fades in over the 
 
 // What the compositor draws this frame (GlassPills::frame and wayland.cpp fill it; overview only).
 struct GlassFrame {
-    bool options = false, maximized = false;
+    bool options = false;
+    float restore_alpha = 0;                  // the Step-Back Band's Restore pill on the focused desktop, 0: not drawn
     bool pills = false;                       // collapsed pills under every desktop
     int hover = -1; float hover_level = kGlassIdle;  // the desktop whose pill is hovered or dragged
     std::array<float, kPlacementMenuDesktopCount> expand{};  // eased expansion per desktop

@@ -16,7 +16,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, options_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops, environment, binds, edge_pan, immersive };
+                       overview_pointer, roll, desktops, environment, binds, edge_pan, immersive, restore_band };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -127,6 +127,9 @@ struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool
 // "resize_nwse", "resize_nesw", "move" or "rotate"; over text on a desktop's content "text", the Serif Beam instead of the
 // dot; absent: the plain dot.
 // Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
+// The Step-Back Band open or shut (options_geometry.hpp). {"open":bool}. Display only. Malformed: rejected and dropped, like move_handle.
+constexpr const char* kInvalidRestoreBandCode = "invalid_restore_band";
+struct RestoreBandPayload { bool open = false; };
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000, kMaxGhostPx = 512;
 struct OverviewPointerPayload {
@@ -182,9 +185,10 @@ struct OptionsRow {
 struct OptionsMenuState {
  bool open=false; std::string name_space, monitor, scope, category, status, message;
  int focus=-1, scroll=0; std::uint32_t revision=0; std::vector<OptionsRow> rows;
+ int list=-1;  // the focused row's choice list: the highlighted item, -1 shut
 };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
+                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, RestoreBandPayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
                                     EnvironmentPayload, BindPanelState, ImmersivePayload, OptionsMenuState>;
 struct ControlMessage {
     std::uint32_t schema;

@@ -59,7 +59,7 @@ The integration suite requires these explicit CPU-native test artifacts:
 
 ```
 CONTROL_WIRE_CHECK=/absolute/build/control_wire_check
-XR_RESTORE_GEOMETRY_BINARY=/absolute/build/restore_app_bound_test
+XR_RESTORE_GEOMETRY_BINARY=/absolute/build/restore_band_test
 XR_NATIVE_REPORT_BINARY=/tmp/xr-qa-native-report
 ```
 

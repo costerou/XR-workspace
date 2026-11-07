@@ -636,7 +636,8 @@ class LuaAndWireTests(unittest.TestCase):
         with mock.patch.object(xr_control, 'send', dead), mock.patch.object(xr_control, '_eval_stale', lambda env, code: stale.append(code)):
             self.assertEqual(xr_control.main(['x', '/run/s.sock', 'run', 'sess', 'binds_key', '0', '9']), 1)
             self.assertEqual(xr_control.main(['x', '/run/s.sock', 'run', 'sess', 'binds_toggle']), 1)
-        self.assertEqual(stale, [xr_control.LEAVE_KEY_PANEL] * 2)
+        # A key: the panel's submap, then the options menu's plain binds (view.OPTIONS_BINDS). The panel's own toggle: its submap.
+        self.assertEqual(stale, [xr_control.LEAVE_KEY_PANEL, xr_control.REMOVE_MENU_BINDS + ' ' + xr_control.SHOW_OVERVIEW_CURSOR, xr_control.LEAVE_KEY_PANEL])
 
 
 class RendererContractTests(unittest.TestCase):

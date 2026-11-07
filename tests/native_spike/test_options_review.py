@@ -10,16 +10,17 @@ class ReviewRegressions(unittest.TestCase):
     def test_keyboard_header_scope_category_and_focus_scroll(self):
         c=self.control();c.options.open('XR-1');c.options_key('Shift+Tab')
         self.assertLess(c.options.snapshot()['focus'],0)
+        c.options.intent('options_category',category='3d')  # a tab with rows in both scopes
         c.options.intent('options_focus',focus=-4);c.options_key('Return')
         self.assertEqual(c.options.snapshot()['scope'],'workspace')
         c.options.intent('options_focus',focus=-3);c.options_key('Right')
-        self.assertEqual(c.options.snapshot()['category'],'output')
+        self.assertEqual(c.options.snapshot()['category'],'stabilization')
         c.options._rows=lambda *a:[dict(id=str(i),label=str(i),scope='workspace',kind='action',value='',enabled=True) for i in range(30)]
         c.options.refresh();c.options.intent('options_focus',focus=20)
         self.assertGreater(c.options.snapshot()['scroll'],0)
     def test_slider_matches_native_track_min_mid_max_and_stationary_knob(self):
         row=dict(minimum=-180,maximum=180,step=1)
-        for x,want in ((300,-180),(375,0),(450,180)):
+        for x,want in ((geo.KNOB_LO,-180),((geo.KNOB_LO+geo.KNOB_HI)/2,0),(geo.KNOB_HI,180)):
             self.assertEqual(geo.range_value(row,x),want)
     def test_file_path_edits_commit_only_on_enter(self):
         with tempfile.TemporaryDirectory() as root:

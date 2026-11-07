@@ -837,17 +837,16 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
                  : highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
                                   : draw_order(canvas, tiles, s.resolved);
     const auto& g = s.glass;
-    auto maximize_image = [&](std::size_t i, bool restore) {
+    auto maximize_image = [&](std::size_t i) {
         auto image=[&](const FRect& r,const AtlasBox& box){const GLsizei n=s.build(s.bar_meshes[i],canvas,tiles[i],s.resolved[i],r,Impl::Attr::rect_uv,false,&box);attrib(s.panel_loc.pos,3,5,0);attrib(s.panel_loc.uv,2,5,3);glDrawArrays(GL_TRIANGLE_STRIP,0,n);};
-        auto resolved=restore?options_restore_rect(canvas,tiles[i],s.resolved[i],view):options_maximize(tiles[i]);
-        if(resolved.width<=0)return;
+        const FRect r=options_maximize(tiles[i]);
         bool hot=false;
         if(s.free_pointer){auto [a,e]=Impl::dot_direction(canvas,s.free_x,s.free_y,s.free_directed,s.free_az,s.free_el);Vec3 ray{std::cos(e)*std::sin(a),std::sin(e),-std::cos(e)*std::cos(a)};
-          auto hit=options_maximize_ray(canvas,tiles[i],s.resolved[i],ray,restore,restore?&resolved:nullptr);hot=bool(hit);
-          if(hit)for(std::size_t j=0;j<tiles.size();++j){if(restore && j==i)continue;auto block=stereo_surface_hit(canvas,tiles[j],s.resolved[j],ray);if(block && std::sqrt(block->world.x*block->world.x+block->world.y*block->world.y+block->world.z*block->world.z)<*hit)hot=false;}
+          auto hit=options_maximize_ray(canvas,tiles[i],s.resolved[i],ray);hot=bool(hit);
+          if(hit)for(std::size_t j=0;j<tiles.size();++j){auto block=stereo_surface_hit(canvas,tiles[j],s.resolved[j],ray);if(block && std::sqrt(block->world.x*block->world.x+block->world.y*block->world.y+block->world.z*block->world.z)<*hit)hot=false;}
         }
-        auto r=resolved;image(r,options_icon_box(restore,hot));
-        if(hot){float scale=level_bar_scale(tiles[i]);image({r.x,r.y+(restore?32:-24)*scale,84*scale,20*scale},options_hint_box(restore));}
+        image(r,options_icon_box(hot));
+        if(hot){float scale=level_bar_scale(tiles[i]);image({r.x+(r.width-84*scale)/2,r.y-24*scale,84*scale,20*scale},options_hint_box());}
     };
     if (handles) {
         // Level bars and corner caps: drawn before every desktop (over the border and glow, back to front), so any desktop's
@@ -869,13 +868,12 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         };
         for (const std::size_t i : order) {
             if (i >= s.textures.size() || i >= g.bars.size()) continue;
-            if(g.pills && g.bars[i])maximize_image(i,false);
+            if(g.pills && g.bars[i])maximize_image(i);
             if(!g.pills || !g.bars[i])continue;
             for (std::uint32_t corner = 0; corner < 4; ++corner) {
                 const bool hot = int(i) == g.cap_hover && corner == g.cap_corner;
                 image(s.cap_meshes[4 * i + corner], i, corner_cap_rect(tiles[i], corner), corner_cap_box(corner, hot, hot && g.cap_active));
             }
-            image(s.bar_meshes[i],i,options_gear(tiles[i]),options_gear_box(),true);
             const bool hot = int(i) == g.bar_hover;
             image(s.bar_meshes[i], i, level_bar_rect(tiles[i]), level_bar_box(hot ? g.bar_segment : LevelSegment::none, hot && g.bar_active));
             const FRect main = immersive_main_rect(tiles[i]), tail = immersive_tail_rect(tiles[i]);  // the 3D button, joined to the bar
@@ -911,13 +909,18 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         attrib(s.pos, 3, 5, 0); attrib(s.uv, 2, 5, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
-    // Restore overlays its captured picture; overview controls keep their original occlusion order.
-    if(handles && g.maximized && highlight>=0 && std::size_t(highlight)<tiles.size()){
+    // The Step-Back Band's Restore pill: above the picture, on its stepped surface, fading in with the step.
+    if(handles && g.restore_alpha>0.f && highlight>=0 && std::size_t(highlight)<tiles.size()){
+        const auto i=std::size_t(highlight);
+        const float scale=options_step_scale(tiles[i]);const FRect r=options_restore_rect(tiles[i],scale);
+        bool hot=false;
+        if(s.free_pointer){auto [a,e]=Impl::dot_direction(canvas,s.free_x,s.free_y,s.free_directed,s.free_az,s.free_el);Vec3 ray{std::cos(e)*std::sin(a),std::sin(e),-std::cos(e)*std::cos(a)};hot=bool(options_mesh_ray(tile_mesh(canvas,tiles[i],s.resolved[i],options_restore_hit(r,scale)),ray));}
         if(s.uv>=0)glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         program(s.panel_program,s.panel_projection,s.panel_loc.view,s.panel_loc.half_fov,s.panel_loc.stereo);
-        glUniform1f(s.panel_loc.alpha,1);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,s.handle_texture);
-        maximize_image(std::size_t(highlight),true);
+        glUniform1f(s.panel_loc.alpha,g.restore_alpha);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,s.handle_texture);
+        const AtlasBox box=options_restore_box(hot);const GLsizei n=s.build(s.bar_meshes[i],canvas,tiles[i],s.resolved[i],r,Impl::Attr::rect_uv,false,&box);
+        attrib(s.panel_loc.pos,3,5,0);attrib(s.panel_loc.uv,2,5,3);glDrawArrays(GL_TRIANGLE_STRIP,0,n);
         glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));glDisable(GL_BLEND);
     }
     if (s.glass_program) {
@@ -940,6 +943,29 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
+        // The Options pills, each the drag pill's twin: the same glass, level and states, its gear on top. Before the drag pills and
+        // panels, which go over them. A desktop's own open panel covers its pill's place, so it has none then.
+        if (g.pills && s.panel_program && s.handle_texture) {
+            Vec3 ray{};
+            if (s.free_pointer) { auto [a, e] = Impl::dot_direction(canvas, s.free_x, s.free_y, s.free_directed, s.free_az, s.free_el); ray = {std::cos(e) * std::sin(a), std::sin(e), -std::cos(e) * std::cos(a)}; }
+            for (std::size_t i = 0; i < tiles.size() && i < g.bars.size(); ++i) {
+                if (i >= s.textures.size() || !g.bars[i] || g.expand[i] > 0.f) continue;
+                const bool hot = s.free_pointer && options_gear_ray(canvas, tiles[i], glass_on(i), ray);
+                const float level = hot ? (s.free_level >= kFreePointerHeldLevel ? kGlassActive : kGlassHover) : kGlassIdle;
+                const FRect r = options_gear(tiles[i]);
+                shape(s.bar_meshes[i], i, r, r.height / 2, glass_look(accent, level, 0.f), 1.f, kGlassShadowMargin);
+                glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
+                program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
+                glUniform1f(s.panel_loc.alpha, 1.f);
+                glBindTexture(GL_TEXTURE_2D, s.handle_texture);
+                const AtlasBox box = options_gear_box();
+                const FRect gear{r.x + (r.width - r.height) / 2, r.y, r.height, r.height};
+                const GLsizei n = s.build(s.bar_meshes[i], canvas, tiles[i], glass_on(i), gear, Impl::Attr::rect_uv, true, &box);
+                attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+                glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
+            }
+        }
         for (const std::size_t i : glass_draw_order(std::move(order), g.top)) {  // the tiles are drawn: hand their order over
             if (i >= s.textures.size() || i >= g.expand.size()) continue;
             const float e = std::clamp(g.expand[i], 0.f, 1.f);

@@ -254,6 +254,11 @@ class HyprlandClient:
         if not 0 < timeout <= DEADLINE: raise ValueError('invalid timeout')
         return self._request('binds', timeout).decode('utf-8', errors='replace')
 
+    def install_options_binds(self, python, client, control_socket, run_id, session):
+        """The options menu has the keyboard (view.OPTIONS_BINDS); generated Lua only."""
+        from .view import install_options_binds_lua
+        self._eval(install_options_binds_lua(python, client, control_socket, run_id, session))
+
     def open_key_panel(self, python, client, control_socket, run_id, session):
         """The key bind panel opened: its submap and key subscription (keybinds.panel_on_lua); generated Lua only."""
         from .keybinds import panel_on_lua
@@ -462,6 +467,12 @@ class HyprlandClient:
         cursor warped to (x, y) if given, and the non-consuming left-button click binds; one eval of generated Lua."""
         from .unified_cursor import enter_desktop_lua
         self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y, monitor))
+
+    def arm_click_binds(self, python, client, control_socket, run_id, session):
+        """Maximized: the non-consuming left-button binds alone, so the run can tell a click or a drag from a rest on the top edge.
+        The window gets the button as usual. Generated Lua only, the binds enter_desktop installs."""
+        from .unified_cursor import click_binds_lua
+        self._eval(click_binds_lua(python, client, control_socket, run_id, session))
 
     def confine_cursor(self, x, y, name):
         """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the

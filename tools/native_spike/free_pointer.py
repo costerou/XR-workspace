@@ -160,7 +160,7 @@ import socket
 import threading
 import time
 
-from . import bump, geometry, orbit, resize, view
+from . import bump, geometry, orbit, resize, restore_band, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -319,7 +319,7 @@ def parse_overview_geometry(value):
 def parse_maximize_geometry(value):
     """Validate display-only settled Restore geometry; never accept arbitrary meshes."""
     if value is None: return None
-    keys = {'monitor','maximized','canvas','tile','placement','rect','hit_mesh','view'}
+    keys = {'monitor','maximized','canvas','tile','placement','rect','picture','hit_mesh','view'}
     if type(value) is not dict or set(value) != keys: raise ValueError('invalid maximize geometry')
     from .options_menu import monitor
     monitor(value['monitor'])
@@ -329,7 +329,7 @@ def parse_maximize_geometry(value):
             raise ValueError('invalid maximize coordinates')
         return list(v)
     out = dict(value)
-    for key,count in (('canvas',4),('tile',4),('placement',5),('rect',4),('view',9)):
+    for key,count in (('canvas',4),('tile',4),('placement',5),('rect',4),('picture',4),('view',9)):
         out[key]=numbers(value[key],count)
     if any(v<=0 for v in out['canvas']) or any(out['canvas'][i]>MAX_POINTER_PX for i in (0,1)) or out['placement'][2]<=0 or any(out['tile'][i]<=0 or out['rect'][i]<=0 for i in (2,3)):
         raise ValueError('invalid maximize extent')
@@ -344,24 +344,23 @@ def parse_maximize_geometry(value):
     return out
 
 
-def restore_cursor_ray(geometry, output, cursor):
-    """Real app cursor -> actual captured surface -> world ray (never screen-UV fiction).
-
-    Native placement uses radians/ratio, unlike the supervisor wire placement.
-    The emitted view checks whether that surface point is currently visible.
-    """
-    if cursor is None or not output['x']<=cursor[0]<output['x']+output['width'] or not output['y']<=cursor[1]<output['y']+output['height']: return None
+def band_ray(geometry, x, y):
+    """Canvas point (x, y), where the band's dot is, as a world ray: the view undone, as the hit mesh is in the world."""
     w,h,hw,hh=geometry['canvas']
-    tile=geometry['tile']
+    eye=((2*x/w-1)*hw,(1-2*y/h)*hh,-1.0)
+    m=geometry['view']
+    return tuple(sum(m[j*3+i]*eye[j] for j in range(3)) for i in range(3))
+
+
+def band_canvas(geometry, px, py):
+    """Point (px, py) of the stepped desktop's surface on the canvas: where a thing there is drawn."""
+    w,h,hw,hh=geometry['canvas']
     x,y,d,c,r=geometry['placement']
     placed=dict(x=math.degrees(x)*10,y=math.degrees(y)*10,distance=d*100,curvature=math.degrees(c),roll=math.degrees(r)*100)
-    px=tile[0]+(cursor[0]-output['x'])/output['width']*tile[2]
-    py=tile[1]+(cursor[1]-output['y'])/output['height']*tile[3]
-    world=orbit.place_point(dict(w=w,h=h,half=(hw,hh)),tile,placed,px,py)
+    world=orbit.place_point(dict(w=w,h=h,half=(hw,hh)),geometry['tile'],placed,px,py)
     m=geometry['view']
-    eye=tuple(sum(m[i*3+j]*world[j] for j in range(3)) for i in range(3))
-    if eye[2]>=-1e-6 or abs(eye[0]/-eye[2])>hw or abs(eye[1]/-eye[2])>hh: return None
-    return world
+    e=tuple(sum(m[i*3+j]*world[j] for j in range(3)) for i in range(3))
+    return (e[0]/-e[2]/hw+1)*w/2,(1-e[1]/-e[2]/hh)*h/2
 
 
 def restore_mesh_hit(geometry, ray):
@@ -411,10 +410,19 @@ def level_bar_rect(tile):
     return (tile[0] + (tile[2] - w) / 2, tile[1] - LEVEL_BAR_GAP * s - h, w, h)
 
 
+MAXIMIZE_W, MAXIMIZE_GAP = 38, 12   # options_geometry.hpp kMaximizeW, kMaximizeGap: a capsule of the bar's height
+
+def restore_band_frame(run_id, session, request_id, is_open):
+    """Renderer `restore_band` frame: the Step-Back Band open or shut (ipc.hpp RestoreBandPayload)."""
+    if type(is_open) is not bool: raise ValueError('invalid restore band')
+    return (json.dumps({'schema': 1, 'run_id': run_id, 'session': session, 'request_id': request_id, 'op': 'restore_band', 'payload': {'open': is_open}},
+                       separators=(',', ':')) + '\n').encode()
+
+
 def maximize_rect(tile):
     s = level_bar_scale(tile)
     x, y, _, _ = level_bar_rect(tile)
-    return x - 38*s, y, 26*s, 26*s
+    return x - (MAXIMIZE_GAP + MAXIMIZE_W)*s, y, MAXIMIZE_W*s, LEVEL_BAR_H*s
 
 def maximize_hit(tile, q):
     from .options_geometry import inside
@@ -1066,10 +1074,13 @@ class OverviewPointer:
         self.shape_gated = False   # the beam's gate shut on a word: when it opens the sampler reads at SHAPE_S (_step_text)
         self.text_hold = TextHold()  # the Serif Beam is on (_step_text, _look)
         self.maximize_geometry = None
-        self._restore_cursor = None
         self._restore_output = None
         self._restore_press = None
         self._restore_epoch = 0
+        self.dwell = restore_band.Dwell()
+        self.band_point, self.band_gain, self.band_moved = None, 1.0, 0.0  # the dot while the band is open: canvas px
+        self.band_sent = False       # the renderer's band open
+        self.zoom_held = None        # maximized: when the left button went down (the click binds), None: it is up
         self.geometry = None       # parse_overview_geometry, from the renderer
         self.layout_stale = False  # the desktops changed since it came (_layout_ready)
         self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
@@ -1138,7 +1149,7 @@ class OverviewPointer:
     def set_maximize_geometry(self, geometry):
         # Parse first: malformed datagrams cannot replace good geometry or acquire input.
         parsed=parse_maximize_geometry(geometry)
-        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k!='view'}
+        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k not in ('view','picture')}  # those follow the head
         if structural(parsed)!=structural(self.maximize_geometry):
             self._restore_epoch+=1
             self._restore_press=None
@@ -1147,63 +1158,102 @@ class OverviewPointer:
         self._poke()
 
     def _restore_release(self):
+        """The band shuts: the app gets its cursor back on the column the dot was on, LAND_PX under the edge, and the rest starts over."""
         self._restore_press=None
-        point=self._restore_cursor
-        output=self._restore_output
-        if point is not None and output is not None:
-            point=tuple(min(max(point[i],output[k]),output[k]+output[size]-1) for i,k,size in ((0,'x','width'),(1,'y','height')))
+        output,point=self._restore_output,self.band_point
+        target=None
+        if output is not None and point is not None and self.maximize_geometry is not None:
+            x0,_,x1,_=self.maximize_geometry['picture']
+            along=min(max((point[0]-x0)/(x1-x0),0),1) if x1>x0 else .5
+            target=(int(output['x']+along*(output['width']-1)),int(output['y']+restore_band.LAND_PX))
+        elif output is not None:
+            target=(int(output['x']+output['width']/2),int(output['y']+restore_band.LAND_PX))
+        self.band_point=None
+        self.dwell.disarm()
         if self.mode=='restore':
             self.mode='off'
-            self._set_want('desktop', tuple(int(round(v)) for v in point) if point else None, sync=True)
+            self._set_want('desktop',target,sync=True)
 
-    def _restore_frame(self, ray=None):
-        visible=ray is not None and self.mode=='restore'
+    def band_hot(self):
+        """The dot on Restore's own mesh."""
+        g=self.maximize_geometry
+        return bool(g and self.band_point is not None and restore_mesh_hit(g,band_ray(g,*self.band_point)))
+
+    def _restore_frame(self):
+        """The dot while the band is open, and the band's own frame on any change."""
+        out=b''
+        is_open=self.mode=='restore'
+        if is_open!=self.band_sent:
+            self.band_sent=is_open
+            out+=self._send(restore_band_frame,is_open)
+        ray=band_ray(self.maximize_geometry,*self.band_point) if is_open and self.maximize_geometry is not None and self.band_point is not None else None
+        visible=ray is not None
         want=dict(visible=visible,x=0,y=0,held=visible and self._restore_press is not None)
         if visible:
             az=math.atan2(ray[0],-ray[2]); el=math.atan2(ray[1],math.hypot(ray[0],ray[2]))
             want.update(az=min(max(round(math.degrees(az)*100),-MAX_POINTER_AZ),MAX_POINTER_AZ),
                         el=min(max(round(math.degrees(el)*100),-MAX_POINTER_EL),MAX_POINTER_EL))
-        if want==self.sent: return b''
+        if want==self.sent: return out
         self.sent=want
-        return self._send(overview_pointer_frame,want)
+        return out+self._send(overview_pointer_frame,want)
 
-    def _poll_restore(self, cursor, motion, applied):
+    def _band_blocked(self, now):
+        """What a rest does not count through: a held button (a lost release expires), and a hand's edge pan."""
+        if self.zoom_held is not None and now-self.zoom_held>=restore_band.HELD_MAX_S: self.zoom_held=None
+        return self.zoom_held is not None or getattr(self,'_pan',None) is not None
+
+    def _band_open(self, cursor, output, now):
+        """The rest is up: the dot takes over where the cursor was, on the picture's top edge as it ends up stepped back."""
+        g=self.maximize_geometry
+        x0,y0,x1,_=g['picture']
+        self.band_gain=(x1-x0)/output['width'] if output['width'] else 1.0
+        self.band_point=(x0+(cursor[0]-output['x'])*self.band_gain,y0)
+        self.band_moved=now
+        self._restore_output=dict(output)
+        self.mode='restore'
+        self._set_want('free',(int(output['x']+output['width']/2),int(output['y']+output['height']/2)),sync=True)
+
+    def _poll_restore(self, cursor, motion, applied, now):
         g=self.maximize_geometry
         names=self.control.state.names
         output=next((o for o in self.outputs if type(o.get('index')) is int and 0<=o['index']<len(names) and names[o['index']]==g['monitor']),None)
         if output is None:
-            self._restore_release()
-            return self._restore_frame()
-        if self.mode=='restore':
-            if applied>=self._sync and self._restore_cursor is not None:
-                self._restore_cursor=tuple(self._restore_cursor[i]+motion[i] for i in range(2))
-        else:
-            self._restore_cursor=cursor
-        point=self._restore_cursor
-        ray=restore_cursor_ray(g,output,point)
-        if not restore_mesh_hit(g,ray):
-            self._restore_release()
+            self.dwell.reset()
+            if self.mode=='restore': self._restore_release()
             return self._restore_frame()
         if self.mode!='restore':
-            self.mode='restore'
-            self._restore_output=dict(output)
-            park=(int(output['x']+output['width']/2),int(output['y']+output['height']/2))
-            self._set_want('free',park,sync=True)
-        return self._restore_frame(ray)
+            out=b''
+            if self.mode!='off':  # maximized from free or desktop mode: what active() going false does, as this path comes first
+                out+=self._end_drag()
+                self.mode,self.hover,self.pointer,self.summoned='off',None,None,False
+                self._set_want('off')
+            if applied>=self._sync and self.dwell.step(cursor,output,self._band_blocked(now),now): self._band_open(cursor,output,now)
+            return out+self._restore_frame()
+        if applied>=self._sync and (motion[0] or motion[1]):
+            x,y=self.band_point
+            w,h,_,_=g['canvas']
+            self.band_point=(min(max(x+motion[0]*self.band_gain,2),w-2),min(max(y+motion[1]*self.band_gain,2),h-2))
+            self.band_moved=now
+        x,y=self.band_point
+        x0,y0,x1,y1=g['picture']
+        back=x0<=x<x1 and y0+restore_band.RETURN_PX<=y<y1
+        if (back and self._restore_press is None) or now-self.band_moved>=restore_band.IDLE_S: self._restore_release()
+        return self._restore_frame()
 
     def _restore_op(self, op):
+        """The left button with the band open, consumed by the grab. A press on Restore is Restore's; a press anywhere else shuts it."""
         if op=='resize_press':
-            if self.restore_sampling() and self.mode=='restore':
-                self._restore_press=(self.maximize_geometry['monitor'],self._restore_epoch)
-            return self._restore_frame(restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)) if self.restore_sampling() else b''
+            if self.mode=='restore' and self.restore_sampling():
+                if self.band_hot(): self._restore_press=(self.maximize_geometry['monitor'],self._restore_epoch)
+                else: self._restore_release()
+            return self._restore_frame()
         pressed=self._restore_press
         self._restore_press=None
-        valid=(self.restore_sampling() and pressed==(self.maximize_geometry['monitor'],self._restore_epoch)
-               and restore_mesh_hit(self.maximize_geometry,restore_cursor_ray(self.maximize_geometry,self._restore_output,self._restore_cursor)))
+        valid=self.restore_sampling() and pressed==(self.maximize_geometry['monitor'],self._restore_epoch) and self.band_hot()
+        if self.mode=='restore' and pressed is not None and not valid: self._restore_release()
+        if not valid: return self._restore_frame()
         self._restore_release()
-        out=self._restore_frame()
-        if valid: out+=self.control.maximize_monitor(pressed[0])
-        return out
+        return self._restore_frame()+self.control.maximize_monitor(pressed[0])
 
     def active(self):
         return self.overview() and self._layout_ready() and len(self.outputs) > 0
@@ -1501,11 +1551,11 @@ class OverviewPointer:
     def poll(self, now):
         """Supervisor tick: apply the newest cursor sample; returns renderer frames (bytes)."""
         fresh, cursor, motion, applied = self._take()
-        if self.restore_sampling(): return self._poll_restore(cursor,motion,applied)
-        if self.mode=='restore':
-            self._restore_release()
-            return self._restore_frame()
-        out = b''
+        if self.restore_sampling(): return self._poll_restore(cursor,motion,applied,now)
+        self.dwell.reset()
+        self.zoom_held = None
+        if self.mode=='restore': self._restore_release()
+        out = self._restore_frame() if self.band_sent else b''
         if not self.active():
             if self.mode != 'off':
                 out += self._end_drag()
@@ -1585,10 +1635,14 @@ class OverviewPointer:
 
     def _onto_help(self):
         """Desktop mode with the pointer on the open help card (the cursor moved onto it, or the card opened or turned
-        with the head over a still cursor): the card is on top, so the pointer turns into the free dot right there and
-        the left button goes to the run, not to the window hidden under the card."""
+        with the head over a still cursor) or the options menu, which can hang over the desktop below its own: they are on
+        top, so the pointer turns into the free dot right there and the left button goes to the run, not to the window
+        hidden under them."""
         o = self._output(self.desktop)
-        if self.mode != 'desktop' or o is None or self._on_help() is None: return
+        if self.mode != 'desktop' or o is None: return
+        menu = getattr(self.control, 'options', None)
+        over_menu = menu is not None and menu.visible is True and (self._options_hit() or ('',))[0] == 'options_panel'
+        if self._on_help() is None and not over_menu: return
         self.gain = self._gain(self.desktop)
         self.mode = 'free'
         self.exits += 1
@@ -1605,6 +1659,8 @@ class OverviewPointer:
         self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
         self.last_move = now
         if self.control.state.menu_open: self.control.last_input = now  # moving over an open panel keeps it up
+        menu = getattr(self.control, 'options', None)
+        if menu is not None and menu.visible is True: menu.touch()  # and the options menu
         if self.drag is not None: return self._apply_drag()
         return self._settle()
 
@@ -1620,6 +1676,10 @@ class OverviewPointer:
         """resize_press / resize_release: the left button, bound only in free mode (module docstring: Clicks)."""
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
         if self.mode=='restore' or self._restore_press is not None: return self._restore_op(op)
+        if self.restore_sampling():  # maximized, the non-consuming binds: the app's own click, and no rest
+            self.zoom_held = self.clock() if op == 'resize_press' else None
+            self.dwell.restart()
+            return None
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
         self.last_move = now  # a click is input: the pointer, pills, bars and caps come back
@@ -1632,18 +1692,19 @@ class OverviewPointer:
             if d is not None and d['kind'] == 'options_range':
                 menu = self.control.options
                 if menu.capture is d:
-                    q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry,d['tile'],d['placement'],self.pointer))
-                    if q is not None:
-                        from . import options_geometry as og
-                        x = q[0]-og.panel_rect(d['tile'],pill_rect(d['tile']))[0]
+                    value = self._options_range_value(d)
+                    menu.preview = None
+                    menu.capture = None
+                    if value is None: menu.refresh()
+                    else:  # against the menu as it is now: readbacks may have changed the page during the drag (the row is
+                        # still checked by id, monitor and scope)
                         r = d['row']
-                        value=og.range_value(r,x)
-                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=min(max(value,r['minimum']),r['maximum']))
-                    menu.capture=None
+                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=menu.snapshot()['revision'],value=value)
                 self.drag=None
             if d is not None and d['kind'] == 'maximize':
                 self.drag = None
-                out += self.control.maximize_monitor(d['monitor'])
+                if self._hit() == ('maximize', d['index']):  # a button: dragged off it, its release does nothing
+                    out += self.control.maximize_monitor(d['monitor'])
             if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse
                 if self._open() == d['open_at_press']:
                     self.drag = None
@@ -1678,29 +1739,32 @@ class OverviewPointer:
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
             if h is not None and h[0] == 'options_gear':
-                return self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
+                return out + self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
             if h is not None and h[0] == 'options_panel':
                 from . import options_geometry as og
                 menu = self.control.options
                 menu.focused = True
                 d = menu.snapshot()
                 row = og.row_at(h[2], h[3], d['scroll'], len(d['rows']))
-                if h[3] < 44:
-                    if h[2] >= 530: out += self.control.options_intent('options_close')
-                    elif 350 <= h[2] < 440: out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
-                    elif 440 <= h[2] < 530:
-                        from .options_menu import CATEGORIES
-                        out += self.control.options_intent('options_category', category=CATEGORIES[(CATEGORIES.index(d['category'])//4*4+4)%len(CATEGORIES)])
-                elif 44 <= h[3] < 80:
-                    from .options_menu import CATEGORIES
-                    n = CATEGORIES.index(d['category'])//4*4 + int((h[2]-16)//142)
-                    if h[2]>=16 and 0 <= n < len(CATEGORIES): out += self.control.options_intent('options_category', category=CATEGORIES[n])
+                from .options_menu import CATEGORIES
+                header = og.header_at(h[2], h[3])
+                if d['list'] >= 0:  # a choice list is on top: an item is the pick, anything else shuts it and applies nothing
+                    item = og.choice_at(h[2], h[3], og.row_top(d['focus'], d['scroll']), len(d['rows'][d['focus']]['choices']))
+                    if item is not None: out += self.control.options_pick(item)
+                    else: menu.close_list()
+                elif d['focus'] == og.FOCUS_LIST:  # the open list is on top: an item picks, anything else shuts it
+                    item = og.section_at(h[2], h[3])
+                    if item is not None: out += self.control.options_intent('options_category', category=CATEGORIES[item])
+                    else: out += self.control.options_intent('options_focus', focus=og.FOCUS_SECTION)
+                elif header == 'close': out += self.control.options_intent('options_close')
+                elif header == 'section': out += self.control.options_intent('options_focus', focus=og.FOCUS_LIST)
+                elif header in ('monitor', 'workspace'): out += self.control.options_intent('options_scope', scope=header)
                 elif row is not None:
                     out += self.control.options_intent('options_focus', focus=row)
                     r = d['rows'][row]
                     if r['kind']=='range' and all(k in r for k in ('minimum','maximum','step')):
                         from . import options_geometry as og
-                        if not og.TRACK_X0-5 <= h[2] <= og.TRACK_X1+5:
+                        if not og.TRACK_X0-og.KNOB_R <= h[2] <= og.TRACK_X1+og.KNOB_R:
                             return out + self.control._options_frame()
                         i = h[1]
                         self.drag = dict(kind='options_range', index=i, start=self.pointer, tile=self._tile(i),
@@ -1709,6 +1773,14 @@ class OverviewPointer:
                         menu.capture=self.drag
                     else: out += self.control.options_activate(row)
                 return out + self.control._options_frame()
+            menu = getattr(self.control, 'options', None)
+            if menu is not None and menu.visible is True:  # a press off the menu, which is open and drawn on top
+                if h is not None and h[0] == 'desktop':  # a desktop is no outside (as for a placement panel): the keys go back
+                    menu.desktop_press()
+                    out += self.control._options_frame()
+                else:
+                    self.outside_closes += 1
+                    out += self.control.options_intent('options_close')  # and the press carries on: it was not on the menu
             if h is not None and h[0] == 'maximize':
                 self.drag = {'kind': 'maximize', 'monitor': self.control.state.names[h[1]], 'index': h[1], 'start': self.pointer}
                 return out
@@ -1858,11 +1930,25 @@ class OverviewPointer:
         if tell is None: return b''
         return tell(h[1], h[2] == 'tail') if h is not None and h[0] == 'immersive' else tell(-1)
 
+    def _options_range_value(self, d):
+        """The value a held options slider stands at now, measured on the panel as it was at the press; None off its surface."""
+        from . import options_geometry as og
+        q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry, d['tile'], d['placement'], self.pointer))
+        return None if q is None else og.range_value(d['row'], q[0] - og.panel_rect(d['tile'], pill_rect(d['tile']))[0])
+
     def _apply_drag(self):
         d = self.drag
         if d is None or self.pointer is None: return b''
         c = self.control
-        if d['kind'] in ('maximize', 'options_range'): return b''
+        if d['kind'] == 'maximize': return b''
+        if d['kind'] == 'options_range':  # the knob and value follow the hand; the owner hears at the release
+            value = self._options_range_value(d)
+            menu = c.options
+            if value is not None and menu.capture is d and menu.preview != (d['row']['id'], str(value)):
+                menu.preview = (d['row']['id'], str(value))
+                menu.refresh()
+                return c._options_frame()
+            return b''
         if d['kind'] == 'slider':
             # Measured on the panel as it was at the press, where the renderer keeps drawing it until the release (the
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.

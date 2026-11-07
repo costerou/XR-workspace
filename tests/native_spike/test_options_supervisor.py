@@ -50,9 +50,9 @@ class OptionsTests(unittest.TestCase):
         bad = dict(good, rows=good['rows'] * 2)
         with self.assertRaises(ValueError): om.validate_snapshot(bad)
     def test_clipped_row_geometry(self):
-        self.assertIsNone(geo.row_at(20, 87, 0, 64))
-        self.assertEqual(geo.row_at(20, 88, 38, 64), 1)
-        self.assertIsNone(geo.row_at(20, 392, 0, 64))
+        self.assertIsNone(geo.row_at(30, geo.BODY_TOP - 1, 0, 64))
+        self.assertEqual(geo.row_at(30, geo.BODY_TOP, geo.ROW_H, 64), 1)
+        self.assertIsNone(geo.row_at(30, geo.BODY_BOTTOM, 0, 64))
 
 class WiringTests(unittest.TestCase):
     def control(self):

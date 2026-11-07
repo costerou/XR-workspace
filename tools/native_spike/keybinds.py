@@ -641,9 +641,13 @@ class BindControl:
                     c._typing_installed = typing
                     self._panel_installed = False  # view.remove_binds_lua() closed it too
                     c._menu_binds_installed = False
+                    c._options_binds_installed = False  # the same table
                     if c.state.menu_open and c.menu_binds is not None:
                         c.menu_binds(True)
                         c._menu_binds_installed = True
+                    elif c.options.keyboard_owned and c.options_binds is not None:
+                        c.options_binds(True)
+                        c._options_binds_installed = True
                 want = self.open
                 if want != self._panel_installed or (force and want):
                     if want: self.client.open_key_panel(*self.bind_args)

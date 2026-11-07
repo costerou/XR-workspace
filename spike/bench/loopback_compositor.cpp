@@ -103,6 +103,7 @@ struct Options {
     double feed_drop = 0;
     bool close_control = false;  // --close-control: the supervisor's end closes in the window. --check: the renderer stops and says why.
     bool options_roundtrip = false; // actual renderer options/settings/receipt/refusal/readback flow
+    bool restore_band = false;  // --restore-band, with --maximize N: the Step-Back Band opened and shut on the real renderer
     bool bad_control = false;  // --bad-control: every kind of bad frame in the window, with a good one after each kind
     std::string control_errors = "fatal";  // the renderer's rule (ipc.hpp ControlStream): tests run strict; `--control-errors log` is the shipped one
     double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
@@ -880,7 +881,7 @@ void usage() {
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
-                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--close-control] [--control-errors fatal|log]\n");
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--restore-band] [--close-control] [--control-errors fatal|log]\n");
 }
 }  // namespace
 
@@ -913,6 +914,7 @@ int main(int argc, char** argv) {
         else if (a == "--immersive") opt.immersive = true;
         else if (a == "--engine-dies") { opt.engine_dies = std::stod(next()); opt.immersive = true; }
         else if (a == "--options-roundtrip") opt.options_roundtrip=true;
+        else if (a == "--restore-band") opt.restore_band = true;
         else if (a == "--bad-control") opt.bad_control = true;
         else if (a == "--close-control") opt.close_control = true;
         else if (a == "--control-errors") opt.control_errors = next();
@@ -1072,6 +1074,8 @@ int main(int argc, char** argv) {
         send_frame(2, "view", "{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,"
                               "\"prediction\":false,\"typing\":false}");
     std::uint64_t next_request = capture ? 3 : 2;
+    int band_stage = 0;
+    nlohmann::json band_geometry;
     if (capture && !opt.environment.empty()) send_frame(next_request++, "environment", "{\"background\":\"" + opt.environment + "\",\"brightness\":100}");
     if (capture && opt.open_panel) {
         std::string placements;
@@ -1121,7 +1125,7 @@ int main(int argc, char** argv) {
     std::uint64_t menu_open_id=0,menu_nav_id=0,menu_close_id=0,quality_a_id=0,quality_b_id=0,stereo_id=0,bad_menu_id=0,bad_quality_id=0;
     auto options_payload=[](bool open,bool workspace,std::uint32_t revision){
         Json rows=workspace?Json::array({Json{{"id","video_quality"},{"label","Video quality"},{"scope","workspace"},{"kind","action"},{"value","Open"},{"enabled",true}},Json{{"id","help"},{"label","Help"},{"scope","workspace"},{"kind","readonly"},{"value","Native"},{"enabled",true}}}):Json::array({Json{{"id","placement"},{"label","Placement"},{"scope","monitor"},{"kind","action"},{"value","Open"},{"enabled",true}}});
-        return Json{{"open",open},{"namespace","s1"},{"monitor","XR-2"},{"scope",workspace?"workspace":"monitor"},{"category",workspace?"video":"placement"},{"focus",workspace?1:0},{"scroll",workspace?38:0},{"revision",revision},{"status","idle"},{"message",""},{"rows",rows}};
+        return Json{{"open",open},{"namespace","s1"},{"monitor","XR-2"},{"scope",workspace?"workspace":"monitor"},{"category",workspace?"video":"placement"},{"focus",workspace?1:0},{"list",-1},{"scroll",workspace?38:0},{"revision",revision},{"status","idle"},{"message",""},{"rows",rows}};
     };
     auto send_options_frame=[&](const char* op,const Json& payload){auto id=next_request++;send_frame(id,op,payload.dump());return id;};
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
@@ -1148,6 +1152,7 @@ int main(int argc, char** argv) {
         for (ssize_t n; (n = ::recv(status[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;) {
             ++status_lines;
             const std::string line(buf, std::size_t(n));
+            if (line.rfind("{\"maximize_geometry\":{", 0) == 0) band_geometry = nlohmann::json::parse(line, nullptr, false)["maximize_geometry"];
             if (line.rfind("{\"overview_geometry\":", 0) == 0 && gl && !server.maximized_ns) {
                 ++geometry_lines;
                 try {
@@ -1226,6 +1231,10 @@ int main(int argc, char** argv) {
                     if (depth->publish(xr::DepthShm::Side::Output, c, out)) ++depth_maps_sent;
                 }
             }
+        }
+        if (opt.restore_band && server.maximized_ns && !stop_sent) {
+            if (band_stage == 0 && t >= server.maximized_ns) { send_frame(next_request++, "restore_band", "{\"open\":true}"); band_stage = 1; }
+            else if (band_stage == 1 && t >= server.maximized_ns + 500'000'000) { send_frame(next_request++, "restore_band", "{\"open\":false}"); band_stage = 2; }
         }
         if(opt.options_roundtrip && server.measuring && !stop_sent){
             if(options_stage==0){
@@ -1434,6 +1443,20 @@ int main(int argc, char** argv) {
             if (stderr_text.find("(view): invalid_control: bad view payload") == std::string::npos) fail("a bad payload was not named as one");
             if (stderr_text.find("\"op\":\"roll\"") == std::string::npos) fail("the log did not show the frame's shape");
             if (stderr_text.find("private film") != std::string::npos || stderr_text.find("another-run") != std::string::npos) fail("a frame's text reached the log");
+        }
+        if (opt.restore_band) {
+            if (band_stage != 2) fail("the band was never opened and shut");
+            bool seen = false;
+            for (const auto& report : reports) if (report.value("kind", "") == "managed_output_capture" && report.contains("restore_band")) {
+                seen = true;
+                const auto& band = report["restore_band"];
+                if (band.value("updates", 0) != 2) fail("the renderer did not take both restore_band frames");
+                if (band.value("full_frames", 0) <= 0) fail("the picture never reached the step");
+                if (band.value("value_milli", -1) != 0) fail("the picture did not come forward again");
+            }
+            if (!seen) fail("no restore_band diagnostics");
+            if (!band_geometry.is_object() || !band_geometry.contains("picture") || !band_geometry.contains("hit_mesh")) fail("no band geometry on the status socket");
+            else if (!(band_geometry["rect"][1].get<double>() < band_geometry["tile"][1].get<double>())) fail("the pill is not above the picture");
         }
         if(opt.options_roundtrip){
           if(options_stage!=4)fail("options/settings actual native roundtrip did not complete");

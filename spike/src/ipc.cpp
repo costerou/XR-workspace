@@ -23,12 +23,12 @@ bool options_menu(const Json& p, OptionsMenuState& out, const Json& session) {
  auto str=[](const Json& v, std::size_t n){return v.is_string() && v.get_ref<const std::string&>().size()<=n;};
  auto one=[](const Json& v, std::initializer_list<const char*> names){for(auto n:names)if(v==n)return true;return false;};
  auto num=[](const Json& v, double lo,double hi){return v.is_number_integer() && v.get<double>()>=lo && v.get<double>()<=hi;};
- if(!exact(p,{"open","namespace","monitor","scope","category","focus","scroll","revision","status","message","rows"}))return false;
+ if(!exact(p,{"open","namespace","monitor","scope","category","focus","list","scroll","revision","status","message","rows"}))return false;
  if(!p["open"].is_boolean() || !str(p["namespace"],64) || p["namespace"]!=session || !str(p["monitor"],32))return false;
  const auto monitor=p["monitor"].get<std::string>();
  if(monitor.size()<4 || monitor.substr(0,3)!="XR-" || monitor[3]=='0' || !std::all_of(monitor.begin()+3,monitor.end(),[](char c){return c>='0' && c<='9';}))return false;
  if(!one(p["scope"],{"monitor","workspace"}) || !one(p["category"],{"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"}) || !one(p["status"],{"idle","pending","applied","error"}))return false;
- if(!num(p["focus"],-4,63)||!num(p["scroll"],0,4096)||!num(p["revision"],0,4294967295.)||!str(p["message"],256)||!p["rows"].is_array()||p["rows"].size()>64)return false;
+ if(!num(p["focus"],-4,63)||!num(p["list"],-1,31)||!num(p["scroll"],0,4096)||!num(p["revision"],0,4294967295.)||!str(p["message"],256)||!p["rows"].is_array()||p["rows"].size()>64)return false;
  std::set<std::string> ids;
  for(auto r:p["rows"]) {
   if(!r.is_object())return false;
@@ -46,7 +46,7 @@ bool options_menu(const Json& p, OptionsMenuState& out, const Json& session) {
   for(const auto& c:r["choices"])if(!str(c,96))return false;
   out.rows.push_back({r["id"],r["label"],r["scope"],r["kind"],r["value"],r["unit"],r["minimum"],r["maximum"],r["step"],r["enabled"],r["choices"].get<std::vector<std::string>>()});
  }
- out.open=p["open"];out.name_space=p["namespace"];out.monitor=monitor;out.scope=p["scope"];out.category=p["category"];out.status=p["status"];out.message=p["message"];out.focus=p["focus"];out.scroll=p["scroll"];out.revision=p["revision"];
+ out.open=p["open"];out.name_space=p["namespace"];out.monitor=monitor;out.scope=p["scope"];out.category=p["category"];out.status=p["status"];out.message=p["message"];out.focus=p["focus"];out.list=p["list"];out.scroll=p["scroll"];out.revision=p["revision"];
  return true;
 }
 bool token(const Json& value) {
@@ -362,6 +362,11 @@ bool resize_handle(const Json& p, ResizeHandlePayload& out) {
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), std::uint32_t(named - std::begin(kHandleCorners)), p["active"].get<bool>()};
     return true;
 }
+bool restore_band(const Json& p, RestoreBandPayload& out) {
+    if (!p.is_object() || p.size() != 1 || !p.contains("open") || !p["open"].is_boolean()) return false;
+    out.open = p["open"].get<bool>();
+    return true;
+}
 bool move_handle(const Json& p, MoveHandlePayload& out) {
     if (!p.is_object() || p.size() != 4) return false;
     for (const char* key : {"visible", "hover", "active"})
@@ -474,6 +479,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "move_handle") op = ControlOp::move_handle;
+        else if (name == "restore_band") op = ControlOp::restore_band;
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else if (name == "roll") op = ControlOp::roll;
         else if (name == "desktops") op = ControlOp::desktops;
@@ -572,6 +578,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             ResizeHandlePayload handle;
             if (!resize_handle(j["payload"], handle)) return Error{kInvalidHandleCode, "Ignored malformed resize_handle payload"};
             payload = handle;
+        } else if (op == ControlOp::restore_band) {
+            RestoreBandPayload band;
+            if (!restore_band(j["payload"], band)) return Error{kInvalidRestoreBandCode, "Ignored malformed restore_band payload"};
+            payload = band;
         } else if (op == ControlOp::move_handle) {
             MoveHandlePayload pill;
             if (!move_handle(j["payload"], pill)) return Error{kInvalidMoveHandleCode, "Ignored malformed move_handle payload"};

@@ -721,7 +721,7 @@ class UnifiedPointer(fp.OverviewPointer):
         out = b''
         if op == 'resize_press':
             self.click = {'start': self.pointer, 'at': now, 'moved': False} if live and not idle else None
-            if live and self.control.state.menu_open:
+            if live and (self.control.state.menu_open or self.control.options.keyboard_owned is True):
                 self.desktop_presses += 1
                 out += self.control.desktop_press()
         else:
@@ -789,10 +789,12 @@ class UnifiedSampler(il.LockedSampler):
             except (OSError, ValueError, TypeError, KeyError):
                 self.errors += 1
             if not self.pointer.overview() and self.sample_restore(outputs):
+                self.bound = False  # the grab or its release took the binds with it
                 self._stop.wait(self.period)
                 continue
             if not self.pointer.overview():
-                self._release()
+                if self.pointer.restore_sampling(): self._arm_clicks()
+                else: self._release()
                 # The normal cursor outside the overview, but for a hand's pan: the dot shows where the hand is, until it lands.
                 self.cursor.step(self.client, self.push.frame is not None or self._pending is not None)
                 self.applied = None  # re-apply the current want when the overview is back
@@ -811,6 +813,16 @@ class UnifiedSampler(il.LockedSampler):
             self._recentre(cursor)
             self._read_shape()
             self._stop.wait(self.period)
+
+    def _arm_clicks(self):
+        """Maximized: the non-consuming click binds, while the band can open: the run has to know a held button from a rest."""
+        if self.bound or self.grabbed: return
+        try:
+            self.ever_grabbed = True  # undone at stop as any bind of this table is
+            self.client.arm_click_binds(*self.bind_args)
+            self.bound = True
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            self.errors += 1
 
     def _confine(self, outputs):
         """Outside the overview: put a cursor that left home back on it, and switch desktops on a push past home's edge

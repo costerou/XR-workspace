@@ -127,7 +127,7 @@ class BindTests(unittest.TestCase):
         self.assertNotIn('color', environment.DEFAULTS)
 
     def test_no_other_run_key_uses_it(self):
-        chords = [bind_check.normalize(c) for _, c, _ in bind_check.run_chords()]
+        chords = [bind_check.normalize(c) for where, c, _ in bind_check.run_chords() if where != 'options']  # (replaces the panel's keys)
         self.assertEqual(len(chords), len(set(chords)) + 1)  # the left button's press / release is the one pair
 
     def test_one_help_row_in_the_modes_section(self):

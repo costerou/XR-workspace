@@ -28,7 +28,7 @@ int main(int argc,char**argv){
   FRect tile=restore?tiles[0]:overview[0];
   auto placed=zoomed_placements(canvas,overview,tiles,original,animator.zoom(),animator.position())[0];
   auto aim=focus_direction(canvas,overview,original,0);auto camera=restore?view_from(Quat{},aim_rotation(aim[0],aim[1])):Mat3{1,0,0,0,1,0,0,0,1};
-  auto control_rect=restore?options_restore_rect(canvas,tile,placed,camera):options_maximize(tile);
+  auto control_rect=restore?options_restore_rect(tile,options_step_scale(tile)):options_maximize(tile);
   if(restore&&control_rect.width<=0)return 3;
   scenes.push_back({{"frame",state},{"phase",phases[state]},{"zoom",animator.zoom()},{"resolved_rect",{control_rect.x,control_rect.y,control_rect.width,control_rect.height}},{"native_geometry",restore?nlohmann::json::parse(maximize_geometry_json("XR-2",canvas,tile,placed,camera)):nlohmann::json(nullptr)}});
   menu.scope=state==5?"workspace":"monitor";menu.category=state==4?"output":state==5?"video":"placement";
@@ -50,10 +50,9 @@ int main(int argc,char**argv){
    icon(options_gear(tile),options_gear_box());
    if(state>=3&&state<=5){auto panel=render_options_panel(menu,font.get());auto r=options_panel(tile);blit(panel,int(r.x),int(r.y));}
   }
-  auto r=control_rect;icon(r,options_icon_box(restore,hover));
-  if(hover){float scale=level_bar_scale(tile);icon({r.x,r.y+32*scale,84*scale,20*scale},options_hint_box(true));}
+  auto r=control_rect;icon(r,restore?options_restore_box(hover):options_icon_box(hover));
   std::ofstream out(std::string(argv[1])+"/native-options-"+std::to_string(state)+".ppm",std::ios::binary);out<<"P6\n1000 1000\n255\n";for(std::size_t p=0;p<frame.rgba.size();p+=4)out.write(reinterpret_cast<char*>(&frame.rgba[p]),3);
  }
  std::ofstream(std::string(argv[1])+"/capture-scenes.json")<<scenes.dump(2);
- std::cout<<"CPU production native raster: overview chrome, C1 panel, app-inset Restore normal/hover. Captured picture placeholder; no projected GPU/session evidence.\n";
+ std::cout<<"CPU production native raster: overview chrome, C1 panel, the band's Restore normal/hover. Captured picture placeholder; no projected GPU/session evidence.\n";
 }
