@@ -51,7 +51,7 @@ class BundlePathTests(unittest.TestCase):
         client.plugins_loaded=Mock(return_value=[]);client.park_presentation=Mock()
         events=[]
         class Session:
-            def __init__(self,root,directory,projection,seconds,approved):
+            def __init__(self,root,directory,projection,seconds,approved,**_):
                 directory.mkdir();self.prefix=str(directory/'pose_');self.projection=projection;self.nonce='n';self.health_path=directory/'health.json'
             def start(self):
                 events.append('start');self.health_path.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic())));self.health_path.chmod(0o600)

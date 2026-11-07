@@ -69,16 +69,17 @@ struct Api {
  // Do not dlclose on a failed stop: callbacks remain valid until process exit.
 };
 int main(int argc,char** argv){
- int sdk_fd=-1,status_fd=-1,pose_hz=60;double projection=0,seconds=0,max_seconds=300;bool approved=false;std::string prefix,root="/sys/bus/usb/devices",expected=kHash;
+ int sdk_fd=-1,status_fd=-1,pose_hz=60;double projection=0,seconds=0,max_seconds=300,mount_pitch=0;bool approved=false;std::string prefix,root="/sys/bus/usb/devices",expected=kHash;
  try{
   for(int i=1;i<argc;++i){std::string a=argv[i];if(a=="--supervised-pro2-test"){approved=true;continue;}if(a=="--panel-route"){max_seconds=kRouteSeconds;continue;}if(i+1>=argc)throw std::runtime_error("arguments");std::string v=argv[++i];
    if(a=="--sdk-fd")sdk_fd=std::stoi(v);else if(a=="--status-fd")status_fd=std::stoi(v);else if(a=="--prefix")prefix=v;else if(a=="--projection")projection=std::stod(v);else if(a=="--seconds")seconds=std::stod(v);else if(a=="--pose-rate"){std::size_t used=0;pose_hz=std::stoi(v,&used);if(used!=v.size())throw std::runtime_error("arguments");}
+   else if(a=="--mount-pitch"){std::size_t used=0;mount_pitch=std::stod(v,&used);if(used!=v.size())throw std::runtime_error("arguments");}
 #ifdef PRO2_SYNTHETIC
    else if(a=="--fixture-root")root=v;else if(a=="--fixture-hash")expected=v;
 #endif
    else throw std::runtime_error("unknown-argument");
   }
-  if(!approved||sdk_fd<3||status_fd<3||!std::isfinite(projection)||projection<44.5||projection>50||rate_code(pose_hz)<0||!std::isfinite(seconds)||seconds<=0||seconds>max_seconds||prefix.empty()||prefix[0]!='/'||prefix=="/tmp/shader_runtime_")throw std::runtime_error("explicit-supervised-scope-required");
+  if(!approved||sdk_fd<3||status_fd<3||!std::isfinite(projection)||projection<44.5||projection>50||rate_code(pose_hz)<0||!std::isfinite(mount_pitch)||std::fabs(mount_pitch)>30||!std::isfinite(seconds)||seconds<=0||seconds>max_seconds||prefix.empty()||prefix[0]!='/'||prefix=="/tmp/shader_runtime_")throw std::runtime_error("explicit-supervised-scope-required");
   struct stat sdk_stat{},status_stat{};
   if(sdk_fd==status_fd||fstat(sdk_fd,&sdk_stat)||!S_ISREG(sdk_stat.st_mode)||fstat(status_fd,&status_stat)||(!S_ISFIFO(status_stat.st_mode)&&!S_ISREG(status_stat.st_mode)))throw std::runtime_error("invalid-descriptor-type");
  }catch(...){return 2;}
@@ -107,7 +108,7 @@ int main(int argc,char** argv){
   if(reg(sdk.handle,callback))throw std::runtime_error("register");
   char version[256]{};int length=sizeof version;
   if(firmware(sdk.handle,version,&length)||length<=0||length>256||!memchr(version,0,sizeof version)||std::string(version)!="30.0.00.002_20260804"||(length!=int(std::strlen(version))&&length!=int(std::strlen(version)+1)))throw std::runtime_error("firmware");
-  luma::PublisherOptions options;options.prefix=prefix;options.private_segments=true;options.history_step=luma::history_step_for(static_cast<std::uint32_t>(pose_hz));options.mount_pitch_deg=0;options.display_fov_deg=static_cast<float>(projection);options.look_ahead_cfg=kLookAhead;
+  luma::PublisherOptions options;options.prefix=prefix;options.private_segments=true;options.history_step=luma::history_step_for(static_cast<std::uint32_t>(pose_hz));options.mount_pitch_deg=static_cast<float>(mount_pitch);options.display_fov_deg=static_cast<float>(projection);options.look_ahead_cfg=kLookAhead;
   std::string why;publisher=luma::Publisher::open(options,why);if(!publisher)throw std::runtime_error("publisher-open");
   accepting=true;open_attempt=true;if(open(sdk.handle,1,static_cast<std::uint8_t>(rate_code(pose_hz))))throw std::runtime_error("open");
   const auto start=Clock::now();auto last=Clock::now();std::uint64_t prev=0;bool have=false;int valid=0;
@@ -122,7 +123,7 @@ int main(int argc,char** argv){
    ++valid;if(valid<3)continue;
    luma::PoseOut pose{{float(s.v[3]/norm),float(-s.v[6]/norm),float(-s.v[4]/norm),float(s.v[5]/norm)},s.ts,static_cast<std::uint32_t>(samples),true};
    if(!publisher->publish(pose))throw std::runtime_error("publish");++samples;
-   if(!ready){ready=true;dprintf(status_fd,"{\"event\":\"ready\",\"projection_diagonal_approx\":%.3f,\"pose_rate_hz\":%d}\n",projection,pose_hz);}
+   if(!ready){ready=true;dprintf(status_fd,"{\"event\":\"ready\",\"projection_diagonal_approx\":%.3f,\"pose_rate_hz\":%d,\"mount_pitch_deg\":%.3f}\n",projection,pose_hz,mount_pitch);}
   }
   if(!ready&&!stopped)throw std::runtime_error("no-ready");
  }catch(const fs::filesystem_error&){error="identity-filesystem";}catch(const std::exception& e){error=e.what();}

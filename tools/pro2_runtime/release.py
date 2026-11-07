@@ -47,7 +47,7 @@ def assemble(build_dir, destination):
     runtime_sha = hashlib.sha256((release / 'runtime/manifest.json').read_bytes()).hexdigest()
     native = {name: manifest['files']['bin/' + name] for name in ('pro2-sdk-bridge', 'xr-native-spike', 'libxr-ownership.so')}
     (release / 'release.json').write_text(json.dumps(dict(source=manifest['source_commit'], manifest_sha256=runtime_sha, runtime_files=len(manifest['files']),
-                                                          sdk_sha256=manifest['sdk_sha256'], firmware=manifest['firmware'], native=native, smoothing=dict(tau_ms=35, look_ahead_cfg=[0, 0, 0, 40], default_pose_rate_hz=60)), indent=2) + '\n')
+                                                          sdk_sha256=manifest['sdk_sha256'], firmware=manifest['firmware'], native=native, smoothing=dict(tau_ms=35, look_ahead_cfg=[0, 0, 0, 40], default_pose_rate_hz=60, default_mount_pitch_deg=-11.0)), indent=2) + '\n')
     (release / 'SHA256SUMS').write_text(sums(release))
     archive = destination / f"pro2-runtime-release-{manifest['source_commit'][:7]}.tar.gz"
     with tarfile.open(archive, 'w:gz') as stream: stream.add(release, arcname='pro2-runtime-release')

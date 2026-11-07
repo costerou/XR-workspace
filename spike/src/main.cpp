@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23 && argc != 25 && argc != 27 && argc != 29) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23 && argc != 25 && argc != 27 && argc != 29 && argc != 31) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
     if (args.contains("--depth-fd") && depth_fd < 0) return 2;
     if (args.contains("--control-errors") && args["--control-errors"] != "fatal") return 2;
     const bool control_errors_fatal = args.contains("--control-errors");
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd") - args.count("--pro2-test-pose-prefix") - args.count("--pro2-test-projection") - args.count("--pro2-test-smooth-ms");
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd") - args.count("--pro2-test-pose-prefix") - args.count("--pro2-test-projection") - args.count("--pro2-test-smooth-ms") - args.count("--pro2-test-level-gravity");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -101,6 +101,8 @@ int main(int argc, char** argv) {
         char* end = nullptr; test_smooth_ms = std::strtof(args["--pro2-test-smooth-ms"].c_str(), &end);
         if (test_prefix.empty() || !end || *end || !xr::motion_smooth_params(test_smooth_ms)) return 2;
     }
+    const bool test_level_gravity = args.contains("--pro2-test-level-gravity");
+    if (test_level_gravity && (test_prefix.empty() || args["--pro2-test-level-gravity"] != "1")) return 2;
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
     if (status_fd >= 0 && (status_fd == control || status_fd == wayland)) return 2;
@@ -133,7 +135,7 @@ int main(int argc, char** argv) {
     int result = 0;
     if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
-    if (!result && pose_feed) presentation.enable_tracking(test_prefix.empty()?"/tmp/shader_runtime_":test_prefix,test_projection,test_smooth_ms);  // XRLinuxDriver IPC (fixed path)
+    if (!result && pose_feed) presentation.enable_tracking(test_prefix.empty()?"/tmp/shader_runtime_":test_prefix,test_projection,test_smooth_ms,test_level_gravity);  // XRLinuxDriver IPC (fixed path)
     if (!result && presentation.restore_continuity(continuity_fd)) std::cerr << "continuity: restored\n";
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame

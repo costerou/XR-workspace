@@ -13,7 +13,7 @@ what software can see: from a sample's timestamp to its presentation. The panel'
     step_err_*        per-frame step minus the reference's, degrees, vector difference
     jerk_p95          second difference of the shown pose, degrees per frame per frame
     slow_jerk_p95     the same, on moving frames under SLOW_DPS: stepping shows most in a slow turn
-    tilt              on captures with cues: how far the picture leans per 10 degrees of turn, through the real view
+    tilt              on captures with cues: how far the picture leans per 10 degrees of turn, through the real view, for each candidate frame
     lag_ms            how far behind the reference the view is, along the motion
     err_rms           shown pose against the reference, degrees
     overshoot_*       at each stop, how far the view went past the furthest the head itself went nearby, degrees
@@ -34,9 +34,10 @@ STOP_FROM_DPS, STOP_TO_DPS = 15.0, 3.0
 DEG = 180 / math.pi
 PIXELS_PER_DEG = 1920 / 39.25  # a 44.5 degree diagonal on 1920x1080 (docs/pro2/projection-policy.md), for reading the numbers
 PHASES_MS = (0.0, 2.08, 4.17, 6.25)  # where the display grid falls on the capture
-# The exact values the Pro 2 route ships: tau is scope.SMOOTH_MS, cap and constant are bridge.cpp kLookAhead, the brake is motion_smooth.hpp.
-SHIPPED = dict(tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0)
-TILT_LIMIT = 0.1  # degrees of lean per 10 of turn, for the turn alone: the head's own roll and pitch are not the renderer's
+# The exact values the Pro 2 route ships: tau is scope.SMOOTH_MS, cap and constant are bridge.cpp kLookAhead, the brake is motion_smooth.hpp,
+# the mount is display_policy.PRO2_MOUNT_PITCH.
+SHIPPED = dict(tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0, mount=-11.0)
+TILT_LIMIT = 0.3  # degrees of lean per 10 of turn, in the moving part of a turn, at the shipped mount pitch
 READ_TO_PRESENT_MS = 16.6
 ACCEPT = dict(stuck_pct=2.0, step_err_p95=0.12, jerk_p95=0.08, slow_jerk_p95=0.07, lag_ms=9.0, overshoot_max=0.30, rest_step_p95=0.016)
 
@@ -139,7 +140,7 @@ class Path_:
         return unit(tuple(a + (b - a) * u for a, b in zip(qs[i], qs[i + 1])))
 
 
-def replay(binary, rows, *, mode, phase=0.0, tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0, stabilization=25, r2p=READ_TO_PRESENT_MS, period=8.3333, read_jitter=0.0, level=1):
+def replay(binary, rows, *, mode, phase=0.0, tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0, stabilization=25, r2p=READ_TO_PRESENT_MS, period=8.3333, read_jitter=0.0, level=0):
     text = ''.join(f'{h:.6f} {d:.6f} {q[0]:.9f} {q[1]:.9f} {q[2]:.9f} {q[3]:.9f}\n' for h, d, q in rows)
     args = [str(binary), '--mode', mode, '--phase', str(phase), '--tau', str(tau), '--cap', str(cap), '--constant', str(constant),
             '--brake', str(brake), '--brake-floor', str(brake_floor), '--stabilization', str(stabilization), '--r2p', str(r2p), '--period', str(period), '--read-jitter', str(read_jitter), '--level', str(level)]
@@ -238,44 +239,29 @@ def tilt(frames, begin_ms=None, end_ms=None):
                 left=furthest[-1] and dict(yaw=round(furthest[-1]['yaw'], 1), roll=round(furthest[-1]['roll'], 2)))
 
 
-def solve(rows, targets):
-    """Least squares by the normal equations, for a small fit with no numpy."""
-    n = len(rows[0])
-    a = [[sum(r[i] * r[j] for r in rows) for j in range(n)] + [sum(r[i] * t for r, t in zip(rows, targets))] for i in range(n)]
-    for i in range(n):
-        pivot = max(range(i, n), key=lambda k: abs(a[k][i]))
-        a[i], a[pivot] = a[pivot], a[i]
-        for k in range(n):
-            if k != i:
-                f = a[k][i] / a[i][i]
-                a[k] = [x - f * y for x, y in zip(a[k], a[i])]
-    return [a[i][n] / a[i][i] for i in range(n)]
+def mounted(rows, degrees):
+    """The feed as the bridge publishes it with this mount pitch: q * pitch about the left axis (luma::Publisher mount_pitch_deg)."""
+    half = math.radians(degrees) / 2
+    turn = (0.0, math.sin(half), 0.0, math.cos(half))
+    return [(host, device, unit(qmul(q, turn))) for host, device, q in rows]
 
 
-def explained_tilt(frames, euler, begin_ms, end_ms):
-    """Split the lean: the wearer's own roll (the SDK's gravity roll), the perspective of a head that is both turned and pitched, and
-    what is left for yaw alone. That last figure, per 10 degrees of turn, is the coupling the head's turn puts into the picture."""
-    times, rolls, pitches = euler
+def turn_lean(frames, begin_ms, end_ms):
+    """Lean per 10 degrees of turn, on the capture's turns, three ways. `fast`: the moving middle of the left to right sweep. `end_to_end`:
+    between its two ends. `whole`: every frame. They need not agree: the head's own path differs in and out of motion."""
     window = [f for f in frames if begin_ms <= f['present'] < end_ms and math.isfinite(f['roll'])]
-    def at(series, t):
-        i = min(range(len(times)), key=lambda k: abs(times[k] - t)) if len(times) < 64 else min(len(times) - 1, max(0, bisect.bisect_left(times, t)))
-        return series[i]
-    rows, targets = [], []
-    for f in window:
-        t = f['present'] - READ_TO_PRESENT_MS
-        roll, pitch = at(rolls, t) - rolls[0], at(pitches, t) - pitches[0]
-        rows.append((math.degrees(math.atan(math.sin(math.radians(pitch)) * math.tan(math.radians(f['yaw'])))), roll, f['yaw'] / 10, 1.0))
-        targets.append(f['roll'])
-    fit = solve(rows, targets)
-    rms = math.sqrt(sum((sum(c * x for c, x in zip(fit, r)) - y) ** 2 for r, y in zip(rows, targets)) / len(rows))
-    return dict(perspective=round(fit[0], 3), head_roll=round(fit[1], 3), roll_per_10deg_yaw_alone=round(fit[2], 3), rms_deg=round(rms, 3))
+    low, high = min(range(len(window)), key=lambda i: window[i]['yaw']), max(range(len(window)), key=lambda i: window[i]['yaw'])
+    first, last = sorted((low, high))
+    moving = [window[i] for i in range(first + 1, last) if abs(window[i + 1]['yaw'] - window[i - 1]['yaw']) / (window[i + 1]['present'] - window[i - 1]['present']) > .015]
+    slope = lambda part: 10 * tilt_slope(part)
+    return dict(fast=round(slope(moving), 3), fast_frames=len(moving), whole=round(slope(window), 3),
+                end_to_end=round(10 * (window[high]['roll'] - window[low]['roll']) / (window[high]['yaw'] - window[low]['yaw']), 3),
+                right=dict(yaw=round(window[high]['yaw'], 1), roll=round(window[high]['roll'], 2)), left=dict(yaw=round(window[low]['yaw'], 1), roll=round(window[low]['roll'], 2)))
 
 
-def euler_of(path):
-    """Host ms from the first sample, and the SDK's roll and pitch, averaged over its first half second as the start."""
-    with open(path) as stream: rows = [r for r in map(json.loads, stream) if r.get('kind') == 'pose']
-    start = rows[0]['host_monotonic_ns'] / 1e6
-    return [r['host_monotonic_ns'] / 1e6 - start for r in rows], [r['sdk_values'][0] for r in rows], [r['sdk_values'][1] for r in rows]
+def tilt_slope(frames):
+    mean_y, mean_r = sum(f['yaw'] for f in frames) / len(frames), sum(f['roll'] for f in frames) / len(frames)
+    return sum((f['yaw'] - mean_y) * (f['roll'] - mean_r) for f in frames) / (sum((f['yaw'] - mean_y) ** 2 for f in frames) or 1.0)
 
 
 def evaluate(binary, rows, *, mode, **options):
@@ -317,25 +303,23 @@ def main(argv=None):
     parser.add_argument('--tau', type=float, default=SHIPPED['tau'])
     parser.add_argument('--brake', type=float, default=SHIPPED['brake'])
     args = parser.parse_args(argv)
-    sets = {p.stem: load_capture(p) for p in args.captures}
+    sets = {p.stem: load_capture(p) for p in args.captures}  # as captured: `smoothed` below adds the shipped mount, as the bridge does
     if args.synthetic: sets['synthetic'] = synthetic()
     report, failed = {}, []
     for name, rows in sets.items():
         before = evaluate(args.replay, rows, mode='hold', level=0)  # the first live test
-        after = evaluate(args.replay, rows, mode='smooth', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake, brake_floor=SHIPPED['brake_floor'])
+        after = evaluate(args.replay, mounted(rows, SHIPPED['mount']), mode='smooth', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake, brake_floor=SHIPPED['brake_floor'])
         legacy = evaluate(args.replay, rows, mode='legacy', cap=SHIPPED['cap'], constant=SHIPPED['constant'], level=0)
-        jittered = evaluate(args.replay, rows, mode='smooth', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake,
+        jittered = evaluate(args.replay, mounted(rows, SHIPPED['mount']), mode='smooth', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake,
                             brake_floor=SHIPPED['brake_floor'], read_jitter=2.0)
         report[name] = dict(cadence=cadence(rows), hold=before, legacy_prediction=legacy, smoothed=after, smoothed_2ms_read_jitter=jittered)
         turns = turn_window(args.captures, name)
         if turns:  # what Cody saw: the turns of the directional capture, before and after levelling
-            lean, euler = {}, euler_of(next(p for p in args.captures if p.stem == name))
-            for key, level in (('unlevelled', 0), ('levelled', 1)):
-                frames = replay(args.replay, rows, mode='smooth', level=level)[1]
-                lean[key] = dict(tilt(frames, *turns), split=explained_tilt(frames, euler, *turns))
+            lean = {}
+            for key, mount, level in (('no_mount', 0.0, 0), ('gravity_level_at_19.5', 0.0, 1), ('upstream_minus_8.5', -8.5, 0), ('shipped_mount', SHIPPED['mount'], 0)):
+                lean[key] = turn_lean(replay(args.replay, mounted(rows, mount), mode='hold', level=level, stabilization=0)[1], *turns)
             report[name]['tilt'] = lean
-            alone = lean['levelled']['split']['roll_per_10deg_yaw_alone']
-            if abs(alone) > TILT_LIMIT: failed.append(f'{name}: tilt {alone} over {TILT_LIMIT}')
+            if abs(lean['shipped_mount']['fast']) > TILT_LIMIT: failed.append(f"{name}: tilt {lean['shipped_mount']['fast']} over {TILT_LIMIT}")
         if name == 'synthetic':  # for tests without private data: a head this clean only proves the direction, not the limits
             if after['jerk_p95'] * 2 > before['jerk_p95'] or after['stuck_pct'] * 5 > before['stuck_pct']: failed.append('synthetic: not smoother than hold')
         elif name != 'stationary': failed += [f'{name}: {f}' for f in failures(after)]

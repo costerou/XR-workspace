@@ -59,8 +59,15 @@ public:
     float peak_speed_dps() const { return peak_speed_dps_; }           // the fastest the head was measured going
     std::uint64_t capped_frames() const { return capped_frames_; }     // frames that wanted more than max_predict_deg
     std::uint64_t frames() const { return frames_; }
+    // The axis the head actually turned about, in this feed's frame, from the fast yaw of the whole run: 0 means this frame's up is it.
+    // Positive leans its top forward, and such a frame leans the picture with the turn. The mount pitch that would zero it is the
+    // current one plus turn_axis_forward_deg.
+    float turn_axis_forward_deg() const { return turn_axis_(0); }
+    float turn_axis_left_deg() const { return turn_axis_(1); }
+    float turn_seconds() const { return float(turn_ms_ / 1000); }
 private:
     void learn(Quat relative, float device_ms);
+    float turn_axis_(int component) const;
     std::array<float, 3> velocity() const;
     MotionSmoothParams p_;
     bool valid_ = false;
@@ -71,6 +78,8 @@ private:
     std::uint32_t count_ = 0;
     std::uint64_t snaps_ = 0, capped_frames_ = 0, frames_ = 0;
     float peak_speed_dps_ = 0;
+    std::array<double, 3> turn_sum_{};
+    double turn_ms_ = 0;
     float last_correction_deg_ = 0, last_predicted_deg_ = 0, last_horizon_ms_ = 0, max_predicted_deg_ = 0;
 };
 }

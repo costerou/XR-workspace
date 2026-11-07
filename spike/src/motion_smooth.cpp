@@ -6,6 +6,7 @@ namespace xr {
 namespace {
 constexpr float kPi = 3.14159265358979f;
 constexpr float kRadToDeg = 180.f / kPi;
+constexpr float kTurnMinDps = 15.f;
 using Vec = std::array<float, 3>;
 Vec log_of(Quat q) {  // rotation vector, radians
     if (q.w < 0) q = {-q.x, -q.y, -q.z, -q.w};
@@ -22,6 +23,11 @@ Quat exp_of(Vec v) {
 }
 float norm(Vec v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); }
 Quat unit(Quat q) { return quat_normalized(q).value_or(Quat{}); }
+}
+
+float MotionSmoother::turn_axis_(int component) const {
+    if (!(turn_sum_[2] > 0)) return 0;
+    return float(std::atan2(turn_sum_[std::size_t(component)], turn_sum_[2])) * kRadToDeg;
 }
 
 std::optional<MotionSmoothParams> motion_smooth_params(float tau_ms) {
@@ -57,10 +63,19 @@ Vec MotionSmoother::velocity() const {
 Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, double now_ms) {
     relative = unit(relative);
     if (!std::isfinite(device_ms) || !std::isfinite(now_ms)) { reset(); return relative; }
-    if (!count_ || device_ms != t_[0]) new_sample_ms_ = now_ms;
+    const bool fresh_sample = !count_ || device_ms != t_[0];
+    if (fresh_sample) new_sample_ms_ = now_ms;
     learn(relative, device_ms);
     Vec v = velocity();
     peak_speed_dps_ = std::max(peak_speed_dps_, norm(v) * kRadToDeg * 1000.f);
+    if (fresh_sample && count_ == 3) {  // one vote per sample, and only for a real turn: fast, and mostly about up
+        const float speed = norm(v), gap = t_[0] - t_[1];
+        if (speed * kRadToDeg * 1000.f > kTurnMinDps && std::fabs(v[2]) > 0.8f * speed) {
+            const float way = v[2] > 0 ? gap : -gap;
+            for (int i = 0; i < 3; ++i) turn_sum_[std::size_t(i)] += double(v[std::size_t(i)]) * way;
+            turn_ms_ += gap;
+        }
+    }
     ++frames_;
     // The newest interval against the window: 1 at a steady speed, towards 0 as the head stops, 0 when it turns back.
     float keep = 1;

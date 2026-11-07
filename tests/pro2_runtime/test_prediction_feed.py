@@ -14,7 +14,7 @@ ROOT=Path(__file__).resolve().parents[2]
 
 @unittest.skipUnless(os.environ.get('PRO2_RUNTIME_NAMESPACE_TEST')=='1','run via tests/pro2_runtime/run.py in private namespaces')
 class PredictionFeed(unittest.TestCase):
-    def feed(self):
+    def feed(self,source='tests/pro2_runtime/predict_probe.cpp',extra=('spike/src/predict.cpp',),**session_options):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);(root/'bin').mkdir();usb=root/'sysfs';(usb/'1-1').mkdir(parents=True)
             for name,value in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='13').items():(usb/'1-1'/name).write_text(value+'\n')
@@ -22,7 +22,7 @@ class PredictionFeed(unittest.TestCase):
             for cmd in (
                 ['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],
                 ['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)],
-                ['c++','-std=c++20','-pthread','-Ispike/include','tests/pro2_runtime/predict_probe.cpp','spike/src/predict.cpp','spike/src/pose.cpp','-o',str(probe)]):
+                ['c++','-std=c++20','-pthread','-Ispike/include',source,*extra,'spike/src/pose.cpp','-o',str(probe)]):
                 subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
             digest=hashlib.sha256(sdk.read_bytes()).hexdigest()
             for name in ('xr-native-spike','libxr-ownership.so'):(root/'bin'/name).write_bytes(b'fixture')
@@ -31,7 +31,7 @@ class PredictionFeed(unittest.TestCase):
             class Session(launch.RuntimeSession):
                 def command(self,*args):return super().command(*args)+['--fixture-root',str(usb),'--fixture-hash',digest]
             with patch.object(launch,'LIBRARY',str(sdk)),patch.object(launch,'SHA256',digest),patch.object(launch,'inventory',return_value=[('35ca','1301','VITURE PRO 2 XR Glasses')]),patch.object(launch,'admit'),patch.object(launch,'competing',return_value=False):
-                session=Session(root,root/'run',44.5,4,True)
+                session=Session(root,root/'run',44.5,4,True,**session_options)
                 try:
                     session.start();session.healthy()
                     done=subprocess.run([str(probe),session.prefix],capture_output=True,timeout=6)
@@ -39,6 +39,14 @@ class PredictionFeed(unittest.TestCase):
                     return json.loads(done.stdout)
                 finally:session.close()
 
+    def test_the_mount_pitch_reaches_the_feed_through_the_real_bridge(self):
+        import math
+        from tools.pro2_runtime import smooth_acceptance as A
+        got=self.feed('tests/pro2_runtime/mount_probe.cpp',(),mount_pitch_deg=-11.0)
+        # The fixture's SDK pose, through H1, then q * pitch: what A.mounted does to a capture.
+        w,x,y,z=.9950041653,0.0,.0998334166,0.0
+        want=A.mounted([(0.0,0.0,A.unit((-z,-x,y,w)))],-11.0)[0][2]
+        for key,value in zip('xyzw',want):self.assertAlmostEqual(got[key],value,places=4)
     def test_every_sample_can_be_predicted(self):
         seen=self.feed()
         self.assertGreater(seen['distinct'],5,seen)
@@ -86,6 +94,14 @@ class PoseRateFlag(unittest.TestCase):
             with self.subTest(rate=rate):
                 code,events,trace=self.bridge('--pose-rate',rate)
                 self.assertEqual(code,2);self.assertEqual((events,trace),([],[]))
+    def test_a_mount_pitch_outside_the_bounds_or_with_junk_is_refused_before_the_sdk(self):
+        for value in ('-31','31','nan','-11x'):
+            with self.subTest(value=value):
+                code,events,trace=self.bridge('--mount-pitch',value)
+                self.assertEqual(code,2);self.assertEqual((events,trace),([],[]))
+    def test_the_ready_line_names_the_mount(self):
+        code,events,_=self.bridge('--mount-pitch','-11')
+        self.assertEqual(code,0,events);self.assertEqual(events[0]['mount_pitch_deg'],-11)
     def test_a_long_deadline_needs_the_panel_route(self):
         self.assertEqual(launch.ROUTE_SECONDS,43200)
         with self.assertRaises(ValueError):launch.RuntimeSession('/nonexistent','/nonexistent',44.5,301,True)

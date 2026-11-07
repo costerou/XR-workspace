@@ -10,6 +10,10 @@ import math
 # and up to 50 is an engineering test bound in 1 degree steps, the last one shorter. Approximate; none of it is a calibration.
 PRO2_DEFAULT_PROJECTION = 44.5
 PRO2_PROJECTIONS = (44.5, 45.5, 46.5, 47.5, 48.5, 49.5, 50.0)
+# Degrees about the glasses' left axis, applied to every pose: the frame a head's turn is a clean yaw in (docs/pro2/smoothness.md). A
+# fit to one wearer's turns, provisional until `turn_axis_forward_deg` from a live run confirms it. Upstream's -8.5 is not this value.
+PRO2_MOUNT_PITCH = -11.0
+PRO2_MOUNT_BOUNDS = (-30.0, 30.0)
 
 
 def initial_picture_mode(model, width, height, refresh):

@@ -170,8 +170,8 @@ class Run(Base):
     def session(self):
         seen=self.seen={}
         class Session:
-            def __init__(s,root,directory,projection,seconds,approved,pose_rate_hz=60,panel_route=False):
-                seen.update(root=root,projection=projection,seconds=seconds,rate=pose_rate_hz,panel_route=panel_route)
+            def __init__(s,root,directory,projection,seconds,approved,pose_rate_hz=60,panel_route=False,mount_pitch_deg=0.0):
+                seen.update(root=root,projection=projection,seconds=seconds,rate=pose_rate_hz,panel_route=panel_route,mount=mount_pitch_deg)
                 directory.mkdir();s.prefix=str(directory/'pose_');s.projection=projection;s.nonce='n';s.health_path=directory/'health.json';s.done=dict(samples=9,seconds=1.5,pose_rate_hz=60,gap_ms_counts=[0,0,0,6,3,0])
                 s.health_path.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=__import__('time').monotonic())));s.health_path.chmod(0o600)
             def start(s):return s
@@ -187,7 +187,7 @@ class Run(Base):
     def test_a_session_runs_the_bundle_with_its_projection_and_a_session_deadline(self):
         out,run,client=self.run_it(stop_reason='interrupted')
         self.assertEqual(out['complete'],True);self.assertEqual(out['stop_reason'],'interrupted');self.assertEqual(out['provider']['samples'],9)
-        self.assertEqual((self.seen['projection'],self.seen['rate'],self.seen['panel_route'],self.seen['seconds']),(47.5,60,True,43200))
+        self.assertEqual((self.seen["projection"],self.seen["rate"],self.seen["panel_route"],self.seen["seconds"],self.seen["mount"]),(47.5,60,True,43200,-11.0))
         self.assertTrue(self.seen['closed'])
         kwargs=run.call_args.kwargs
         self.assertIs(kwargs['test_scope'].fixed_desktops,False);self.assertEqual(kwargs['store'].model,'pro2')

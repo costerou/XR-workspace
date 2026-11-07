@@ -3,7 +3,7 @@
 Run by the orchestrator, with Cody wearing the glasses and agreeing to this run. Stops by itself. Needs no sudo. Everything it
 writes goes to a new private directory under ~/.local/state/viture-workspace/pro2-hil/. See docs/pro2/smooth-live-test.md.
 
-The run checks two things: the picture stays level through left and right turns, and the run lasts its full time.
+The run asks one thing: does the picture stay level through left and right turns at this mount pitch? It also measures Cody's own turn axis.
 """
 import argparse
 import datetime
@@ -15,17 +15,20 @@ import signal
 import subprocess
 import time
 
+from tools.native_spike.display_policy import PRO2_MOUNT_PITCH
+
 HIL = Path.home() / '.local/state/viture-workspace/pro2-hil'
 OUTPUT, FALLBACK = ('DP-2', 'VITURE'), ('DP-1', 'Odyssey G93SD')
 PROVIDERS = ('xrDriver', 'xr-luma-driver', 'pro2-sdk-bridge')
 
 
-def consent_for(run_id, instance, *, projection=44.5, pose_rate_hz=60, seconds=120):
+def consent_for(run_id, instance, *, projection=44.5, pose_rate_hz=60, seconds=120, mount_pitch_deg=None, level_gravity=False):
     """Exactly one 1920x1080 desktop: the run keeps it (tools/pro2_runtime/scope.py fixed_desktops)."""
     consent = dict(schema=1, gate='pro2-supervised-v1', model='pro2', run_id=run_id, instance=instance, output=OUTPUT[0], recovery_output=FALLBACK[0],
                    seconds=seconds, projection=projection, parent_authorized=True, exclusive_topology=True, approximate_optics=True,
                    desktops=[dict(width=1920, height=1080, scale=1)])
-    return {**consent, 'pose_rate_hz': pose_rate_hz} if pose_rate_hz != 60 else consent
+    return {**consent, **({'pose_rate_hz': pose_rate_hz} if pose_rate_hz != 60 else {}), **({'mount_pitch_deg': mount_pitch_deg} if mount_pitch_deg is not None else {}),
+            **({'level_gravity': True} if level_gravity else {})}
 
 
 def summarize(log_text, result):
@@ -58,7 +61,9 @@ def main():
     parser.add_argument('--bundle', required=True, type=Path)
     parser.add_argument('--projection', type=float, default=44.5)
     parser.add_argument('--pose-rate', type=int, default=60, choices=(60, 90, 120, 240))
-    parser.add_argument('--stop-after', type=int, default=90, help='seconds until this script stops the run')
+    parser.add_argument('--stop-after', type=int, default=60, help='seconds until this script stops the run')
+    parser.add_argument('--mount-pitch', type=float, help='degrees; default the fitted value in tools/native_spike/display_policy.py')
+    parser.add_argument('--level-gravity', action='store_true', help='the comparison: level to gravity at the start as well')
     args = parser.parse_args()
     os.umask(0o077)
     bundle = args.bundle.absolute()
@@ -99,11 +104,11 @@ def main():
     state.mkdir(mode=0o700)
     (state / 'display-before.json').write_text(json.dumps(monitors, indent=2))
     path = state / 'consent.json'
-    path.write_text(json.dumps(consent_for(run_id, i['instance'], projection=args.projection, pose_rate_hz=args.pose_rate), indent=2))
+    path.write_text(json.dumps(consent_for(run_id, i['instance'], projection=args.projection, pose_rate_hz=args.pose_rate, mount_pitch_deg=args.mount_pitch, level_gravity=args.level_gravity), indent=2))
     print('STATE', state, flush=True)
     cue('Starting in 30 seconds. Put the Pro 2 glasses on and sit facing forward. It stops by itself.', 28000)
     time.sleep(30)
-    cue('Starting now. Look straight ahead for a moment, then turn slowly left and right and watch the desktop edges. It stops by itself. Take them off if anything feels wrong.')
+    cue('Starting now. Look straight ahead, then do the turns from the card. It stops by itself after a minute. Take them off if anything feels wrong.')
     log_path = state / 'parent-launch.private.log'
     with log_path.open('x') as log:
         process = subprocess.Popen([str(bundle / 'bin/pro2-supervised-test'), '--consent', str(path), '--state-dir', str(state)], env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -119,7 +124,7 @@ def main():
     (state / 'plugins-after.txt').write_text(read(['hyprctl', 'plugin', 'list']))
     result_path = state / 'pro2-test-result.json'
     result = json.loads(result_path.read_text()) if result_path.exists() else None
-    summary = summarize(log_path.read_text(), result)
+    summary = dict(summarize(log_path.read_text(), result), mount_pitch_deg=PRO2_MOUNT_PITCH if args.mount_pitch is None else args.mount_pitch, level_gravity=args.level_gravity)
     (state / 'measured.json').write_text(json.dumps(summary, indent=2))
     print('MEASURED', json.dumps(summary), flush=True)
     print('FINAL_STATE', state, flush=True)

@@ -68,7 +68,8 @@ public:
     // head turns about gravity, but a glasses frame pitched against gravity at the recentre sees that turn with a roll in it, sin(pitch)
     // of the turn, so the picture leans against every turn (docs/pro2/smoothness.md). On: each recentre takes the fixed turn from the
     // head to a frame with the same heading and no pitch or roll, and everything after works in that frame, so a turn about gravity
-    // stays a turn. Nothing here says the pitch is a mount offset rather than the wearer's head: it is whatever gravity says then.
+    // stays a turn. Kept as a comparison, off by default: a head does not turn about gravity. Cody's turn axis stays fixed to his head
+    // whatever the head's pitch (docs/pro2/smoothness.md), so the Pro 2's real correction is a fixed mount pitch, in the feed.
     void level_reference(bool on) { level_reference_ = on; }
     float levelled_deg() const { return levelled_deg_; }  // what the last recentre took out
     Quat level_turn() const { return level_turn_; }       // head * this = the frame relative() is in; identity when off

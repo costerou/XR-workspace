@@ -58,6 +58,19 @@ int run() {
         for (int k = 0; k < 20; ++k) { m.update(yaw(f.angle), f.t, 40, f.t); f.advance(2000); }
         CHECK(m.max_predicted_deg() <= 6.001f);
     }
+    {   // The turn axis: a head turning both ways about an axis 7 degrees forward of this frame's up, seen as 7 forward, either way.
+        MotionSmoother m; float t = 0; double now = 0; float angle = 0, dps = 40;
+        const float a = 7 * kDeg;
+        for (int k = 0; k < 400; ++k) {
+            if (k % 100 == 0) dps = -dps;
+            const float half = angle * kDeg / 2, s = std::sin(half);
+            m.update(Quat{std::sin(a) * s, 0, std::cos(a) * s, std::cos(half)}, t, 20, now);
+            t += kGaps[k % 3]; now = t; angle += dps * kGaps[k % 3] / 1000;
+        }
+        CHECK(std::fabs(m.turn_axis_forward_deg() - 7) < 0.2f);
+        CHECK(std::fabs(m.turn_axis_left_deg()) < 0.2f);
+        CHECK(m.turn_seconds() > 4);
+    }
     {   // A jump no head makes is not motion: taken at once, counted. (A recentre resets instead: Presentation::recenter.)
         MotionSmoother m; Feed f;
         for (int k = 0; k < 8; ++k) { m.update(yaw(f.angle + 50), f.t, 20, f.t); f.advance(0); }

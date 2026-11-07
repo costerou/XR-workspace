@@ -24,7 +24,7 @@ UNIT = dict(width=1920, height=1080, scale=1)
 
 
 class Provider:
-    def __init__(self, root, directory, projection, seconds, approved, pose_rate_hz=60, panel_route=False):
+    def __init__(self, root, directory, projection, seconds, approved, pose_rate_hz=60, panel_route=False, mount_pitch_deg=0.0):
         directory.mkdir(); self.prefix = str(directory / 'pose_'); self.projection = projection; self.nonce = 'n'
         self.health_path = directory / 'health.json'; self.done = dict(samples=1, seconds=1.0, pose_rate_hz=60, gap_ms_counts=[0] * 6); self.closed = 0
         self.health(True)

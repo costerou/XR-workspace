@@ -12,22 +12,24 @@ from tools.native_spike.hyprland import HyprlandClient,ownership_plugin_count
 from tools.native_spike.profiles import ProfileStore,profiles_path
 from tools.native_spike.geometry import validate_desktops
 from tools.native_spike.supervisor import CAPTURE_SCOPE
-from tools.pro2_runtime.launch import RuntimeSession,validate_pose_rate,validate_projection,verify_manifest
+from tools.native_spike.display_policy import PRO2_MOUNT_PITCH
+from tools.pro2_runtime.launch import RuntimeSession,validate_mount_pitch,validate_pose_rate,validate_projection,verify_manifest
 
 from tools.pro2_runtime.scope import TestScope,ScopedGuard,BundleClient
 
 
 def validate(data):
     keys={'schema','gate','model','run_id','instance','output','recovery_output','seconds','projection','parent_authorized','exclusive_topology','approximate_optics','desktops'}
-    if not isinstance(data,dict) or set(data)-{'pose_rate_hz'}!=keys or type(data['schema']) is not int or data['schema']!=1 or data['gate']!='pro2-supervised-v1' or data['model']!='pro2':
+    if not isinstance(data,dict) or set(data)-{'pose_rate_hz','mount_pitch_deg','level_gravity'}!=keys or type(data['schema']) is not int or data['schema']!=1 or data['gate']!='pro2-supervised-v1' or data['model']!='pro2':
         raise ValueError('explicit Pro2 supervised consent required')
     for field in ('parent_authorized','exclusive_topology','approximate_optics'):
         if data[field] is not True:raise ValueError('explicit bounded test assumptions required')
     for field in ('run_id','instance','output','recovery_output'):token(data[field])
     if len(data['run_id'])>80 or data['output']==data['recovery_output']:raise ValueError('independent recovery output required')
-    validate_projection(data['projection'],True);validate_pose_rate(data.get('pose_rate_hz',60))
+    validate_projection(data['projection'],True);validate_pose_rate(data.get('pose_rate_hz',60));mount=validate_mount_pitch(data.get('mount_pitch_deg',PRO2_MOUNT_PITCH))
+    if type(data.get('level_gravity',False)) is not bool:raise ValueError('level_gravity must be true or false')
     if type(data['seconds']) is not int or not 1<=data['seconds']<=300:raise ValueError('bounded seconds required')
-    return {**data,'desktops':validate_desktops(data['desktops'])}
+    return {**data,'mount_pitch_deg':mount,'desktops':validate_desktops(data['desktops'])}
 
 
 
@@ -58,14 +60,14 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
             client.plugin_unload(str(root/'bin/libxr-ownership.so'))
         return result
     outcome=run_session(client,consent,root,runtime,Path(state_dir),data['desktops'],projection=data['projection'],seconds=data['seconds'],
-        pose_rate_hz=data.get('pose_rate_hz',60),store=ProfileStore(Path(state_dir)/'pro2-test-profiles.json','pro2'),session_factory=session_factory,run=run)
+        pose_rate_hz=data.get('pose_rate_hz',60),mount_pitch_deg=data['mount_pitch_deg'],level_gravity=data.get('level_gravity',False),store=ProfileStore(Path(state_dir)/'pro2-test-profiles.json','pro2'),session_factory=session_factory,run=run)
     result,errors=outcome['run'],outcome['errors']
     return dict(run_id=data['run_id'],manifest_sha256=hashlib.sha256((root/'manifest.json').read_bytes()).hexdigest(),
                 complete=bool(result and result.get('complete') and result.get('renderer_returncode')==0 and not errors),run=result,errors=errors,
                 **({'provider':outcome['provider']} if outcome.get('provider') else {}))
 
 
-def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seconds,pose_rate_hz=60,panel_route=False,store,session_factory=RuntimeSession,run=None):
+def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seconds,pose_rate_hz=60,mount_pitch_deg=0.0,level_gravity=False,panel_route=False,store,session_factory=RuntimeSession,run=None):
     """The bridge, the plugin and the managed run, in order, and their teardown. Shared by the supervised test and the panel route."""
     from tools.native_spike.managed import run_pro2_test_managed
     provider=None;attempted=False;result=None;errors=[];started=False
@@ -74,10 +76,10 @@ def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seco
     try:
         monitor_rules.refuse_start(client)
         if ownership_plugin_count(client.plugins_loaded()):raise ValueError('ownership plugin already present')
-        options={**({'pose_rate_hz':pose_rate_hz} if pose_rate_hz!=60 else {}),**({'panel_route':True} if panel_route else {})}
+        options={**({'pose_rate_hz':pose_rate_hz} if pose_rate_hz!=60 else {}),**({'panel_route':True} if panel_route else {}),**({'mount_pitch_deg':mount_pitch_deg} if mount_pitch_deg else {})}
         provider=session_factory(root,state_dir/consent['run_id'],projection,seconds,True,**options)
         provider.start()
-        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route);scope.healthy()
+        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route,level_gravity=level_gravity);scope.healthy()
         attempted=True  # before the call: a load that took effect and then raised still has to be unloaded
         client.plugin_load(plugin)
         if ownership_plugin_count(client.plugins_loaded())!=1:raise ValueError('test ownership plugin load unconfirmed')

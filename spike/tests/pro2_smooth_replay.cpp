@@ -22,7 +22,7 @@ struct In { double host; float device; Quat q; };
 int main(int argc, char** argv) {
     std::map<std::string, std::string> o{{"--mode", "smooth"}, {"--period", "8.3333"}, {"--r2p", "16.6"}, {"--phase", "0"},
         {"--stabilization", "25"}, {"--tau", "35"}, {"--cap", "40"}, {"--constant", "0"}, {"--publish-delay", "1"},
-        {"--max-predict", "6"}, {"--snap", "30"}, {"--brake", "3"}, {"--brake-floor", "4"}, {"--read-jitter", "0"}, {"--level", "1"}};
+        {"--max-predict", "6"}, {"--snap", "30"}, {"--brake", "3"}, {"--brake-floor", "4"}, {"--read-jitter", "0"}, {"--level", "0"}};
     for (int i = 1; i + 1 < argc; i += 2) { if (!o.count(argv[i])) { std::cerr << "unknown " << argv[i] << '\n'; return 2; } o[argv[i]] = argv[i + 1]; }
     auto num = [&](const char* k) { return std::strtod(o[k].c_str(), nullptr); };
     std::vector<In> in;
@@ -88,6 +88,7 @@ int main(int argc, char** argv) {
     }
     (void)last_device;
     std::cerr << "snaps " << smoother.snaps() << " max_predicted_deg " << smoother.max_predicted_deg() << " peak_speed_dps " << smoother.peak_speed_dps()
-              << " capped_frames " << smoother.capped_frames() << '\n';
+              << " capped_frames " << smoother.capped_frames() << " turn_axis_forward_deg " << smoother.turn_axis_forward_deg()
+              << " turn_axis_left_deg " << smoother.turn_axis_left_deg() << " turn_seconds " << smoother.turn_seconds() << '\n';
     return 0;
 }

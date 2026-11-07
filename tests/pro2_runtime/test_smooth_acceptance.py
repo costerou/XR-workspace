@@ -60,20 +60,18 @@ class Metrics(unittest.TestCase):
 
 
 class Tilt(unittest.TestCase):
-    def test_the_split_finds_each_cause(self):
-        frames=[];times=[];rolls=[];pitches=[]
-        for k in range(900):
-            t=k*8.3333;yaw=25*math.sin(k/60);roll=2*math.sin(k/37);pitch=4*math.sin(k/23)
-            times.append(t-A.READ_TO_PRESENT_MS);rolls.append(roll);pitches.append(pitch)
-            persp=math.degrees(math.atan(math.sin(math.radians(pitch))*math.tan(math.radians(yaw))))
-            frames.append(dict(present=t,yaw=yaw,roll=persp+roll+.3*yaw))
-        split=A.explained_tilt(frames,(times,rolls,pitches),0,9e9)
-        self.assertAlmostEqual(split['perspective'],1,places=1);self.assertAlmostEqual(split['head_roll'],1,places=1)
-        self.assertAlmostEqual(split['roll_per_10deg_yaw_alone'],3,places=1)
+    def test_the_three_measures(self):
+        frames=[dict(present=k*8.3333,yaw=-30+60*k/200,roll=.2*(-30+60*k/200)) for k in range(201)]
+        lean=A.turn_lean(frames,0,9e9)
+        self.assertAlmostEqual(lean['fast'],2,places=2);self.assertAlmostEqual(lean['whole'],2,places=2);self.assertAlmostEqual(lean['end_to_end'],2,places=2)
+    def test_mounted_is_the_publishers_turn(self):
+        rows=A.mounted([(0.0,0.0,(0.0,0.0,0.0,1.0))],-11.0)
+        self.assertAlmostEqual(rows[0][2][1],math.sin(math.radians(-5.5)));self.assertAlmostEqual(rows[0][2][3],math.cos(math.radians(5.5)))
     def test_the_replayed_tilt_passes_its_limit(self):
         tilt=json.loads((ROOT/'docs/pro2/smooth-evidence/replay-aggregates.json').read_text())['results']['directional']['tilt']
-        self.assertGreater(tilt['unlevelled']['split']['roll_per_10deg_yaw_alone'],3)
-        self.assertLess(abs(tilt['levelled']['split']['roll_per_10deg_yaw_alone']),A.TILT_LIMIT)
+        self.assertGreater(tilt['no_mount']['fast'],1.5)
+        self.assertLess(tilt['gravity_level_at_19.5']['fast'],-1)
+        self.assertLess(abs(tilt['shipped_mount']['fast']),A.TILT_LIMIT)
 
 
 class Summary(unittest.TestCase):

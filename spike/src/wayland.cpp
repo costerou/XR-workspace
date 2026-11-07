@@ -1123,6 +1123,8 @@ std::string Presentation::capture_report() const {
                ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json +
                (s.smooth_ms > 0 ? ",\"smoothing\":{\"tau_ms\":" + std::to_string(s.smooth_ms) + ",\"frames\":" + std::to_string(s.smoothed_frames) +
                                   ",\"snaps\":" + std::to_string(s.smoother.snaps()) + ",\"max_predicted_deg\":" + std::to_string(s.smoother.max_predicted_deg()) +
+                                  ",\"turn_axis_forward_deg\":" + std::to_string(s.smoother.turn_axis_forward_deg()) + ",\"turn_axis_left_deg\":" + std::to_string(s.smoother.turn_axis_left_deg()) +
+                                  ",\"turn_seconds\":" + std::to_string(s.smoother.turn_seconds()) +
                                   ",\"capped_frames\":" + std::to_string(s.smoother.capped_frames()) + ",\"peak_speed_dps\":" + std::to_string(s.smoother.peak_speed_dps()) +
                                   ",\"last_correction_deg\":" + std::to_string(s.smoother.last_correction_deg()) + "}" : std::string()) + "}}";
     }
@@ -1248,10 +1250,10 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
     return {};
 }
-void Presentation::enable_tracking(std::string prefix, float supervised_projection, float smooth_ms) {
+void Presentation::enable_tracking(std::string prefix, float supervised_projection, float smooth_ms, bool level_gravity) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     if (const auto params = motion_smooth_params(smooth_ms)) { impl_->smoother = MotionSmoother(*params); impl_->smooth_ms = smooth_ms; }
-    impl_->pose.level_reference(supervised_projection > 0);  // the Pro 2's feed is the one with gravity in it (PoseState::level_reference)
+    impl_->pose.level_reference(level_gravity);  // a comparison only: the Pro 2's frame is its mount pitch, in the feed
     impl_->supervised_projection = supervised_projection;
     if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();

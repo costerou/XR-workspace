@@ -20,7 +20,7 @@ import re
 import tempfile
 
 from tools.native_spike import monitor_rules
-from tools.native_spike.display_policy import PRO2_DEFAULT_PROJECTION, PRO2_PROJECTIONS
+from tools.native_spike.display_policy import PRO2_DEFAULT_PROJECTION, PRO2_MOUNT_PITCH, PRO2_PROJECTIONS
 from tools.native_spike.ipc import read_private_json, token
 from tools.native_spike.panel_consent import PRO2_KEY, PRO2_TRACKING, load_panel_consent
 from tools.native_spike.profiles import ProfileStore, profiles_path
@@ -87,8 +87,8 @@ def save_projection(value, config_dir=None):
     _write(_directory(config_dir) / SETTINGS_FILE, dict(schema=1, projection=float(value)))
 
 
-def consent_block(route, projection, pose_rate_hz=60):
-    return dict(bundle=route['bundle'], manifest_sha256=route['manifest_sha256'], projection=float(projection), pose_rate_hz=pose_rate_hz)
+def consent_block(route, projection, pose_rate_hz=60, mount_pitch_deg=PRO2_MOUNT_PITCH):
+    return dict(bundle=route['bundle'], manifest_sha256=route['manifest_sha256'], projection=float(projection), pose_rate_hz=pose_rate_hz, mount_pitch_deg=float(mount_pitch_deg))
 
 
 def require(consent, config_dir=None):
@@ -136,7 +136,7 @@ def execute(consent_path, state_dir, *, config_dir=None, client_factory=None, se
     client = client_factory(consent['instance'], runtime) if client_factory else BundleClient(consent['instance'], runtime, root, manifest)
     if client_factory is None: client.check_abi()
     outcome = run_session(client, {**consent, 'sbs_mode': None}, root, runtime, Path(state_dir), consent['desktops'],
-                          projection=block['projection'], seconds=ROUTE_SECONDS, pose_rate_hz=block['pose_rate_hz'], panel_route=True,
+                          projection=block['projection'], seconds=ROUTE_SECONDS, pose_rate_hz=block['pose_rate_hz'], mount_pitch_deg=block['mount_pitch_deg'], panel_route=True,
                           store=ProfileStore(profiles_path(), 'pro2'), session_factory=session_factory or RuntimeSession, run=run)
     done = outcome['run'] or {}
     return dict(complete=bool(done.get('complete')) and not outcome['errors'], renderer_returncode=done.get('renderer_returncode'),

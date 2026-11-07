@@ -20,7 +20,7 @@ def main():
     from tools.pro2_runtime import launch
     from tools.native_spike import hyprland,managed,monitor_rules
     class Provider:
-        def __init__(self,bundle,directory,projection,seconds,approved):
+        def __init__(self,bundle,directory,projection,seconds,approved,**_):
             directory.mkdir(mode=0o700);self.prefix=str(directory/'pose_');self.projection=projection
             self.nonce='fixture';self.health_path=directory/'health.json'
         def start(self):

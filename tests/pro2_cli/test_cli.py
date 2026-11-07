@@ -24,7 +24,7 @@ class FullCliTests(unittest.TestCase):
             for k,v in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='14').items():(usb/'1-1'/k).write_text(v+'\n')
             runtime=p/'r';runtime.mkdir(mode=0o700);state=p/'s';state.mkdir(mode=0o700);home=p/'h';home.mkdir()
             instance='a'*40+'_123_456';consent=p/'consent.json'
-            consent.write_text(json.dumps(dict(schema=1,gate='pro2-supervised-v1',model='pro2',run_id='genuine-cli',instance=instance,output='DP-2',recovery_output='DP-1',seconds=20,projection=44.5,parent_authorized=True,exclusive_topology=True,approximate_optics=True,desktops=[dict(width=1920,height=1080,scale=1)])));consent.chmod(0o600)
+            consent.write_text(json.dumps(dict(schema=1,mount_pitch_deg=0.0,gate='pro2-supervised-v1',model='pro2',run_id='genuine-cli',instance=instance,output='DP-2',recovery_output='DP-1',seconds=20,projection=44.5,parent_authorized=True,exclusive_topology=True,approximate_optics=True,desktops=[dict(width=1920,height=1080,scale=1)])));consent.chmod(0o600)
             env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'config'),XDG_STATE_HOME=str(home/'state'),XDG_RUNTIME_DIR=str(runtime),PRO2_CLI_FIXTURE_SDK=str(sdk),PRO2_CLI_FIXTURE_USB=str(usb),PRO2_CLI_PROBE=str(probe),PRO2_QA_CASE='open' if case=='sdk-open-fail' else 'normal',PRO2_QA_TRACE=str(p/'sdk-trace'))
             fake=p/'Hyprland';shutil.copyfile(sys.executable,fake);fake.chmod(0o700)
             env['PRO2_CLI_CASE']=case

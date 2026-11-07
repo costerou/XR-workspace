@@ -27,7 +27,7 @@ class ControllerTests(unittest.TestCase):
         client=Mock();client.plugins_loaded.side_effect=[[],[OWNERSHIP_PLUGIN_NAME],[OWNERSHIP_PLUGIN_NAME],[]]
         run=Mock(return_value=dict(complete=True,renderer_returncode=0))
         class Session:
-            def __init__(self,root,directory,projection,seconds,approved):
+            def __init__(self,root,directory,projection,seconds,approved,**_):
                 directory.mkdir();self.prefix=str(directory/'pose_');self.projection=projection;self.nonce='n';self.health_path=directory/'health.json'
                 self.health_path.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic())));self.health_path.chmod(0o600)
             def start(self):return self

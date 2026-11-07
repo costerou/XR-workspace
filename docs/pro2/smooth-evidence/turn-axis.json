@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "capture_seconds": 1227,
+  "turns": 28,
+  "axis_tilt_median": -7.06,
+  "gravity_tilt_median": -5.66,
+  "gravity_tilt_range": [
+    -12.1,
+    17.7
+  ],
+  "slope": 0.12,
+  "slope_90pct": [
+    -0.14,
+    0.45
+  ],
+  "offset": -6.19,
+  "r": 0.19,
+  "lean_per_10deg": {
+    "real_path_mount": {
+      "turns": 34,
+      "end_to_end": {
+        "median": 0.39,
+        "iqr": [
+          -0.2,
+          1.31
+        ]
+      },
+      "fast": {
+        "median": 0.53,
+        "iqr": [
+          0.01,
+          1.34
+        ]
+      }
+    },
+    "no_mount": {
+      "turns": 31,
+      "end_to_end": {
+        "median": 2.17,
+        "iqr": [
+          1.44,
+          2.93
+        ]
+      },
+      "fast": {
+        "median": 2.04,
+        "iqr": [
+          1.53,
+          2.84
+        ]
+      }
+    },
+    "gravity_level": {
+      "turns": 34,
+      "end_to_end": {
+        "median": 1.75,
+        "iqr": [
+          0.96,
+          3.29
+        ]
+      },
+      "fast": {
+        "median": 1.91,
+        "iqr": [
+          0.86,
+          2.94
+        ]
+      }
+    }
+  }
+}

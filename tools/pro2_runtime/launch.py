@@ -29,6 +29,11 @@ ROUTE_SECONDS=12*3600  # a panel session's deadline (bridge.cpp kRouteSeconds); 
 COMPETING_EVERY_S=1.0
 
 
+def validate_mount_pitch(value):
+    if type(value) not in (int,float) or not math.isfinite(value) or not -30<=value<=30:raise ValueError('mount pitch must be -30..30 degrees')
+    return float(value)
+
+
 def validate_pose_rate(value):
     if type(value) is not int or value not in POSE_RATES:raise ValueError('pose rate must be exactly 60, 90, 120 or 240 Hz')
     return value
@@ -99,7 +104,8 @@ def competing(exclude=()):
 
 
 class RuntimeSession:
-    def __init__(self,root,run_dir,projection,seconds,approved,pose_rate_hz=60,panel_route=False):
+    def __init__(self,root,run_dir,projection,seconds,approved,pose_rate_hz=60,panel_route=False,mount_pitch_deg=0.0):
+        self.mount_pitch_deg=validate_mount_pitch(mount_pitch_deg)
         self.projection=validate_projection(projection,approved);self.pose_rate_hz=validate_pose_rate(pose_rate_hz);self.panel_route=panel_route is True
         if type(seconds) is not int or not 1<=seconds<=(ROUTE_SECONDS if self.panel_route else 300):raise ValueError('bounded seconds required')
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
@@ -109,7 +115,7 @@ class RuntimeSession:
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
     def command(self,exe,sdk,write):
         return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
-            *(['--pose-rate',str(self.pose_rate_hz)] if self.pose_rate_hz!=60 else []),*(['--panel-route'] if self.panel_route else [])]
+            *(['--pose-rate',str(self.pose_rate_hz)] if self.pose_rate_hz!=60 else []),*(['--mount-pitch',str(self.mount_pitch_deg)] if self.mount_pitch_deg else []),*(['--panel-route'] if self.panel_route else [])]
     def start(self):
         admit(inventory())
         if competing():raise ValueError('competing provider; parent must establish exclusive topology')
@@ -152,6 +158,7 @@ class RuntimeSession:
                     if event.get('event')=='ready':
                         if event.get('projection_diagonal_approx')!=self.projection:raise ValueError('projection status mismatch')
                         if event.get('pose_rate_hz',60)!=self.pose_rate_hz:raise ValueError('pose rate status mismatch')
+                        if abs(event.get('mount_pitch_deg',0)-self.mount_pitch_deg)>.001:raise ValueError('mount pitch status mismatch')
                         self.ready=True
                     elif event.get('event')=='done':self.done=event
                     else:raise ValueError('runtime status event')

@@ -31,6 +31,7 @@ class TestScope:
     health_path:str
     nonce:str
     smooth_ms:float=SMOOTH_MS
+    level_gravity:bool=False  # the comparison: level to the SDK's gravity at each recentre, in place of the mount pitch alone
     fixed_desktops:bool=True  # a supervised test keeps exactly the desktops its consent names; a panel session may change them
     def healthy(self):
         validate_projection(self.projection,True)

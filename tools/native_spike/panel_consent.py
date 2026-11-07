@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from .display_policy import PRO2_PROJECTIONS
+from .display_policy import PRO2_MOUNT_BOUNDS, PRO2_PROJECTIONS
 from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
@@ -45,12 +45,13 @@ def _keys(data):
 
 def _check_pro2(data):
     block = data[PRO2_KEY]
-    if not isinstance(block, dict) or set(block) != {'bundle', 'manifest_sha256', 'projection', 'pose_rate_hz'}: raise ValueError('invalid Pro 2 route')
+    if not isinstance(block, dict) or set(block) != {'bundle', 'manifest_sha256', 'projection', 'pose_rate_hz', 'mount_pitch_deg'}: raise ValueError('invalid Pro 2 route')
     bundle, sha = block['bundle'], block['manifest_sha256']
     if not isinstance(bundle, str) or not bundle.startswith('/') or '\0' in bundle: raise ValueError('invalid Pro 2 route')
     if not isinstance(sha, str) or not SHA256.fullmatch(sha): raise ValueError('invalid Pro 2 route')
     if type(block['projection']) is not float or block['projection'] not in PRO2_PROJECTIONS: raise ValueError('invalid Pro 2 projection')
     if type(block['pose_rate_hz']) is not int or block['pose_rate_hz'] not in PRO2_RATES: raise ValueError('invalid Pro 2 pose rate')
+    if type(block['mount_pitch_deg']) is not float or not PRO2_MOUNT_BOUNDS[0] <= block['mount_pitch_deg'] <= PRO2_MOUNT_BOUNDS[1]: raise ValueError('invalid Pro 2 mount pitch')
     if data['tracking'] != PRO2_TRACKING or data['mode_switch'] is not False or SBS_KEY in data or DRIVER_KEY in data:
         raise ValueError('the Pro 2 route is exactly its own tracking, no mode switch, no 3D mode')
     if _artifact(data['plugin'])['path'] != bundle + '/bin/libxr-ownership.so' or _artifact(data['renderer'])['path'] != bundle + '/bin/xr-native-spike':
