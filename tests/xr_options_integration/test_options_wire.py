@@ -12,7 +12,7 @@ import pytest
 
 def snapshot():
     return dict(open=True, namespace='session', monitor='XR-3', scope='monitor',
-                category='placement', focus=0, list=-1, scroll=0, revision=1, status='idle', message='',
+                category='placement', focus=0, scroll=0, revision=1, status='idle', message='',
                 rows=[dict(id='placement_x', label='Horizontal orbit', scope='monitor',
                            kind='range', value='-12', minimum=-180, maximum=180,
                            step=1, unit='deg', enabled=True, choices=[])])

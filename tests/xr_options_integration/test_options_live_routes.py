@@ -161,15 +161,16 @@ class Rig:
     def snap(self): return self.c.options.snapshot()
 
     def tab(self, category):
-        """The section by mouse: open its dropdown, then the item as drawn."""
-        i = self.index()
-        x, y, w, h = og.section_box()
-        self.panel_xy(i, x + w / 2, y + h / 2); self.click()
-        assert self.snap()['focus'] == og.FOCUS_LIST
-        x, y, w, h = og.section_item(om.CATEGORIES.index(category))
-        self.panel_xy(self.index(), x + w / 2, y + h / 2); self.click()
+        """The tab by mouse: Next > until its page shows, then its drawn cell."""
+        for _ in range(8):
+            d = self.snap()
+            at, want = om.CATEGORIES.index(d['category']), om.CATEGORIES.index(category)
+            if at // 4 == want // 4: break
+            self.panel_xy(self.index(d), 470, 22); self.click()
         d = self.snap()
-        assert d['category'] == category and d['focus'] == og.FOCUS_SECTION
+        assert om.CATEGORIES.index(d['category']) // 4 == om.CATEGORIES.index(category) // 4, (d['category'], category)
+        self.panel_xy(self.index(d), 16 + (om.CATEGORIES.index(category) % 4) * 142 + 68, 62); self.click()
+        assert self.snap()['category'] == category
 
     def index(self, d=None): return self.names.index((d or self.snap())['monitor'])
 
@@ -221,8 +222,7 @@ def test_scope_choice_survives_a_tab_that_has_only_the_other_scope(pro2):
 def test_a_scope_press_on_a_one_scope_tab_says_why_nothing_changed(pro2):
     pro2.open()
     pro2.tab('placement')
-    x, y, w, h = og.scope_box()
-    pro2.panel_xy(0, x + w * .75, y + h / 2); pro2.click()
+    pro2.panel_xy(0, 390, 22); pro2.click()
     d = pro2.snap()
     assert d['scope'] == 'monitor' and d['rows'] and d['message']
 
@@ -231,8 +231,7 @@ def test_opening_the_menu_leaves_the_mouse_working(pro2):
     pro2.open()
     assert 'open_key_panel' not in pro2.hypr.calls
     pro2.tab('layout')                 # Pro 2 session route: every step below is a real click after the open
-    x, y, w, h = og.close_box()
-    pro2.panel_xy(0, x + w / 2, y + h / 2); pro2.click()
+    pro2.panel_xy(0, 560, 22); pro2.click()
     assert not pro2.snap()['open']
 
 
@@ -360,29 +359,22 @@ def test_every_row_answers_a_click_at_its_drawn_place(rig, category):
     i = rig.index(d)
     for index, row in enumerate(d['rows']):
         d = rig.snap()
-        y = og.BODY_TOP + index * og.ROW_H + og.ROW_H / 2 - d['scroll']
-        if y < og.BODY_TOP or y >= og.BODY_BOTTOM:
+        y = 88 + index * 38 + 19 - d['scroll']
+        if y < 88 or y >= 392:
             rig.panel_xy(i, 40, 200)
-            rig.wheel(og.ROW_H * (index + 1) - og.BODY_H - d['scroll'])
+            rig.wheel(38 * (index + 1) - 304 - d['scroll'])
             d = rig.snap()
-            y = og.BODY_TOP + index * og.ROW_H + og.ROW_H / 2 - d['scroll']
-        assert og.BODY_TOP <= y < og.BODY_BOTTOM
-        x = (og.TRACK_X0 + og.TRACK_X1) / 2 if row['kind'] == 'range' else 40
+            y = 88 + index * 38 + 19 - d['scroll']
+        assert 88 <= y < 392
+        x = 375 if row['kind'] == 'range' else 40
         hover = rig.panel_xy(i, x, y)
         assert hover and hover[0] == 'options_panel', (row['id'], hover)
         rig.applied.clear()
         rig.click()
         assert rig.snap()['focus'] == (0 if row['id'] in ('layout_reset', 'stop') else index), row['id']
-        if row['kind'] == 'choice' and row['enabled'] and row.get('choices'):   # the click only opened its list: the pick applies
-            snap = rig.snap()
-            assert not rig.applied and snap['list'] >= 0, row['id']
-            n = len(row['choices'])
-            x, y, w, h = og.choice_item(og.row_top(index, snap['scroll']), n, (snap['list'] + 1) % n)
-            rig.panel_xy(i, x + w / 2, y + h / 2); rig.click()
-            assert rig.snap()['list'] == -1, row['id']
         if row['id'] in ('layout_reset', 'stop'):           # asks first: the page turns into its two answers
             assert [r['id'] for r in rig.snap()['rows']] == ['confirmation.apply', 'confirmation.cancel'] and not rig.applied
-            rig.panel_xy(i, 40, og.BODY_TOP + og.ROW_H + og.ROW_H / 2 - rig.snap()['scroll']); rig.click()
+            rig.panel_xy(i, 40, 88 + 38 + 19 - rig.snap()['scroll']); rig.click()
             assert any(r['id'] == row['id'] for r in rig.snap()['rows'])
         elif row['enabled'] and row['kind'] != 'readonly' and not (row['kind'] == 'choice' and not row.get('choices')):
             assert [a[0] for a in rig.applied] == [row['id']], row['id']
@@ -393,19 +385,19 @@ def test_every_row_answers_a_click_at_its_drawn_place(rig, category):
 def test_the_wheel_scrolls_the_long_page_end_to_end(pro2):
     pro2.open()
     pro2.tab('video')
-    assert len(pro2.snap()['rows']) * og.ROW_H > og.BODY_H
+    assert len(pro2.snap()['rows']) * 38 > 304
     pro2.panel_xy(0, 300, 200)
-    pro2.wheel(og.ROW_H)
-    assert pro2.snap()['scroll'] == og.ROW_H
+    pro2.wheel(38)
+    assert pro2.snap()['scroll'] == 38
     pro2.wheel(4096)
-    assert pro2.snap()['scroll'] == len(pro2.snap()['rows']) * og.ROW_H - og.BODY_H
+    assert pro2.snap()['scroll'] == len(pro2.snap()['rows']) * 38 - 304
 
 
 def test_the_wheel_off_the_menu_scrolls_nothing(pro2):
     pro2.open()
     pro2.tab('video')
     pro2.aim_point((60, 1100))
-    pro2.wheel(og.ROW_H)
+    pro2.wheel(38)
     assert pro2.snap()['scroll'] == 0
 
 
@@ -420,18 +412,20 @@ def test_a_shorter_page_never_leaves_the_rows_scrolled_away(pro2):
     assert pro2.snap()['scroll'] == 0
 
 
-def test_the_header_only_answers_where_it_is_drawn(pro2):
+def test_tabs_and_header_only_answer_where_they_are_drawn(pro2):
     pro2.open()
-    before = pro2.snap()
-    pro2.panel_xy(0, 100, og.section_box()[1] + 5); pro2.click()     # the label beside the box: nothing is drawn to press there
-    after = pro2.snap()
-    assert after['category'] == before['category'] and after['focus'] == before['focus'] and after['open']
+    before = pro2.snap()['category']
+    pro2.panel_xy(0, 590, 62); pro2.click()     # right of the fourth tab: nothing is drawn there
+    assert pro2.snap()['category'] == before
 
 
-def test_every_section_is_one_press_from_the_list(pro2):
+def test_next_walks_the_pages_and_comes_back_to_the_first_tab(pro2):
     pro2.open()
-    for category in om.CATEGORIES:
-        pro2.tab(category)
+    seen = []
+    for _ in range(4):
+        pro2.panel_xy(0, 470, 22); pro2.click()
+        seen.append(pro2.snap()['category'])
+    assert seen == ['layout', 'input', 'help', 'placement']
 
 
 def test_a_slider_drag_lands_even_if_the_page_refreshed_during_it(pro2):
@@ -439,7 +433,7 @@ def test_a_slider_drag_lands_even_if_the_page_refreshed_during_it(pro2):
     d = pro2.snap()
     index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'placement_distance')
     pro2.panel_xy(0, 40, 200); pro2.wheel(4096)
-    y = og.BODY_TOP + index * og.ROW_H + og.ROW_H / 2 - pro2.snap()['scroll']
+    y = 88 + index * 38 + 19 - pro2.snap()['scroll']
     pro2.panel_xy(0, og.TRACK_X0 + 10, y)
     pro2.button('resize_press')
     pro2.c.options._bump()                       # an unrelated readback changed the page mid drag
@@ -453,10 +447,10 @@ def test_a_slider_follows_the_hand_while_held(pro2):
     d = pro2.snap()
     index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'placement_curvature')
     pro2.panel_xy(0, 40, 200); pro2.wheel(4096)
-    y = og.BODY_TOP + index * og.ROW_H + og.ROW_H / 2 - pro2.snap()['scroll']
+    y = 88 + index * 38 + 19 - pro2.snap()['scroll']
     pro2.panel_xy(0, og.TRACK_X0 + 10, y)
     pro2.button('resize_press')
-    pro2.panel_xy(0, (og.KNOB_LO + og.KNOB_HI) / 2, y)
+    pro2.panel_xy(0, og.TRACK_X0 + 75, y)
     lo, hi = geometry.PLACEMENT_BOUNDS['curvature']
     assert float(pro2.snap()['rows'][index]['value']) == pytest.approx((lo + hi) / 2, abs=1)   # what the renderer draws
     assert pro2.c.state.placements[0]['curvature'] == 0                                        # the owner hears at the release
@@ -472,7 +466,7 @@ def test_action_rows_do_not_stay_pending_for_ever(pro2):
     pro2.tab('layout')
     d = pro2.snap()
     index = next(i for i, r in enumerate(d['rows']) if r['id'] == 'spacing_up')
-    pro2.panel_xy(0, 40, og.BODY_TOP + index * og.ROW_H + og.ROW_H / 2); pro2.click()
+    pro2.panel_xy(0, 40, 88 + index * 38 + 19); pro2.click()
     assert pro2.snap()['status'] == 'pending'
     for rid in list(pro2.c.options.pending_ids): pro2.c.options.acknowledge(rid)   # the renderer's control_applied
     pro2.c.options.tick()
@@ -487,7 +481,7 @@ def test_a_change_with_no_readback_ends_in_a_stated_timeout(pro2):
     pro2.open()
     pro2.c.options._apply = lambda *_: None
     d = pro2.snap()
-    pro2.panel_xy(0, 40, og.row_top(0, 0) + og.ROW_H / 2); pro2.click()
+    pro2.panel_xy(0, 40, 88 + 19); pro2.click()
     assert pro2.snap()['status'] == 'pending'
     pro2.clock.now += 6
     pro2.c.options.tick()
@@ -506,50 +500,31 @@ def test_every_key_route_through_the_bound_op(pro2):
     pro2.key(111)                      # Up
     assert pro2.snap()['focus'] == 0
     for _ in range(2): pro2.key(23, 1)
-    assert pro2.snap()['focus'] == og.FOCUS_SECTION  # Shift+Tab past Close: the section box, and the list is not a stop
-    pro2.key(114)                      # Right: next section
-    assert pro2.snap()['category'] == 'output'
-    pro2.key(36)                       # Return opens the list
-    assert pro2.snap()['focus'] == og.FOCUS_LIST
-    pro2.key(116)                      # Down walks it, open
-    assert pro2.snap()['category'] == '3d' and pro2.snap()['focus'] == og.FOCUS_LIST
-    pro2.key(9)                        # Esc shuts the list, not the menu
-    assert pro2.snap()['focus'] == og.FOCUS_SECTION and pro2.snap()['open']
+    assert pro2.snap()['focus'] == -2
+    pro2.key(36)                       # Return on Next >
+    assert pro2.snap()['category'] == 'layout'
+    pro2.key(23, 1)                    # Shift+Tab: the tabs
+    pro2.key(114)                      # Right: next tab
+    assert pro2.snap()['category'] == 'environment'
     pro2.key(9)
     assert not pro2.snap()['open']
 
 
-def test_a_press_off_the_open_list_only_shuts_it(pro2):
+def test_keyboard_next_agrees_with_the_mouse(pro2):
     pro2.open()
-    x, y, w, h = og.section_box()
-    pro2.panel_xy(0, x + w / 2, y + h / 2); pro2.click()
-    assert pro2.snap()['focus'] == og.FOCUS_LIST
-    before = pro2.snap()['category']
-    close = og.close_box()
-    pro2.panel_xy(0, close[0] + 4, close[1] + 4); pro2.click()   # Close is off the list: the list shuts first
-    assert pro2.snap()['open'] and pro2.snap()['focus'] == og.FOCUS_SECTION and pro2.snap()['category'] == before
-
-
-def test_each_scope_half_picks_its_scope(pro2):
-    pro2.open()
-    pro2.tab('3d')          # the one section with rows in both scopes
-    x, y, w, h = og.scope_box()
-    pro2.panel_xy(0, x + w * .75, y + h / 2); pro2.click()
-    assert pro2.snap()['scope'] == 'workspace'
-    pro2.panel_xy(0, x + w * .75, y + h / 2); pro2.click()
-    assert pro2.snap()['scope'] == 'workspace'   # the lit half does nothing, it does not toggle
-    pro2.panel_xy(0, x + w * .25, y + h / 2); pro2.click()
-    assert pro2.snap()['scope'] == 'monitor'
+    pro2.c.options_intent('options_focus', focus=-2)
+    seen = []
+    for _ in range(4):
+        pro2.key(65)                   # space
+        seen.append(pro2.snap()['category'])
+    assert seen == ['layout', 'input', 'help', 'placement']
 
 
 def test_page_keys_scroll(pro2):
     pro2.open(); pro2.tab('video')
-    limit = len(pro2.snap()['rows']) * og.ROW_H - og.BODY_H
-    pro2.key(117)                      # a page down: one strip of rows
-    assert pro2.snap()['scroll'] == min(og.BODY_H, limit)
     pro2.key(117)
-    assert pro2.snap()['scroll'] == limit
-    pro2.key(112); pro2.key(112)
+    assert pro2.snap()['scroll'] == len(pro2.snap()['rows']) * 38 - 304
+    pro2.key(112)
     assert pro2.snap()['scroll'] == 0
 
 
@@ -665,19 +640,12 @@ def test_drawn_rects_are_the_hit_rects_at_every_real_layout():
         assert orbit.place_point(g, tile, wire, m[0] + m[2] / 2, m[1] + m[3] / 2) == pytest.approx(tuple(n['maximize_mid']), abs=2e-4)
 
 
-def n_item(tool, i):
-    return json.loads(subprocess.run([str(tool), '--section', str(i)], capture_output=True, check=True, timeout=15).stdout)
-
-
-def test_menu_constants_are_the_natives():
+def test_header_and_tab_constants_are_the_natives():
     tool = ROOT / 'build/release/options_geometry_dump'
     if not tool.exists(): pytest.skip('options_geometry_dump not built')
     n = json.loads(subprocess.run([str(tool)], capture_output=True, check=True, timeout=15).stdout)
-    for key, value in n.items():
-        if key in ('step_scale', 'step_ms', 'band_min', 'band_gap'): continue  # restore_band.py's: test_restore_band compares them
-        assert getattr(og, key.upper()) == pytest.approx(value), key
-    for i in range(og.SECTIONS):
-        assert og.section_item(i) == pytest.approx(tuple(n_item(tool, i)))
+    assert (n['scope_x0'], n['next_x0'], n['close_x0'], n['close_x1']) == (og.SCOPE_X0, og.NEXT_X0, og.CLOSE_X0, og.CLOSE_X1)
+    assert (n['tabs_x'], n['tab_w'], n['tab_pitch'], n['tabs_per_page']) == (og.TABS_X, og.TAB_W, og.TAB_PITCH, og.TABS_PER_PAGE)
 
 
 class Binds:
@@ -722,28 +690,3 @@ def test_managed_wires_the_keys_to_the_plain_binds_not_the_submap():
 
 
 # (desktop name, logical w, h): the Pro 2 session's. The maximized tile fills the canvas width (view.cpp zoomed_layout).
-
-
-def test_resolution_changes_only_by_a_deliberate_pick(pro2):
-    sizes = ['1920x1080', '1920x1200', '2560x1600', '3840x2160']     # this rig's outputs have no size, so the row is given
-    pro2.c.options._rows = lambda *_: [dict(id='resolution', label='Resolution', scope='monitor', kind='choice', value='1920x1200', enabled=True, choices=sizes)]
-    pro2.c.options._apply = pro2.record
-    pro2.open()
-    pro2.tab('output')
-    d = pro2.snap()
-    index = 0
-    row = d['rows'][index]
-    y = og.row_top(index, d['scroll']) + og.ROW_H / 2
-    pro2.panel_xy(0, og.BOX_X1 - 40, y); pro2.click()        # a click on the row: its list
-    d = pro2.snap()
-    assert d['list'] == row['choices'].index(row['value']) and not pro2.applied
-    pro2.panel_xy(0, 40, 20); pro2.click()                   # a press off the list: shut, nothing applied, the menu stays
-    assert pro2.snap()['open'] and pro2.snap()['list'] == -1 and not pro2.applied
-    pro2.panel_xy(0, og.BOX_X1 - 40, y); pro2.click()
-    pro2.key(114)                                            # Right does not step it
-    assert not pro2.applied
-    pro2.panel_xy(0, og.BOX_X1 - 40, y); pro2.click()
-    other = (pro2.snap()['list'] + 1) % len(row['choices'])
-    x, iy, w, h = og.choice_item(og.row_top(index, pro2.snap()['scroll']), len(row['choices']), other)
-    pro2.panel_xy(0, x + w / 2, iy + h / 2); pro2.click()    # an item: that value, once
-    assert pro2.applied == pro2.applied[:1] and pro2.applied[0][0] == 'resolution'

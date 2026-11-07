@@ -6,7 +6,7 @@ import re
 import time
 import threading
 from collections import deque
-from . import options_geometry as og
+from .options_geometry import TABS_PER_PAGE
 
 CATEGORIES = ('placement','output','3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')
 SCOPES = ('monitor', 'workspace')
@@ -14,7 +14,13 @@ KINDS = ('action','toggle','range','choice','text','readonly')
 PENDING_TIMEOUT_S = 5  # a change with no owner callback: how long the footer may say pending before it says so
 OPS = tuple('options_'+n for n in ('open','close','scope','category','focus','scroll','activate','set','confirm','cancel'))
 ROW_KEYS = {'id','label','scope','kind','value','minimum','maximum','step','unit','enabled','choices'}
-SNAP_KEYS = {'open','namespace','monitor','scope','category','focus','list','scroll','revision','status','message','rows'}
+SNAP_KEYS = {'open','namespace','monitor','scope','category','focus','scroll','revision','status','message','rows'}
+
+def next_page(category):
+    """The first tab of the page after `category`'s, the last page leading back to the first: the header's Next >, by
+    mouse and by keyboard alike."""
+    start=(CATEGORIES.index(category)//TABS_PER_PAGE+1)*TABS_PER_PAGE
+    return CATEGORIES[start if start<len(CATEGORIES) else 0]
 
 def string(value, limit):
     if type(value) is not str or len(value.encode('utf-8')) > limit: raise ValueError('invalid options string')
@@ -49,7 +55,7 @@ def validate_snapshot(value):
     if type(value['open']) is not bool: raise ValueError('invalid open')
     string(value['namespace'],64); monitor(value['monitor']); string(value['message'],256)
     if value['scope'] not in SCOPES or value['category'] not in CATEGORIES or value['status'] not in ('idle','pending','applied','error'): raise ValueError('invalid options enum')
-    integer(value['focus'],-4,63); integer(value['list'],-1,31); integer(value['scroll'],0,4096); integer(value['revision'],0,2**32-1)
+    integer(value['focus'],-4,63); integer(value['scroll'],0,4096); integer(value['revision'],0,2**32-1)
     validate_rows(value['rows'])
     return copy.deepcopy(value)
 
@@ -173,7 +179,7 @@ class OptionsMenu:
         self.preview=None  # (row id, value) a held slider shows until its release
         self.scope_choice='monitor'  # what the header asks for; a tab with rows in only the other scope shows those
         self.last_input=clock()
-        self.data=dict(open=False,namespace=control.session,monitor=control.state.names[0],scope='monitor',category='placement',focus=-1,list=-1,scroll=0,revision=0,status='idle',message='',rows=[])
+        self.data=dict(open=False,namespace=control.session,monitor=control.state.names[0],scope='monitor',category='placement',focus=-1,scroll=0,revision=0,status='idle',message='',rows=[])
     @property
     def visible(self):
         return self.data['open'] and not self.control.keys_open
@@ -317,7 +323,7 @@ class OptionsMenu:
     def open(self, monitor):
         if monitor not in self.control.state.names: return False
         self.close('reopen')
-        self.data.update(open=True,monitor=monitor,namespace=self.control.session,status='idle',message='',focus=-1,list=-1,scroll=0)
+        self.data.update(open=True,monitor=monitor,namespace=self.control.session,status='idle',message='',focus=-1,scroll=0)
         self.focused=True; self.last_input=self.clock(); self._bump(); self.refresh()
         return True
     def close(self, reason='closed'):
@@ -325,32 +331,12 @@ class OptionsMenu:
         if editor is not None and editor.kind is not None: self.output += editor.close() or b''
         preserve=reason=='native child'
         if not preserve: self._invalidate_owner()
-        self.data.update(open=False,namespace=self.control.session,rows=[],focus=-1,list=-1,scroll=0)
+        self.data.update(open=False,namespace=self.control.session,rows=[],focus=-1,scroll=0)
         if not preserve: self.data.update(status='idle',message=''); self.pending=None
         self.focused=False; self.child=self.capture=self.preview=None; self.confirmation=None; self._bump()
     def desktop_press(self): self.focused=False
-    def open_list(self, index):
-        """Row `index`'s choice list, on its current value. Only a pick applies (view.ViewControl.options_pick)."""
-        rows=self.data['rows']
-        if not self.data['open'] or not 0<=index<len(rows) or rows[index]['kind']!='choice' or not rows[index]['enabled'] or not rows[index].get('choices'): return False
-        choices=rows[index]['choices']
-        self.data.update(focus=index,list=choices.index(rows[index]['value']) if rows[index]['value'] in choices else 0)
-        top=index*og.ROW_H
-        self.data['scroll']=min(max(self.data['scroll'],top+og.ROW_H-og.BODY_H),top)
-        self.focused=True; self.last_input=self.clock(); self._bump(); return True
-    def move_list(self, step):
-        rows=self.data['rows']
-        if self.data['list']<0: return False
-        self.data['list']=(self.data['list']+step)%len(rows[self.data['focus']]['choices'])
-        self.last_input=self.clock(); self._bump(); return True
-    def close_list(self):
-        if self.data['list']>=0: self.data['list']=-1; self._bump()
     def escape(self):
         if not self.keyboard_owned: return False
-        if self.data['list']>=0:  # an open list goes first and picks nothing, as a placement list does
-            self.close_list(); return True
-        if self.data['focus']==og.FOCUS_LIST:
-            self.data['focus']=og.FOCUS_SECTION; self._bump(); return True
         editor=getattr(self.control,'options_editor',None)
         if editor is not None and editor.kind is not None:
             self.output += editor.close() or b''
@@ -403,14 +389,11 @@ class OptionsMenu:
                     self.pending=None; self.pending_ids.clear()
 
             if self.data['focus']>=len(rows): self.data['focus']=-1
-            if self.data['list']>=0:  # a readback took the list's row, or its choices, away
-                row=rows[self.data['focus']] if self.data['focus']>=0 else None
-                if row is None or row['kind']!='choice' or self.data['list']>=len(row.get('choices',[])): self.data['list']=-1; self._bump()
             self.data['scroll']=min(self.data['scroll'],self.scroll_limit(rows))
         except Exception as exc:
             self.data.update(status='error',message=str(exc).encode('utf-8')[:256].decode('utf-8','ignore'))
     @staticmethod
-    def scroll_limit(rows): return min(4096,max(0,len(rows)*og.ROW_H-og.BODY_H))
+    def scroll_limit(rows): return min(4096,max(0,len(rows)*38-304))
     def _page(self, callback):
         """The open tab's rows in the scope the header chose, or in the other scope if it has none in that one: a tab is
         never blank because of the scope it was reached in. data['scope'] is the scope shown."""
@@ -438,7 +421,6 @@ class OptionsMenu:
         if name=='options_open': return self.open(fields['monitor'])
         if not self.data['open']: return False
         self.last_input=self.clock()
-        self.data['list']=-1  # whatever this is, the open list has had its answer
         if name=='options_close': self.close(); return True
         if name=='options_cancel': return self.escape()
         if name in ('options_scope','options_category'):
@@ -447,7 +429,7 @@ class OptionsMenu:
             else: self.data[key]=fields[key]
             if self.pending and self._owner_active is None: self.pending=None; self.pending_ids.clear(); self.data.update(status='idle')
             if self.data['status']=='idle': self.data['message']=''
-            self.data.update(focus=og.FOCUS_SECTION if self.data['focus'] in (og.FOCUS_LIST,) or self.data['focus']>=0 else self.data['focus'],scroll=0); self.child=None; self._bump(); self.refresh()
+            self.data.update(focus=self.data['focus'] if self.data['focus']<0 else -3,scroll=0); self.child=None; self._bump(); self.refresh()
             if key=='scope' and self.data['scope']!=fields[key] and self.data['status']=='idle':
                 self.data['message']='This page has only '+('per-monitor' if self.data['scope']=='monitor' else 'workspace')+' settings'
             return True
@@ -461,8 +443,8 @@ class OptionsMenu:
                 select=getattr(editor,'select_candidate',None)
                 if row is not None and select is not None and select(row['id']): self.refresh()
             if fields['focus']>=0:
-                top=fields['focus']*og.ROW_H
-                self.data['scroll']=min(max(self.data['scroll'],top+og.ROW_H-og.BODY_H),top)
+                top=fields['focus']*38
+                self.data['scroll']=min(max(self.data['scroll'],top+38-304),top)
             return True
         if name=='options_scroll':
             self.data['scroll']=min(max(self.data['scroll']+fields['delta'],0),self.scroll_limit(self.data['rows'])); return True

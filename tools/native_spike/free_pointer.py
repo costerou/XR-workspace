@@ -410,8 +410,6 @@ def level_bar_rect(tile):
     return (tile[0] + (tile[2] - w) / 2, tile[1] - LEVEL_BAR_GAP * s - h, w, h)
 
 
-MAXIMIZE_W, MAXIMIZE_GAP = 38, 12   # options_geometry.hpp kMaximizeW, kMaximizeGap: a capsule of the bar's height
-
 def restore_band_frame(run_id, session, request_id, is_open):
     """Renderer `restore_band` frame: the Step-Back Band open or shut (ipc.hpp RestoreBandPayload)."""
     if type(is_open) is not bool: raise ValueError('invalid restore band')
@@ -422,7 +420,7 @@ def restore_band_frame(run_id, session, request_id, is_open):
 def maximize_rect(tile):
     s = level_bar_scale(tile)
     x, y, _, _ = level_bar_rect(tile)
-    return x - (MAXIMIZE_GAP + MAXIMIZE_W)*s, y, MAXIMIZE_W*s, LEVEL_BAR_H*s
+    return x - 38*s, y, 26*s, 26*s
 
 def maximize_hit(tile, q):
     from .options_geometry import inside
@@ -1746,25 +1744,18 @@ class OverviewPointer:
                 menu.focused = True
                 d = menu.snapshot()
                 row = og.row_at(h[2], h[3], d['scroll'], len(d['rows']))
-                from .options_menu import CATEGORIES
-                header = og.header_at(h[2], h[3])
-                if d['list'] >= 0:  # a choice list is on top: an item is the pick, anything else shuts it and applies nothing
-                    item = og.choice_at(h[2], h[3], og.row_top(d['focus'], d['scroll']), len(d['rows'][d['focus']]['choices']))
-                    if item is not None: out += self.control.options_pick(item)
-                    else: menu.close_list()
-                elif d['focus'] == og.FOCUS_LIST:  # the open list is on top: an item picks, anything else shuts it
-                    item = og.section_at(h[2], h[3])
-                    if item is not None: out += self.control.options_intent('options_category', category=CATEGORIES[item])
-                    else: out += self.control.options_intent('options_focus', focus=og.FOCUS_SECTION)
-                elif header == 'close': out += self.control.options_intent('options_close')
-                elif header == 'section': out += self.control.options_intent('options_focus', focus=og.FOCUS_LIST)
-                elif header in ('monitor', 'workspace'): out += self.control.options_intent('options_scope', scope=header)
+                from .options_menu import CATEGORIES, next_page
+                header, tab = og.header_at(h[2], h[3]), og.tab_at(h[2], h[3], CATEGORIES.index(d['category']), len(CATEGORIES))
+                if header == 'close': out += self.control.options_intent('options_close')
+                elif header == 'scope': out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
+                elif header == 'next': out += self.control.options_intent('options_category', category=next_page(d['category']))
+                elif tab is not None: out += self.control.options_intent('options_category', category=CATEGORIES[tab])
                 elif row is not None:
                     out += self.control.options_intent('options_focus', focus=row)
                     r = d['rows'][row]
                     if r['kind']=='range' and all(k in r for k in ('minimum','maximum','step')):
                         from . import options_geometry as og
-                        if not og.TRACK_X0-og.KNOB_R <= h[2] <= og.TRACK_X1+og.KNOB_R:
+                        if not og.TRACK_X0-5 <= h[2] <= og.TRACK_X1+5:
                             return out + self.control._options_frame()
                         i = h[1]
                         self.drag = dict(kind='options_range', index=i, start=self.pointer, tile=self._tile(i),

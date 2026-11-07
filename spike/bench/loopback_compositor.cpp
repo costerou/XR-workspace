@@ -1127,7 +1127,7 @@ int main(int argc, char** argv) {
     std::uint64_t menu_open_id=0,menu_nav_id=0,menu_close_id=0,quality_a_id=0,quality_b_id=0,stereo_id=0,bad_menu_id=0,bad_quality_id=0;
     auto options_payload=[](bool open,bool workspace,std::uint32_t revision){
         Json rows=workspace?Json::array({Json{{"id","video_quality"},{"label","Video quality"},{"scope","workspace"},{"kind","action"},{"value","Open"},{"enabled",true}},Json{{"id","help"},{"label","Help"},{"scope","workspace"},{"kind","readonly"},{"value","Native"},{"enabled",true}}}):Json::array({Json{{"id","placement"},{"label","Placement"},{"scope","monitor"},{"kind","action"},{"value","Open"},{"enabled",true}}});
-        return Json{{"open",open},{"namespace","s1"},{"monitor","XR-2"},{"scope",workspace?"workspace":"monitor"},{"category",workspace?"video":"placement"},{"focus",workspace?1:0},{"list",-1},{"scroll",workspace?38:0},{"revision",revision},{"status","idle"},{"message",""},{"rows",rows}};
+        return Json{{"open",open},{"namespace","s1"},{"monitor","XR-2"},{"scope",workspace?"workspace":"monitor"},{"category",workspace?"video":"placement"},{"focus",workspace?1:0},{"scroll",workspace?38:0},{"revision",revision},{"status","idle"},{"message",""},{"rows",rows}};
     };
     auto send_options_frame=[&](const char* op,const Json& payload){auto id=next_request++;send_frame(id,op,payload.dump());return id;};
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;

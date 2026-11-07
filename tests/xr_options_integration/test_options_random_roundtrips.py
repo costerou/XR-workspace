@@ -74,7 +74,7 @@ def seeded_pairs():
         if kind=='choice':row.update(value='Été',choices=['Été','映画','Other'])
         state=dict(open=True,namespace='session',monitor=rng.choice(['XR-1','XR-3']),scope='monitor',
                    category=CATEGORIES[n%len(CATEGORIES)],focus=(-4,-3,-2,-1,0)[n%5],
-                   list=rng.choice([-1,0,31]),scroll=rng.choice([0,34,238,4096]),revision=rng.choice([0,2**32-1,rng.randrange(2**32)]),
+                   scroll=rng.choice([0,38,304,4096]),revision=rng.choice([0,2**32-1,rng.randrange(2**32)]),
                    status=('idle','pending','applied','error')[(n//6)%4],message='',rows=[row])
         validate_snapshot(state)
         bad=copy.deepcopy(state);mutation=(n//6)%12

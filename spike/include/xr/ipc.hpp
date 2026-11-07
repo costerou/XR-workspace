@@ -185,7 +185,6 @@ struct OptionsRow {
 struct OptionsMenuState {
  bool open=false; std::string name_space, monitor, scope, category, status, message;
  int focus=-1, scroll=0; std::uint32_t revision=0; std::vector<OptionsRow> rows;
- int list=-1;  // the focused row's choice list: the highlighted item, -1 shut
 };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, RestoreBandPayload, OverviewPointerPayload, RollPayload, DesktopsPayload,

@@ -294,8 +294,7 @@ const char* glass_fragment_shader();
 // a focus halo), filled tonal buttons with icons (primary while on, error container while armed, M3 disabled). Every
 // role is under the OLED cap, so nothing passes kCardMaxLevel.
 struct OptionsMenuState;
-// The options menu, kOptionsW x kOptionsH (options_geometry.hpp): the placement panel's own parts, in `accent`'s scheme, on the same glass.
-HudImage render_options_panel(const OptionsMenuState&, const HudFont* font = nullptr, std::array<float, 3> accent = kGlassThemeDefault);
+HudImage render_options_panel(const OptionsMenuState&, const HudFont* font = nullptr);
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font = nullptr,
                             std::array<float, 3> accent = kGlassThemeDefault);
 // Footer hint as drawn (font: arrows; pixel font: ASCII).

@@ -489,9 +489,6 @@ struct Presentation::Impl : SurfaceRequests {
     bool binds_drawn = false;  // last frame showed it: draw once more so it clears
     OptionsEvidence options_evidence;bool options_in_frame=false;
     OptionsMenuState options; std::optional<Placement> options_surface; HudImage options_image; std::uint64_t options_generation=1000000;
-    std::unique_ptr<HudFont> options_font;  // the placement panel's family; its own instance, as each card has
-    std::array<float, 3> options_accent = kGlassThemeDefault;
-    void render_options() { options_image = render_options_panel(options, options_font.get(), options_accent); ++options_generation; cadence.invalidate(); }
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     RestoreStep restore_step;  // the Step-Back Band (options_geometry.hpp); the supervisor's `restore_band`
@@ -1243,7 +1240,6 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
             std::string binds_why; s->binds.set_font(HudFont::load(kHudFontFamily, binds_why));
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
-            std::string options_why; s->options_font = HudFont::load(kHudFontFamily, options_why);
         }
     }
     impl_ = std::move(s); return {};
@@ -1279,7 +1275,6 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     const std::array<float, 3> seed{r / 255.f, g / 255.f, b / 255.f};  // the seed of the M3 scheme (material.hpp)
     impl_->gl->set_accent(r, g, b);  // highlight border, glow, the pills' glass, the level bars and corner caps
     impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
-    if (impl_->options_accent != seed) { impl_->options_accent = seed; if (impl_->options.open) impl_->render_options(); }
     impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
     impl_->tracking_hint.set_accent(seed);
     impl_->help.set_accent(seed);
@@ -1346,7 +1341,7 @@ void Presentation::set_options_menu(const OptionsMenuState& state) {
  if(!state.open || state.monitor!=impl_->options.monitor)impl_->options_surface.reset();
  impl_->options=state;impl_->options_evidence.accepted();
  if(state.open && std::none_of(impl_->captures.begin(),impl_->captures.end(),[&](const auto& c){return c->name==state.monitor;}))impl_->options.open=false;
- impl_->render_options();
+ impl_->options_image=render_options_panel(state);++impl_->options_generation;impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;

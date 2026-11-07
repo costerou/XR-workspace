@@ -20,7 +20,7 @@ class ReviewRegressions(unittest.TestCase):
         self.assertGreater(c.options.snapshot()['scroll'],0)
     def test_slider_matches_native_track_min_mid_max_and_stationary_knob(self):
         row=dict(minimum=-180,maximum=180,step=1)
-        for x,want in ((geo.KNOB_LO,-180),((geo.KNOB_LO+geo.KNOB_HI)/2,0),(geo.KNOB_HI,180)):
+        for x,want in ((300,-180),(375,0),(450,180)):
             self.assertEqual(geo.range_value(row,x),want)
     def test_file_path_edits_commit_only_on_enter(self):
         with tempfile.TemporaryDirectory() as root:
