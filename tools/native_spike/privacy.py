@@ -20,9 +20,15 @@ the main display, then `on` for the glasses' output. That output is already on, 
 monitor selector does not resolve applies to every monitor, so the generated Lua first checks that both names exist
 (hl.get_monitors) in the same eval; nothing is dispatched otherwise. Names are validated physical connectors.
 
-Toggle. The worker reads the main display's current dpmsStatus: on -> blank it; off -> turn it on. So if something
-else turned it back on (an idle daemon's resume, a config reload that re-lit the panel), one press blanks it again.
-Each change shows a desktop notification, which lands on the focused monitor, i.e. in the glasses.
+Toggle. A press follows the run's own state, not the display's: privacy off -> blank the main display (even if it is
+already asleep, so the first press always means privacy on); privacy on -> turn it back on. Each change shows a desktop
+notification, which lands on the focused monitor, i.e. in the glasses.
+
+Stays dark. While privacy is on, a watcher reads the main display's dpmsStatus every WATCH_S and blanks it again if
+something else turned it on: an idle daemon (Omarchy's hypridle turns every monitor off on idle and on again at resume,
+and the next key after its `dpms off` wakes every monitor too), or the monitor coming back after a hotplug. So privacy
+never ends silently; at most the display lights for one WATCH_S. Live-checked on Hyprland 0.56.2: a config reload does
+not re-light it. The watcher only queries the compositor while privacy is on and stops when it goes off or at close().
 
 Restore. The run turns the display back on at its end (close(), before the binds go and before recovery starts), and
 recovery itself (managed.recover_restoring, managed.recover_managed: Stop, a renderer or controller crash, the panel's
@@ -36,6 +42,7 @@ import threading
 from .send import complete
 
 PRIVACY_OP = 'privacy_display'
+WATCH_S = 0.25  # how often the watcher checks a blanked display is still dark (one `monitors` query, only while privacy is on)
 PRIVACY_BIND = ('CTRL + ALT + D', PRIVACY_OP)
 PHYSICAL = re.compile(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]{1,3}\Z')  # supervisor.validate_physical_pair's connectors
 VIRTUAL = re.compile(r'XR-[0-9]+\Z')
@@ -107,12 +114,15 @@ def _default_notify(message):
 
 class PrivacyDisplay:
     """Supervisor side of Ctrl+Alt+D: one toggle at a time on a worker thread; close() turns the display back on."""
-    def __init__(self, client, glasses, fallback, notify=_default_notify, deadline=2.0):
+    def __init__(self, client, glasses, fallback, notify=_default_notify, deadline=2.0, watch=WATCH_S):
         self.client, self.glasses, self.fallback, self.notify, self.deadline = client, glasses, fallback, notify, deadline
-        self._lock = threading.Lock()  # held for a whole toggle; close() waits on it
+        self.watch = watch
+        self._lock = threading.Lock()  # held for a whole toggle or watcher check; close() waits on it
+        self._stop = threading.Event()
         self.closed = False
-        self.blanked = None            # the output this run turned off, while it is off
+        self.blanked = None            # privacy on: the output this run turned off
         self._threads = []
+        self._watcher = None           # set and cleared under the lock
 
     def request(self, done=None):
         """From the supervisor loop: never blocks on the compositor."""
@@ -136,17 +146,19 @@ class PrivacyDisplay:
 
     def _toggle(self):
         """Do it now (caller holds the lock). Returns the message for the user."""
-        monitors = self.client.query('monitors', timeout=self.deadline)
-        target = main_display(monitors, self.glasses, self.fallback)
-        if target is None: return False, 'No single main display found to turn off.'
-        on = dpms_status(monitors, target)
-        if on is None: return False, f'{target} is not available.'
-        if on:
+        if self.blanked is None:
+            monitors = self.client.query('monitors', timeout=self.deadline)
+            target = main_display(monitors, self.glasses, self.fallback)
+            if target is None: return False, 'No single main display found to turn off.'
+            if dpms_status(monitors, target) is None: return False, f'{target} is not available.'
             self.client.set_dpms(target, False, keep=self.glasses)
             if dpms_status(self.client.query('monitors', timeout=self.deadline), target) is not False:
                 return False, f'{target} did not turn off.'
             self.blanked = target
+            if self._watcher is None:
+                self._watcher = threading.Thread(target=self._watch, daemon=True); self._watcher.start()
             return True, f'Privacy on: {target} is off, only the glasses show content. Ctrl+Alt+D turns it back on.'
+        target = self.blanked
         self.client.set_dpms(target, True)
         if dpms_status(self.client.query('monitors',timeout=self.deadline),target) is not True:
             self.blanked = target
@@ -154,9 +166,22 @@ class PrivacyDisplay:
         self.blanked = None
         return True, f'Privacy off: {target} is back on.'
 
+    def _watch(self):
+        """While privacy is on: the display something else turned on is blanked again (module docstring)."""
+        while not self._stop.wait(self.watch):
+            with self._lock:
+                if self.closed or self.blanked is None:
+                    self._watcher = None; return
+                try:
+                    if dpms_status(self.client.query('monitors', timeout=self.deadline), self.blanked) is True:
+                        self.client.set_dpms(self.blanked, False, keep=self.glasses)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    pass  # the compositor is busy or the monitor is gone for now: the next check tries again
+
     def close(self, timeout=None):
         """Run end, before the binds go and recovery starts: no toggle starts after this; the display comes back on."""
         self.closed = True
+        self._stop.set()
         got = self._lock.acquire(timeout=3 * self.deadline + 0.5 if timeout is None else timeout)
         try:
             if self.blanked is not None:
@@ -165,4 +190,5 @@ class PrivacyDisplay:
                 self.blanked = None
         finally:
             if got: self._lock.release()
-        for t in self._threads: t.join(0.1)
+        for t in self._threads + [self._watcher]:
+            if t is not None: t.join(0.1)
