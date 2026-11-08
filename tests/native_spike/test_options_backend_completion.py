@@ -16,11 +16,14 @@ class Completions(unittest.TestCase):
         return event,result,done
 
     def test_privacy_wake_must_read_back(self):
-        client=DpmsClient(desk(False),obey=False)
+        client=DpmsClient(desk())
         owner=PrivacyDisplay(client,'DP-2','DP-1',notify=None)
-        event,result,done=self.result()
-        owner.request(done=done)
+        event,result,done=self.result(); owner.request(done=done)
+        self.assertTrue(event.wait(2)); self.assertTrue(result[0][0])  # privacy on
+        client.obey=False
+        event,result,done=self.result(); owner.request(done=done)
         self.assertTrue(event.wait(2)); self.assertFalse(result[0][0]); self.assertIn('on',result[0][1])
+        client.obey=True
         owner.close()
 
     def test_privacy_off_and_on_success(self):

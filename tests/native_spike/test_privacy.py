@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -134,9 +135,9 @@ class LuaTests(unittest.TestCase):
 
 
 class ToggleTests(unittest.TestCase):
-    def make(self, client=None):
+    def make(self, client=None, watch=60):
         notes = []
-        return privacy.PrivacyDisplay(client or Client(), 'DP-2', 'DP-1', notify=notes.append), notes
+        return privacy.PrivacyDisplay(client or Client(), 'DP-2', 'DP-1', notify=notes.append, watch=watch), notes
 
     def test_toggle_blanks_then_restores_the_main_display(self):
         p, _ = self.make()
@@ -149,12 +150,45 @@ class ToggleTests(unittest.TestCase):
         self.assertEqual(p.client.calls[-1], ('DP-1', True, None))
         self.assertIsNone(p.blanked)
 
-    def test_a_display_something_else_woke_is_blanked_again_by_one_press(self):
-        p, _ = self.make()
+    def wait_for(self, check, timeout=5):
+        end = time.monotonic() + timeout
+        while not check():
+            if time.monotonic() > end: self.fail('timed out')
+            time.sleep(0.005)
+
+    def test_a_display_something_else_woke_is_blanked_again_by_the_watcher(self):
+        p, _ = self.make(watch=0.01)
         p.toggle()
-        p.client.mons[0]['dpmsStatus'] = True  # an idle resume or a reload re-lit it
-        self.assertIn('Privacy on', p.toggle())
-        self.assertEqual([c[1] for c in p.client.calls], [False, False])
+        p.client.mons[0]['dpmsStatus'] = True  # an idle daemon's resume, or the monitor back after a hotplug
+        self.wait_for(lambda: len(p.client.calls) == 2)
+        self.assertEqual(p.client.calls[1], ('DP-1', False, 'DP-2'))
+        self.assertIs(privacy.dpms_status(p.client.mons, 'DP-1'), False)
+        self.assertEqual(p.blanked, 'DP-1')
+        self.assertEqual(p.toggle(), 'Privacy off: DP-1 is back on.')  # the next press still means privacy off
+        self.wait_for(lambda: p._watcher is None)
+        p.client.mons[0]['dpmsStatus'] = True
+        time.sleep(0.05)
+        self.assertEqual(len(p.client.calls), 3)  # privacy off: nothing watches any more
+        p.close()
+
+    def test_the_watcher_survives_compositor_errors_and_stops_at_close(self):
+        p, _ = self.make(watch=0.01)
+        p.toggle()
+        real = p.client.query
+        p.client.query = mock.Mock(side_effect=OSError('busy'))
+        time.sleep(0.05)
+        p.client.query = real
+        p.client.mons[0]['dpmsStatus'] = True
+        self.wait_for(lambda: len(p.client.calls) == 2)
+        p.close()
+        self.assertFalse(p._watcher.is_alive())
+        self.assertEqual(p.client.calls[-1], ('DP-1', True, None))
+
+    def test_the_first_press_means_privacy_on_even_if_the_display_is_asleep(self):
+        p, _ = self.make(Client(desk(dp1=False)))
+        self.assertIn('Privacy on: DP-1 is off', p.toggle())
+        self.assertEqual(p.client.calls, [('DP-1', False, 'DP-2')])
+        p.close()
 
     def test_refusals(self):
         p, _ = self.make(Client([monitor('DP-2', 'VITURE'), monitor('XR-1')]))

@@ -568,10 +568,16 @@ crash, the panel's Recover. If the run died and its binds survived, Ctrl+Alt+D t
 guard accepts a DPMS-off fallback (it must still be connected and enabled). Ctrl+Alt+D is off in typing mode like the
 other run binds, and works while a VR video plays.
 
-Limits: windows on the blanked display still take input, and Ctrl+Alt+B still sends windows there. An idle daemon's
-resume, or a config reload that re-lights the panel, can turn it back on; one press of Ctrl+Alt+D blanks it again
-(the key reads the display's current state). Offline tests only (`tests/native_spike/test_privacy.py`); not yet tried
-on the live desktop.
+While privacy is on, the run checks the display every 0.25 s and blanks it again if something else turned it on: an
+idle daemon (Omarchy's hypridle turns every monitor off at idle and on at resume, and a key after its `dpms off` wakes
+every monitor), or the monitor coming back after a hotplug. At most it lights for that 0.25 s. A press of Ctrl+Alt+D
+follows the run's own state: the first press always turns privacy on (even if the display was already asleep), the
+next one off.
+
+Limits: windows on the blanked display still take input, and Ctrl+Alt+B still sends windows there. Offline tests in
+`tests/native_spike/test_privacy.py`. Live on Hyprland 0.56.2 (2026-11-07, Odyssey on DP-1, VITURE on DP-2): the blank
+holds through a key press (a plain `dpms off` wakes on the same key) and through `hyprctl reload`; a stale Ctrl+Alt+D
+with no run listening turns every monitor back on; recovery's wake turns DP-1 on once and then sends nothing.
 
 ### Head tracking from the command line
 
