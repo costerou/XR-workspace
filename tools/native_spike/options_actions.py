@@ -27,6 +27,7 @@ ACTIONS = {
 MONITOR_ACTIONS = {'send_glasses', 'mode_follow', 'mode_locked'}
 LABELS = {'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)'}
 LABELS.update(mode_follow='Maximize in Follow mode',mode_locked='Maximize in Locked mode')
+LABELS.update(privacy_display='Privacy: main display off')
 
 
 def _index(control, scope, monitor):
@@ -94,7 +95,9 @@ def options_rows(control, scope, monitor, category):
             item['enabled'] = getattr(control,'options_video',None) is not None
         if id == 'binds_toggle': item['enabled'] = control.keys is not None
         if id.startswith('send_'): item['enabled'] = control.sender is not None
-        if id == 'privacy_display': item['enabled'] = control.privacy is not None
+        if id == 'privacy_display':
+            item['enabled'] = control.privacy is not None
+            item['value'] = '' if control.privacy is None else 'on' if control.privacy.blanked else 'off'
     if s.typing:
         for item in out:
             if item['id'] != 'typing_toggle': item['enabled'] = False
