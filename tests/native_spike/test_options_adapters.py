@@ -27,6 +27,14 @@ class AdapterTests(unittest.TestCase):
             self.assertNotIn(gone, shown)
             with self.assertRaises(ValueError): options_apply(self.c,gone,None,'XR-3','monitor')
 
+    def test_the_privacy_row_says_what_it_does_and_whether_it_is_on(self):
+        def privacy_row(): return next(r for r in options_rows(self.c,'workspace','XR-1','privacy') if r['id']=='privacy_display')
+        self.assertEqual((privacy_row()['label'], privacy_row()['enabled'], privacy_row()['value']), ('Privacy: main display off', False, ''))
+        self.c.privacy = Mock(blanked=None)
+        self.assertEqual((privacy_row()['enabled'], privacy_row()['value']), (True, 'off'))
+        self.c.privacy.blanked = 'DP-1'
+        self.assertEqual(privacy_row()['value'], 'on')
+
     def test_quality_calls_real_video_owner_and_validates(self):
         from tools.native_spike.video import VideoControl
         video = VideoControl(self.c, threads=False)

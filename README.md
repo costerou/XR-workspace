@@ -121,6 +121,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
+| Ctrl+Alt+D | Privacy: turn your normal monitor's screen off so only the glasses show anything; again to turn it back on. It stays off until you press it again or the session ends |
 | Ctrl+Alt+O | Play a VR video file |
 | Ctrl+Alt+U | Play the video or video page link you copied |
 
