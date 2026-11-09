@@ -205,7 +205,8 @@ class OwnershipBrokerClient:
                 raise OwnershipBlocked('actual geometry/workspace mismatch')
         if o.get('enabled') is not True or o.get('dpms') is not True or o.get('mirrored') is not False or type(o.get('transform')) is not int or o['transform'] != 0:
             raise OwnershipBlocked('unusable output')
-        # Workspaces belong to Omarchy/the user: any regular ones, windows unpinned on them.
+        # Workspaces belong to Omarchy/the user: any regular ones, any windows on them. A pinned one (Omarchy's pop-out, a
+        # drag) keeps the run going: Remove refuses its desktop, and Stop/Recover unpin it first (restore.UNPIN_LUA).
         workspaces = o.get('workspaces')
         if (not isinstance(workspaces, list) or not workspaces or any(
                 not isinstance(w, dict) or set(w) != {'id', 'name', 'special'} or type(w['id']) is not int
@@ -216,14 +217,14 @@ class OwnershipBrokerClient:
         if type(o.get('workspace')) is not int or o['workspace'] not in ids:
             raise OwnershipBlocked(f"workspace placement mismatch: active {_brief(o.get('workspace'))} not among {sorted(ids)[:8]}")
         windows = o.get('windows')
-        if not isinstance(windows,list) or any(not isinstance(w,dict) or set(w) != {'workspace', 'pinned'} or type(w['workspace']) is not int or w['workspace'] not in ids or w['pinned'] is not False for w in windows):
+        if not isinstance(windows,list) or any(not isinstance(w,dict) or set(w) != {'workspace', 'pinned'} or type(w['workspace']) is not int or w['workspace'] not in ids or type(w['pinned']) is not bool for w in windows):
             raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspaces {sorted(ids)} observed {_brief(windows)}")
 
     def _refused(self, reply):
         """Why the broker's reply is not a proven removal, from what it says of the output now."""
         said = [REMOVAL_STEPS.get(reply.get('blocked')) or f"the ownership plugin refused to remove it (state {reply['state']})"]
         if reply['fallback_usable'] is not True:
-            said.append(f'{self.approved_physical} cannot take its windows: it is off, mirrored or unplugged')
+            said.append(f'{self.approved_physical} cannot take its windows: it is disabled, mirrored or unplugged')
         return '; '.join(said)
 
     def evacuate_remove(self, output_id, output_name):

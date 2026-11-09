@@ -651,13 +651,9 @@ int main(int argc, char** argv) {
         PlacementMenuState slider = menu; slider.field = kPlacementMenuBrightness; slider.brightness = 40;
         const std::array<float, 3> tokyo{kTokyo[0] / 255.f, kTokyo[1] / 255.f, kTokyo[2] / 255.f};
         const HudImage list_image = render_glass_panel(list, font.get(), tokyo), slider_image = render_glass_panel(slider, font.get(), tokyo);
-        // Head level, the panel open: the view shifted as the renderer shifts it (glass.hpp glass_panel_shift).
-        const std::vector<Size> sizes(3, Size{float(kDesktopW), float(kDesktopH)});
-        const auto tiles = blended_layout(sizes, float(kCanvasW), float(kCanvasH), 40.f, 0.f, 1.f);
-        const Canvas canvas{float(kCanvasW), float(kCanvasH), g_half_w, g_half_h};
-        const Frame low = [&] { Frame f = base; f.view = glass_view_shift(kIdentity, glass_panel_shift(canvas, tiles[1], Placement{})); return f; }();
-        { Frame f = low; f.panel = &list_image; shots.push_back({"panel-background-dropdown.png", f}); }
-        { Frame f = low; f.panel = &slider_image; f.brightness = 40; shots.push_back({"panel-brightness-slider.png", f}); }
+        // Head level, the panel open: the view never moves for it.
+        { Frame f = base; f.panel = &list_image; shots.push_back({"panel-background-dropdown.png", f}); }
+        { Frame f = base; f.panel = &slider_image; f.brightness = 40; shots.push_back({"panel-brightness-slider.png", f}); }
         // Smoke: over time, looking round, themes, brightness, maximized and the panel.
         Frame sm = ahead; sm.scene = Background::smoke;
         for (const int s : {20, 32, 44, 56}) { Frame f = sm; f.seconds = float(s); shots.push_back({nullptr, f}); shots.back().name = "smoke-over-time-" + std::to_string(s) + "s.png"; }
@@ -673,7 +669,7 @@ int main(int argc, char** argv) {
         { Frame f = sm; f.brightness = 200; shots.push_back({"smoke-brightness-200.png", f}); }
         PlacementMenuState smoke_list = list; smoke_list.background = std::uint8_t(Background::smoke);
         const HudImage smoke_list_image = render_glass_panel(smoke_list, font.get(), tokyo);
-        { Frame f = low; f.scene = Background::smoke; f.panel = &smoke_list_image; shots.push_back({"smoke-panel-dropdown.png", f}); }
+        { Frame f = base; f.scene = Background::smoke; f.panel = &smoke_list_image; shots.push_back({"smoke-panel-dropdown.png", f}); }
         for (const auto& s : shots) {
             gl->set_accent(s.accent[0], s.accent[1], s.accent[2]);
             const std::filesystem::path path = dir / (s.file ? std::string(s.file) : s.name);

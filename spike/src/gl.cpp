@@ -512,7 +512,7 @@ bool GlCompositor::set_depth(std::size_t source, const DepthInput& frame) {
     const double now = Impl::now_ms();
     auto params = s.stereo_set.params;
     if (source < s.stereo_set.strengths.size() && s.stereo_set.strengths[source] >= 0) params.strength = s.stereo_set.strengths[source] / 100.f;
-    const bool ok = s.stereo->update(source, frame, colour, w, params, float(w) / float(h), !frame.reset_history && state.depth_ms >= 0 ? float(now - state.depth_ms) : 0.f);
+    const bool ok = s.stereo->update(source, frame, colour, w, h, params, float(w) / float(h), !frame.reset_history && state.depth_ms >= 0 ? float(now - state.depth_ms) : 0.f);
     if (ok) state.depth_ms = now;
     s.current = 0;
     return ok;
@@ -950,11 +950,12 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             if (!g.pills && e <= 0.f) continue;
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
             const FRect r = g.options && int(i)==g.content ? options_panel(tiles[i]) : glass_morph(tiles[i], e);
-            shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
+            const float opacity = g.options && int(i)==g.content ? g.options_alpha : 1.f;
+            shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), opacity, kGlassShadowMargin);
             if (e <= 0.f) continue;
             // The grabber where the pill was, fading in with the panel.
             const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};
-            shape(s.grab_meshes[i], i, grab, kGrabberH / 2, grabber_look(level), std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
+            shape(s.grab_meshes[i], i, grab, kGrabberH / 2, grabber_look(level), opacity * std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
             if (int(i) != g.content || !g.image || g.content_alpha <= 0.f || !s.panel_program) continue;
             const auto& im = *g.image;
             if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) continue;

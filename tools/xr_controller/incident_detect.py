@@ -14,6 +14,7 @@ import re
 import signal as signals
 
 from tools.native_spike.faults import RUN as RUN_FAULT
+from tools.native_spike.sbs import scope_ok as sbs_scope_ok
 from tools.native_spike.tracking import PRO2_TRACKING, SCOPES
 
 # Every kind, most telling first: an incident is named after the highest of its signals (Episode.kind). A crash outranks
@@ -159,8 +160,13 @@ class RunWatch:
             self.switch_started = at
         if self.switch_started is not None:
             mode = _mode(monitor) if monitor else None
-            if (mode and ((mode[:2] == (3840, 1200) and mode[2] in (60, 90))
-                         or (mode[:2] == (1920, 1200) and mode[2] == 120)) and mode != self.mode):
+            if self.consent.get('model') == 'pro2':
+                supported = (sbs_scope_ok(self.consent.get('sbs_mode'), model='pro2') and mode
+                             and (mode == (3840, 1080, 60) or (mode[:2] == (1920, 1080) and mode[2] in (60, 90, 120))))
+            else:
+                supported = mode and ((mode[:2] == (3840, 1200) and mode[2] in (60, 90))
+                                      or (mode[:2] == (1920, 1200) and mode[2] == 120))
+            if supported and mode != self.mode:
                 self.mode_switches += 1
                 self.mode = self.seen_mode = mode
                 self.switch_started = None

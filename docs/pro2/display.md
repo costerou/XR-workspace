@@ -1,4 +1,7 @@
 # Pro2 display — early evidence / integration contract
+
+**Current support, November 8, 2026:** the production route now follows the Pro 2's own L1-controlled 3840×1080@60 SBS mode. See [Pro 2 desktop 3D](3d.md) for observed hardware readback, installation, scope, and remaining live verification. The notes below preserve the November 4 bring-up contract and its historical deferrals; Luma's fixed 1200p mode remains excluded.
+
 Canonical model key `pro2` acknowledged. No hardware changes or USB device access.
 
 Passive `edid-decode /sys/class/drm/card1-DP-2/edid` on Nov 4: VIT manufacturer, generic VITURE name, model 48; base preferred DTD 1920x1080@60, second 120; CTA DTD 120/90/60. Both block checksums valid. No 1200p or SBS timing in current EDID. Generic EDID is not model identity; correlate with hardware stream's exact USB inventory.

@@ -21,6 +21,27 @@ std::string joined(const std::vector<HudLine>& lines) { std::string s; for (auto
 }
 
 int main() {
+    // Every interactive menu uses a quick ease-out on both entrance and exit. A reversal or an unseen
+    // interval must preserve the opacity, and a settled card must stop requesting animation frames.
+    {
+        CardFade fade{180, 120};
+        CHECK(fade.set(true, 100));
+        CHECK(std::fabs(fade.alpha(190) - 0.875f) < 1e-5f);
+        CHECK(fade.alpha(280) == 1 && !fade.animating(280));
+        CHECK(fade.set(false, 300));
+        CHECK(std::fabs(fade.alpha(360) - 0.125f) < 1e-5f);
+        const float mid = fade.alpha(360);
+        CHECK(fade.set(true, 360) && fade.alpha(360) == mid);
+        CHECK(fade.alpha(450) == 1 && !fade.animating(450));
+        CHECK(fade.set(false, 500));
+        const float held = fade.alpha(530);
+        fade.hold(530, 1000);
+        CHECK(fade.alpha(1000) == held);
+        CHECK(fade.alpha(1090) == 0 && !fade.animating(1090));
+        CardFade instant{0, 0};
+        CHECK(instant.set(true, 0) && instant.alpha(0) == 1 && !instant.animating(0));
+        CHECK(instant.set(false, 0) && instant.alpha(0) == 0 && !instant.animating(0));
+    }
     // Glyphs: case-insensitive; unknown characters render '?' instead of nothing.
     CHECK(&hud_glyph('a') == &hud_glyph('A') && &hud_glyph('~') == &hud_glyph('?'));
     CHECK(hud_glyph(' ') == (std::array<std::uint8_t, kGlyphH>{}));
@@ -198,7 +219,7 @@ int main() {
     CHECK(h.shown_count() == 1 && h.hidden_count() == 1);
     CHECK(h.set(true, rows, 5000));
     const float mid = h.alpha(5000 + kHelpFadeInMs / 2);
-    CHECK(mid > 0.2f && mid < 0.8f);
+    CHECK(std::fabs(mid - 0.875f) < 1e-5f);
     CHECK(h.set(false, rows, 5000 + kHelpFadeInMs / 2) && h.alpha(5000 + kHelpFadeInMs / 2) == mid);  // reverses, no jump
     CHECK(h.alpha(5000 + kHelpFadeInMs / 2 + kHelpFadeOutMs) == 0);
     CHECK(h.shown_count() == 2 && h.hidden_count() == 2 && !h.visible());

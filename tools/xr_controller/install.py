@@ -157,6 +157,14 @@ def install_pro2_bundle(build_dir, data_home, builder=None):
     staging = root / PRO2_DIR / ('.stage-' + os.urandom(4).hex())
     try:
         builder(build_dir, staging)
+        # Add the optional engine before naming the immutable bundle. Its launcher names this checkout, not the staging
+        # directory, just like the ordinary install; its own bytes join the manifest so existing pins stay unchanged.
+        engine = _write_engine(staging / 'bin')
+        if engine is not None:
+            manifest_path = staging / 'manifest.json'
+            manifest = json.loads(manifest_path.read_text())
+            manifest['files']['bin/' + ENGINE] = _sha(engine)
+            _atomic_write(manifest_path, (json.dumps(manifest, indent=2) + '\n').encode(), 0o400)
         name = pro2_route.manifest_sha(staging)[:12]
         final = root / PRO2_DIR / name
         if final.exists():

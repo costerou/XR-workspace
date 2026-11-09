@@ -212,8 +212,9 @@ class RunningEditorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             commons = Path(tmp) / 'imports' / 'qs' / 'Commons'
             commons.mkdir(parents=True)
-            (commons / 'qmldir').write_text('module qs.Commons\nsingleton Color 1.0 Color.qml\n')
+            (commons / 'qmldir').write_text('module qs.Commons\nsingleton Color 1.0 Color.qml\nsingleton Style 1.0 Style.qml\n')
             (commons / 'Color.qml').write_text(COLOR)
+            shutil.copyfile(PLUGIN / 'tests' / 'imports' / 'qs' / 'Commons' / 'Style.qml', commons / 'Style.qml')
             shutil.copytree(PLUGIN, Path(tmp) / 'panel', ignore=shutil.ignore_patterns('tests', '__pycache__'))
             (Path(tmp) / 'panel' / 'VideoControls.qml').write_text(VIDEO)
             model = Path(tmp) / 'panel' / 'Model.js'

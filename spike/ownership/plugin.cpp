@@ -239,10 +239,13 @@ public:
             m->m_scale==static_cast<float>(p["scale"].get<double>()) && m->m_refreshRate==120 && m->m_position==Vector2D(p["x"].get<double>(),p["y"].get<double>()) &&
             m->m_transform==WL_OUTPUT_TRANSFORM_NORMAL;
     }
+    // Whether the fallback can hold windows. DPMS is no part of it: a powered-down panel keeps its workspaces and windows
+    // (privacy mode, Ctrl+Alt+D, tools/native_spike/privacy.py), and recovery turns the fallback back on before it starts.
+    // An isolated pair keeps its full proof, DPMS included (observePairOutput).
     bool usable(const Handle& h) override {
         auto m=resolve(h);
         if(!m || !m->m_output->getBackend() || m->m_output->getBackend()->type()!=Aquamarine::AQ_BACKEND_DRM ||
-           !m->enabled() || !m->m_dpmsStatus || m->m_mirrorOf) return false;
+           !m->enabled() || m->m_mirrorOf) return false;
         auto o=native(h);
         // Legacy schema-1 eligibility and isolated pair proof are never combined.
         if(o->legacyDrmEligible) return !o->pairBackend;
@@ -274,6 +277,7 @@ public:
     bool reachable(const Handle& h,const Handle& fallback) override {
         if(!usable(fallback)) return false;
         auto source=native(h)->monitor;
+        const auto asleepOk=resolve(fallback); // the only monitor whose windows may be DPMS-off (usable() above)
         if(!h->live) for(const auto& m:State::monitorState()->allMonitors())
             if(m->m_output==native(h)->output) return false;
         const auto workspaces=State::workspaceState()->workspacesCopy();
@@ -287,7 +291,8 @@ public:
             if(std::find(workspaces.begin(),workspaces.end(),w->m_workspace)==workspaces.end() ||
                std::none_of(monitors.begin(),monitors.end(),[&](const auto& m){return w->m_monitor==m;})) return false;
             if(!w->m_workspace || w->m_workspace->inert() || !w->m_monitor || w->m_monitor==source ||
-               w->m_workspace->m_monitor!=w->m_monitor || !w->m_monitor->enabled() || !w->m_monitor->m_dpmsStatus || w->m_monitor->m_mirrorOf) return false;
+               w->m_workspace->m_monitor!=w->m_monitor || !w->m_monitor->enabled() ||
+               (!w->m_monitor->m_dpmsStatus && w->m_monitor!=asleepOk) || w->m_monitor->m_mirrorOf) return false;
         }
         return true;
     }

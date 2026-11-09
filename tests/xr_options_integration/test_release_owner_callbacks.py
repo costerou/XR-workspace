@@ -61,9 +61,15 @@ def test_send_callback_verifies_client_workspace_not_forwarding(obey):
 @pytest.mark.parametrize('dpms',[True,False])
 @pytest.mark.parametrize('obey',[True,False])
 def test_privacy_callback_reads_both_off_and_on(dpms,obey):
-    backend=Backend(obey,dpms); owner=PrivacyDisplay(backend,'DP-2','DP-1',notify=None)
+    backend=Backend(); owner=PrivacyDisplay(backend,'DP-2','DP-1',notify=None)
     event,results,done=callback()
     try:
+        # Turning privacy off requires an active privacy session. An asleep
+        # display alone does not establish one: the first press keeps it dark.
+        if not dpms:
+            owner.toggle()
+            assert backend.query('monitors')[0]['dpmsStatus'] is False
+        backend.obey=obey
         owner.request(done=done)
         assert event.wait(2), 'missing authoritative DPMS completion'
         assert len(results)==1 and results[0][0] is obey

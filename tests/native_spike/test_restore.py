@@ -112,6 +112,8 @@ function hl.dsp.window.float(a) return function()
   local w = need(addr(a.window)); local on = a.action == "on"
   if w.floating == on then return end
   if on then untile(addr(a.window)); w.floating = true else w.floating = false; tile(addr(a.window)) end end end
+function hl.dsp.window.pin(a) return function()
+  local w = need(addr(a.window)); assert(a.action == "disable", "only unpinning"); w.pinned = false end end
 function hl.dsp.window.fullscreen_state(a) return function()
   local w = need(addr(a.window)); assert(a.action == "set"); w.fs, w.fc = a.internal, a.client end end
 if state.omarchy then
@@ -363,6 +365,24 @@ class OtherMonitorTests(unittest.TestCase):
         self.assertEqual(self.where(after)['0xb'], (1, 'DP-1'))
 
 
+@unittest.skipUnless(LUA, 'needs a Lua 5.4 interpreter')
+class UnpinTests(unittest.TestCase):
+    """Cody, 2026-11-08: a window pinned on an XR desktop during the run does not end it. Stop and Recover unpin it first,
+    so the restore and the removal's evacuation can move it; a pinned window anywhere else stays pinned."""
+    run_lua, start, where = RoundTripTests.run_lua, RoundTripTests.start, RoundTripTests.where
+
+    def test_stop_unpins_on_the_xr_desktops_only_and_the_window_comes_back(self):
+        state = world()
+        state['windows'] += [{'address': '0x1a', 'ws': 41, 'floating': True, 'pinned': True},
+                             {'address': '0x1b', 'ws': 3, 'floating': True, 'pinned': True}]
+        before, snapshot, adopting = self.start(state)
+        after = self.run_lua(state, *adopting, restore.UNPIN_LUA, restore.UNPIN_LUA, restore.lua(snapshot))
+        pinned = {c['address']: c['pinned'] for c in after['clients']}
+        self.assertFalse(pinned['0x1a'])
+        self.assertTrue(pinned['0x1b'])  # on the fallback: not the run's, left as it is
+        self.assertEqual(self.where(after)['0x1a'][1], 'DP-1')  # opened on XR-2 during the run: to the fallback
+
+
 class SnapshotTests(unittest.TestCase):
     def snapshot(self):
         spaces = [{'id': 1, 'name': '1', 'monitor': 'DP-1'}, {'id': 2, 'name': '2', 'monitor': 'DP-1'},
@@ -457,6 +477,9 @@ class Transport:
     def restore_layout(self, snapshot):
         self.log.append(('restore', snapshot['run_id']))
         if self.fail: raise ValueError('compositor rejected bind change')
+    def unpin_xr_windows(self):
+        self.log.append(('unpin',))
+        if self.fail: raise ValueError('compositor rejected bind change')
 
 
 class RecoveryWiringTests(unittest.TestCase):
@@ -477,20 +500,22 @@ class RecoveryWiringTests(unittest.TestCase):
 
     def test_saved_snapshot_restores_before_recovery_and_goes_once_complete(self):
         restore.save(restore.take(Transport([]), 'DP-1', 'run-1', self.layouts), self.layouts)
-        self.assertEqual(self.recovered(complete=False), [('restore', 'run-1'), ('recover',)])
+        # Pinned windows on the XR desktops are unpinned first, so the restore and the removal can move them.
+        self.assertEqual(self.recovered(complete=False), [('unpin',), ('restore', 'run-1'), ('recover',)])
         self.assertIsNotNone(restore.load('run-1', self.layouts))  # kept for the next attempt
-        self.assertEqual(self.recovered(complete=True), [('restore', 'run-1'), ('recover',)])
+        self.assertEqual(self.recovered(complete=True), [('unpin',), ('restore', 'run-1'), ('recover',)])
         self.assertIsNone(restore.load('run-1', self.layouts))
-        self.assertEqual(self.recovered(complete=True), [('recover',)])  # nothing saved: recovery as before
+        self.assertEqual(self.recovered(complete=True), [('unpin',), ('recover',)])  # nothing saved: recovery as before
 
     def test_a_failed_restore_still_recovers(self):
         restore.take(Transport([]), 'DP-1', 'run-1', self.layouts)
-        self.assertEqual(self.recovered(complete=True, fail=True), [('restore', 'run-1'), ('notify',), ('recover',)])
+        self.assertEqual(self.recovered(complete=True, fail=True),
+                         [('unpin',), ('restore', 'run-1'), ('notify',), ('recover',)])  # a failed unpin says nothing
 
     def test_an_unreadable_snapshot_still_recovers(self):
         self.layouts.mkdir(mode=0o700)
         (self.layouts / 'run-1.json').write_text('{}'); (self.layouts / 'run-1.json').chmod(0o600)
-        self.assertEqual(self.recovered(complete=True), [('recover',)])
+        self.assertEqual(self.recovered(complete=True), [('unpin',), ('recover',)])
 
 
 class ManagedRestoreTests(unittest.TestCase):

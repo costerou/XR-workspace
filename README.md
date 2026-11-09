@@ -85,6 +85,11 @@ Two things can show up next to Start:
 
 ## Everyday use
 
+Menus use a consistent, gentle ease-out: 180 ms to open and 120 ms to close. This includes the desktop panel's
+dropdowns and startup options, and the in-glasses options, help, keybind and video menus. Rapid toggles reverse
+smoothly. Desktop-panel motion follows Omarchy's animations setting. Settings refreshes preserve unsaved desktop
+edits, and a failed command stays visible until your next command or panel reopen.
+
 **Stabilization:** the panel’s **Display → Stabilization** control steadies small head movements while allowing deliberate
 turns through immediately. Choose Off, Light (the default), Medium or Strong, or use the 0–100 slider. It applies live
 and saves with your view settings. Ctrl+Alt+Space still recenters immediately. See [measurements and offline tests](docs/stabilization.md).

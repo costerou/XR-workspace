@@ -181,10 +181,12 @@ constexpr const char* kInvalidOptionsMenuCode = "invalid_options_menu";
 struct OptionsRow {
  std::string id, label, scope, kind, value, unit; double minimum=0, maximum=0, step=0;
  bool enabled=false; std::vector<std::string> choices;
+ bool operator==(const OptionsRow&) const = default;
 };
 struct OptionsMenuState {
  bool open=false; std::string name_space, monitor, scope, category, status, message;
  int focus=-1, scroll=0; std::uint32_t revision=0; std::vector<OptionsRow> rows;
+ bool operator==(const OptionsMenuState&) const = default;
 };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, RestoreBandPayload, OverviewPointerPayload, RollPayload, DesktopsPayload,

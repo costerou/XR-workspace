@@ -237,6 +237,13 @@ class Journal:
             if record["state"] != "confirmed": raise ValueError("output removal before its creation was confirmed")
             record["state"] = "done"; self._save()
 
+    def compositor_ended(self) -> None:
+        """The compositor this journal's broker scope names has exited (hyprland.instance_ended). Every record is that
+        compositor's runtime state (an output, a workspace's monitor, a setting) and ended with it, so each is done."""
+        with self.transaction():
+            for record in self.operations: record["state"] = "done"
+            self._save()
+
     def output_names(self) -> list:
         """Every output this run created, removed since or not."""
         with self.transaction():

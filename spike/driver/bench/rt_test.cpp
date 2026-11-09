@@ -429,9 +429,20 @@ template <class Fn> void in_child(Fn fn) {
 }
 void real_rttime_guard_lands_in_the_kernel() {
     in_child([] {
-        if (real_sys_ops().arm_rttime_guard(kRtTimeGuardUs) != 0) return false;
-        rlimit limit{};
-        return getrlimit(RLIMIT_RTTIME, &limit) == 0 && limit.rlim_cur == kRtTimeGuardUs && limit.rlim_max == kRtTimeGuardUs * 5;
+        rlimit expected{};
+        if (getrlimit(RLIMIT_RTTIME, &expected) != 0) return false;
+        // Sandboxed launchers may already impose a tighter (even zero) limit.
+        // The guard must land without relaxing that limit, including when a
+        // later caller requests a longer allowance than the current guard.
+        for (const auto us : {kRtTimeGuardUs, kRtTimeGuardUs / 2, kRtTimeGuardUs * 2}) {
+            expected.rlim_cur = std::min<rlim_t>(expected.rlim_cur, us);
+            expected.rlim_max = std::min<rlim_t>(expected.rlim_max, us * 5);
+            if (real_sys_ops().arm_rttime_guard(us) != 0) return false;
+            rlimit limit{};
+            if (getrlimit(RLIMIT_RTTIME, &limit) != 0 || limit.rlim_cur != expected.rlim_cur || limit.rlim_max != expected.rlim_max)
+                return false;
+        }
+        return true;
     });
 }
 void real_memory_lock_matches_the_limit() {

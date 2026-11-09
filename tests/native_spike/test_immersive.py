@@ -599,7 +599,7 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': -1, 'tail': False}])
         self.assertEqual(self.toasted(), '3D is off: the depth engine could not start (it is not installed). Back to 2D.')
         self.assertEqual(c.state.immersive, ALL)
-        self.assertEqual(c._immersive_status(), {'setting': ALL, 'names': [], 'stereo': False, 'failed': True, 'phase': 'off', 'installed': False, 'switching': False})
+        self.assertEqual(c._immersive_status(), {'setting': ALL, 'names': [], 'stereo': False, 'failed': True, 'phase': 'off', 'installed': False, 'switching': False, 'button': 'R1'})
 
     def test_it_says_so_once_and_does_not_retry_on_its_own(self):
         c = self.control(FakeEngine(self.log, fail=EngineError('no')))
@@ -713,10 +713,10 @@ class ViewTests(unittest.TestCase):
 
     def test_status_tells_the_panel_what_is_shown(self):
         c = self.control()
-        self.assertEqual(c.status_reply({})['immersive'], {'setting': OFF, 'names': [], 'stereo': False, 'failed': False, 'phase': 'off', 'installed': False, 'switching': False})
+        self.assertEqual(c.status_reply({})['immersive'], {'setting': OFF, 'names': [], 'stereo': False, 'failed': False, 'phase': 'off', 'installed': False, 'switching': False, 'button': 'R1'})
         c.immersive_click(1); self.until_stereo(c)
         self.assertEqual(c.status_reply({})['immersive'], {'setting': full(False, {'XR-2': True}), 'names': ['XR-2'],
-                                                           'stereo': True, 'failed': False, 'phase': 'on', 'installed': False, 'switching': False})
+                                                           'stereo': True, 'failed': False, 'phase': 'on', 'installed': False, 'switching': False, 'button': 'R1'})
 
 
 class Sbs2dTests(unittest.TestCase):

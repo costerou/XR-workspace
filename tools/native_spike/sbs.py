@@ -15,7 +15,11 @@ mode to put back, which is why a press does not end the run. `switching()` tells
 Going back is the same button. leave() only says so and returns: the picture is already flat, the same in both eyes, so
 staying in side-by-side costs 120 Hz and nothing else, and a run must not wait on a person. settle() watches for the wide
 modes going, and puts 120 Hz back.
+
+Pro 2 uses L1 instead. Its observed 3D mode is 3840x1080 at 60 Hz. The same button-driven flow follows only that advertised
+mode, then restores the previously observed 1080p refresh after L1 returns to 2D, if the glasses still offer it.
 """
+import math
 import re
 import time
 
@@ -29,6 +33,7 @@ EXPECT_S = 20.0           # a renderer ending this soon after a change of mode i
 MODE = re.compile(r'(\d+)x(\d+)@([0-9.]+)Hz\Z')
 SCOPE_KEY = 'sbs_mode'    # the consent's own scope: panel_consent.py
 SCOPE = {'width': WIDE[0], 'height': WIDE[1], 'refresh_hz': [int(r) for r in RATES]}
+PRO2_SCOPE = {'width': 3840, 'height': 1080, 'refresh_hz': [60]}
 PROMPT_ON = 'Hold R1 on the glasses to switch them to 3D.'
 PROMPT_OFF = 'Hold R1 on the glasses to go back to 2D and 120 Hz.'
 ON_FAILED = 'the glasses never offered 3840x1200: was R1 held?'
@@ -48,34 +53,75 @@ def offered(monitor):
     return out
 
 
-def best_wide(monitor):
-    """The rate to ask for, or None: the glasses are not offering 3840x1200 at a rate VITURE lists."""
+def _mode(model):
+    if model == 'pro2': return (3840, 1080), (60.0,)
+    if model == 'luma-ultra': return WIDE, RATES
+    raise ValueError('unsupported 3D glasses model')
+
+
+def best_wide(monitor, model='luma-ultra'):
+    """The rate to ask for, or None: the glasses are not offering this model's supported side-by-side mode."""
+    try: wide, rates = _mode(model)
+    except ValueError: return None
     modes = offered(monitor)
-    for rate in RATES:
+    for rate in rates:
         for width, height, hz in modes:
-            if (width, height) == WIDE and abs(hz - rate) < 0.5: return rate
+            if (width, height) == wide and abs(hz - rate) < 0.5: return rate
     return None
 
 
-def is_wide(monitor):
-    """Being driven at 3840x1200 now."""
-    return isinstance(monitor, dict) and (monitor.get('width'), monitor.get('height')) == WIDE
+def is_wide(monitor, model='luma-ultra'):
+    """Being driven at this model's side-by-side dimensions now."""
+    try: wide, _ = _mode(model)
+    except ValueError: return False
+    return isinstance(monitor, dict) and (monitor.get('width'), monitor.get('height')) == wide
 
 
-def wide_mode_lua(name, x, y, scale, rate):
+def wide_mode_lua(name, x, y, scale, rate, model='luma-ultra'):
     """The rule for a wide mode: fixed shape, like view.restore_mode_lua, from values checked here."""
+    wide, rates = _mode(model)
+    if type(rate) not in (int, float) or rate not in rates: raise ValueError('invalid wide mode')
+    return _mode_lua(name, x, y, scale, *wide, rate)
+
+
+def _mode_lua(name, x, y, scale, width, height, rate):
     if not re.fullmatch(r'(?:DP|HDMI-A)-[0-9]+', str(name)) or type(x) is not int or type(y) is not int: raise ValueError('invalid wide mode')
-    if not isinstance(scale, (int, float)) or not 0.25 <= scale <= 4 or rate not in RATES: raise ValueError('invalid wide mode')
-    return f'hl.monitor({{ output = "{name}", mode = "{WIDE[0]}x{WIDE[1]}@{rate:g}", position = "{x}x{y}", scale = {float(scale):g} }})'
+    if type(scale) not in (int, float) or not 0.25 <= scale <= 4: raise ValueError('invalid wide mode')
+    return f'hl.monitor({{ output = "{name}", mode = "{width}x{height}@{rate:g}", position = "{x}x{y}", scale = {float(scale):g} }})'
 
 
-def scope_ok(value):
-    return value == SCOPE
+def scope_ok(value, model='luma-ultra'):
+    expected = PRO2_SCOPE if model == 'pro2' else SCOPE if model == 'luma-ultra' else None
+    return (expected is not None and isinstance(value, dict) and value == expected
+            and type(value.get('width')) is int and type(value.get('height')) is int
+            and isinstance(value.get('refresh_hz'), list) and all(type(rate) is int for rate in value['refresh_hz']))
+
+
+def narrow_rate(monitor, model='luma-ultra'):
+    """The observed, supported 2D refresh, never a guessed rate for a wide or absent output."""
+    try: wide, _ = _mode(model)
+    except ValueError: return None
+    if not isinstance(monitor, dict) or (monitor.get('width'), monitor.get('height')) != (wide[0] // 2, wide[1]): return None
+    rate = monitor.get('refreshRate')
+    allowed = (60, 90, 120) if model == 'pro2' else (120,)
+    if type(rate) in (int, float) and math.isfinite(rate) and any(abs(rate - hz) < 0.5 for hz in allowed): return rate
+    return None
+
+
+def pro2_mode_lua(name, x, y, scale, rate):
+    """Restore only Pro 2's 1080p 2D timings; callers also require the timing in the current EDID."""
+    if narrow_rate({'width': 1920, 'height': 1080, 'refreshRate': rate}, 'pro2') is None:
+        raise ValueError('invalid Pro 2 2D rate')
+    return _mode_lua(name, x, y, scale, 1920, 1080, rate)
 
 
 class ButtonSbs:
     """The Sbs of a real run (immersive.py). Everything it does to Hyprland is reading the monitor list, and one mode rule."""
-    def __init__(self, client, output, tell=lambda text: None, *, clock=time.monotonic, sleep=time.sleep, enter_wait=ENTER_WAIT_S):
+    def __init__(self, client, output, tell=lambda text: None, *, model='luma-ultra', clock=time.monotonic, sleep=time.sleep, enter_wait=ENTER_WAIT_S):
+        self.model = model
+        self.wide, _ = _mode(model)
+        self.button = 'L1' if model == 'pro2' else 'R1'
+        self.narrow_refresh = None
         self.client, self.output, self.tell = client, output, tell
         self.clock, self.sleep, self.enter_wait = clock, sleep, enter_wait
         self.left_at = None     # when leave() last asked for the button: the glasses are still wide, until settle() sees otherwise
@@ -91,16 +137,21 @@ class ButtonSbs:
     def follow_by_hand(self):
         monitor = self._monitor()
         if monitor is not None:
-            wide = is_wide(monitor)
+            wide = is_wide(monitor, self.model)
+            narrow_refresh = narrow_rate(monitor, self.model)
+            if not wide and narrow_refresh is None: return
+            if not self.hand_wide and not self.switching():
+                if narrow_refresh is not None: self.narrow_refresh = narrow_refresh
             if wide and not self.hand_wide and not self.switching():
                 self.tell('The glasses are in 3D. Click 3D to enable desktop depth.')
+            if wide != self.hand_wide: self._expect()
             self.hand_wide = wide
 
     def _apply(self, monitor, rate):
         apply = getattr(self.client, 'apply_wide_mode', None)
         if apply is None: raise SbsError('this client cannot change mode')
         try:
-            apply(self.output, rate)
+            apply(self.output, rate, **({'model': self.model} if self.model == 'pro2' else {}))
             self._park()
         except (OSError, ValueError, TimeoutError) as exc: raise SbsError(str(exc) or type(exc).__name__) from exc
 
@@ -121,46 +172,68 @@ class ButtonSbs:
         not held in time or the mode would not take."""
         self.left_at = None
         monitor = self._monitor()
-        rate = best_wide(monitor)
+        narrow_refresh = narrow_rate(monitor, self.model)
+        if narrow_refresh is not None: self.narrow_refresh = narrow_refresh
+        rate = best_wide(monitor, self.model)
         if rate is None:
-            self.tell(PROMPT_ON)
+            self.tell(f'Hold {self.button} on the glasses to switch them to 3D.')
             self._expect()
             deadline, narrow = self.clock() + self.enter_wait, []
             while rate is None:
                 if cancelled(): return False
                 if self.clock() >= deadline:
-                    raise SbsError(ONLY_NARROW.format(modes=', '.join(f'{w}x{h}' for w, h in narrow)) if narrow else ON_FAILED)
+                    shape = f'{self.wide[0]}x{self.wide[1]}'
+                    raise SbsError(f"they offered only {', '.join(f'{w}x{h}' for w, h in narrow)}, and 3D here needs {shape}" if narrow
+                                   else f'the glasses never offered {shape}: was {self.button} held?')
                 self.sleep(POLL_S)
                 self._expect()
                 monitor = self._monitor()
-                rate = best_wide(monitor)
+                rate = best_wide(monitor, self.model)
                 narrow = sorted({(w, h) for w, h, _ in offered(monitor) if w >= 2 * h}) or narrow
         self._expect()
-        if not is_wide(monitor) or abs(float(monitor.get('refreshRate', 0)) - rate) >= 0.5: self._apply(monitor, rate)
+        if not is_wide(monitor, self.model) or abs(float(monitor.get('refreshRate', 0)) - rate) >= 0.5: self._apply(monitor, rate)
+        self.hand_wide = True
         return True
 
     def leave(self):
         """Never waits: the renderer is flat by now, and only a person can press the button. Glasses that are not wide: nothing."""
         monitor = self._monitor()
-        if best_wide(monitor) is None and not is_wide(monitor): return
+        if best_wide(monitor, self.model) is None and not is_wide(monitor, self.model): return
         if self.left_at is None:
             self.left_at = self.clock()
-            self.tell(PROMPT_OFF)
+            self.tell('Hold L1 on the glasses to go back to 2D.' if self.model == 'pro2' else PROMPT_OFF)
         self._expect()
 
     def parked(self):
         return self.left_at is not None
 
     def left_by_hand(self):
-        """3D is up, but R1 was held: the glasses are back in 2D on their own. False while the output is away: that is a hold."""
+        """3D is up, but the mode button was held: the glasses are back in 2D on their own. False while the output is away: that is a hold."""
         monitor = self._monitor()
-        return monitor is not None and best_wide(monitor) is None and not is_wide(monitor)
+        left = monitor is not None and best_wide(monitor, self.model) is None and not is_wide(monitor, self.model)
+        if left and narrow_rate(monitor, self.model) is not None:
+            self._expect()
+            self.hand_wide = False
+            if self.left_at is None: self.left_at = self.clock()
+        return left
 
     def settle(self):
         """Glasses still wide after leave(): True once they have gone back, with the run's session mode on again."""
         monitor = self._monitor()
         if monitor is None: return False  # the press took the output: survive.py is on it
-        if best_wide(monitor) is not None or is_wide(monitor): return False
+        if best_wide(monitor, self.model) is not None or is_wide(monitor, self.model): return False
+        if self.model == 'pro2':
+            current = narrow_rate(monitor, self.model)
+            if current is None: return False
+            if self.narrow_refresh is not None and abs(current - self.narrow_refresh) >= 0.5 \
+                    and any((w, h) == (1920, 1080) and abs(hz - self.narrow_refresh) < 0.5 for w, h, hz in offered(monitor)):
+                apply = getattr(self.client, 'apply_pro2_mode', None)
+                if apply is None: return False
+                try: apply(self.output, self.narrow_refresh)
+                except (OSError, ValueError, TimeoutError): return False
+            self._park()
+            self.left_at = None
+            return True
         self.left_at = None
         apply = getattr(self.client, 'apply_session_mode', None)
         if apply is not None:

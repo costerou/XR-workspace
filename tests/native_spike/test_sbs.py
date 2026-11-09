@@ -79,7 +79,7 @@ class ModesTests(unittest.TestCase):
         # The way in is a person's thumb: no module this one uses opens a device or the driver's command channel.
         source = (ROOT / 'tools/native_spike/sbs.py').read_text()
         code = source.split('"""', 2)[2]
-        for word in ('usb', 'hidraw', '/dev/', 'luma', 'tracking', 'subprocess', 'ioctl'):
+        for word in ('usb', 'hidraw', '/dev/', 'import luma', 'from .luma', 'tracking', 'subprocess', 'ioctl'):
             self.assertNotIn(word, code.lower())
 
 

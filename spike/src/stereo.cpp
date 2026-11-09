@@ -185,11 +185,13 @@ PlaneF stereo_text_mask(const RgbF& colour, int w, int h) {
 }
 
 PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text, const PlaneF* previous, const StereoParams& p, float aspect,
-                    float alpha) {
+                    float alpha, PlaneF* protection) {
     const auto params = stereo_clamped(p);
     PlaneF out{depth.w, depth.h, std::vector<float>(depth.px.size())};
+    if (protection) *protection = PlaneF{depth.w, depth.h, std::vector<float>(depth.px.size())};
     for (int y = 0; y < depth.h; ++y) for (int x = 0; x < depth.w; ++x) {
         float v = stereo_v(stereo_nearness(depth.at(x, y), lo, hi), params);
+        float text_gain = 1.f;
         if (text) {
             const auto mask = [&](int a, int b) { return text->at(std::clamp(a, 0, text->w - 1), std::clamp(b, 0, text->h - 1)); };
             // Two rows up and down: the space between two lines of text is no reason for the plane to come back.
@@ -198,22 +200,92 @@ PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text,
                 const float w = (std::abs(i) < 2 ? 1.f : 0.5f) * (std::abs(j) < 3 ? 1.f : 0.5f);
                 t = std::max(t, mask(x + i, y + j) * w);
             }
-            v *= 1.f + (params.text_keep - 1.f) * t;
+            text_gain = 1.f + (params.text_keep - 1.f) * t;
+            v *= text_gain;
         }
-        v *= stereo_edge_gain((float(x) + 0.5f) / float(depth.w), (float(y) + 0.5f) / float(depth.h), aspect);
+        const float edge_gain = stereo_edge_gain((float(x) + 0.5f) / float(depth.w), (float(y) + 0.5f) / float(depth.h), aspect);
+        v *= edge_gain;
         if (previous) v = stereo_temporal(previous->at(x, y), v, alpha);
         out.px[std::size_t(y) * depth.w + x] = v;
+        if (protection) protection->px[std::size_t(y) * depth.w + x] = text_gain * edge_gain;
     }
     return out;
 }
 
-RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, int eye, const StereoBudget& budget) {
+float stereo_sample_guide(const RgbF& colour, const PlaneF& guide, float u, float v, const PlaneF* protection) {
+    const float center = stereo_sample(guide, u, v);
+    if (protection && stereo_sample(*protection, u, v) < .999f) return center;
+    if (std::fabs(center) < 1e-6f) return center; // Keep the fully protected text core on its plane.
+    const float aspect = float(guide.w) / float(guide.h);
+    const float border = stereo_smoothstep(.05f, .075f, std::min(u, 1.f - u)) *
+                         stereo_smoothstep(.05f, .075f, std::min(v, 1.f - v) / aspect);
+    if (border <= 0.f) return center;
+    // Follow the depth edge in source space, so rolled tiles and the pointer see the same surface.
+    const float dx = stereo_sample(guide, u + 1.f / guide.w, v) - stereo_sample(guide, u - 1.f / guide.w, v);
+    const float dy = stereo_sample(guide, u, v + 1.f / guide.h) - stereo_sample(guide, u, v - 1.f / guide.h);
+    const float length = std::sqrt(dx * dx + dy * dy);
+    if (length < 1e-6f) return center;
+    // Reach beyond the model-grid step limiter's shoulder. Fit colour between the two surfaces;
+    // bilinear depth alone would instead stretch a crisp outline into an artificial sloping surface.
+    const float du = 2.5f * dx / (length * guide.w), dv = 2.5f * dy / (length * guide.h);
+    if (protection && (stereo_sample(*protection, u - du, v - dv) < .999f ||
+                       stereo_sample(*protection, u + du, v + dv) < .999f)) return center;
+    const float ga = stereo_sample(guide, u - du, v - dv), gb = stereo_sample(guide, u + du, v + dv);
+    const float depth_weight = stereo_smoothstep(.08f, .3f, std::fabs(ga - gb));
+    if (depth_weight <= 0.f) return center;
+    const auto c = stereo_sample(colour, u, v), a = stereo_sample(colour, u - du, v - dv), b = stereo_sample(colour, u + du, v + dv);
+    float da = 0, db = 0;
+    for (std::size_t k = 0; k < 3; ++k) {
+        da += (c[k] - a[k]) * (c[k] - a[k]);
+        db += (c[k] - b[k]) * (c[k] - b[k]);
+    }
+    const float wa = std::exp(-da / .01f), wb = std::exp(-db / .01f);
+    // Texture without a matching depth edge cannot create disparity. A poor colour fit retains
+    // the original guide, and convex interpolation cannot exceed the existing comfort limits.
+    const float resolved = (center * .025f + ga * wa + gb * wb) / (.025f + wa + wb);
+    return center + border * depth_weight * (resolved - center);
+}
+
+float stereo_resolve_alpha(float dt_ms) { return dt_ms > 0 ? 1.f - std::exp(-dt_ms / 120.f) : 1.f; }
+
+PlaneF stereo_resolve_guide(const RgbF& colour, const PlaneF& guide, const PlaneF* previous, const PlaneF* previous_guide, float alpha,
+                           const PlaneF* protection) {
+    PlaneF reconstructed{colour.w, colour.h, std::vector<float>(std::size_t(colour.w) * colour.h)};
+    for (int y = 0; y < colour.h; ++y) for (int x = 0; x < colour.w; ++x)
+        reconstructed.px[std::size_t(y) * colour.w + x] = stereo_sample_guide(colour, guide, (x + .5f) / colour.w, (y + .5f) / colour.h, protection);
+    PlaneF resolved = reconstructed;
+    const float aspect = float(guide.w) / guide.h;
+    const bool history = alpha < 1.f && previous && previous_guide && previous->w == colour.w && previous->h == colour.h &&
+                         previous_guide->w == guide.w && previous_guide->h == guide.h;
+    for (int y = 0; y < colour.h; ++y) for (int x = 0; x < colour.w; ++x) {
+        const float center = reconstructed.at(x, y), u = (x + .5f) / colour.w, v = (y + .5f) / colour.h;
+        if (protection && stereo_sample(*protection, u, v) < .999f) continue;
+        // Median rejection must not move a fully pinned core or alter the frame's original taper.
+        if (std::fabs(center) < 1e-6f || std::min(u, 1.f - u) <= .05f || std::min(v, 1.f - v) / aspect <= .05f) continue;
+        std::array<float, 9> neighbors{};
+        std::size_t next = 0;
+        for (int j = -1; j <= 1; ++j) for (int i = -1; i <= 1; ++i)
+            neighbors[next++] = reconstructed.at(std::clamp(x + i, 0, colour.w - 1), std::clamp(y + j, 0, colour.h - 1));
+        std::nth_element(neighbors.begin(), neighbors.begin() + 4, neighbors.end());
+        float value = neighbors[4];
+        if (history) {
+            const float base = stereo_sample(guide, u, v), before_base = stereo_sample(*previous_guide, u, v);
+            const float before_correction = stereo_sample(*previous, u, v) - before_base;
+            value = std::clamp(base + stereo_temporal(before_correction, value - base, alpha), -1.f, 1.f);
+        }
+        resolved.px[std::size_t(y) * colour.w + x] = value;
+    }
+    return resolved;
+}
+
+RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, int eye, const StereoBudget& budget, const PlaneF* protection) {
     RgbF out{out_w, out_h, std::vector<float>(std::size_t(out_w) * out_h * 3)};
+    const auto resolved = stereo_resolve_guide(colour, guide, nullptr, nullptr, 1.f, protection);
     const float side = stereo_side(eye), gn = budget.near_half, gf = budget.far_half;
     const float span = gn + gf, margin = 1.5f * float(out_w) / float(guide.w), du = 1.f / float(out_w), dv = 1.f / float(out_h);
     for (int y = 0; y < out_h; ++y) for (int x = 0; x < out_w; ++x) {
         const float u = (float(x) + 0.5f) * du, v = (float(y) + 0.5f) * dv;
-        const auto g_at = [&](float o) { return stereo_half_disparity(stereo_sample(guide, u - side * o * du, v), budget); };
+        const auto g_at = [&](float o) { return stereo_half_disparity(stereo_sample(resolved, u - side * o * du, v), budget); };
         float a = gn, ga = g_at(a), b = a, gb = ga;
         const float step = span / float(kStereoMarchSteps);
         bool hit = false;
@@ -244,7 +316,7 @@ RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, 
             float weight = 0;
             for (int j = -1; j <= 1; ++j) {
                 const float fv = v + float(j) * 1.5f * dv;
-                const float g = stereo_half_disparity(stereo_sample(guide, fu, fv), budget);
+                const float g = stereo_half_disparity(stereo_sample(resolved, fu, fv), budget);
                 const float w = (j == 0 ? 2.f : 1.f) * (1.f - stereo_smoothstep(0.02f * span, 0.06f * span, g - far));
                 const auto sample = stereo_sample(colour, fu, fv);
                 for (std::size_t k = 0; k < 3; ++k) fill[k] += sample[k] * w;

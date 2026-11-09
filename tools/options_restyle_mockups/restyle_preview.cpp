@@ -468,47 +468,28 @@ int render(const std::string& path) {
         std::vector<json> desktop_list(desktops.begin(), desktops.end());
         HudImage content;
         int panel = -1;
-        float pitch = 0;
         if (frame.contains("real_placement")) {
             panel = frame["real_placement"].at("desktop");
             content = render_glass_panel(placement_state(frame["real_placement"], desktop_list), font.get(), accent);
             glass.expand[std::size_t(panel)] = 1.f;
-            pitch = glass_panel_shift(canvas, s.tiles[std::size_t(panel)], s.placements[std::size_t(panel)]);
         }
         if (frame.contains("real_options")) {
             panel = frame["real_options"].at("desktop");
             content = render_options_panel(options_state(frame["real_options"]), font.get(), accent);  // as Presentation::render_options
             glass.options = true; glass.expand.fill(0); glass.expand[std::size_t(panel)] = 1.f;
-            pitch = glass_panel_shift(canvas, s.tiles[std::size_t(panel)], s.placements[std::size_t(panel)], true);
         }
         if (panel >= 0) {
             glass.top = glass.content = panel;
             glass.image = &content; glass.generation = ++generation; glass.content_alpha = 1.f;
         }
-        // A mock panel pitches the view as the real one does (glass_panel_shift's rule), for its own height.
         json report = {{"out", frame.at("out")}, {"overlays", json::array()}};
-        if (frame.contains("pitch_for")) {
-            const auto& pf = frame["pitch_for"];
-            const FRect r{pf.at(0).get<float>(), pf.at(1).get<float>(), pf.at(2).get<float>(), pf.at(3).get<float>()};
-            const auto d = std::size_t(frame.at("pitch_desktop").get<int>());
-            const auto mesh = glass_mesh(canvas, s.tiles[d], s.placements[d], r);
-            const Mat3 aimed = view;
-            for (float a = 0; a <= kPanelShiftMax + 1e-4f; a += 0.002f) {
-                pitch = a;
-                const Bounds b = project(canvas, mesh, glass_view_shift(aimed, a));
-                if (b.y1 <= canvas.view_h - kPanelShiftMarginPx) break;
-            }
-        }
-        if (pitch > 0) view = glass_view_shift(view, pitch);
-        view = glass_view_shift(view, frame.value("view_pitch", 0.f));  // a mock's held view: negative moves the picture down
-        report["pitch"] = pitch;
         gl->set_glass(glass);
         const bool dot = frame.contains("dot");
         if (frame.contains("real_dot")) {
             const auto& d = frame["real_dot"];
             // As the supervisor sends the dot (free_pointer._restore_frame): a direction, the view undone, so it sits where it is seen.
             const float ex = (2 * d.at(0).get<float>() / float(kCanvasW) - 1) * half[0], ey = (1 - 2 * d.at(1).get<float>() / float(kCanvasH)) * half[1];
-            const Mat3 v = glass_view_shift(view, 0.f);
+            const Mat3& v = view;
             const float wx = v[0] * ex + v[3] * ey - v[6], wy = v[1] * ex + v[4] * ey - v[7], wz = v[2] * ex + v[5] * ey - v[8];
             const float degrees = 180.f / std::numbers::pi_v<float>;
             gl->set_free_pointer(true, d.at(0).get<float>(), d.at(1).get<float>(), kFreePointerLevel, true, std::atan2(wx, -wz) * degrees, std::atan2(wy, std::hypot(wx, wz)) * degrees);

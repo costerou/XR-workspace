@@ -29,7 +29,7 @@ ColumnLayout {
     component FallbackRow: RowLayout {
         spacing: 10
         Label { text: "Return windows to" }
-        ComboBox {
+        AnimatedComboBox {
             objectName: "fallbackCombo"
             model: root.candidates
             currentIndex: model.indexOf(root.settings.fallback || root.snapshot.fallback)
@@ -119,9 +119,9 @@ ColumnLayout {
     }
 
     // Only what cannot change once a session runs. Each control saves through the controller (op set_settings).
-    ColumnLayout {
+    AnimatedSection {
         objectName: "startupOptions"
-        visible: root.showOptions
+        shown: root.showOptions
         Layout.fillWidth: true
         spacing: 12
         FallbackRow {
@@ -178,7 +178,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 10
             Label { text: "Projection" }
-            ComboBox {
+            AnimatedComboBox {
                 objectName: "pro2ProjectionCombo"
                 Layout.fillWidth: true
                 textRole: "label"

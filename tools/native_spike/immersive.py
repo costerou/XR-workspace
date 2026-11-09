@@ -215,8 +215,10 @@ class NoDeviceSbs:
 
 def make_sbs(client=None, output=None, consent=None, tell=lambda text: None):
     """The run's Sbs: the glasses' own button, if this run's consent has the scope."""
-    if client is None or output is None or not isinstance(consent, dict) or not scope_ok(consent.get('sbs_mode')): return NoDeviceSbs()
-    return ButtonSbs(client, output, tell)
+    if client is None or output is None or not isinstance(consent, dict): return NoDeviceSbs()
+    model = consent.get('model', 'luma-ultra')
+    if not scope_ok(consent.get('sbs_mode'), model=model): return NoDeviceSbs()
+    return ButtonSbs(client, output, tell, model=model)
 
 
 def restore_2d(sbs=None):
@@ -549,7 +551,7 @@ class ImmersiveRun:
                 if current: self._down()
                 return
             if current and not self.engine.alive(): self._fail('died', 'it quit')
-            elif current and self._left_by_hand(): self._fail('sbs', 'R1 took them back to 2D')
+            elif current and self._left_by_hand(): self._fail('sbs', f'{getattr(self.sbs, "button", "R1")} took them back to 2D')
             elif target == current and not reassert:
                 if not current and self._parked(): self._settle()
                 continue

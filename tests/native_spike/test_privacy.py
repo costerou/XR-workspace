@@ -277,6 +277,29 @@ class GuardAndRecoveryTests(unittest.TestCase):
             managed.ManagedGuard(broker, 'DP-2', [])()
         self.assertEqual(check.call_args.kwargs, {'recovery_asleep_ok': True})
 
+    def guard_with_readback(self, dp1, fallback_usable):
+        """The real guard over a live XR-1 whose plugin readback says the fallback is (not) usable: the plugin's
+        usable() does not depend on DPMS, so with privacy on it still reports fallback_usable True."""
+        from tools.native_spike import managed
+        from tools.native_spike.ownership import OwnershipBrokerClient
+        spec = dict(id='u1', name='XR-1', width=1920, height=1080, refresh_millihz=120000, scale=1.0, x=-1920, y=0)
+        readback = dict(id='u1', name='XR-1', state='live', physical=False, fallback_usable=fallback_usable,
+                        observation=dict({k: spec[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')},
+                                         workspace=61, enabled=True, dpms=True, mirrored=False, transform=0,
+                                         workspaces=[dict(id=61, name='61', special=False)], windows=[]))
+        broker = mock.Mock(approved_physical='DP-1', session='session', transport=self.Raw(self.raw_monitors(dp1=dp1)),
+                           inspect=lambda identity: readback, verify=OwnershipBrokerClient.verify)
+        return managed.ManagedGuard(broker, 'DP-2', [spec])
+
+    def test_the_managed_guard_keeps_a_live_run_while_privacy_is_on(self):
+        self.guard_with_readback(dp1=False, fallback_usable=True)()  # Ctrl+Alt+D: DP-1 asleep, the run goes on
+
+    def test_the_managed_guard_still_stops_on_an_unusable_fallback(self):
+        from tools.native_spike.ownership import OwnershipBlocked
+        for dp1 in (True, False):  # the plugin cannot use DP-1 (disabled, mirrored, replaced): a real fault, asleep or not
+            with self.subTest(dp1=dp1), self.assertRaises(OwnershipBlocked):
+                self.guard_with_readback(dp1=dp1, fallback_usable=False)()
+
     def test_recovery_turns_the_fallback_back_on_before_restoring(self):
         from tools.native_spike import managed
         client = Client(desk(dp1=False))

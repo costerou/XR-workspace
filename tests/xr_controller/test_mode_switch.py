@@ -1,6 +1,41 @@
 import unittest
 from tests.xr_controller.test_incident_detect import GOOD, MODE, healthy, run, kinds
 
+
+class Pro2ModeSwitchTests(unittest.TestCase):
+    def watch(self, scope=True):
+        from tools.xr_controller.incident_detect import RunWatch
+        consent = dict(output='DP-2', model='pro2', tracking='pro2-sdk')
+        if scope: consent['sbs_mode'] = dict(width=3840,height=1080,refresh_hz=[60])
+        watch = RunWatch('pro2', consent, 0)
+        run(watch, 20, monitor=dict(MODE,height=1080))
+        return watch
+
+    def test_consented_1080p_button_transition_and_return_are_not_video_loss(self):
+        for rate in (60, 90, 120):
+            with self.subTest(rate=rate):
+                watch = self.watch()
+                pending = dict(GOOD,immersive={'switching':True})
+                signals = run(watch,2,start=20,status=pending,monitor=None,drm='disconnected')
+                signals += run(watch,8,start=22,monitor=dict(MODE,width=3840,height=1080,refresh=60))
+                self.assertNotIn('video-lost', kinds(signals))
+                self.assertEqual(watch.mode,(3840,1080,60))
+                signals = run(watch,2,start=30,status=pending,monitor=None,drm='disconnected')
+                signals += run(watch,8,start=32,monitor=dict(MODE,height=1080,refresh=rate))
+                self.assertNotIn('video-lost', kinds(signals))
+                self.assertEqual(watch.mode,(1920,1080,rate))
+                self.assertEqual(watch.mode_switches,2)
+
+    def test_unconsented_or_other_model_modes_still_report(self):
+        for scope, width, height, rate in ((False,3840,1080,60),(True,3840,1200,60),
+                                          (True,3840,1080,90),(True,1920,1200,120)):
+            with self.subTest(scope=scope,width=width,height=height,rate=rate):
+                watch = self.watch(scope)
+                signals = run(watch,20,start=20,status=dict(GOOD,immersive={'switching':True}),
+                              monitor=dict(MODE,width=width,height=height,refresh=rate))
+                self.assertIn('video-lost', kinds(signals))
+                self.assertEqual(watch.mode_switches,0)
+
 class ModeSwitchTests(unittest.TestCase):
     def test_pending_reconnect_is_not_video_loss_in_either_direction(self):
         for width, rate in ((3840, 60), (1920, 120)):

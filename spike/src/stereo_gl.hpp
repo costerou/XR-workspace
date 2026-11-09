@@ -5,6 +5,8 @@
 // lands there (depth-image-based rendering by a march along the eye's horizontal). That keeps the cost to the pixels on screen,
 // whatever the desktops' sizes, and resamples the desktop once, so text stays as sharp as in 2D. All calls need the
 // compositor's context current. Needs GLES 3 and a float colour buffer; create() fails without, and the desktops then stay flat.
+// Two further passes per depth update reconstruct a source-size surface and remove isolated depth speckles. Displayed frames
+// and the pointer sample that owned surface, so colour noise cannot change the geometry between depth updates.
 #include "xr/stereo.hpp"
 #include <GLES2/gl2.h>
 #include <memory>
@@ -33,9 +35,11 @@ public:
     void remove_source(std::size_t at);
     // A new depth frame of desktop `source`, whose current picture is `colour`. `dt_ms` since the last one (0 or less:
     // a first frame, no history). `colour_w`: its width in pixels. Keeps framebuffer and viewport. False: an invalid frame, nothing changed.
-    bool update(std::size_t source, const DepthInput& frame, GLuint colour, std::uint32_t colour_w, const StereoParams& params, float aspect, float dt_ms);
+    bool update(std::size_t source, const DepthInput& frame, GLuint colour, std::uint32_t colour_w, std::uint32_t colour_h,
+                const StereoParams& params, float aspect, float dt_ms);
     bool ready(std::size_t source) const;
     std::optional<DepthInput> cached_frame(std::size_t source) const;
+    // Low-resolution RG guide: final disparity fraction in R, current text/frame protection gain in G.
     GLuint guide(std::size_t source) const;
     std::uint64_t seq(std::size_t source) const;
     // The tile program in use, its uniforms by name for the compositor's projection cache.
@@ -56,13 +60,26 @@ public:
     std::uint64_t updates() const { return updates_; }
 private:
     StereoPass() = default;
-    struct Source { DepthInput cached; GLuint raw = 0, raw_half = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0; int w = 0, h = 0, current = -1; std::uint64_t seq = 0; };
+    struct Source {
+        DepthInput cached;
+        GLuint raw = 0, raw_half = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0;
+        GLuint reconstructed = 0, resolved[2] = {0, 0}, reconstructed_fb = 0, resolved_fb[2] = {0, 0};
+        int w = 0, h = 0, colour_w = 0, colour_h = 0, current = -1, surface_current = -1;
+        std::uint64_t seq = 0;
+    };
     void drop(Source& s);
-    bool storage(Source& s, int w, int h);
+    void drop_surface(Source& s);
+    bool storage(Source& s, int w, int h, int colour_w, int colour_h);
+    GLuint surface_guide(std::size_t source) const;
     std::vector<Source> sources_;
     struct { GLuint id = 0; GLint pos = -1, colour = -1, step = -1; } text_;
     struct { GLuint id = 0; GLint pos = -1, raw = -1, text = -1, previous = -1, range = -1, params = -1, alpha = -1, aspect = -1, history = -1; } guide_;
-    struct { GLuint id = 0; GLint view = -1, half_fov = -1, stereo = -1, swizzle = -1, tex = -1, guide = -1, budget = -1; } warp_;
+    struct { GLuint id = 0; GLint pos = -1, tex = -1, guide = -1; } reconstruct_;
+    struct {
+        GLuint id = 0;
+        GLint pos = -1, guide = -1, aspect = -1, previous = -1, base = -1, previous_base = -1, alpha = -1, history = -1;
+    } resolve_;
+    struct { GLuint id = 0; GLint view = -1, half_fov = -1, stereo = -1, swizzle = -1, tex = -1, guide = -1, budget = -1, model_width = -1; } warp_;
     struct { GLuint id = 0; GLint view = -1, half_fov = -1, stereo = -1, color = -1, guide = -1, surface = -1, lift = -1; } pointer_;
     GLuint quad_ = 0;
     std::uint64_t updates_ = 0;

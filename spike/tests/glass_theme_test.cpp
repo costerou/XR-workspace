@@ -223,7 +223,7 @@ int main() {
         PlacementMenuState shut = st; shut.open = false;
         CHECK(g.set(shut, 5000) && !g.open());
         CHECK(g.set_accent(nord) && g.generation() == 6);
-        const GlassFrame closing = g.frame(true, 5000 + kGlassCollapseMs / 4);
+        const GlassFrame closing = g.frame(true, 5000 + kGlassCollapseMs / 20);  // before content gives way to the collapsing pill
         CHECK(closing.generation == 6 && closing.content_alpha > 0.f && matches(band(g), nord) && g.closed() == 1);
         // Reopened later: the content is drawn in the current theme.
         g.frame(true, 6000);

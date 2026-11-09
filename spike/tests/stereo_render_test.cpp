@@ -104,21 +104,22 @@ void cpu_mirror_guide(GLuint fb_after) {
     auto depth = fake::bump_depth(DW, DH, 5);
     for (int i = 0; i < 40; ++i) depth.px[std::size_t(i) * 37 + 900] = std::numeric_limits<float>::quiet_NaN();
     depth.px[12345] = std::numeric_limits<float>::infinity();
-    const auto read_guide = [&] {
+    const auto read_guide = [&](bool protection = false) {
         GLuint fb = 0; glGenFramebuffers(1, &fb); glBindFramebuffer(GL_FRAMEBUFFER, fb);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pass->guide(0), 0);
         PlaneF out{DW, DH, std::vector<float>(std::size_t(DW) * DH)};
         std::vector<float> rgba(std::size_t(DW) * DH * 4);
         glReadPixels(0, 0, DW, DH, GL_RGBA, GL_FLOAT, rgba.data());
-        for (std::size_t i = 0; i < out.px.size(); ++i) out.px[i] = rgba[i * 4];
+        for (std::size_t i = 0; i < out.px.size(); ++i) out.px[i] = rgba[i * 4 + (protection ? 1 : 0)];
         glBindFramebuffer(GL_FRAMEBUFFER, fb_after); glDeleteFramebuffers(1, &fb);
         return out;
     };
     const float aspect = float(CW) / float(CH);
-    CHECK(pass->update(0, frame_of(depth, 7), tex, CW, params, aspect, 0));
+    CHECK(pass->update(0, frame_of(depth, 7), tex, CW, CH, params, aspect, 0));
     CHECK(pass->ready(0)); CHECK(pass->seq(0) == 7);
     const auto mask = stereo_text_mask(colour, DW, DH);
-    auto expected = stereo_guide(depth, 0, 1, &mask, nullptr, params, aspect, 1);
+    PlaneF protection;
+    auto expected = stereo_guide(depth, 0, 1, &mask, nullptr, params, aspect, 1, &protection);
     auto got = read_guide();
     const auto compare = [&](const PlaneF& a, const PlaneF& b, const char* what) {
         float worst = 0; int bad = 0, nonfinite = 0;
@@ -130,26 +131,44 @@ void cpu_mirror_guide(GLuint fb_after) {
         CHECK(nonfinite == 0); CHECK(bad <= int(a.px.size() / 500));
     };
     compare(expected, got, "first frame");
+    compare(protection, read_guide(true), "text and frame protection");
     // Temporal step: a second frame with moved depth, and the filter's history.
     const auto next = fake::bump_depth(DW, DH, 6);
-    CHECK(pass->update(0, frame_of(next, 8), tex, CW, params, aspect, 33));
+    CHECK(pass->update(0, frame_of(next, 8), tex, CW, CH, params, aspect, 33));
     expected = stereo_guide(next, 0, 1, &mask, &got, params, aspect, stereo_alpha(33));
     compare(expected, read_guide(), "with history");
     // A stride, and a range other than 0..1.
     std::vector<float> wide(std::size_t(DW + 3) * DH, 0.f);
     for (int y = 0; y < DH; ++y) for (int x = 0; x < DW; ++x) wide[std::size_t(y) * (DW + 3) + x] = 100.f + 50.f * depth.at(x, y);
     DepthInput strided; strided.w = DW; strided.h = DH; strided.pixels = wide.data(); strided.stride = std::size_t(DW + 3) * sizeof(float); strided.lo = 100; strided.hi = 150; strided.source_seq = 9;
-    CHECK(pass->update(0, strided, tex, CW, params, aspect, 0));
+    CHECK(pass->update(0, strided, tex, CW, CH, params, aspect, 0));
     compare(stereo_guide(depth, 0, 1, &mask, nullptr, params, aspect, 1), read_guide(), "stride and range");
     DepthInput bad = strided; bad.h = 100;
-    CHECK(!pass->update(0, bad, tex, CW, params, aspect, 0)); CHECK(pass->seq(0) == 9);
+    CHECK(!pass->update(0, bad, tex, CW, CH, params, aspect, 0)); CHECK(pass->seq(0) == 9);
     // A GL texture source (the dmabuf path).
     GLuint raw = 0; glGenTextures(1, &raw); glBindTexture(GL_TEXTURE_2D, raw);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, DW, DH, 0, GL_RED, GL_FLOAT, depth.px.data());
     DepthInput by_texture; by_texture.w = DW; by_texture.h = DH; by_texture.texture = raw; by_texture.source_seq = 10;
-    CHECK(pass->update(0, by_texture, tex, CW, params, aspect, 0));
+    CHECK(pass->update(0, by_texture, tex, CW, CH, params, aspect, 0));
     compare(stereo_guide(depth, 0, 1, &mask, nullptr, params, aspect, 1), read_guide(), "GL texture source");
+    // A live strength change can reuse the owned raw upload while the desktop's
+    // colour size changes. Resizing the resolved surface must not delete that upload.
+    params.text_keep = 1;
+    strided.source_seq = 11;
+    CHECK(pass->update(0, strided, tex, CW, CH, params, aspect, 0));
+    const auto cached = pass->cached_frame(0);
+    CHECK(cached && cached->texture);
+    const auto small = fake::rgba_bytes(fake::box_picture(CW / 2, CH / 2));
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CW / 2, CH / 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, small.data());
+    if (cached) {
+        CHECK(pass->update(0, *cached, tex, CW / 2, CH / 2, params, aspect, 0));
+        compare(stereo_guide(depth, 0, 1, nullptr, nullptr, params, aspect, 1), read_guide(), "cached upload after colour resize");
+        CHECK(!pass->update(0, *cached, tex, CW / 2, 0, params, aspect, 0));
+        CHECK(!pass->update(0, *cached, tex, std::numeric_limits<std::uint32_t>::max(), CH, params, aspect, 0));
+        CHECK(pass->ready(0)); CHECK(pass->seq(0) == 11);
+    }
     glDeleteTextures(1, &raw); glDeleteTextures(1, &tex);
     pass.reset();
 }
@@ -171,11 +190,12 @@ void warp_mirror() {
     settle(*gl, tiles, at, {depth});
     const auto sbs = read(0, 0, 2 * kEyeW, kEyeH);
     const auto mask = stereo_text_mask(colour, 320, 256);
-    const auto guide = stereo_guide(depth, 0, 1, &mask, nullptr, set.params, 1.6f, 1);
+    PlaneF protection;
+    const auto guide = stereo_guide(depth, 0, 1, &mask, nullptr, set.params, 1.6f, 1, &protection);
     const auto budget = stereo_budget(stereo_limits(set.params, kEyeW, kHalfW), 0, 1, 1);
     for (int eye = 0; eye < 2; ++eye) {
         const auto view = half(sbs, eye);
-        const auto cpu = stereo_warp(colour, guide, kEyeW, kEyeH, eye, budget);
+        const auto cpu = stereo_warp(colour, guide, kEyeW, kEyeH, eye, budget, &protection);
         int off = 0, on = 0;
         for (int y = 2; y < kEyeH - 2; ++y) for (int x = 2; x < kEyeW - 2; ++x) {
             const auto* p = view.at(x, y); const auto* c = &cpu.px[(std::size_t(y) * kEyeW + x) * 3];

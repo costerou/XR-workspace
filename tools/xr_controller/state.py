@@ -334,7 +334,8 @@ class Controller:
                     desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(o['model'],p),**installed)
                 if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
             # 3D's own line in the consent (tools/native_spike/sbs.py), only where the depth engine can run at all.
-            if scope['mode_switch'] and immersive.find_engine(scope['renderer']['path']) is not None: scope[sbs.SCOPE_KEY]=copy.deepcopy(sbs.SCOPE)
+            if (scope['mode_switch'] or scope['model']=='pro2') and immersive.find_engine(scope['renderer']['path']) is not None:
+                scope[sbs.SCOPE_KEY]=copy.deepcopy(sbs.PRO2_SCOPE if scope['model']=='pro2' else sbs.SCOPE)
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self.last_failure=None
@@ -363,7 +364,7 @@ class Controller:
                 if scope['tracking'] is False:
                     scope.pop(LUMA_PIN,None)
                     scope.pop('tracking_driver',None)
-                if scope['mode_switch'] is False: scope.pop(sbs.SCOPE_KEY,None)  # 3D's mode is one the run could then not leave
+                if scope['mode_switch'] is False and scope['model']!='pro2': scope.pop(sbs.SCOPE_KEY,None)  # Luma's 3D requires its session-mode scope
                 consent=build_consent(scope)
                 name=write_consent(self.consent_fd,consent)
                 self.run=dict(run_id=scope['run_id'])

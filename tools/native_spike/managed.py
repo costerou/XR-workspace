@@ -21,7 +21,8 @@ class ManagedGuard:
     specs: list
 
     def __call__(self):
-        # The fallback may be DPMS-off during a run: Ctrl+Alt+D's privacy mode (privacy.py).
+        # The fallback may be DPMS-off during a run: Ctrl+Alt+D's privacy mode (privacy.py). The plugin's fallback_usable
+        # does not depend on DPMS, so its readback holds then too.
         validate_physical_pair(self.broker.transport, self.broker.session,
                                self.output, self.broker.approved_physical, recovery_asleep_ok=True)
         for spec in self.specs:
@@ -38,14 +39,36 @@ def recover_managed(client, consent, path, clear_rules=()):
     return _recover_managed_impl(client,consent,path,clear_rules)
 
 
-def _recover_managed_impl(client,consent,path,clear_rules=(),*,pro2_test=False):
-    canonical = client.runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
+def recover_ended(runtime_dir, consent, path):
+    """Recovery of a run whose compositor has exited (hyprland.instance_ended, checked by the caller): a crash or restart of
+    Hyprland took the run's XR outputs, plugin, workspace moves and setting with it, and its socket is gone, so nothing can be
+    or needs to be undone there. The journal, held as recovery holds it and matched to the consent, is closed; the layout
+    snapshot goes too, as its windows were that compositor's. A rule naming an XR-n output is in the config, not the
+    compositor: the next start refuses and names it (monitor_rules.refuse_start)."""
+    from .ipc import read_private_json
+    path = _canonical_journal(Path(runtime_dir), consent, path)
+    with managed_owner(path):
+        journal = Journal.open(path, consent['run_id'], read_private_json(path)['session'], existing_only=True)
+        if journal.broker is None or any(journal.broker[key] != consent[key] for key in ('instance', 'output', 'recovery_output')):
+            raise OwnershipBlocked('consent does not match saved broker scope')
+        journal.compositor_ended()
+    restore.discard(consent['run_id'])
+    return {'journal': str(journal.path), 'complete': True, 'remaining': [], 'reasons': []}
+
+
+def _canonical_journal(runtime_dir, consent, path):
+    canonical = runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
     if Path(path).absolute() != canonical:
         raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
-    path = canonical
+    return canonical
+
+
+def _recover_managed_impl(client,consent,path,clear_rules=(),*,pro2_test=False):
+    path = _canonical_journal(client.runtime_dir, consent, path)
     session = client.verified_session()['id']
     privacy.wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
     if not pro2_test: immersive.restore_2d(sbs.ButtonSbs(client, consent['output'], send.notify))  # ... and a crash in 3D the glasses in side-by-side
+    elif consent.get('sbs_mode'): immersive.restore_2d(immersive.make_sbs(client, consent['output'], consent, send.notify))
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
@@ -71,6 +94,7 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     agreed = [name for name in names if name in clear_rules]
     unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
                 + monitor_rules.named(client, [name for name in names if name not in agreed]))
+    restore.unpin(client)
     if snapshot is None:
         try: snapshot = restore.load(run_id, layouts)
         except (OSError, ValueError): snapshot = None
@@ -105,11 +129,21 @@ def _restore_output(client, consent, output):
     """What a run did to the glasses' output at its start (runner.py), which a drop undoes: they come back at their preferred
     mode, placed anywhere. Raises until it reads back, so survive.wait_for_glasses tries again. Glasses that come back side by
     side (R1 was held, in a run with the 3D scope) come back to their wide mode: the session mode does not exist then."""
+    model = consent.get('model', 'luma-ultra')
+    narrow = None
+    if model == 'pro2':
+        narrow = sbs.narrow_rate(next((m for m in monitors(client.query('monitors')) if m['name'] == output), None), model)
     def restore():
         rate = None
-        if sbs.scope_ok(consent.get('sbs_mode')):
-            rate = sbs.best_wide(next((m for m in monitors(client.query('monitors')) if m['name'] == output), None))
-        if rate is not None: client.apply_wide_mode(output, rate)
+        monitor = None
+        if sbs.scope_ok(consent.get('sbs_mode'), model=model):
+            monitor = next((m for m in monitors(client.query('monitors')) if m['name'] == output), None)
+            rate = sbs.best_wide(monitor, model=model)
+        if rate is not None: client.apply_wide_mode(output, rate, **({'model': model} if model == 'pro2' else {}))
+        elif model == 'pro2':
+            if sbs.narrow_rate(monitor, model) is None: raise ValueError('Pro 2 display has not returned to a supported mode')
+            if narrow is not None and any((w,h)==(1920,1080) and abs(hz-narrow)<0.5 for w,h,hz in sbs.offered(monitor)):
+                client.apply_pro2_mode(output, narrow)
         elif consent.get('mode_switch') is not False: client.apply_session_mode(output)
         client.park_presentation(output)
     return restore
@@ -127,16 +161,29 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
 
 def run_pro2_test_managed(client,consent,runtime,*,test_scope,desktops=None,store=None,renderer=None,faults=None):
     from tools.pro2_runtime.scope import TestScope
-    if not isinstance(test_scope,TestScope) or consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
+    if not isinstance(test_scope,TestScope) or consent.get('model')!='pro2' or consent.get('mode_switch') is not False:
         raise ValueError('explicit Pro2 supervised test scope required')
+    if _pro2_sbs_scope(consent) and test_scope.fixed_desktops:
+        raise ValueError('3D requires the production Pro 2 route')
     test_scope.healthy()
     return _run_managed_impl(client,consent,runtime,desktops=desktops,store=store,renderer=renderer,faults=faults,pro2_scope=test_scope)
 
 
 def recover_pro2_test_managed(client,consent,path,clear_rules=()):
-    if consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
+    if consent.get('model')!='pro2' or consent.get('mode_switch') is not False:
         raise ValueError('Pro2 supervised recovery scope required')
+    _pro2_sbs_scope(consent)
     return _recover_managed_impl(client,consent,path,clear_rules,pro2_test=True)
+
+
+def _pro2_sbs_scope(consent):
+    """Only a complete production consent may expand the bounded test route to SBS."""
+    if consent.get('sbs_mode') is None: return False
+    from .panel_consent import _validate
+    _validate(dict(consent))
+    if consent.get('model') != 'pro2' or not sbs.scope_ok(consent['sbs_mode'], model='pro2'):
+        raise ValueError('invalid Pro 2 3D scope')
+    return True
 
 
 def _run_managed_impl(client,consent,runtime,*,desktops=None,store=None,renderer=None,faults=None,pro2_scope=None):
@@ -160,7 +207,8 @@ def _run_managed_impl(client,consent,runtime,*,desktops=None,store=None,renderer
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=pro2_scope is not None or consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
                           **({'pro2_scope':pro2_scope} if pro2_scope is not None else {}),
-                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=None if pro2_scope is not None else _restore_output(client, consent, output),  # no hold: its bridge has no reconnect
+                          adopt=adopting, create_failed=_setup_failed(store, desktops),
+                          restore_output=None if pro2_scope is not None and not consent.get('sbs_mode') else _restore_output(client, consent, output),  # Pro 2 holds only healthy display transitions
                           sbs_mode=consent.get('sbs_mode'), faults=faults)
 
 
@@ -188,7 +236,7 @@ from contextlib import contextmanager
 
 @contextmanager
 def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
-                  cursor_shape=None, renderer=None, sbs_mode=None):
+                  cursor_shape=None, renderer=None, sbs_mode=None, display_restore=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
@@ -232,6 +280,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 wide = sbs.best_wide(now) if sbs.scope_ok(sbs_mode) and hasattr(client, 'apply_wide_mode') else None
                 if wide is not None: client.apply_wide_mode(output, wide)
                 elif view.session_mode(now) != mode: client.apply_session_mode(output)
+            elif display_restore is not None and getattr(store, 'model', None) == 'pro2':
+                display_restore()
             if run_3d is not None: run_3d.reassert()
 
         def menu_binds(open_):
@@ -290,7 +340,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         engine_binary = immersive.find_engine(renderer)
         depth_memory = control.depth_memory = immersive.DepthMemory() if engine_binary is not None else None
         control.immersive_run = immersive.ImmersiveRun(immersive.ProcessEngine(engine_binary, memory=depth_memory),
-                                                       immersive.make_sbs(client, output, {'sbs_mode': sbs_mode}, tell=control._tell))
+                                                       immersive.make_sbs(client, output, {'sbs_mode': sbs_mode, 'model': getattr(store, 'model', 'luma-ultra')}, tell=control._tell))
         if windows is not None:  # where each window is, kept current (window_memory.py); Super drags and events reach it
             control.windows = windows
             windows.context = control.window_context
@@ -408,24 +458,41 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify, switching=lambda: False, continuity_fd=None):
+def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify, switching=lambda: False, continuity_fd=None, pro2_scope=None):
     """Run the renderer; a USB drop of the glasses starts a new one once they are back (survive.py). The renderer's last exit
     code. `restore_output`: None, the older runs' single renderer and no hold. `switching`: true while the glasses are changing
     between 2D and 3D (sbs.py): the same hold, for a reason that needs no apology."""
     import os
+    def usb_identity():
+        return survive.usb_identity(**({'model': 'pro2'} if pro2_scope is not None else {}))
+    def serve(seconds):
+        if pro2_scope is not None:
+            pro2_scope.healthy()
+            if usb_identity() != usb_before: raise ValueError('Pro 2 USB identity changed during display switch')
+        serve_without_renderer(control, seconds)
     while True:
-        usb_before = survive.usb_identity()
+        usb_before = usb_identity()
         returncode = launch()
         if restore_output is None: return returncode
         expected = switching()
-        usb_now = survive.usb_identity()
+        usb_now = usb_identity()
+        try: output_ready = survive.output_ok(client, output)
+        except (OSError, ValueError, TimeoutError): return returncode
+        if pro2_scope is not None and not output_ready:
+            # L1 can remove DisplayPort before the adapter can read the new mode. USB and provider health still gate this hold.
+            expected = True
         continuous = expected and usb_before is not None and usb_now == usb_before
+        if pro2_scope is not None:
+            # The bridge cannot reconnect. Only a display handover with the same healthy provider can resume.
+            if not continuous: return returncode
+            try: pro2_scope.healthy()
+            except (OSError, ValueError): return returncode
         if not continuous and continuity_fd is not None:
             # Pose continuity is only valid for a display-mode handover with
             # the same tracking reference, never ordinary drop/crash recovery.
             os.ftruncate(continuity_fd, 0)
         try:
-            dropped = survive.should_hold(returncode, report.get('stop_reason'), output_ok=survive.output_ok(client, output),
+            dropped = survive.should_hold(returncode, report.get('stop_reason'), output_ok=output_ready,
                                           usb_before=usb_before, usb_now=usb_now, expected=expected)
         except (OSError, ValueError, TimeoutError):
             return returncode  # the compositor went too: nothing to come back to
@@ -436,13 +503,16 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         if expected: tell('Switching display mode… Your desktops are safe.')
         if not expected: tell('The glasses dropped off USB. Your desktops are safe; XR comes back by itself.')
         def ready():
-            try: return survive.output_ok(client, output) and (usb_before is None or survive.usb_identity() is not None)
+            try: return survive.output_ok(client, output) and (usb_before is None or usb_identity() is not None)
             except (OSError, ValueError, TimeoutError): return False
         try:
-            back = survive.wait_for_glasses(ready, restore=restore_output, serve=lambda s: serve_without_renderer(control, s),
+            back = survive.wait_for_glasses(ready, restore=restore_output, serve=serve,
                                             settle=0.0 if expected else None)
             if back:
-                continuous = continuous and survive.usb_identity() == usb_before
+                continuous = continuous and usb_identity() == usb_before
+                if pro2_scope is not None:
+                    pro2_scope.healthy()
+                    if not continuous: raise ValueError('Pro 2 tracking continuity lost')
                 if not continuous and continuity_fd is not None:
                     os.ftruncate(continuity_fd, 0)
                 restarted = getattr(control, 'renderer_restarted', None)
@@ -452,6 +522,10 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         except KeyboardInterrupt:  # Stop while waiting: the same end as Stop in _launch, which swallows it too
             holds.finish(False)
             report['stop_reason'] = 'interrupted'
+            return returncode
+        except (OSError, ValueError):
+            if pro2_scope is None: raise
+            holds.finish(False)
             return returncode
         holds.finish(back)
         if not back:
@@ -517,7 +591,8 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             if memory is not None: memory.finish()
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
-                           memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode) as control:
+                           memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode,
+                           **({'display_restore': restore_output} if pro2_scope is not None else {})) as control:
             if control is not None and getattr(pro2_scope, 'fixed_desktops', False): control.fixed_desktops = True
             def launch():
                 report.clear()
@@ -539,7 +614,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             try:
                 returncode = keep_renderer(launch, client, output, report, control, restore_output, holds,
                                            switching=run_3d.switching if run_3d is not None else lambda: False,
-                                           continuity_fd=continuity)
+                                           continuity_fd=continuity, **({'pro2_scope': pro2_scope} if pro2_scope is not None else {}))
             finally:
                 os.close(continuity)
     finally:

@@ -181,7 +181,10 @@ class VerifyDiagnosticsTests(unittest.TestCase):
         ok['observation']['workspace'] = 63  # user switched; broker does not pin
         ok['observation']['windows'] = [{'workspace': 63, 'pinned': False}]
         OwnershipBrokerClient.verify(ok, self.spec)
-        for bad_windows in ([{'workspace': 63, 'pinned': True}],):
+        # Pinned there by hand (Omarchy's pop-out, a drag): the run goes on; Remove refuses it, Stop/Recover unpin it.
+        ok['observation']['windows'] = [{'workspace': 63, 'pinned': False}, {'workspace': 63, 'pinned': True}]
+        OwnershipBrokerClient.verify(ok, self.spec)
+        for bad_windows in ([{'workspace': 63, 'pinned': 1}], [{'workspace': 62, 'pinned': True}]):
             bad = copy.deepcopy(ok); bad['observation']['windows'] = bad_windows
             with self.assertRaises(OwnershipBlocked): OwnershipBrokerClient.verify(bad, self.spec)
         empty = copy.deepcopy(ok); empty['observation']['workspaces'] = []

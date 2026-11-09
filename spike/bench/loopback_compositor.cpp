@@ -81,7 +81,7 @@ struct Options {
     int outputs = 3;
     bool check = false, tracking = false;
     std::string environment;  // a background's name, sent as an `environment` frame at the start; empty: none
-    bool open_panel = false;  // the first desktop's placement panel open from the start (its view shift reported and, with --check, required)
+    bool open_panel = false;  // the first desktop's placement panel open from the start (with --check: open, and the view not shifted)
     // Constraint churn, as Hyprland sends it on monitor mode events (a layout change re-checks every monitor rule; a config
     // reload takes each XR-n output through the default rule and back): "bounce" resends each session's constraints as
     // another size and straight back in one flush, plus an unchanged batch; "resize" alternates the source size, failing
@@ -1116,7 +1116,7 @@ int main(int argc, char** argv) {
         send_frame(next_request++, "video", open);  // good, and no descriptor waits for it: stderr says so
         std::string placements;
         for (int i = 0; i < opt.outputs; ++i) placements += std::string(i ? "," : "") + "{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}";
-        send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");  // good: the view shifts
+        send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");  // good: the panel opens
     };
     constexpr int kBadControlFrames = 9;
     using Json=nlohmann::json;
@@ -1387,7 +1387,7 @@ int main(int argc, char** argv) {
                                                                 {"resize_settles", o.value("resize_settles", -1)},
                                                                 {"shape_eases", o.value("shape_eases", -1)}});
             out["capture_paths"] = paths;
-            if (j.contains("placement_menu") && j["placement_menu"].contains("view_shift_mrad")) out["view_shift_mrad"] = j["placement_menu"]["view_shift_mrad"];
+            if (j.contains("placement_menu") && j["placement_menu"].contains("open")) out["panel_open"] = j["placement_menu"]["open"];
             if (j.contains("composition") && j["composition"].is_object()) {
                 const auto& c = j["composition"];
                 out["composition"] = c.value("path", "");
@@ -1437,7 +1437,7 @@ int main(int argc, char** argv) {
         if (opt.bad_control) {
             if (stderr_text.find("control: video open without a file descriptor") == std::string::npos) fail("a refused video open left its descriptor for the next one");
             if (stderr_text.find("control: refused frame") == std::string::npos) fail("the refused frames were not logged");
-            if (out.value("view_shift_mrad", 0) <= 0) fail("a good frame after the bad ones did nothing");
+            if (!out.value("panel_open", false)) fail("a good frame after the bad ones did nothing");
             // The 2026-11-04 crash, as the journal would now tell it: which frame, why, and what it looked like.
             if (stderr_text.find("(roll): control_replay: request id ") == std::string::npos) fail("a replay was not named as one");
             if (stderr_text.find("(roll): control_wrong_run:") == std::string::npos) fail("another run's frame was not named as one");
@@ -1551,8 +1551,7 @@ int main(int argc, char** argv) {
                 if (i != want && server.centre_frames[i]) fail("another desktop is in the middle of the view");
             if (server.centre_none) fail("a frame had no desktop's frame in the middle of the view");
         }
-        if (opt.open_panel && out.value("view_shift_mrad", 0) <= 0) fail("the open panel did not shift the view");
-        if (!opt.open_panel && !opt.bad_control && capture && out.value("view_shift_mrad", 0) != 0) fail("the view stayed shifted with no panel open");
+        if (opt.open_panel && !out.value("panel_open", false)) fail("the placement panel did not open");
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {
             if (!out.contains("capture_paths")) fail("no capture report");

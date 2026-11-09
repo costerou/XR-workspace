@@ -19,6 +19,10 @@ Ui.BarWidget {
     Menu {
         id: contextMenu
         popupType: Popup.Window
+        opacity: 0
+        scale: 0.97
+        enter: MenuTransition {}
+        exit: MenuTransition { entering: false }
         MenuItem {
             text: "Restart plugin"
             onTriggered: Quickshell.execDetached(["bash", Qt.resolvedUrl("restart.sh").toString().replace(/^file:\/\//, "")])

@@ -333,6 +333,10 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
+  add_executable(options_overlay_test tests/options_overlay_test.cpp)
+  target_include_directories(options_overlay_test PRIVATE src)
+  target_link_libraries(options_overlay_test PRIVATE xr_hud)
+  add_test(NAME options_overlay COMMAND options_overlay_test)
   # HudFont's glyph / advance / metrics caches never change what is drawn or measured; UTF-8 decoding matches the reference.
   # Global immersive 3D: the maths and CPU mirrors of the warp (docs/stereo-render.md), no GL.
   add_executable(stereo_test tests/stereo_test.cpp)
@@ -660,7 +664,7 @@ if(XR_ENABLE_PRESENTATION)
         --environment smoke --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_environment_smoke_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
-    # An open placement panel through the real renderer: its frame, the view shifted so all of it shows, frames still flowing.
+    # An open placement panel through the real renderer: its frame, frames still flowing.
     # A tracked run's status says whether tracking works (here it cannot: no driver), which the incident monitor reads.
     add_test(NAME capture_e2e_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --tracking
       --renderer "$<TARGET_FILE:xr-native-spike>")

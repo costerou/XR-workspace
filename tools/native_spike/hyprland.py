@@ -71,6 +71,21 @@ def _read_text(path):
     return text.replace('\r\n', '\n').replace('\r', '\n') if '\r' in text else text
 
 
+def instance_ended(runtime_dir, instance):
+    """True only when Hyprland `instance` has provably exited: its request socket is gone, and its lock is gone or names no
+    running Hyprland. A live instance always has both (HyprlandClient.verified_session); Hyprland removes them as it exits,
+    a crash included. Anything less (a malformed name, an unreadable lock, a process we may not inspect) proves nothing."""
+    if not isinstance(instance, str) or not INSTANCE.fullmatch(instance): return False
+    directory = Path(runtime_dir) / 'hypr' / instance
+    if os.path.lexists(directory / '.socket.sock'): return False
+    try: pid = int((directory / 'hyprland.lock').read_text().splitlines()[0])
+    except FileNotFoundError: return True
+    except (OSError, ValueError, IndexError): return False
+    try: return Path(os.readlink(f'/proc/{pid}/exe')).name != 'Hyprland'
+    except FileNotFoundError: return True
+    except OSError: return False
+
+
 class HyprlandClient:
     def __init__(self, instance: str, runtime_dir: Path):
         if not isinstance(instance, str) or not INSTANCE.fullmatch(instance):
@@ -238,6 +253,11 @@ class HyprlandClient:
         from .restore import EVAL_LIMIT, lua
         self._eval(lua(snapshot), limit=EVAL_LIMIT)
 
+    def unpin_xr_windows(self):
+        """Stop / Recover: every pinned window on an XR desktop unpinned (restore.UNPIN_LUA, fixed text)."""
+        from .restore import UNPIN_LUA
+        self._eval(UNPIN_LUA)
+
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False, binds=None, send_binds=None):
         """After a config reload, a typing-mode switch (Ctrl+Alt+T) or a key bind panel change: drop any surviving
         handles, then bind again (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send
@@ -350,26 +370,48 @@ class HyprlandClient:
                     if last is not None else None)
         raise ValueError(f'session mode {SESSION_MODE} at {mode} not observed within {DEADLINE:g}s; last readback: {observed}')
 
-    def apply_wide_mode(self, output, rate):
+    def apply_wide_mode(self, output, rate, *, model='luma-ultra'):
         """The glasses' side-by-side mode at `rate` (sbs.py), on the output at its current placement; verified by readback, like
         apply_session_mode. Asked for only after the glasses themselves offer it."""
-        from .sbs import WIDE, wide_mode_lua
+        from .sbs import _mode, best_wide, wide_mode_lua
+        wide, _ = _mode(model)
+        found = [m for m in monitors(self.query('monitors', timeout=DEADLINE)) if m['name'] == output]
+        if len(found) != 1: raise ValueError('wide mode output not found')
+        m = found[0]
+        rule = wide_mode_lua(m['name'], m['x'], m['y'], float(m['scale']), rate, model=model)
+        if model == 'pro2' and best_wide(m, model=model) != rate:
+            raise ValueError('Pro 2 side-by-side mode is not offered')
+        return self._apply_mode_rule(output, rule, wide, rate)
+
+    def apply_pro2_mode(self, output, rate):
+        """Restore an observed Pro 2 1080p refresh only after its button returns the display to 2D."""
+        from .sbs import narrow_rate, offered, pro2_mode_lua
+        found = [m for m in monitors(self.query('monitors', timeout=DEADLINE)) if m['name'] == output]
+        if len(found) != 1: raise ValueError('Pro 2 mode output not found')
+        m = found[0]
+        rule = pro2_mode_lua(m['name'], m['x'], m['y'], float(m['scale']), rate)
+        if narrow_rate(m, model='pro2') is None or not any(
+                (w, h) == (1920, 1080) and abs(hz - rate) < 0.5 for w, h, hz in offered(m)):
+            raise ValueError('Pro 2 2D mode is not offered on the current narrow display')
+        return self._apply_mode_rule(output, rule, (1920, 1080), rate)
+
+    def _apply_mode_rule(self, output, rule, dimensions, rate):
+        """Apply an already validated display rule and wait for the requested dimensions and refresh."""
         def current(timeout=DEADLINE):
             found = [m for m in monitors(self.query('monitors', timeout=timeout)) if m['name'] == output]
-            if len(found) != 1: raise ValueError('wide mode output not found')
+            if len(found) != 1: raise ValueError('display mode output not found')
             return found[0]
-        m = current()
-        self._eval(wide_mode_lua(m['name'], m['x'], m['y'], float(m['scale']), rate))
+        self._eval(rule)
         started = time.monotonic()
         deadline, last = started + DEADLINE, None
         while (remaining := deadline - time.monotonic()) > 0:
             try: last = current(timeout=remaining)
             except TimeoutError: break
-            if (last['width'], last['height']) == WIDE and abs(last['refreshRate'] - rate) < 0.5: return last
+            if (last['width'], last['height']) == dimensions and abs(last['refreshRate'] - rate) < 0.5: return last
             remaining = deadline - time.monotonic()
             if remaining <= 0: break
             time.sleep(min(_readback_step(started), remaining))
-        raise ValueError(f'3840x1200@{rate:g} not observed within {DEADLINE:g}s')
+        raise ValueError(f'{dimensions[0]}x{dimensions[1]}@{rate:g} not observed within {DEADLINE:g}s')
 
     def park_presentation(self, output):
         """Keep the rendering output away from the interactive row; preserve its mode.

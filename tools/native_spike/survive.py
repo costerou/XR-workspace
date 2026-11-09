@@ -23,19 +23,33 @@ HOLD_WINDOW_S = 600.0
 NOT_A_DROP = ('interrupted', 'tracking-timeout')
 
 
-def usb_identity(root=SYS_USB):
+def usb_identity(root=SYS_USB, *, model='luma-ultra'):
     """(bus, device number) of the glasses, or None. The number rises at every enumeration, so a change is a drop, however
-    quick. Port names are not used: the glasses' port depends on where the cable is."""
+    quick. Port names are not used: the glasses' port depends on where the cable is.
+    Pro 2 also requires its exact product name and exclusive VITURE topology, matching the bridge's identity guard."""
+    if model not in ('luma-ultra', 'pro2'): return None
+    ids = ('35ca', '1301') if model == 'pro2' else GLASSES_USB
+    found = []
     try:
         for device in root.iterdir():
             try:
-                if (device / 'idVendor').read_text().strip() == GLASSES_USB[0] and (device / 'idProduct').read_text().strip() == GLASSES_USB[1]:
-                    return int((device / 'busnum').read_text()), int((device / 'devnum').read_text())
+                if (device / 'idVendor').read_text().strip() != ids[0]: continue
             except (OSError, ValueError):
                 continue
+            try:
+                if (device / 'idProduct').read_text().strip() != ids[1]:
+                    if model == 'pro2': return None
+                    continue
+                if model == 'pro2' and (device / 'product').read_text().strip() != 'VITURE PRO 2 XR Glasses': return None
+                identity = int((device / 'busnum').read_text()), int((device / 'devnum').read_text())
+                if model == 'luma-ultra': return identity
+                if min(identity) <= 0: return None
+                found.append(identity)
+            except (OSError, ValueError):
+                if model == 'pro2': return None
     except OSError:
         pass
-    return None
+    return found[0] if len(found) == 1 else None
 
 
 def monitors_of(client):

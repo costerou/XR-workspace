@@ -215,6 +215,263 @@ void background_fill() {
     for (int x = 117; x <= 128; ++x) CHECK(out.px[(100 * W + x) * 3] < 0.25f);
 }
 
+void pro2_high_strength_edges() {
+    // A centre-row probe at the real Pro 2 pixel/disparity scale. The model grid is
+    // 420x266; using three output rows keeps this known-answer test inexpensive.
+    // The red rectangle has uniform near depth, against a uniform green wall.
+    constexpr int W = 1920, H = 3, GW = 420, GH = 266, L = 160, R = 250;
+    constexpr int left = L * W / GW, right = R * W / GW;
+    RgbF colour{W, H, std::vector<float>(W * H * 3)};
+    auto depth = fake::flat_depth(GW, GH, 0.f);
+    for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        const bool near = x >= left && x < right;
+        colour.px[(y * W + x) * 3] = near ? 1.f : 0.f;
+        colour.px[(y * W + x) * 3 + 1] = near ? 0.f : 0.6f;
+    }
+    for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x) {
+        // Exact symmetric .3-step envelope of a binary rectangle, as published
+        // by the engine: .05,.20,.35 | .65,.80,.95,1 at each boundary.
+        const bool near = x >= L && x < R;
+        const int distance = near ? std::min(x - L + 1, R - x) : (x < L ? L - x : x - R + 1);
+        const float shoulder = std::max(0.f, 1.f - 0.3f * float(distance)) * 0.5f;
+        depth.px[y * GW + x] = near ? 1.f - shoulder : shoulder;
+    }
+    struct Preset { const char* name; float convergence, near_arcmin, far_arcmin; };
+    for (const auto p : {Preset{"desktop", .92f, 4, 14}, Preset{"video", .7f, 14, 36}, Preset{"games", .75f, 10, 30}}) {
+        StereoParams params;
+        params.strength = 2; params.convergence = p.convergence; params.text_keep = 0;
+        params.near_deg = p.near_arcmin / 60; params.far_deg = p.far_arcmin / 60;
+        const auto guide = stereo_guide(depth, 0, 1, nullptr, nullptr, params, 16.f / 9, 1);
+        const auto budget = stereo_budget(stereo_limits(params, W, .3565709591f), 0, 1, 1);
+        for (int eye = 0; eye < 2; ++eye) {
+            const auto out = stereo_warp(colour, guide, W, H, eye, budget);
+            // Ground truth is the solid foreground translated by its plane's
+            // disparity. Score excess foreground and lost foreground separately:
+            // filling more pixels with wall cannot hide erosion behind less halo.
+            const float shift = stereo_side(eye) * stereo_half_disparity(stereo_v(1, params), budget);
+            float leakage = 0, missing = 0;
+            for (int x = left - 40; x < right + 40; ++x) {
+                const float red = out.px[(W + x) * 3];
+                // One output pixel at each expected edge belongs to antialiasing.
+                if (x < left + shift - 1 || x >= right + shift + 1) leakage += red;
+                if (x > left + shift + 1 && x < right + shift - 1) missing += 1 - red;
+            }
+            std::printf("Pro 2 %s eye %d: excess %.3f, missing %.3f foreground pixels\n", p.name, eye,
+                        double(leakage), double(missing));
+            CHECK(leakage < 2.5f); CHECK(missing < 2.5f);
+        }
+    }
+}
+
+void smooth_surface_disparity() {
+    // Colour edges alone must not flatten a broad depth gradient. Its inverse
+    // projection has a closed-form solution independent of the warp algorithm.
+    constexpr int W = 1920, H = 3, GW = 420, GH = 266;
+    const auto colour = fake::textured(W, H);
+    auto guide = fake::flat_depth(GW, GH, 0.f);
+    for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x)
+        guide.px[y * GW + x] = .2f + .6f * (float(x) + .5f) / float(GW);
+    const StereoBudget budget{6, 14};
+    for (int eye = 0; eye < 2; ++eye) {
+        const auto out = stereo_warp(colour, guide, W, H, eye, budget);
+        float error = 0;
+        for (int x = 40; x < W - 40; ++x) {
+            const float side = stereo_side(eye);
+            const float source_x = (float(x) + .5f - side * .2f * budget.near_half) /
+                                   (1 + side * .6f * budget.near_half / float(W));
+            const auto expected = stereo_sample(colour, source_x / float(W), .5f);
+            for (std::size_t c = 0; c < 3; ++c)
+                error = std::max(error, std::fabs(out.px[(W + x) * 3 + c] - expected[c]));
+        }
+        CHECK(error < .002f);
+    }
+}
+
+void diagonal_edges() {
+    // Same source/model pixel ratio as Pro 2, with both signs of an oblique
+    // silhouette: the reconstruction must follow the edge in two dimensions.
+    constexpr int W = 640, H = 360, GW = 140, GH = 89;
+    for (const float slope : {-.5f, .5f}) {
+        const auto foreground = [=](float u, float v) { return std::fabs(u - .5f - slope * (v - .5f)) < .1f; };
+        RgbF colour{W, H, std::vector<float>(W * H * 3)};
+        auto depth = fake::flat_depth(GW, GH, 0.f);
+        for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+            const bool near = foreground((x + .5f) / W, (y + .5f) / H);
+            colour.px[(y * W + x) * 3] = near ? 1.f : 0.f;
+            colour.px[(y * W + x) * 3 + 1] = near ? 0.f : .6f;
+        }
+        for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x)
+            depth.px[y * GW + x] = foreground((x + .5f) / GW, (y + .5f) / GH) ? 1.f : 0.f;
+        // Symmetric .3-step envelope of the binary depth, including both axes.
+        auto low = depth.px, high = depth.px;
+        for (int pass = 0; pass < 4; ++pass) {
+            const auto before_low = low, before_high = high;
+            for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x) for (int d = 0; d < 4; ++d) {
+                const int nx = std::clamp(x + (d == 0 ? 1 : d == 1 ? -1 : 0), 0, GW - 1);
+                const int ny = std::clamp(y + (d == 2 ? 1 : d == 3 ? -1 : 0), 0, GH - 1);
+                low[y * GW + x] = std::min(low[y * GW + x], before_low[ny * GW + nx] + .3f);
+                high[y * GW + x] = std::max(high[y * GW + x], before_high[ny * GW + nx] - .3f);
+            }
+        }
+        for (std::size_t i = 0; i < depth.px.size(); ++i) depth.px[i] = .5f * (low[i] + high[i]);
+        StereoParams p; p.strength = 2; p.convergence = .7f; p.near_deg = 14.f / 60; p.far_deg = 36.f / 60;
+        const auto guide = stereo_guide(depth, 0, 1, nullptr, nullptr, p, float(W) / H, 1);
+        const auto budget = stereo_budget(stereo_limits(p, W, .3565709591f), 0, 1, 1);
+        for (int eye = 0; eye < 2; ++eye) {
+            const auto out = stereo_warp(colour, guide, W, H, eye, budget);
+            const float shift = stereo_side(eye) * stereo_half_disparity(stereo_v(1, p), budget);
+            float leakage = 0, missing = 0;
+            for (int y = 50; y < H - 50; ++y) for (int x = 10; x < W - 10; ++x) {
+                const float left = (.4f + slope * ((y + .5f) / H - .5f)) * W + shift, right = left + .2f * W;
+                const float red = out.px[(y * W + x) * 3];
+                if (x + .5f < left - 1 || x + .5f >= right + 1) leakage += red;
+                if (x + .5f > left + 1 && x + .5f < right - 1) missing += 1 - red;
+            }
+            // Average error per row, allowing one pixel of antialiasing at each edge.
+            CHECK(leakage / (H - 100) < 1.f); CHECK(missing / (H - 100) < 1.f);
+        }
+    }
+}
+
+void guide_protected_regions() {
+    constexpr int W = 256, H = 160, GW = 64, GH = 40;
+    for (const bool horizontal : {false, true}) {
+        const int extent = horizontal ? GW : GH;
+        for (const int edge : {1, extent / 2, extent - 2}) {
+            const float location = (edge + .5f) / extent;
+            const float u = horizontal ? location : .5f, v = horizontal ? .5f : location;
+            RgbF colour{W, H, std::vector<float>(W * H * 3)};
+            auto guide = fake::flat_depth(GW, GH, 0.f);
+            for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x) {
+                const int coordinate = horizontal ? x : y;
+                guide.px[y * GW + x] = coordinate < edge ? -.8f : coordinate == edge ? .2f : .8f;
+            }
+            for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+                const float coordinate = horizontal ? (x + .5f) / W : (y + .5f) / H;
+                const bool near = coordinate >= location - 1.f / (horizontal ? W : H);
+                colour.px[(y * W + x) * 3] = near ? 1.f : 0.f;
+                colour.px[(y * W + x) * 3 + 1] = near ? 0.f : .6f;
+            }
+            if (edge == extent / 2) {
+                // Positive control for both edge orientations, then fully pin the
+                // same sample. Neighbouring colour/depth must not unpin text.
+                CHECK(stereo_sample_guide(colour, guide, u, v) > .7f);
+                for (int y = 0; y < GH; ++y) for (int x = 0; x < GW; ++x)
+                    if ((horizontal ? x : y) == edge) guide.px[y * GW + x] = 0;
+                CHECK(stereo_sample_guide(colour, guide, u, v) == 0);
+            } else {
+                // All four image borders retain the original tapered guide.
+                CHECK(stereo_sample_guide(colour, guide, u, v) == stereo_sample(guide, u, v));
+            }
+        }
+    }
+}
+
+void guide_spatial_resolve() {
+    constexpr int W = 64, H = 40, X = W / 2, Y = H / 2;
+    RgbF colour{W, H, std::vector<float>(W * H * 3, .3f)};
+    auto guide = fake::flat_depth(W, H, .2f);
+    guide.px[Y * W + X] = .8f;
+    // Isolated nonzero depth survives reconstruction, then the median removes it.
+    CHECK(stereo_sample_guide(colour, guide, (X + .5f) / W, (Y + .5f) / H) > .79f);
+    const std::array<std::array<int, 2>, 4> borders{{{{1, Y}}, {{W - 2, Y}}, {{X, 1}}, {{X, H - 2}}}};
+    for (const auto& p : borders) guide.px[p[1] * W + p[0]] = .8f;
+    auto resolved = stereo_resolve_guide(colour, guide);
+    CHECK(resolved.w == W && resolved.h == H);
+    CHECK(std::fabs(resolved.at(X, Y) - .2f) < 1e-6f);
+    for (const auto& p : borders) CHECK(resolved.at(p[0], p[1]) == guide.at(p[0], p[1]));
+    // A zero core has a different meaning from noise: preserve even one pinned pixel.
+    guide.px[Y * W + X] = 0;
+    resolved = stereo_resolve_guide(colour, guide);
+    CHECK(resolved.at(X, Y) == 0);
+    // A real straight silhouette remains a step, without erosion or a widened slope.
+    for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        guide.px[y * W + x] = x < X ? -.4f : .6f;
+        for (int c = 0; c < 3; ++c) colour.px[(y * W + x) * 3 + c] = x < X ? 0.f : 1.f;
+    }
+    resolved = stereo_resolve_guide(colour, guide);
+    float error = 0;
+    for (std::size_t i = 0; i < guide.px.size(); ++i) error = std::max(error, std::fabs(resolved.px[i] - guide.px[i]));
+    CHECK(error < 1e-6f);
+}
+
+void guide_correction_history() {
+    constexpr int W = 64, H = 40, X = W / 2, Y = H / 2;
+    const RgbF colour{W, H, std::vector<float>(W * H * 3, .3f)};
+    auto before_guide = fake::flat_depth(W, H, .2f), guide = fake::flat_depth(W, H, .4f);
+    // A moving broad surface must arrive immediately: history belongs to the
+    // small reconstruction correction, not to the already-filtered base depth.
+    for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        const float slope = .1f * (x + .5f) / W + .05f * (y + .5f) / H;
+        before_guide.px[y * W + x] += slope;
+        guide.px[y * W + x] += slope;
+    }
+    auto before = stereo_resolve_guide(colour, before_guide);
+    const auto current = stereo_resolve_guide(colour, guide);
+    auto temporal = stereo_resolve_guide(colour, guide, &before, &before_guide, .1f);
+    float error = 0;
+    for (std::size_t i = 0; i < current.px.size(); ++i) error = std::max(error, std::fabs(temporal.px[i] - current.px[i]));
+    CHECK(error < 1e-6f);
+    // A small correction change advances only a quarter of the way, even while
+    // the base plane moves by .2. A large correction change releases immediately.
+    before_guide = fake::flat_depth(W, H, .2f); guide = fake::flat_depth(W, H, .4f);
+    before = fake::flat_depth(W, H, .24f);
+    temporal = stereo_resolve_guide(colour, guide, &before, &before_guide, .25f);
+    CHECK(std::fabs(temporal.at(X, Y) - .43f) < 1e-6f);
+    CHECK(temporal.at(1, Y) == guide.at(1, Y)); // Frame guards never inherit a correction.
+    const auto large = fake::flat_depth(W, H, .8f);
+    temporal = stereo_resolve_guide(colour, guide, &large, &before_guide, .01f);
+    CHECK(std::fabs(temporal.at(X, Y) - .4f) < 1e-6f);
+    CHECK(stereo_resolve_alpha(0) == 1 && stereo_resolve_alpha(-1) == 1);
+    CHECK(stereo_resolve_alpha(33) > .23f && stereo_resolve_alpha(33) < .25f);
+    // A reset or either resized history map uses the current result directly.
+    temporal = stereo_resolve_guide(colour, guide, &before, &before_guide, stereo_resolve_alpha(0));
+    CHECK(temporal.at(X, Y) == guide.at(X, Y));
+    const auto resized = fake::flat_depth(W / 2, H, .24f);
+    CHECK(stereo_resolve_guide(colour, guide, &resized, &before_guide, .25f).at(X, Y) == guide.at(X, Y));
+    CHECK(stereo_resolve_guide(colour, guide, &before, &resized, .25f).at(X, Y) == guide.at(X, Y));
+    guide.px[Y * W + X] = 0;
+    CHECK(stereo_resolve_guide(colour, guide, &before, &before_guide, .25f).at(X, Y) == 0);
+    guide = fake::flat_depth(W, H, .98f);
+    CHECK(stereo_resolve_guide(colour, guide, &before, &before_guide, .25f).at(X, Y) == 1.f);
+}
+
+void protected_texture_is_not_geometry() {
+    constexpr int W = 320, H = 200, GW = 80, GH = 50;
+    auto colour = fake::textured(W, H);
+    fake::stamp_text(colour, 24, 40, 112, 160);
+    // A small textured picture can trigger parts of the text mask too. Its
+    // protected transitions must not become arbitrary reconstructed depth edges.
+    for (int y = 44; y < 156; ++y) for (int x = 160; x < 272; ++x) {
+        const float phase = x * .9f + 4.f * std::sin(y * .17f);
+        for (int c = 0; c < 3; ++c)
+            colour.px[(y * W + x) * 3 + c] = .5f + .4f * std::sin(phase + c * .2f) * std::cos(y * .31f);
+    }
+    const auto mask = stereo_text_mask(colour, GW, GH), depth = fake::flat_depth(GW, GH, 1.f);
+    StereoParams params; params.strength = 2; params.convergence = .92f; params.text_keep = 0;
+    PlaneF protection;
+    const auto guide = stereo_guide(depth, 0, 1, &mask, nullptr, params, float(W) / H, 1, &protection);
+    const auto unguarded = stereo_resolve_guide(colour, guide);
+    const auto resolved = stereo_resolve_guide(colour, guide, nullptr, nullptr, 1, &protection);
+    auto old = resolved;
+    for (auto& value : old.px) value += .04f;
+    const auto temporal = stereo_resolve_guide(colour, guide, &old, &guide, .1f, &protection);
+    float before_error = 0, error = 0; int transitions = 0;
+    for (int y = 20; y < H - 20; ++y) for (int x = 20; x < W - 20; ++x) {
+        const float u = (x + .5f) / W, v = (y + .5f) / H, gain = stereo_sample(protection, u, v);
+        if (gain >= .999f) continue;
+        if (gain > .02f && gain < .98f) ++transitions;
+        const float expected = stereo_sample(guide, u, v);
+        before_error = std::max(before_error, std::fabs(unguarded.at(x, y) - expected));
+        error = std::max({error, std::fabs(resolved.at(x, y) - expected), std::fabs(temporal.at(x, y) - expected)});
+    }
+    CHECK(transitions > 100); CHECK(before_error > .02f); CHECK(error < 1e-6f);
+    // Protection describes this frame, even when the base guide has history.
+    PlaneF current_protection;
+    stereo_guide(depth, 0, 1, &mask, &guide, params, float(W) / H, .01f, &current_protection);
+    CHECK(current_protection.px == protection.px);
+}
+
 void surface_hit() {
     const Canvas c{1920, 1200, 0.44f, 0.275f};
     const FRect tile{480, 300, 960, 600};
@@ -232,7 +489,9 @@ void surface_hit() {
 }
 
 int main() {
-    params_are_clamped(); depth_to_v(); contract(); comfort(); edges_and_time(); text_mask(); warp_answers(); background_fill(); text_band(); surface_hit();
+    params_are_clamped(); depth_to_v(); contract(); comfort(); edges_and_time(); text_mask(); warp_answers(); background_fill();
+    pro2_high_strength_edges(); smooth_surface_disparity(); diagonal_edges(); guide_protected_regions(); guide_spatial_resolve();
+    guide_correction_history(); protected_texture_is_not_geometry(); text_band(); surface_hit();
     if (failures) { std::fprintf(stderr, "stereo: %d failure(s)\n", failures); return 1; }
     std::puts("stereo: ok");
     return 0;

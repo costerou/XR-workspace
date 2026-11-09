@@ -170,7 +170,7 @@ def execute(consent_path, state_dir, *, data_home=None, client_factory=None, ses
     release_tracking_driver(runtime)
     client = client_factory(consent['instance'], runtime) if client_factory else BundleClient(consent['instance'], runtime, root, manifest)
     if client_factory is None: client.check_abi()
-    outcome = run_session(client, {**consent, 'sbs_mode': None}, root, runtime, Path(state_dir), consent['desktops'],
+    outcome = run_session(client, consent, root, runtime, Path(state_dir), consent['desktops'],
                           projection=block['projection'], seconds=ROUTE_SECONDS, pose_rate_hz=block['pose_rate_hz'], mount_pitch_deg=block['mount_pitch_deg'], panel_route=True,
                           store=ProfileStore(profiles_path(), 'pro2'), session_factory=session_factory or RuntimeSession, run=run)
     done = outcome['run'] or {}
@@ -197,7 +197,7 @@ def recover(consent_path, journal, clear_rules=(), *, client_factory=None):
     runtime = Path(os.environ['XDG_RUNTIME_DIR'])
     client = client_factory(consent['instance'], runtime) if client_factory else BundleClient(consent['instance'], runtime, root, manifest)
     if ownership_plugin_count(client.plugins_loaded()) != 1: raise ValueError('consented ownership plugin unavailable for recovery')
-    result = recover_pro2_test_managed(client, {**consent, 'sbs_mode': None}, Path(journal), clear_rules=clear_rules)
+    result = recover_pro2_test_managed(client, consent, Path(journal), clear_rules=clear_rules)
     if result['complete']:
         client.plugin_unload(consent['plugin']['path'])
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')

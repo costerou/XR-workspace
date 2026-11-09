@@ -113,7 +113,7 @@ def test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup(kin
     from test_release_owner_callbacks import Backend
     from tools.native_spike.send import WindowSender
     from tools.native_spike.privacy import PrivacyDisplay
-    backend=Backend(obey,dpms=kind!='privacy_on')
+    backend=Backend()
     c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
     if kind=='send':
         owner=WindowSender(backend,c.state.names,'DP-1',notify=None);c.sender=owner
@@ -123,6 +123,12 @@ def test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup(kin
         scope,category,id='workspace','privacy','privacy_display'
     d=MenuDriver(c)
     try:
+        if kind=='privacy_on':
+            # Establish privacy through its real owner before asking the menu
+            # to end it; an idle/asleep display is not a privacy session.
+            owner.toggle()
+            assert backend.query('monitors')[0]['dpmsStatus'] is False
+        backend.obey=obey
         d.enter('XR-3',scope,category);d.focus(id);d.key('Return')
         for thread in owner._threads:
             thread.join(2);assert not thread.is_alive()

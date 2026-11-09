@@ -1,9 +1,11 @@
-"""Pinned install: temp dirs and fake binaries only; nothing is executed."""
+"""Pinned install: temp dirs, inert native binaries, and a local Python launcher fixture."""
 import hashlib
 import json
 import os
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 import unittest.mock
@@ -223,6 +225,67 @@ class InstallTests(unittest.TestCase):
         (self.build / 'libxr-ownership.so').unlink()
         with self.assertRaises(ValueError): install(self.build, self.data)
         self.assertFalse((self.data / 'viture-workspace/installed.json').exists())
+
+
+class Pro2EngineInstallTests(unittest.TestCase):
+    """Inert native bundle; the launcher runs only a local Python fixture."""
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name).resolve()
+        self.home, self.repo, self.data = (self.root / name for name in ('home', 'repo', 'data'))
+        self.home.mkdir(); self.repo.mkdir()
+        patcher = unittest.mock.patch.object(install_module.Path, 'home', return_value=self.home)
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = unittest.mock.patch.object(install_module, 'REPO', self.repo)
+        patcher.start(); self.addCleanup(patcher.stop)
+
+    def build_bundle(self, build_dir, destination):
+        from tools.pro2_diagnostic.candidate import SHA256
+        (destination / 'bin').mkdir(parents=True)
+        files = {}
+        for name in ('pro2-sdk-bridge', 'xr-native-spike', 'libxr-ownership.so'):
+            path = destination / 'bin' / name
+            path.write_bytes(b'inert ' + name.encode())
+            files['bin/' + name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        manifest = destination / 'manifest.json'
+        manifest.write_text(json.dumps(dict(schema=1, sdk_sha256=SHA256, files=files)))
+        manifest.chmod(0o400)
+
+    def install_bundle(self):
+        from tools.xr_controller import pro2_route
+        install_module.install_pro2_bundle(self.root, self.data, builder=self.build_bundle)
+        return Path(pro2_route.load_route(self.data)['bundle'])
+
+    def test_missing_depth_environment_keeps_the_bundle_optional(self):
+        from tools.pro2_runtime.launch import verify_manifest
+        bundle = self.install_bundle()
+        self.assertFalse((bundle / 'bin/xr-depth-engine').exists())
+        self.assertNotIn('bin/xr-depth-engine', verify_manifest(bundle)[1]['files'])
+
+    def test_depth_launcher_is_pinned_before_rename_and_runs_from_stable_checkout(self):
+        from tools.native_spike.immersive import find_engine
+        from tools.pro2_runtime.launch import verify_manifest
+        previous = self.install_bundle()
+        previous_manifest = (previous / 'manifest.json').read_bytes()
+        python = self.home.joinpath(*install_module.ENGINE_PYTHON)
+        python.parent.mkdir(parents=True); python.symlink_to(sys.executable)
+        fixture = self.repo / 'tools/depth_engine'
+        fixture.mkdir(parents=True)
+        (fixture / '__main__.py').write_text('import json,sys\nprint(json.dumps([__file__,sys.argv[1:]]))\n')
+
+        bundle = self.install_bundle()
+        self.assertNotEqual(bundle, previous)
+        self.assertEqual((previous / 'manifest.json').read_bytes(), previous_manifest)
+        self.assertFalse((previous / 'bin/xr-depth-engine').exists())
+        engine = find_engine(bundle / 'bin/xr-native-spike')
+        self.assertIsNotNone(engine)
+        manifest = verify_manifest(bundle)[1]
+        self.assertEqual(manifest['files']['bin/xr-depth-engine'], hashlib.sha256(engine.read_bytes()).hexdigest())
+        self.assertEqual(engine.stat().st_mode & 0o777, 0o500)
+        self.assertEqual((bundle / 'manifest.json').stat().st_mode & 0o777, 0o400)
+        output = json.loads(subprocess.check_output([str(engine), '--fixture'], text=True))
+        self.assertEqual(output, [str(fixture / '__main__.py'), ['serve', '--supervised', '--fixture']])
+        self.assertEqual(self.install_bundle(), bundle)
 
 
 class TrackingDriverPinTests(unittest.TestCase):

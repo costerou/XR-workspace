@@ -130,7 +130,6 @@ void draw_line(HudImage& im, const HudLine& line, const LineBox& b, int left, st
         x += int((kGlyphW + 1) * z);
     }
 }
-float smoothstep(float t) { t = std::clamp(t, 0.f, 1.f); return t * t * (3 - 2 * t); }
 // `line` in its role's colour from `m` (a line without a role keeps its own).
 HudLine painted(HudLine line, const MaterialScheme& m) { line.color = hud_line_color(line, m); return line; }
 }
@@ -588,24 +587,33 @@ void StatusPopups::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(f
 
 bool CardFade::set(bool visible, double now_ms) {
     if (visible == visible_) return false;
+    from_alpha_ = alpha(now_ms);
     from_ = level(now_ms);  // reverse from wherever the fade is
     visible_ = visible; changed_ms_ = now_ms;
     return true;
 }
 float CardFade::level(double now_ms) const {
     const double dt = std::max(0.0, now_ms - changed_ms_);
+    if ((visible_ ? in_ms_ : out_ms_) <= 0) return visible_ ? 1.f : 0.f;
     if (visible_) return std::min(1.f, from_ + float(dt / in_ms_));
     return std::max(0.f, from_ - float(dt / out_ms_));
 }
-float CardFade::alpha(double now_ms) const { return smoothstep(level(now_ms)); }
+float CardFade::alpha(double now_ms) const {
+    const float target = visible_ ? 1.f : 0.f;
+    const double duration = (visible_ ? in_ms_ : out_ms_) * std::abs(target - from_);
+    if (duration <= 0) return target;
+    const float t = float(std::clamp((now_ms - changed_ms_) / duration, 0.0, 1.0));
+    const float remaining = 1.f - t;
+    return from_alpha_ + (target - from_alpha_) * (1.f - remaining * remaining * remaining);
+}
 bool CardFade::animating(double now_ms) const {
     const float l = level(now_ms);
     return visible_ ? l < 1.f : l > 0.f;
 }
 void CardFade::hold(double since_ms, double now_ms) {
     if (now_ms <= since_ms) return;
-    from_ = level(since_ms);  // a toggle after since_ms: level() clamps to the toggle's own level
-    changed_ms_ = now_ms;
+    // Move the clock, preserving both the curve and its progress. A toggle after since_ms starts at its own time.
+    changed_ms_ += now_ms - std::max(since_ms, changed_ms_);
 }
 
 bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now_ms, int turn) {

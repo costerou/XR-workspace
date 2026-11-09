@@ -160,9 +160,12 @@ function scopeLines(scope, action, rules) {
         const m = scope.mode_switch;
         lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});
     } else {
-        required(scope.model === "beast" ? "Beast: native 120 Hz mode; no mode switch. This is not measured presentation cadence." : "No display mode switch requested.");
+        required(scope.model === "beast" ? "Beast: native 120 Hz mode; no mode switch. This is not measured presentation cadence." : scope.sbs_mode ? "Keep the current display mode at startup." : "No display mode switch requested.");
     }
-    if (scope.sbs_mode) required("If you turn on 3D and hold R1 on the glasses: follow them to " + scope.sbs_mode.width + "×" + scope.sbs_mode.height + " (" + scope.sbs_mode.refresh_hz.join(" or ") + " Hz), and hold R1 again to go back to 2D. Nothing is sent to the glasses.");
+    if (scope.sbs_mode) {
+        const button = scope.model === "pro2" ? "L1" : "R1";
+        required("If you turn on 3D and hold " + button + " on the glasses: follow them to " + scope.sbs_mode.width + "×" + scope.sbs_mode.height + " (" + scope.sbs_mode.refresh_hz.join(" or ") + " Hz), and hold " + button + " again to go back to 2D. Nothing is sent to the glasses.");
+    }
     return lines;
 }
 
@@ -214,7 +217,7 @@ function immersiveLabel(status) {
     if (!(status.names || []).length) return "Off";
     if (status.installed === false) return "Depth engine not installed";
     if (status.phase === "engine") return "Loading the depth model…";
-    if (status.phase === "glasses") return "Hold R1 on the glasses";
+    if (status.phase === "glasses") return "Hold " + (status.button === "L1" ? "L1" : "R1") + " on the glasses";
     return "Starting…";
 }
 

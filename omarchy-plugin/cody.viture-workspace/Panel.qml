@@ -22,13 +22,20 @@ Item {
     property int commandId: 0
     property var queue: []
     property int settingsId: 0
+    property bool settingsRefreshPending: false
     readonly property var snapshot: client.snapshot
     readonly property bool busy: commandId !== 0
     readonly property bool prestart: client.connected && snapshot.state === "idle"
-    function open(payload) { if (payload && Number.isInteger(payload.desktop)) selectedDesktop=payload.desktop; error=""; opened=true; client.send({op:"status"}); loadSettings() }
+    function open(payload) { if (payload && Number.isInteger(payload.desktop)) selectedDesktop=payload.desktop; error=""; opened=true; client.send({op:"status"}) }
     function close() { opened=false }
     function dismiss() { if (shell && typeof shell.hide === "function") shell.hide((manifest && manifest.id) || "cody.viture-workspace"); else close() }
-    function loadSettings() { if (client.connected) settingsId=client.send({op:"get_settings"}) }
+    function loadSettings() {
+        if (!client.connected) return;
+        // Keep one read in flight and one refresh after it. A slow controller
+        // must not accumulate requests or apply an older reply over a new one.
+        if (settingsId !== 0) { settingsRefreshPending=true; return }
+        settingsId=client.send({op:"get_settings"});
+    }
     function request(message) {
         if (busy) return;
         error="";
@@ -54,20 +61,30 @@ Item {
     ControllerClient {
         id:client
         onStateChanged: {
-            root.error=""
             if (snapshot.state !== "confirming") root.pending=null
             else if (snapshot.pending) root.pending=snapshot.pending
             if (root.opened) root.loadSettings()
         }
         onReplied: function(id, reply) {
-            if (id===root.settingsId) { if (reply.ok) root.settings=reply.settings; return }
+            if (id===root.settingsId) {
+                root.settingsId=0
+                // Identical telemetry must not reset an editor's unsaved draft
+                // or rebuild every settings binding once per controller tick.
+                if (reply.ok && JSON.stringify(root.settings)!==JSON.stringify(reply.settings))
+                    root.settings=reply.settings
+                if (root.settingsRefreshPending) {
+                    root.settingsRefreshPending=false
+                    if (root.opened) root.loadSettings()
+                }
+                return
+            }
             if (id!==root.commandId) return
             root.commandId=0
             if (!reply.ok) { root.queue=[]; root.error=reply.error || "Request refused"; return }
             if (root.queue.length) { const remaining=root.queue; root.queue=remaining.slice(1); root.commandId=client.send(remaining[0]); return }
             if (reply.scope) root.pending={action:reply.action,scope:reply.scope,scope_id:reply.scope_id}
             root.loadSettings()
-            client.send({op:"status"})
+            // The controller pushes changed state after replying to a command.
         }
     }
     FloatingWindow {
@@ -124,6 +141,8 @@ Item {
                     }
                 }
                 Loader {
+                    id: page
+                    objectName: "panelPage"
                     Layout.fillWidth:true
                     Layout.preferredHeight:item ? (item as Item).implicitHeight : 0
                     active:client.connected
@@ -134,6 +153,13 @@ Item {
                         case "confirming": return confirmation
                         default: return notice
                         }
+                    }
+                    // A page change animates once; telemetry updates within that page do not replay it.
+                    onLoaded: pageEntrance.restart()
+                    ParallelAnimation {
+                        id: pageEntrance
+                        NumberAnimation { target: page; property: "opacity"; from: 0; to: 1; duration: Motion.enterDuration; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: page; property: "scale"; from: 0.97; to: 1; duration: Motion.enterDuration; easing.type: Easing.OutCubic }
                     }
                 }
             }

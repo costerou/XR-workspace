@@ -96,13 +96,24 @@ struct PlaneF { int w = 0, h = 0; std::vector<float> px; float at(int x, int y) 
 struct RgbF { int w = 0, h = 0; std::vector<float> px; };
 float stereo_sample(const PlaneF& p, float u, float v);
 std::array<float, 3> stereo_sample(const RgbF& p, float u, float v);
+// Reconstruct a sharp guide boundary from the source's colour edge, only where both agree.
+// This reconstruction is evaluated at source pixel centres before the spatial resolve.
+float stereo_sample_guide(const RgbF& colour, const PlaneF& guide, float u, float v, const PlaneF* protection = nullptr);
+// Reconstruct at source resolution, then reject isolated guide spikes with a 3x3 median.
+// The warp, hole fill and pointer sample this same resolved surface, independent of eye or tile rotation.
+// Optional history filters only the reconstruction correction; movement of the base guide is immediate.
+float stereo_resolve_alpha(float dt_ms);
+PlaneF stereo_resolve_guide(const RgbF& colour, const PlaneF& guide, const PlaneF* previous = nullptr,
+                           const PlaneF* previous_guide = nullptr, float alpha = 1.f, const PlaneF* protection = nullptr);
 // Mirrors kTextFragment: the text mask at w x h.
 PlaneF stereo_text_mask(const RgbF& colour, int w, int h);
 // Mirrors kGuideFragment: depth -> v, text, edge taper, temporal filter. `text` / `previous` may be null.
+// Optional protection receives the current text gain times edge taper, without temporal filtering.
 PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text, const PlaneF* previous, const StereoParams& p, float aspect,
-                    float alpha);
+                    float alpha, PlaneF* protection = nullptr);
 // Mirrors the warp in stereo_gl.cpp: `eye` of a desktop filling out_w x out_h from its colour and guide map.
 inline constexpr int kStereoMarchSteps = 12, kStereoBisectSteps = 3;
 inline constexpr float kStereoHoleLo = 0.8f, kStereoHoleHi = 1.6f;  // how steeply the surface stretches before it counts as a hole
-RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, int eye, const StereoBudget& budget);
+RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, int eye, const StereoBudget& budget,
+                 const PlaneF* protection = nullptr);
 }

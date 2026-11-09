@@ -67,75 +67,6 @@ int main() {
           kPanelBackgroundTop == kPanelScaleTop + kPanelRowH && kPanelBrightnessTop == kPanelBackgroundTop + kPanelRowH &&
           kPanelActionsTop == kPanelBrightnessTop + kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
     CHECK(kPanelFooterTop == 364.f && kPanelH == 394.f);
-    {  // the view shift while a panel is open: all of the panel shows with your head level, and only as much as that takes
-        constexpr float kHalfW = 0.36f, kHalfH = 0.225f;
-        const Canvas canvas{1536, 960, kHalfW, kHalfH};  // the glasses at scale 1.25
-        const std::vector<Size> sizes(3, Size{1920, 1080});
-        const auto tiles = overview_layout(sizes, 1536, 960, 40);
-        const Mat3 level{1, 0, 0, 0, 1, 0, 0, 0, 1};
-        auto lowest = [&](const FRect& tile, const Placement& on, const Mat3& view) {  // the panel's bottom edge in view: NDC y
-            const FRect panel = glass_panel(tile);
-            float out = 2;
-            for (const float gx : {panel.x, panel.x + panel.width / 2, panel.x + panel.width}) {
-                const auto [x, y] = glass_to_desktop(tile, on, gx, panel.y + panel.height);
-                const Vec3 p = place_point(canvas, tile, on, x, y);
-                const auto q = xr::apply(view, {p.x, p.y, p.z});
-                if (std::fabs(q[0] / q[2]) <= kHalfW) out = std::min(out, q[1] / -q[2] / kHalfH);
-            }
-            return out;
-        };
-        const float bottom = -1 + 2 * kPanelShiftMarginPx / 960;  // where its margin ends, in NDC
-        const float middle = glass_panel_shift(canvas, tiles[1], {});
-        CHECK(lowest(tiles[1], {}, level) < -1);  // without it the panel runs past the view's bottom edge
-        CHECK(middle > 0.01f && middle < 0.05f);  // a degree or two
-        CHECK(near(lowest(tiles[1], {}, glass_view_shift(level, middle)), bottom, 2e-3f));  // and with it, just inside
-        for (const auto& t : tiles) {
-            CHECK(lowest(t, {}, glass_view_shift(level, glass_panel_shift(canvas, t, {}))) >= bottom - 2e-3f);
-            // The same with the head turned to look straight at that desktop.
-            const Vec3 c = place_point(canvas, t, {}, t.x + t.width / 2, t.y + t.height / 2);
-            const float yaw = std::atan2(c.x, -c.z), cy = std::cos(yaw), sy = std::sin(yaw);
-            const Mat3 at{cy, 0, -sy, 0, 1, 0, sy, 0, cy};
-            CHECK(lowest(t, {}, glass_view_shift(at, glass_panel_shift(canvas, t, {}))) >= bottom - 2e-3f);
-        }
-        // It goes by the panel's size against the view, not by where the desktop is or where you look: moved round you, or
-        // following a panel along the row, it does not change (the side desktops' corners need a little more).
-        Placement moved; moved.x = 0.9f; moved.y = 0.4f;
-        CHECK(near(glass_panel_shift(canvas, tiles[1], moved), middle, 2e-3f));
-        CHECK(near(glass_panel_shift(canvas, tiles[0], {}), glass_panel_shift(canvas, tiles[2], {}), 1e-4f));
-        // A bigger desktop pushes its panel further down, up to the cap, a smaller one less; one small enough to leave room
-        // needs none.
-        Placement near_you; near_you.distance = 0.5f;
-        Placement huge; huge.distance = 0.1f;
-        Placement far_away; far_away.distance = 2.f;
-        CHECK(glass_panel_shift(canvas, tiles[1], near_you) > middle);
-        CHECK(glass_panel_shift(canvas, tiles[1], huge) == kPanelShiftMax);
-        CHECK(glass_panel_shift(canvas, tiles[1], far_away) < middle);
-        CHECK(glass_panel_shift(canvas, FRect{tiles[1].x, 470, tiles[1].width, 20}, far_away) == 0.f);
-        CHECK(glass_panel_shift(canvas, {}, {}) == 0.f && glass_panel_shift({}, tiles[1], {}) == 0.f);
-        // The shift itself: nothing at 0, exactly; what is ahead moves up; still a rotation.
-        CHECK(glass_view_shift(level, 0.f) == level);
-        const Mat3 turned{0.8f, 0, 0.6f, 0, 1, 0, -0.6f, 0, 0.8f};
-        CHECK(glass_view_shift(turned, 0.f) == turned);
-        const auto up = xr::apply(glass_view_shift(level, 0.1f), {0, 0, -1});
-        CHECK(near(up[1] / -up[2], std::tan(0.1f), 1e-5f) && near(up[0], 0.f));
-        const auto n = xr::apply(transpose(glass_view_shift(turned, 0.1f)), xr::apply(glass_view_shift(turned, 0.1f), {0.3f, -0.2f, 0.5f}));
-        CHECK(near(n[0], 0.3f, 1e-5f) && near(n[1], -0.2f, 1e-5f) && near(n[2], 0.5f, 1e-5f));
-        // The ease: from where it is, to the latest target, and at rest once there.
-        PanelShift ease;
-        CHECK(ease.value(0) == 0.f && !ease.animating(0));
-        ease.set(0.f, 0);
-        CHECK(!ease.animating(0));
-        ease.set(0.02f, 1000);
-        CHECK(ease.value(1000) == 0.f && ease.animating(1000));
-        CHECK(near(ease.value(1000 + kPanelShiftMs / 2), 0.01f, 1e-6f));
-        CHECK(ease.value(1000 + kPanelShiftMs) == 0.02f && !ease.animating(1000 + kPanelShiftMs));
-        ease.set(0.02f, 2000);  // the same target: nothing restarts
-        CHECK(!ease.animating(2000));
-        ease.set(0.f, 3000);
-        const float part = ease.value(3000 + kPanelShiftMs / 4);
-        ease.set(0.02f, 3000 + kPanelShiftMs / 4);  // turned round on the way: no jump
-        CHECK(near(ease.value(3000 + kPanelShiftMs / 4), part, 1e-6f));
-    }
     {  // the Background box and its switch share a row, right of the label column up to the padding; its list above it
         const FRect box = glass_background_box(), sw = glass_background_switch();
         CHECK(box.x == kPanelTrackX0 && box.y >= kPanelBackgroundTop && box.y + box.height <= kPanelBackgroundTop + kPanelRowH);
@@ -597,7 +528,7 @@ int main() {
         // Reversing mid-way does not jump.
         CHECK(g.set(next, 4000));
         const float mid = g.expand(2, 4000 + kGlassExpandMs / 2);
-        CHECK(mid > 0.2f && mid < 0.8f && g.set(shut, 4000 + kGlassExpandMs / 2) && g.expand(2, 4000 + kGlassExpandMs / 2) == mid);
+        CHECK(near(mid, 0.875f) && g.set(shut, 4000 + kGlassExpandMs / 2) && g.expand(2, 4000 + kGlassExpandMs / 2) == mid);
     }
     // CardFade::hold: an unseen fade does not run; a toggle after `since` holds at the toggle's own level.
     {

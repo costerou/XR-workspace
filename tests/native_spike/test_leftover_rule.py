@@ -103,6 +103,8 @@ class Base(unittest.TestCase):
         self.path.parent.mkdir(parents=True, mode=0o700); self.path.parent.parent.chmod(0o700)
         patcher = patch('tools.native_spike.send.notify', lambda text: self.notes.append(text))
         patcher.start(); self.addCleanup(patcher.stop)
+        alive = patch('tools.native_spike.hyprland.instance_ended', lambda *a: False)  # the double is a live compositor
+        alive.start(); self.addCleanup(alive.stop)
         for name in ('tools.native_spike.privacy.wake', 'tools.native_spike.managed.validate_physical_pair'):
             patcher = patch(name, lambda *a, **k: None); patcher.start(); self.addCleanup(patcher.stop)
         patcher = patch('tools.native_spike.restore.load', lambda *a, **k: None); patcher.start(); self.addCleanup(patcher.stop)
@@ -443,6 +445,8 @@ class CodeChangedUnderTheSession(unittest.TestCase):
             dict(id='4c9c3b54-548e-4356-8456-03f25c97d105', operation=dict(kind='output', id=XR_2, name='XR-2', index=1, before=None), state='done')],
             broker=dict(instance=self.INSTANCE, output='DP-2', recovery_output='DP-1', epoch=self.EPOCH, fallback='6fa09398ea1bda277bdac44f515a7719bc5e4fe2b9a5036c'))))
         self.journal.chmod(0o600)
+        alive = patch('tools.native_spike.hyprland.instance_ended', lambda *a: False)  # the double is a live compositor
+        alive.start(); self.addCleanup(alive.stop)
         for name in ('tools.native_spike.privacy.wake', 'tools.native_spike.managed.validate_physical_pair', 'tools.native_spike.send.notify'):
             patcher = patch(name, lambda *a, **k: None); patcher.start(); self.addCleanup(patcher.stop)
         env = patch.dict(os.environ, XDG_RUNTIME_DIR=str(root), XDG_DATA_HOME=str(self.data), XDG_STATE_HOME=str(root / 'xdg-state'))

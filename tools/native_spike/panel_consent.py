@@ -52,8 +52,8 @@ def _check_pro2(data):
     if type(block['projection']) is not float or block['projection'] not in PRO2_PROJECTIONS: raise ValueError('invalid Pro 2 projection')
     if type(block['pose_rate_hz']) is not int or block['pose_rate_hz'] not in PRO2_RATES: raise ValueError('invalid Pro 2 pose rate')
     if type(block['mount_pitch_deg']) is not float or not PRO2_MOUNT_BOUNDS[0] <= block['mount_pitch_deg'] <= PRO2_MOUNT_BOUNDS[1]: raise ValueError('invalid Pro 2 mount pitch')
-    if data['tracking'] != PRO2_TRACKING or data['mode_switch'] is not False or SBS_KEY in data or DRIVER_KEY in data:
-        raise ValueError('the Pro 2 route is exactly its own tracking, no mode switch, no 3D mode')
+    if data['tracking'] != PRO2_TRACKING or data['mode_switch'] is not False or DRIVER_KEY in data:
+        raise ValueError('the Pro 2 route requires its own tracking and no Luma mode switch')
     if _artifact(data['plugin'])['path'] != bundle + '/bin/libxr-ownership.so' or _artifact(data['renderer'])['path'] != bundle + '/bin/xr-native-spike':
         raise ValueError('Pro 2 artifacts must come from the pinned bundle')
 
@@ -84,9 +84,9 @@ def _validate(data, instance=None, output=None):
         if data['model'] != 'luma-ultra': raise ValueError('mode switch is Luma Ultra only')
         if not isinstance(mode, dict) or set(mode) != set(LUMA_MODE) or any(type(mode[k]) is not int or mode[k] != v for k, v in LUMA_MODE.items()):
             raise ValueError('mode switch must be exactly 1920x1200@120')
-    if SBS_KEY in data:  # sbs.py: following the glasses to their own 3D mode, once a person has held R1 on them
-        if mode is False or data['model'] != 'luma-ultra' or not sbs_scope_ok(data[SBS_KEY]):
-            raise ValueError('3D mode must be exactly 3840x1200 at 90 or 60, on a Luma Ultra run that switches modes')
+    if SBS_KEY in data:  # sbs.py: follow the model's physical button, never send a USB mode command
+        if not sbs_scope_ok(data[SBS_KEY], model=data['model']) or (data['model'] != 'pro2' and mode is False):
+            raise ValueError('3D mode must match the verified glasses model and its display scope')
     data['plugin'] = _artifact(data['plugin']); data['renderer'] = _artifact(data['renderer'])
     if LUMA_PIN in data: data[LUMA_PIN] = _artifact(data[LUMA_PIN])
     # The desktops the session starts with (1..MAX_DESKTOPS). The approved capture scope is the run's own managed outputs:

@@ -429,7 +429,7 @@ renderer. The open panel shows it through `placement_menu`'s `background`, `brig
 Super+Ctrl+E, Super+Shift+E, Super+Ctrl+Shift+E and Super+Ctrl+Alt+E, all different chords.
 
 *Panel geometry.* The two rows make the panel 360 px tall (it was 292), so it would run past the bottom of the view with your
-head level. While it is open the view shifts down to fit it ([Placement pills](#placement-pills)).
+head level. The view does not move for it: look down to see all of it ([Placement pills](#placement-pills)).
 
 *Cost*, measured with `gl_bench --bench --frames 1000 --size 1920x1200` (the glasses' native buffer; GPU time from
 `EXT_disjoint_timer_query`, CPU the draw call), 2026-11-03, on surfaceless EGL, so no compositor or capture is included.
@@ -565,7 +565,9 @@ eval by a no-op `dpms on` for the glasses' output, which resets Hyprland's globa
 Each switch shows a desktop notification, which appears on the focused desktop, so in the glasses. The display comes
 back on when the run ends, and recovery turns the fallback on before anything else: Stop, a renderer or controller
 crash, the panel's Recover. If the run died and its binds survived, Ctrl+Alt+D turns every monitor's DPMS on. The run's
-guard accepts a DPMS-off fallback (it must still be connected and enabled). Ctrl+Alt+D is off in typing mode like the
+guard accepts a DPMS-off fallback (it must still be connected and enabled), and so does the ownership plugin
+(`usable()` in `spike/ownership/plugin.cpp` ignores DPMS for a normal run), so Add desktop, Ultrawide and Remove desktop
+work with privacy on; a removed desktop's windows go to the dark display. Ctrl+Alt+D is off in typing mode like the
 other run binds, and works while a VR video plays.
 
 While privacy is on, the run checks the display every 0.25 s and blanks it again if something else turned it on: an
@@ -786,6 +788,22 @@ A reason names the output and what stopped it: the broker's step (`blocked` in i
 `unreachable`, `rule`, `destroy`; `ownership.REMOVAL_STEPS` has the words), whether the fallback can take windows, each
 window still on the output by application class, workspace and pinned state, and any line in `monitors.lua` naming it. A
 plugin from before 2026-11-04 gives no step, so its refusal reads "the ownership plugin refused to remove it".
+
+**A pinned window on an XR desktop** (put there by hand: Omarchy's pop-out, a drag) does not end the run: the run guard
+(`ownership.verify`) accepts it. Remove refuses that desktop, which stays as it was, as the broker cannot move a pinned
+window. Stop and Recover unpin every pinned window on an XR desktop first (`restore.UNPIN_LUA`, before the layout restore
+and the removal), so it comes back with the others, unpinned. A pinned window on any other monitor stays pinned. Until
+2026-11-08 the guard ended the run on one, and Recover then refused until it was unpinned by hand (run `9c54d211`).
+
+**The run's compositor has exited.** Everything a journal records (the XR outputs, a workspace's monitor, `follow_mouse`)
+and the plugin itself are runtime state of the one Hyprland instance its broker scope names. When that instance crashes or
+restarts (incident `20261109T011152Z`: a libaquamarine segfault after run `c74b4a44`), they end with it, and every Recover
+used to fail on its missing socket (`[Errno 2] ... .socket.sock`). `recover-run` now first asks
+`hyprland.instance_ended`: the instance's request socket is gone, and its `hyprland.lock` is gone or names no running
+Hyprland (a live instance always has both; a lock it cannot read proves nothing). If so, `managed.recover_ended` holds the
+journal as recovery does, refuses a consent that does not match its broker scope, marks every record done and drops the
+layout snapshot, whose windows were that compositor's. Nothing is sent to the new compositor. A monitor rule naming an
+XR-n output lives in the config, so the next Start still refuses and names it.
 
 **A monitor rule naming XR-n.** Omarchy's per-monitor scale (`omarchy-hyprland-monitor-scaling`: the Monitor panel's scale,
 Super+/, Super+Alt+/) acts on the focused monitor, whichever it is, and leaves an audit line in
@@ -2009,14 +2027,9 @@ visible; the pill only starts growing once the overview is reached, so the whole
 (Ctrl+Alt+Up) closes an open panel first, saved, with its keys released. Everything here is covered by offline tests
 only. It has not been run in an isolated VM or tried in the glasses.
 
-**The view shifts while a panel is open.** The panel hangs under its desktop, further than the view reaches with your head
-level, so the renderer pitches the camera down just enough for its bottom edge to end 12 canvas px inside the view
-(`glass.hpp` `glass_panel_shift`: 1.7° for the middle desktop of the default row and 2.0° for the outer two, at most 15°), easing over the panel's 260 ms morph and back
-when it closes. It covers looking straight at the desktop, and looking level at its height from straight ahead, where the
-row's outer desktops sit lower in the view. It is worked out from the panel's size, not from your head, so it stays put while
-you look round and does not change as the panel moves along the row. It is a camera offset at draw time (`glass_view_shift`):
-nothing moves on the canvas, so the supervisor's hit testing needs no change, and the help card's hit box is worked out with
-the shifted view. Desktops, pills, panel and dot shift together. The background does not, since it is world-locked.
+**Neither panel shifts the view** (Cody, 2026-11-08: opening a pill or the options overlay pitched the whole view down; both
+were removed). The placement panel and the options overlay hang under their desktop and may reach past the view's bottom edge
+with your head level: look down to see all of it.
 
 **An open panel follows the focus.** When the selection moves to another desktop in the overview (Ctrl+Alt+Left / Right, or the
 pointer selecting one), `ViewControl.follow_focus` opens that desktop's panel and closes the old one, saved at once, as Tab does:
@@ -2057,11 +2070,18 @@ non-consuming bind), so the panel's modal keys stop taking what you type into th
 Tab, R and Escape type normally once it is closed. Opening or closing a pill with the pointer installs and removes the
 same keys as Ctrl+Alt+L.
 
-**Expanding.** The pill morphs into the panel over 260 ms and back over 200 ms, eased. The panel's text fades in over
+**Expanding.** Interactive menus share a 180 ms entrance and 120 ms exit with ease-out cubic motion (`CardFade`),
+matching the Omarchy panel's menu timing. The pill morphs into its placement panel on that curve. Its text fades in over
 the last quarter of the expansion. Moving the open panel to another desktop collapses one pill while the other expands,
 the new one drawn on top. An expansion that starts while the view is zoomed in or still zooming out is held where it is
 until the overview is reached (`GlassPills::frame`), so a panel opened with Ctrl+Alt+L from a zoomed-in view does not
 pop in nearly full size; a collapse is never held.
+
+The options panel keeps its hit geometry fixed and fades its chrome and content together. It retains the last visible
+snapshot through closing, while input ownership ends immediately. Identical updates reuse its texture, and a burst of
+changes rasterizes once on the next drawn frame (`OptionsOverlay`). Settled menus request no animation frames; a close
+requests one final clearing frame. The `hud`, `glass`, `glass_theme`, and `options_overlay` tests cover timing, reversal,
+hidden-view pauses, cached content, and idle frame scheduling. These checks are offline; headset comfort is unverified.
 
 **The look.** Material Design 3 (`spike/include/xr/material.hpp`). The colours are an M3 dark scheme whose seed is the
 highlight border's and glow's colour (`general:col.active_border`, sent as the `style` frame at the start of a run and
@@ -2152,13 +2172,16 @@ python -m unittest discover -s tests/native_spike -v
 python -m unittest discover -s tests/xr_controller -v
 python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
 python -m unittest discover -s tests/depth_engine -v
-QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input omarchy-plugin/cody.viture-workspace/tests
+QT_QPA_PLATFORM=offscreen QT_QUICK_CONTROLS_STYLE=Basic /usr/lib/qt6/bin/qmltestrunner \
+  -input omarchy-plugin/cody.viture-workspace/tests -import omarchy-plugin/cody.viture-workspace/tests/imports
 ctest --test-dir build/release --output-on-failure
 ```
 
 The `qmltestrunner` line runs the panel's QML tests offscreen: `tst_model.qml` (the model, the consent box and the
 editors) and `tst_launcher.qml` (the pre-start page: one big Start, the logo, the startup options closed until asked
-for, the *Return windows to* choice that Start waits for, and the desktop preview tiles actually drawing).
+for, the *Return windows to* choice that Start waits for, and the desktop preview tiles actually drawing), plus
+`tst_menu_motion.qml` (reversible menu motion and disabled animations). The import directory supplies the shell's
+`Style.duration` contract without a compositor; its default disables motion for the functional control tests.
 `test_branding.py` checks that the product shows as XR Workspace (window title, desktop entry, adoption's panel title,
 manifest, toasts, logo) while install and recovery identifiers keep their `viture-workspace` names.
 
@@ -2204,8 +2227,8 @@ Smoke gets its own section there: the desktops' pixels do not change, nothing pa
 exactly black at any brightness, every lit pixel has the theme's hue, no seam shows behind you or straight up or down, a whole
 turn gives the same frame, a frame at 120 Hz changes under a level on average, and neither the loop nor the clock's wrap shows.
 
-`capture_e2e_open_panel` opens a panel in the real renderer and requires the view to have shifted (`view_shift_mrad` in the
-renderer's exit report); every other `capture_e2e_*` run requires it to be 0. The shift's geometry and ease are in `glass`.
+`capture_e2e_open_panel` opens a placement panel in the real renderer and requires it open (`placement_menu.open` in the
+renderer's exit report) with frames still flowing.
 `tests/native_spike/test_panel_follows_focus.py` covers the panel following the selection.
 
 The placement round you, with every desktop facing you (see

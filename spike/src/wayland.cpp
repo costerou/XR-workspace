@@ -1,4 +1,5 @@
 #include "options_evidence.hpp"
+#include "options_overlay.hpp"
 #include "maximize_geometry.hpp"
 #include "owner_readback.hpp"
 #include "xr/options_geometry.hpp"
@@ -509,15 +510,12 @@ struct Presentation::Impl : SurfaceRequests {
     BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
     bool binds_drawn = false;  // last frame showed it: draw once more so it clears
     OptionsEvidence options_evidence;bool options_in_frame=false;
-    OptionsMenuState options; std::optional<Placement> options_surface; HudImage options_image; std::unique_ptr<HudFont> options_font;
-    void render_options() { options_image=render_options_panel(options,options_font.get(),{accent[0]/255.f,accent[1]/255.f,accent[2]/255.f}); }
-    std::uint64_t options_generation=1000000;
+    OptionsMenuState options; std::optional<Placement> options_surface; OptionsOverlay options_overlay;
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     RestoreStep restore_step;  // the Step-Back Band (options_geometry.hpp); the supervisor's `restore_band`
     std::uint64_t restore_updates = 0, restore_full_frames = 0;
     std::optional<Placement> restore_unstepped;  // the focused desktop's placement before this frame's step
-    PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
     // The background behind the desktops and a VR video (xr/environment.hpp): world-locked when drawn, in the theme colour.
     EnvironmentFade environment;
     Background environment_background = Background::none;  // the one drawn: None's fade-out keeps the last one to the end
@@ -745,7 +743,9 @@ struct Presentation::Impl : SurfaceRequests {
         for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
         const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
         if (!names) return;
-        if(options.open && std::find(names->begin(),names->end(),options.monitor)==names->end()){options.open=false;options_surface.reset();}
+        if(options.open && std::find(names->begin(),names->end(),options.monitor)==names->end()){
+            options.open=false;options_surface.reset();options_overlay.set(options,double(monotonic_ms()));
+        }
         std::vector<std::string> was;  // the tiles of an eased change follow their desktops by name
         for (const auto& c : captures) was.push_back(c->name);
         auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
@@ -971,7 +971,8 @@ struct Presentation::Impl : SurfaceRequests {
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.restore_step.animating(now) || s.panel_shift.animating(now) ||
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.options_overlay.needs_frame(s.view.zoom() < 0.01f && !s.view.switching(), s.options_in_frame, now) ||
+            s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.restore_step.animating(now) ||
             (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
@@ -1118,8 +1119,7 @@ std::string Presentation::capture_report() const {
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
-           ",\"renders\":" + std::to_string(impl_->glass.renders()) +
-           ",\"view_shift_mrad\":" + std::to_string(int(std::lround(impl_->panel_shift.value(double(monotonic_ms())) * 1000.f))) + "}";
+           ",\"renders\":" + std::to_string(impl_->glass.renders()) + "}";
     out += ",\"options_menu\":"+impl_->options_evidence.report(impl_->options).dump();
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
@@ -1263,7 +1263,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
             std::string binds_why; s->binds.set_font(HudFont::load(kHudFontFamily, binds_why));
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
-            std::string options_why; s->options_font = HudFont::load(kHudFontFamily, options_why);  // the options menu (pixel font without it)
+            std::string options_why; s->options_overlay.set_font(HudFont::load(kHudFontFamily, options_why));  // pixel font without it
         }
     }
     impl_ = std::move(s); return {};
@@ -1306,7 +1306,7 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (impl_->video) impl_->video->set_accent(seed);
     if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) {
         impl_->accent = {r, g, b}; ++impl_->accent_updates;
-        if (impl_->options.open) { impl_->render_options(); ++impl_->options_generation; }  // recoloured live
+        impl_->options_overlay.set_accent(seed);  // recoloured live, including a closing panel
     }
     impl_->cadence.invalidate();
 }
@@ -1368,7 +1368,7 @@ void Presentation::set_options_menu(const OptionsMenuState& state) {
  if(!state.open || state.monitor!=impl_->options.monitor)impl_->options_surface.reset();
  impl_->options=state;impl_->options_evidence.accepted();
  if(state.open && std::none_of(impl_->captures.begin(),impl_->captures.end(),[&](const auto& c){return c->name==state.monitor;}))impl_->options.open=false;
- impl_->render_options();++impl_->options_generation;impl_->cadence.invalidate();
+ if(impl_->options_overlay.set(impl_->options,double(monotonic_ms())))impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
@@ -1715,7 +1715,6 @@ Status Presentation::draw_test_pattern() {
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = s.binds_drawn = false;
-            s.panel_shift.set(0.f, video_now);  // a video closes the panel
             s.options_in_frame=false;
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
@@ -1745,24 +1744,19 @@ Status Presentation::draw_test_pattern() {
             glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
-            if(s.options.open && overview) {
-                for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options.monitor){
-                  if(s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
+            const float options_alpha = s.options_overlay.frame(overview, help_now);
+            if(options_alpha > 0.f) {
+                for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options_overlay.state().monitor){
+                  if(s.options.open && s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
                   if(!s.free_pointer.held)s.options_surface.reset();
                   glass.surface=s.options_surface;glass.surface_desktop=int(i);
                   s.options_in_frame=true;glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
-                  glass.image=&s.options_image;glass.generation=s.options_generation;glass.content_alpha=1;
+                  glass.options_alpha=options_alpha;glass.image=&s.options_overlay.image();
+                  glass.generation=s.options_overlay.generation();glass.content_alpha=options_alpha;
                 }
             }
             s.gl->set_glass(glass);
-            s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
-            float shift = 0;  // for the panel as it is drawn: on the surface a held slider keeps it on
-            const int open = glass.options ? glass.content : overview && s.glass.open() ? s.glass.content_desktop() : -1;
-            if (open >= 0 && std::size_t(open) < tiles.size()) {
-                const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
-                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)), glass.options);
-            }
-            s.panel_shift.set(shift, help_now);
+            s.glass_drawn = !glass.options && std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
         }
         // Overview only; world-locked on the canvas. The overview pan's landing shows it again: the real cursor is on the target.
         const bool free_pointer = s.free_pointer.visible &&
@@ -1775,11 +1769,10 @@ Status Presentation::draw_test_pattern() {
                                    s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
                                    float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f, s.free_pointer.look);
         s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
-        const float panel_shift = s.panel_shift.value(double(monotonic_ms()));
-        s.last_head = glass_view_shift(head, panel_shift);  // the help card's hit box is worked out on the canvas as drawn
+        s.last_head = head;  // the help card's hit box is worked out on the canvas as drawn
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
-        s.last_drawn = glass_view_shift(s.turned(head), panel_shift);
+        s.last_drawn = s.turned(head);
         s.maximize_geometry_line="{\"maximize_geometry\":null}";
         const auto selected=s.view.focus();
         if(s.view.zoom()>=.99f && !s.view.switching() && selected<tiles.size() && selected<placed.size() && selected<s.captures.size()){
@@ -1788,7 +1781,7 @@ Status Presentation::draw_test_pattern() {
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
-        if(s.options_in_frame)s.options_evidence.drawn(s.options);
+        if(s.options_in_frame)s.options_evidence.drawn(s.options_overlay.state());
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
         return {};

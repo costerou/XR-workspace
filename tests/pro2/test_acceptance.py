@@ -85,6 +85,10 @@ class ProviderBoundaryAcceptance(unittest.TestCase):
                     spawn = Mock(side_effect=AssertionError('unsupported provider launched'))
                     controller = Controller(lambda: 0, lambda: copy.deepcopy(observation),
                                             spawn, Units(), store, fd, tmp)
+                    # This fixture has no bridge installed, regardless of the
+                    # real user's pinned bundle or saved Pro 2 settings.
+                    controller.route_data = Path(tmp) / 'data'
+                    controller.route_config = Path(tmp) / 'config'
                     reply = controller.request(dict(op='begin_start'))
                     self.assertFalse(reply['ok'], reply)
                     self.assertIsNone(controller.pending)

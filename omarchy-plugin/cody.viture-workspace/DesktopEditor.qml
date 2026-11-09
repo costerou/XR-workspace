@@ -19,12 +19,12 @@ ColumnLayout {
     Label { text: "XR-" + (root.index+1); font.bold: true }
     RowLayout {
         Label { text: "Shape"; Layout.preferredWidth: 95 }
-        ComboBox {
+        AnimatedComboBox {
             model: ["16:9", "21:9", "32:9", "custom"]
             currentIndex: model.indexOf(root.shape)
             onActivated: { root.shape=currentText; const p = Model.presetsFor(currentText); if (p.length) { root.draftWidth=p[0].width; root.draftHeight=p[0].height; root.draftScale=1 } }
         }
-        ComboBox {
+        AnimatedComboBox {
             model: Model.presetsFor(root.shape).map(p => p.width + " × " + p.height)
             currentIndex: model.indexOf(root.draftWidth + " × " + root.draftHeight)
             onActivated: { const p=Model.presetsFor(root.shape)[currentIndex]; root.draftWidth=p.width; root.draftHeight=p.height; root.draftScale=1 }

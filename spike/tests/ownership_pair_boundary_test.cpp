@@ -289,9 +289,35 @@ void monitorNotRetained() {
     replacement->m_output=native(handle)->output; State::monitors.ms.push_back(replacement);
     CHECK(!b.resolve(handle));
 }
+// Privacy mode (Ctrl+Alt+D) powers a normal run's fallback down with DPMS: Add desktop, Ultrawide and Remove desktop
+// still go through, and the readback still says the fallback is usable. Disabled or mirrored, it is not.
+void legacyFallbackAsleep() {
+    for(int fault=0;fault<3;++fault) {
+        twoOutputs(); Broker broker;
+        auto hello=send(broker,envelope(1,"unknown","hello",{{"fallback_name","Virtual-2"}}));
+        CHECK(hello.contains("result"));
+        const std::string epoch=hello["epoch"], token=hello["result"]["fallback"];
+        auto fallback=State::monitors.ms[1];
+        switch(fault) {
+        case 0: fallback->m_dpmsStatus=false; break;
+        case 1: fallback->on=false; break;
+        case 2: fallback->m_mirrorOf=true; break;
+        }
+        auto created=send(broker,envelope(1,epoch,"create",spec(false)));
+        if(fault) {
+            CHECK(created.contains("error") && broker.backend.mutations==0);
+            continue;
+        }
+        CHECK(created["result"]["state"]=="live" && created["result"]["fallback_usable"]==true);
+        CHECK(send(broker,envelope(1,epoch,"reshape",spec(false)))["result"]["state"]=="live");
+        auto removed=send(broker,envelope(1,epoch,"evacuate_remove",{{"id",uuid},{"name","XR-1"},{"fallback",token}}))["result"];
+        CHECK(removed["state"]=="dead" && removed["fallback_usable"]==true);
+    }
+}
 int main() {
     monitorNotRetained();
     isolatedLifecycle();
+    legacyFallbackAsleep();
     cursorShapeRead();
     cursorReadWithNoSurface();
     for(int side=0;side<2;++side) for(int fault=0;fault<20;++fault) {

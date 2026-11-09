@@ -40,6 +40,30 @@ class UsbIdentityTests(unittest.TestCase):
             self.assertIsNone(survive.usb_identity(bus(tmp, ('1-1', '1a86', '8091', 1, 2))))
         self.assertIsNone(survive.usb_identity(Path('/nonexistent')))
 
+    def test_pro2_uses_exact_product_and_tracks_reenumeration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = bus(tmp, ('1-3', '35ca', '1301', 1, 30))
+            (root/'1-3/product').write_text('VITURE PRO 2 XR Glasses\n')
+            self.assertEqual(survive.usb_identity(root, model='pro2'), (1, 30))
+            (root/'1-3/devnum').write_text('31\n')
+            self.assertEqual(survive.usb_identity(root, model='pro2'), (1, 31))
+            bus(tmp, ('5-2', '35ca', '1104', 5, 4))
+            self.assertIsNone(survive.usb_identity(root, model='pro2'))
+            self.assertEqual(survive.usb_identity(root), (5, 4))
+            self.assertIsNone(survive.usb_identity(root, model='unknown'))
+
+    def test_pro2_conflicting_missing_or_duplicate_identity_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = bus(tmp, ('1-3', '35ca', '1301', 1, 30))
+            self.assertIsNone(survive.usb_identity(root, model='pro2'))
+            product = root/'1-3/product'
+            product.write_text('VITURE Pro XR Glasses\n')
+            self.assertIsNone(survive.usb_identity(root, model='pro2'))
+            product.write_text('VITURE PRO 2 XR Glasses\n')
+            bus(tmp, ('1-4', '35ca', '1301', 1, 31))
+            (root/'1-4/product').write_text('VITURE PRO 2 XR Glasses\n')
+            self.assertIsNone(survive.usb_identity(root, model='pro2'))
+
 
 class ShouldHoldTests(unittest.TestCase):
     def test_a_lost_output_is_a_drop_whichever_noticed_first(self):

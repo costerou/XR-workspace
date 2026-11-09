@@ -113,6 +113,15 @@ class Consent(Base):
             with self.subTest(over=over),self.assertRaises(ValueError):pc.build_consent(self.scope(**over))
     def test_the_key_is_refused_on_any_other_model(self):
         with self.assertRaisesRegex(ValueError,'Pro 2 only'):pc.build_consent(self.scope(model='luma-ultra'))
+    def test_pro2_can_follow_its_own_button_without_luma_mode_switch(self):
+        value = dict(width=3840, height=1080, refresh_hz=[60])
+        consent = pc.build_consent(self.scope(sbs_mode=value))
+        self.assertEqual(consent['sbs_mode'], value)
+        self.assertIs(consent['mode_switch'], False)
+        for bad in (dict(width=3840, height=1200, refresh_hz=[90,60]),
+                    dict(width=3840, height=1080, refresh_hz=[90]), None):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                pc.build_consent(self.scope(sbs_mode=bad))
     def test_require_follows_the_pin_at_run_time(self):
         consent=pc.build_consent(self.scope())
         self.assertEqual(route.require(consent,self.data)[0],self.bundle)
@@ -163,6 +172,17 @@ class Panel(Base):
     def test_a_refused_projection_changes_nothing(self):
         c=self.controller();r=c.request(dict(op='set_pro2_projection',projection=52))
         self.assertFalse(r['ok']);self.assertEqual(c.snapshot()['pro2']['projection'],44.5)
+    def test_installed_depth_engine_grants_and_keeps_pro2_sbs_scope(self):
+        c = self.controller()
+        engine = self.bundle/'bin/xr-depth-engine'
+        engine.write_text('#!/bin/sh\nexit 0\n'); engine.chmod(0o500)
+        reply = c.request(dict(op='begin_start'))
+        self.assertTrue(reply['ok'], reply)
+        self.assertEqual(reply['scope'].get('sbs_mode'), dict(width=3840,height=1080,refresh_hz=[60]))
+        done = c.request(dict(op='confirm_start',scope_id=reply['scope_id']))
+        self.assertTrue(done['ok'], done)
+        written = json.loads((self.dir/(reply['scope']['run_id']+'.json')).read_text())
+        self.assertEqual(written['sbs_mode'], dict(width=3840,height=1080,refresh_hz=[60]))
     def test_projection_cannot_be_set_for_another_model(self):
         c=self.controller(model='luma-ultra',enabled=False)
         self.assertFalse(c.request(dict(op='set_pro2_projection',projection=46.5))['ok'])
@@ -206,6 +226,18 @@ class Run(Base):
     def test_a_session_stops_our_own_driver_left_from_the_other_glasses_first(self):
         with patch('tools.native_spike.tracking.stop') as stop:self.run_it()
         stop.assert_called_once_with(self.dir)
+    def test_production_session_preserves_its_approved_sbs_scope(self):
+        original = self.consent_file
+        def stereo_consent():
+            path = original()
+            consent = json.loads(path.read_text())
+            consent['sbs_mode'] = dict(width=3840,height=1080,refresh_hz=[60])
+            path.write_text(json.dumps(consent))
+            return path
+        with patch.object(self,'consent_file',side_effect=stereo_consent):
+            out,run,client = self.run_it()
+        self.assertTrue(out['complete'],out)
+        self.assertEqual(run.call_args.args[1]['sbs_mode'],dict(width=3840,height=1080,refresh_hz=[60]))
     def test_after_a_failed_run_only_an_unfinished_journal_keeps_the_plugin(self):
         from tools.xr_controller.pro2_test import journal_unfinished
         path=self.dir/'journal.json'

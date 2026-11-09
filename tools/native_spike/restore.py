@@ -258,6 +258,24 @@ def take(client, fallback, run_id, directory=None):
     return snapshot
 
 
+# Stop / Recover, first: every pinned window on an XR desktop unpinned, so the restore and the removal's evacuation can
+# move it (a pinned window stays on its monitor: the broker refuses to remove the output under it). One placed there by
+# hand does not end the run (ownership.verify); a pinned window on any other monitor is not the run's and stays pinned.
+UNPIN_LUA = ('for _,w in ipairs(hl.get_windows()) do local m=w.pinned and w.workspace and w.workspace.monitor '
+             'if m and m.name:match("^XR%-%d+$") then pcall(function() '
+             'hl.dispatch(hl.dsp.window.pin({action="disable",window="address:"..w.address})) end) end end')
+
+
+def unpin(client):
+    """UNPIN_LUA, best effort: never raises. If it fails, the recovery's reasons name the window still pinned."""
+    if not hasattr(client, 'unpin_xr_windows'): return False
+    try:
+        client.unpin_xr_windows()
+        return True
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
 def restore(client, snapshot, notify=None):
     """Stop / Recover, before recovery: put the windows back (module docstring). True if the eval ran. Never raises
     for compositor errors: recovery runs regardless."""

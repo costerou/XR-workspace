@@ -145,7 +145,9 @@ HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3>
 std::string help_geometry_json(const std::array<float, 9>& view, std::uint32_t width, std::uint32_t height, float half_w,
                                float half_h, CardOrigin origin, std::uint32_t card_w, std::uint32_t card_h,
                                const HelpCardControls& controls);
-constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
+// Shared menu motion, matching Omarchy: fast ease-out entrance, shorter exit.
+constexpr double kMenuFadeInMs = 180, kMenuFadeOutMs = 120;
+constexpr double kHelpFadeInMs = kMenuFadeInMs, kHelpFadeOutMs = kMenuFadeOutMs;
 // Image-retention protection for the centred help card and the placement panels (glass.hpp) on the glasses' micro-OLED panels:
 // Material roles scaled under the cap (material.hpp kMdOledLevel) and an idle auto-close. The cards never move while shown.
 // The supervisor closes both cards after this many seconds without a run key or panel change. The value lives in
@@ -171,7 +173,8 @@ public:
 private:
     double in_ms_, out_ms_;
     bool visible_ = false;
-    float from_ = 0;                         // level at changed_ms_ (the last toggle or hold)
+    float from_ = 0;                         // linear level at the last toggle; hold pauses its clock
+    float from_alpha_ = 0;                   // eased opacity at the last toggle, for continuous reversal
     double changed_ms_ = 0;
 };
 

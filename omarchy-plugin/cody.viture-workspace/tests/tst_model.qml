@@ -227,6 +227,7 @@ TestCase {
         // What the panel says while 3D comes up.
         compare(Model.immersiveLabel({names:["XR-1"], phase:"engine", installed:true}), "Loading the depth model…");
         compare(Model.immersiveLabel({names:["XR-1"], phase:"glasses", installed:true}), "Hold R1 on the glasses");
+        compare(Model.immersiveLabel({names:["XR-1"], phase:"glasses", installed:true, button:"L1"}), "Hold L1 on the glasses");
         compare(Model.immersiveLabel({names:["XR-1"], phase:"off", installed:false}), "Depth engine not installed");
         compare(Model.immersiveLabel({names:["XR-1"], stereo:true, phase:"on", installed:true}), "3D on");
         compare(Model.immersiveLabel({names:[], stereo:false, failed:false}), "Off");
@@ -507,5 +508,16 @@ TestCase {
         verify(lines.some(l => l.text.indexOf("pinned Pro 2 SDK bridge") >= 0));
         const projection = lines.filter(l => l.text.indexOf("46.5") >= 0)[0];
         verify(projection.text.indexOf("approximate") >= 0 && projection.text.indexOf("not calibrated") >= 0, projection.text);
+    }
+
+    function test_pro2StereoConsentNamesItsOwnButtonAndObservedMode() {
+        const scope = {model:"pro2", output:"DP-2", recovery_output:"DP-1", desktops:[], tracking:"pro2-sdk", mode_switch:false,
+                       pro2_route:{projection:46.5}, sbs_mode:{width:3840,height:1080,refresh_hz:[60]}};
+        const lines = Model.scopeLines(scope, "start");
+        const stereo = lines.filter(l => l.text.indexOf("3840×1080") >= 0)[0];
+        verify(stereo !== undefined);
+        verify(stereo.text.indexOf("hold L1") >= 0 && stereo.text.indexOf("60 Hz") >= 0, stereo.text);
+        verify(stereo.text.indexOf("R1") < 0 && stereo.text.indexOf("1200") < 0, stereo.text);
+        verify(!stereo.optional);
     }
 }
