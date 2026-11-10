@@ -335,7 +335,11 @@ them can be overturned.
 3. The SDK is loaded from the user's installed package and never redistributed, until the
    licence text is found.
 4. Real-time scheduling is built with a normal-priority fallback. Installing the limits file
-   stays a human step.
+   stays a human step. Decided (2026-11-10): install it, as `rtprio 20`, `nice -10` and
+   `memlock 131072` for `cody`, with the commands in [performance.md](performance.md#setting-up-real-time-once).
+   It changes only this user's ceilings, is undone by deleting one file, and D9 cannot be
+   measured without it. The driver never installs it itself. Done when
+   `systemd-run --user --wait --pipe -q sh -c 'ulimit -Hr'` prints 20 after a reboot.
 5. Cameras stay off. The drift target is 0.1°/min.
 6. GLES.
 7. The hash-pinning installer stays.

@@ -94,6 +94,7 @@ Inline mode gained little, being already fast. `ThreadPolicy::short_slice` turns
 The driver needs permission to use real-time priority. It never asks for sudo, and tracks without this, just with worse worst cases.
 
 ```bash
+sudo install -d -m 755 /etc/security/limits.d   # not there on a stock Arch install; tee will not create it
 sudo tee /etc/security/limits.d/90-xr-luma-driver.conf >/dev/null <<'EOF'
 cody - rtprio 20
 cody - nice -10

@@ -130,7 +130,9 @@ ThreadPolicyResult apply_thread_policy(const ThreadPolicy& policy, const SysOps&
 }
 
 std::string rt_setup_commands(const std::string& user) {
-    return "sudo tee /etc/security/limits.d/90-xr-luma-driver.conf >/dev/null <<'EOF'\n"
+    // limits.d is not there on a stock Arch install (only limits.conf is), and tee will not create it.
+    return "sudo install -d -m 755 /etc/security/limits.d\n"
+           "sudo tee /etc/security/limits.d/90-xr-luma-driver.conf >/dev/null <<'EOF'\n"
            + user + " - rtprio 20\n"
            + user + " - nice -10\n"
            + user + " - memlock " + std::to_string(kMemlockWantedBytes / 1024) + "\n"

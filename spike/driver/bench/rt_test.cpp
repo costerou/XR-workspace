@@ -410,6 +410,9 @@ void setup_commands_grant_what_the_defaults_ask() {
     CHECK(nice <= defaults.fallback_nice && nice < 0);
     CHECK(std::uint64_t(memlock) * 1024 >= kMemlockWantedBytes);
     CHECK(text.find("sudo") != std::string::npos);
+    // The directory must exist before tee writes into it; it is missing on a stock Arch install.
+    const auto mkdir_at = text.find("install -d -m 755 /etc/security/limits.d\n");
+    CHECK(mkdir_at != std::string::npos && mkdir_at < text.find("tee /etc/security/limits.d/"));
 }
 void memory_lock_only_under_a_limit_it_cannot_hit() {
     // Under a small limit MCL_FUTURE would make later mmaps fail: libudev on a reconnect, of all moments.
