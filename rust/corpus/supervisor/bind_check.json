@@ -1506,6 +1506,14 @@
  "check": [
   {
    "name": "ok",
+   "records": [
+    "desktop\tbind\tSUPER + RETURN",
+    "desktop\tloaded\tok",
+    "run\tbind\tCTRL + ALT + up",
+    "run\tloaded\tok"
+   ],
+   "stdout": "Config parsing result: ok\nmore",
+   "code": 0,
    "keybinds": null,
    "status": 0,
    "report": [
@@ -1516,6 +1524,14 @@
   },
   {
    "name": "ok",
+   "records": [
+    "desktop\tbind\tSUPER + RETURN",
+    "desktop\tloaded\tok",
+    "run\tbind\tCTRL + ALT + up",
+    "run\tloaded\tok"
+   ],
+   "stdout": "Config parsing result: ok\nmore",
+   "code": 0,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 0,
    "report": [
@@ -1526,6 +1542,13 @@
   },
   {
    "name": "clash",
+   "records": [
+    "desktop\tbind\tCTRL + ALT + K",
+    "desktop\tloaded\tok",
+    "run\tloaded\tok"
+   ],
+   "stdout": "Config parsing result: fine",
+   "code": 0,
    "keybinds": null,
    "status": 1,
    "report": [
@@ -1536,6 +1559,13 @@
   },
   {
    "name": "clash",
+   "records": [
+    "desktop\tbind\tCTRL + ALT + K",
+    "desktop\tloaded\tok",
+    "run\tloaded\tok"
+   ],
+   "stdout": "Config parsing result: fine",
+   "code": 0,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 1,
    "report": [
@@ -1546,6 +1576,12 @@
   },
   {
    "name": "config_errors",
+   "records": [
+    "desktop\tloaded\tok",
+    "run\tloaded\tok"
+   ],
+   "stdout": "noise\nConfig parsing result: 2 errors\nx",
+   "code": 3,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1556,6 +1592,12 @@
   },
   {
    "name": "config_errors",
+   "records": [
+    "desktop\tloaded\tok",
+    "run\tloaded\tok"
+   ],
+   "stdout": "noise\nConfig parsing result: 2 errors\nx",
+   "code": 3,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [
@@ -1566,6 +1608,11 @@
   },
   {
    "name": "desktop_failed",
+   "records": [
+    "desktop\tloaded\tboom: line 3"
+   ],
+   "stdout": "",
+   "code": 1,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1574,6 +1621,11 @@
   },
   {
    "name": "desktop_failed",
+   "records": [
+    "desktop\tloaded\tboom: line 3"
+   ],
+   "stdout": "",
+   "code": 1,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [
@@ -1582,6 +1634,12 @@
   },
   {
    "name": "run_failed",
+   "records": [
+    "desktop\tloaded\tok",
+    "run\tloaded\tno key submap"
+   ],
+   "stdout": "",
+   "code": 0,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1590,6 +1648,12 @@
   },
   {
    "name": "run_failed",
+   "records": [
+    "desktop\tloaded\tok",
+    "run\tloaded\tno key submap"
+   ],
+   "stdout": "",
+   "code": 0,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [
@@ -1598,6 +1662,11 @@
   },
   {
    "name": "no_run_result",
+   "records": [
+    "desktop\tloaded\tok"
+   ],
+   "stdout": "",
+   "code": 0,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1606,6 +1675,11 @@
   },
   {
    "name": "no_run_result",
+   "records": [
+    "desktop\tloaded\tok"
+   ],
+   "stdout": "",
+   "code": 0,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [
@@ -1614,6 +1688,9 @@
   },
   {
    "name": "no_records",
+   "records": null,
+   "stdout": "Config parsing result: crashed",
+   "code": 1,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1622,6 +1699,9 @@
   },
   {
    "name": "no_records",
+   "records": null,
+   "stdout": "Config parsing result: crashed",
+   "code": 1,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [
@@ -1630,6 +1710,9 @@
   },
   {
    "name": "no_records_stderr",
+   "records": null,
+   "stdout": "",
+   "code": 1,
    "keybinds": null,
    "status": 2,
    "report": [
@@ -1638,6 +1721,9 @@
   },
   {
    "name": "no_records_stderr",
+   "records": null,
+   "stdout": "",
+   "code": 1,
    "keybinds": "{\"schema\": 1, \"binds\": {\"next\": \"CTRL + ALT + J\", \"send_back\": \"SUPER + SHIFT + B\"}}",
    "status": 2,
    "report": [

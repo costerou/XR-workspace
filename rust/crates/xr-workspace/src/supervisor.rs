@@ -19,6 +19,16 @@ pub mod luma_watch;
 pub mod pro2;
 pub mod survive;
 pub mod tracking;
+// The key bind panel, the bind check, the options text field and the background setting, each held to its corpus in
+// `rust/corpus/supervisor/`. None of it is wired into a run yet.
+pub mod bind_check;
+pub mod environment;
+pub mod keybinds;
+pub mod options_text;
+mod parity;
+#[cfg(test)]
+use parity::corpus;
+use parity::{json_int, json_str, py_repr, py_strip};
 
 use std::io::{self, Read, Write};
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};

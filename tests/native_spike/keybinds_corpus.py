@@ -415,7 +415,8 @@ RECORD_SETS = {
 
 
 def _check_cases(tmp):
-    """check() against a stand-in Hyprland: a script that writes the harness's records file itself."""
+    """check() against a stand-in Hyprland: a script that writes the harness's records file itself (the records it
+    writes, its stdout and its exit status are in each case, so the Rust test makes the same script)."""
     home = tmp / 'home'
     (home / '.config' / 'hypr').mkdir(parents=True)
     config = home / '.config' / 'hypr' / 'hyprland.lua'
@@ -448,7 +449,8 @@ def _check_cases(tmp):
             if keybinds_text is None: kfile.unlink(missing_ok=True)
             else: kfile.write_text(keybinds_text)
             status, report = bind_check.check(config, str(fake), home, keybinds_file=kfile)
-            out.append({'name': name, 'keybinds': keybinds_text, 'status': status, 'report': report})
+            out.append({'name': name, 'records': records, 'stdout': stdout, 'code': code, 'keybinds': keybinds_text,
+                        'status': status, 'report': report})
     status, report = bind_check.check(home / 'missing.lua', str(fake), home, keybinds_file=tmp / 'none.json')
     # The report names the config path: the temporary directory is written as <tmp>.
     out.append({'name': 'no_config', 'config': 'missing.lua', 'keybinds': None, 'status': status,

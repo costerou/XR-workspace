@@ -194,6 +194,16 @@ TMPDIR=/tmp /usr/bin/python3 tests/native_spike/run_order_corpus.py --write
 `desk-still.lcap.xz` and `warm-up.lcap.xz`, each with a `.json` summary. See
 [corpus/drift/README.md](corpus/drift/README.md).
 
+`corpus/supervisor/` holds the supervisor modules ported in `crates/xr-workspace/src/supervisor/`:
+`keybinds.json` (the key bind panel, including scripted panel sessions), `bind_check.json`,
+`options_text.json` (key presses through the system libxkbcommon, so the Rust port uses the same
+library through the `xkbcommon` crate) and `environment.json`. `tests/native_spike/keybinds_corpus.py`
+makes them and `test_keybinds_corpus.py` fails when they go stale. Regenerate with:
+
+```sh
+TMPDIR=/tmp /usr/bin/python3 tests/native_spike/keybinds_corpus.py --write
+```
+
 ## Controller runs
 
 `xr-workspace` holds the controller's run half of the host probe (`src/host.rs`) and its run units
