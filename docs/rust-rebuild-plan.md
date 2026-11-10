@@ -304,6 +304,8 @@ the top acceptance priorities. The renderer is last because it is the largest an
   changed. This is why the format is frozen and cross-recovery is a gate.
 - **Test migration.** About 2,594 supervisor tests are Python unit tests of Python modules. Those
   that test behaviour through a wire can be kept; the rest must be ported or dropped knowingly.
+  Triaged 2026-11-10: every test has a recorded fate in
+  [supervisor-test-fates.md](supervisor-test-fates.md), held by `tests/native_spike/test_fates.py`.
 - **Hand-written usbdevfs and pthread FFI** are `unsafe` and tied to the kernel and glibc layouts.
   They stay small and are covered by the fake transport and cross-language tests.
 - **inotify inside the user and network namespace** (D8). Checked 2026-11-10: **yes**, it works.
