@@ -173,7 +173,7 @@ pub fn recover(
         match done {
             Err(e) => reasons.push(format!("{}: {e}", label(&op))),
             Ok(true) => {
-                journal.records[i].set_state(State::Done);
+                journal.records[i].state = State::Done;
                 journal.save(&tx)?;
             }
             Ok(false) => {

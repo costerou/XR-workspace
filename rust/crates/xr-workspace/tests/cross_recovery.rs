@@ -9,7 +9,7 @@ use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use xr_workspace::journal::{Error, Journal, ManagedOwner, Observed, Operation};
+use xr_workspace::journal::{Error, Journal, ManagedOwner, Observed};
 use xr_workspace::recovery::{BackendError, OutputView, RecoveryBackend, WorkspaceView, recover};
 
 fn repo() -> PathBuf {
@@ -283,6 +283,11 @@ fn cases(
         .collect()
 }
 
+/// `value` as xr-wire decodes it, key order kept.
+fn wire(value: &Value) -> xr_wire::json::Value {
+    xr_wire::json::parse_strict(value.to_string().as_bytes()).unwrap()
+}
+
 /// The Rust supervisor writing a run: `journal_corpus.build` through the Rust API. Returns the file and the ids.
 fn build(scenario: &Value) -> (String, Vec<String>) {
     let dir = Scratch::new();
@@ -296,9 +301,9 @@ fn build(scenario: &Value) -> (String, Vec<String>) {
     let mut ids = Vec::new();
     for step in scenario["steps"].as_array().unwrap() {
         let result = match step["call"].as_str().unwrap() {
-            "bind_broker" => journal.bind_broker(&step["broker"]),
-            "prepare" => Operation::from_value(&step["operation"])
-                .and_then(|op| journal.prepare(&op))
+            "bind_broker" => journal.bind_broker(&wire(&step["broker"])),
+            "prepare" => journal
+                .prepare(&wire(&step["operation"]))
                 .map(|id| ids.push(id)),
             "confirm" => {
                 let seen = &step["observed"];

@@ -3,28 +3,26 @@
 //! Intent first: a change to the desktop is recorded (`prepare`, state `pending`) before it is made, and marked
 //! `confirmed` only after its readback matched (`confirm`). Recovery (`crate::recovery`) then undoes what is left.
 //!
-//! The file format is frozen (docs/rust-rebuild-plan.md, phase 6): this module reads every journal the Python writes,
-//! refuses every one the Python refuses, with the same reason, and writes byte for byte what the Python would, so either
-//! supervisor can recover a run the other started. The locks are the same `flock`s on the same files, so the two
-//! exclude each other too.
+//! The file format is frozen (docs/rust-rebuild-plan.md, phase 6) and owned by [`xr_wire::disk::Journal`], which
+//! checks a journal as `Journal._load` does and writes the bytes `_save` writes, so either supervisor can recover a run
+//! the other started. This module adds what the Python's `Journal` class adds around it: the private directory, the
+//! same `flock`s on the same files (so the two supervisors exclude each other too), and the calls a run makes.
 //!
 //! Files live in a private directory (owned, mode 0700, reached without following a symlink); the journal and its
-//! locks are owned regular single-link files of mode 0600. Every write goes to a fresh temporary file that is synced and
-//! renamed over the journal, then the directory is synced.
+//! locks are owned regular single-link files of mode 0600. Every write replaces the journal atomically.
 
-use crate::pyjson;
 use rustix::fd::{AsFd, OwnedFd};
-use rustix::fs::{self, AtFlags, FileType, FlockOperation, Mode, OFlags};
-use rustix::io::Errno;
-use serde_json::{Map, Value, json};
+use rustix::fs::{self, FileType, FlockOperation, Mode, OFlags};
 use std::fmt;
-use std::io::{self, Read, Write};
-use std::path::{Component, Path, PathBuf};
+use std::io;
+use std::path::{Path, PathBuf};
+use xr_wire::disk::{self, JOURNAL_LIMIT};
+use xr_wire::files::PrivateDir;
+use xr_wire::json::{self, Value};
 
-/// Largest journal file either supervisor reads or writes.
-pub const MAX_JOURNAL: usize = 1_048_576;
-const SETTING: &str = "input:follow_mouse";
-const MAX_I32: i64 = 2_147_483_647;
+pub use xr_wire::disk::State;
+
+const UNSAFE_FILE: &str = "journal/lock must be owned regular mode 0600 single-link file";
 
 /// Why a journal call failed. `Invalid` and `Permission` carry the Python's message (its `ValueError` and
 /// `PermissionError`), `Missing` is its `FileNotFoundError('recovery journal missing')`.
@@ -49,8 +47,8 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl From<Errno> for Error {
-    fn from(e: Errno) -> Self {
+impl From<rustix::io::Errno> for Error {
+    fn from(e: rustix::io::Errno) -> Self {
         Error::Io(e.into())
     }
 }
@@ -61,68 +59,30 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<json::Error> for Error {
+    /// The Python's text: `_pairs` raises "duplicate key", and the corpus reports every other decoding failure as
+    /// "invalid JSON" (the decoder's own wording differs between the two languages).
+    fn from(e: json::Error) -> Self {
+        Error::Invalid(if e.0.contains("duplicate key") {
+            "duplicate key".into()
+        } else if e.0.starts_with("invalid JSON") {
+            "invalid JSON".into()
+        } else {
+            e.0
+        })
+    }
+}
+
 fn invalid<T>(text: &str) -> Result<T, Error> {
     Err(Error::Invalid(text.to_owned()))
 }
 
-// ---- Identifier checks, as ipc.token, hyprland.INSTANCE and uuid.UUID do them ----
-
-fn is_token(s: &str) -> bool {
-    let b = s.as_bytes();
-    (1..=128).contains(&b.len())
-        && b[0].is_ascii_alphanumeric()
-        && b[1..]
-            .iter()
-            .all(|&c| c.is_ascii_alphanumeric() || b"_.:-".contains(&c))
-}
-
 /// `ipc.token`.
-fn token(value: &Value) -> Result<&str, Error> {
-    match value.as_str() {
-        Some(s) if is_token(s) => Ok(s),
-        _ => invalid("invalid identifier"),
-    }
-}
-
-fn lower_hex(s: &str, len: usize) -> bool {
-    s.len() == len && s.bytes().all(|c| matches!(c, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-fn digits(s: &str, min: usize, max: usize) -> bool {
-    (min..=max).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_digit())
-}
-
-/// `hyprland.INSTANCE`: `[0-9a-f]{40}_[0-9]+_[0-9]+`.
-fn is_instance(s: &str) -> bool {
-    let mut parts = s.splitn(3, '_');
-    let (Some(hash), Some(a), Some(b)) = (parts.next(), parts.next(), parts.next()) else {
-        return false;
-    };
-    lower_hex(hash, 40) && digits(a, 1, usize::MAX) && digits(b, 1, usize::MAX)
-}
-
-/// `[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`: the only form `str(uuid.UUID(s)) == s` accepts.
-fn is_canonical_uuid(s: &str) -> bool {
-    let groups: Vec<&str> = s.split('-').collect();
-    groups.len() == 5
-        && groups
-            .iter()
-            .zip([8, 4, 4, 4, 12])
-            .all(|(g, n)| lower_hex(g, n))
-}
-
-/// The check `str(uuid.UUID(s)) != s`: Ok(true) when `s` is a UUID in canonical form, Ok(false) when it is one written
-/// another way, and the UUID parser's error when it is none.
-fn canonical_uuid(s: &str) -> Result<bool, Error> {
-    if is_canonical_uuid(s) {
-        return Ok(true);
-    }
-    let hex = s.replace("urn:", "").replace("uuid:", "");
-    let hex = hex.trim_matches(|c| c == '{' || c == '}').replace('-', "");
-    if hex.len() == 32 && hex.bytes().all(|c| c.is_ascii_hexdigit()) {
-        Ok(false)
+fn token(s: &str) -> Result<String, Error> {
+    if disk::is_token(s) {
+        Ok(s.to_owned())
     } else {
-        invalid("badly formed hexadecimal UUID string")
+        invalid("invalid identifier")
     }
 }
 
@@ -146,16 +106,19 @@ fn uuid4() -> Result<String, Error> {
     ))
 }
 
-/// An int in Python's sense (`type(v) is int`): not a bool and not a float.
-fn int(value: &Value) -> Option<i128> {
-    value
-        .as_i64()
-        .map(i128::from)
-        .or_else(|| value.as_u64().map(i128::from))
-}
-
-fn keys(map: &Map<String, Value>, want: &[&str]) -> bool {
-    map.len() == want.len() && want.iter().all(|k| map.contains_key(*k))
+/// `==` on two decoded JSON values as Python compares the dicts: objects without regard to key order.
+fn same(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .all(|(k, v)| y.iter().any(|(k2, v2)| k == k2 && same(v, v2)))
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(v, v2)| same(v, v2))
+        }
+        _ => a == b,
+    }
 }
 
 // ---- Records ----
@@ -186,115 +149,75 @@ pub enum Operation {
 impl Operation {
     /// The record's operation object, its keys in the order the Python supervisor writes them.
     pub fn to_value(&self) -> Value {
-        match self {
-            Operation::Output { id, name, index } => {
-                json!({"kind": "output", "id": id, "name": name, "index": index, "before": null})
-            }
+        let s = |v: &str| Value::String(v.to_owned());
+        let n = |v: i64| Value::Number(v.into());
+        let fields: Vec<(&str, Value)> = match self {
+            Operation::Output { id, name, index } => vec![
+                ("kind", s("output")),
+                ("id", s(id)),
+                ("name", s(name)),
+                ("index", n(*index)),
+                ("before", Value::Null),
+            ],
             Operation::Setting {
                 key,
                 before,
                 applied,
-            } => {
-                json!({"kind": "setting", "key": key, "before": before, "applied": applied})
-            }
+            } => vec![
+                ("kind", s("setting")),
+                ("key", s(key)),
+                ("before", n(*before)),
+                ("applied", n(*applied)),
+            ],
             Operation::Workspace {
                 workspace,
                 before,
                 applied,
-            } => {
-                json!({"kind": "workspace", "workspace": workspace, "before": before, "applied": applied})
-            }
-        }
+            } => vec![
+                ("kind", s("workspace")),
+                ("workspace", n(*workspace)),
+                ("before", s(before)),
+                ("applied", s(applied)),
+            ],
+        };
+        Value::Object(fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
     }
 
-    /// `validate_operation`: the same checks in the same order, so a refusal gives the same reason.
-    pub fn from_value(value: &Value) -> Result<Operation, Error> {
-        let Some(op) = value.as_object() else {
-            return invalid("invalid operation");
+    /// The typed form of an operation `xr_wire` has already checked.
+    fn from_checked(op: &Value) -> Result<Operation, Error> {
+        let s = |k: &str| op.get(k).and_then(Value::as_str).map(str::to_owned);
+        let n = |k: &str| {
+            op.get(k)
+                .and_then(Value::as_int)
+                .and_then(|v| i64::try_from(v).ok())
         };
-        let fields: &[&str] = match op.get("kind").and_then(Value::as_str) {
-            Some("setting") => &["kind", "key", "before", "applied"],
-            Some("workspace") => &["kind", "workspace", "before", "applied"],
-            Some("output") => &["kind", "id", "name", "index", "before"],
-            _ => return invalid("unsupported operation"),
-        };
-        if !keys(op, fields) {
-            return invalid("unsupported operation");
-        }
-        match op["kind"].as_str() {
+        let parsed = match op.get("kind").and_then(Value::as_str) {
             Some("setting") => {
-                if op["key"].as_str() != Some(SETTING) {
-                    return invalid("unsupported setting");
-                }
-                let value = |k: &str| int(&op[k]).filter(|v| (0..=3).contains(v));
-                let (Some(before), Some(applied)) = (value("before"), value("applied")) else {
-                    return invalid("invalid setting value");
-                };
-                Ok(Operation::Setting {
-                    key: SETTING.to_owned(),
-                    before: before as i64,
-                    applied: applied as i64,
-                })
+                s("key")
+                    .zip(n("before").zip(n("applied")))
+                    .map(|(key, (before, applied))| Operation::Setting {
+                        key,
+                        before,
+                        applied,
+                    })
             }
-            Some("workspace") => {
-                let Some(workspace) =
-                    int(&op["workspace"]).filter(|w| 0 < *w && *w <= MAX_I32 as i128)
-                else {
-                    return invalid("invalid workspace");
-                };
-                let before = token(&op["before"])?.to_owned();
-                let applied = token(&op["applied"])?.to_owned();
-                Ok(Operation::Workspace {
-                    workspace: workspace as i64,
+            Some("workspace") => n("workspace").zip(s("before").zip(s("applied"))).map(
+                |(workspace, (before, applied))| Operation::Workspace {
+                    workspace,
                     before,
                     applied,
-                })
-            }
-            _ => {
-                let id = match op["id"].as_str() {
-                    Some(id) if canonical_uuid(id)? && op["before"].is_null() => id.to_owned(),
-                    _ => return invalid("invalid output ownership"),
-                };
-                let Some(index) = int(&op["index"]).filter(|i| (0..=MAX_I32 as i128).contains(i))
-                else {
-                    return invalid("invalid output index");
-                };
-                let name = token(&op["name"])?.to_owned();
-                if name != format!("XR-{}", index + 1) {
-                    return invalid("output name does not match journal index");
-                }
-                Ok(Operation::Output {
-                    id,
-                    name,
-                    index: index as i64,
-                })
-            }
-        }
+                },
+            ),
+            Some("output") => s("id")
+                .zip(s("name").zip(n("index")))
+                .map(|(id, (name, index))| Operation::Output { id, name, index }),
+            _ => None,
+        };
+        parsed.ok_or_else(|| Error::Invalid("unsupported operation".into()))
     }
 
     pub fn is_output(&self) -> bool {
         matches!(self, Operation::Output { .. })
-    }
-}
-
-/// How far a record got.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum State {
-    /// Intent written; the change may or may not have happened.
-    Pending,
-    /// The change was read back as made.
-    Confirmed,
-    /// Undone, or ended some other proven way. Recovery leaves it alone.
-    Done,
-}
-
-impl State {
-    fn name(self) -> &'static str {
-        match self {
-            State::Pending => "pending",
-            State::Confirmed => "confirmed",
-            State::Done => "done",
-        }
     }
 }
 
@@ -314,19 +237,35 @@ pub enum Observed {
     },
 }
 
-/// One journal record. `raw` is the object as read or written, kept so that it is written back in its own key order.
+/// One journal record. `value` is the operation object as read or written and `keys` the record's own key order, kept
+/// so it is written back as it was read.
 #[derive(Clone, Debug)]
 pub struct Record {
     pub id: String,
     pub operation: Operation,
     pub state: State,
-    raw: Map<String, Value>,
+    value: Value,
+    keys: [&'static str; 3],
 }
 
 impl Record {
-    pub(crate) fn set_state(&mut self, state: State) {
-        self.state = state;
-        self.raw.insert("state".to_owned(), state.name().into());
+    fn from_disk(record: disk::Record) -> Result<Record, Error> {
+        Ok(Record {
+            operation: Operation::from_checked(&record.operation)?,
+            id: record.id,
+            state: record.state,
+            value: record.operation,
+            keys: record.keys,
+        })
+    }
+
+    fn to_disk(&self) -> disk::Record {
+        disk::Record {
+            id: self.id.clone(),
+            operation: self.value.clone(),
+            state: self.state,
+            keys: self.keys,
+        }
     }
 }
 
@@ -338,133 +277,7 @@ pub struct LiveOutput {
     pub index: i64,
 }
 
-// ---- Broker scope ----
-
-const BROKER: &[&str] = &["instance", "output", "recovery_output", "epoch", "fallback"];
-const ISOLATED_BROKER: &[&str] = &[
-    "mode",
-    "instance",
-    "output",
-    "recovery_output",
-    "epoch",
-    "fallback",
-    "target",
-    "boot_id",
-    "runtime",
-    "proof",
-];
-
-fn validate_isolated(c: &Map<String, Value>) -> Result<(), Error> {
-    if c["mode"].as_str() != Some("isolated-vm") {
-        return invalid("invalid broker mode");
-    }
-    for key in ["instance", "output", "recovery_output", "epoch"] {
-        token(&c[key])?;
-    }
-    for key in ["fallback", "target"] {
-        if !c[key].as_str().is_some_and(|s| lower_hex(s, 48)) {
-            return invalid("invalid pair handle");
-        }
-    }
-    if c["target"] == c["fallback"] {
-        return invalid("pair handles alias");
-    }
-    if !c["boot_id"].as_str().is_some_and(is_canonical_uuid) {
-        return invalid("invalid boot identity");
-    }
-    if !c["runtime"].as_str().is_some_and(|s| s.starts_with('/')) {
-        return invalid("invalid runtime");
-    }
-    let Some(proof) = c["proof"]
-        .as_object()
-        .filter(|p| keys(p, &["target", "fallback"]))
-    else {
-        return invalid("invalid proof");
-    };
-    let mut ends = Vec::new();
-    for (key, name) in [
-        ("target", &c["output"]),
-        ("fallback", &c["recovery_output"]),
-    ] {
-        let side = proof[key]
-            .as_object()
-            .filter(|s| keys(s, &["name", "device", "connector"]));
-        let device_ok = |d: &str| {
-            d.split_once(':').is_some_and(|(major, minor)| {
-                digits(major, 1, 10) && !major.starts_with('0') && digits(minor, 1, 10)
-            })
-        };
-        let Some(side) = side.filter(|s| {
-            &s["name"] == name
-                && s["device"].as_str().is_some_and(device_ok)
-                && int(&s["connector"]).is_some_and(|n| 0 < n && n <= 4_294_967_295)
-        }) else {
-            return invalid("invalid proof");
-        };
-        ends.push((side["device"].clone(), side["connector"].clone()));
-    }
-    if ends[0] == ends[1] {
-        return invalid("proof outputs alias");
-    }
-    Ok(())
-}
-
-/// `validate_broker`: the ownership broker's scope a journal is bound to.
-pub fn validate_broker(context: &Value) -> Result<Value, Error> {
-    let map = context.as_object();
-    match map {
-        Some(c) if keys(c, ISOLATED_BROKER) => validate_isolated(c)?,
-        Some(c) if keys(c, BROKER) => {
-            for value in c.values() {
-                token(value)?;
-            }
-        }
-        _ => return invalid("invalid broker context"),
-    }
-    let c = map.expect("checked above");
-    if !c["instance"].as_str().is_some_and(is_instance) || c["output"] == c["recovery_output"] {
-        return invalid("invalid broker scope");
-    }
-    Ok(context.clone())
-}
-
 // ---- Files ----
-
-fn absolute(path: &Path) -> Result<PathBuf, Error> {
-    Ok(if path.is_absolute() {
-        path.to_owned()
-    } else {
-        std::env::current_dir()?.join(path)
-    })
-}
-
-/// `ipc.private_dir`: every component opened without following a symlink, the leaf owned and mode 0700.
-fn private_dir(path: &Path) -> Result<OwnedFd, Error> {
-    let mut fd = fs::open(
-        "/",
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
-        Mode::empty(),
-    )?;
-    for part in absolute(path)?.components() {
-        match part {
-            Component::RootDir | Component::CurDir => continue,
-            Component::Normal(name) => {
-                fd = fs::openat(
-                    &fd,
-                    name,
-                    OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-                    Mode::empty(),
-                )?;
-            }
-            _ => return invalid("unsafe path"),
-        }
-    }
-    let st = fs::fstat(&fd)?;
-    if st.st_uid != rustix::process::getuid().as_raw() || st.st_mode & 0o7777 != 0o700 {
-        return Err(Error::Permission("directory must be owned and mode 0700"));
-    }
-    Ok(fd)
-}
 
 /// `journal._safe_file`.
 fn safe_file(fd: impl AsFd) -> Result<(), Error> {
@@ -474,11 +287,19 @@ fn safe_file(fd: impl AsFd) -> Result<(), Error> {
         || st.st_mode & 0o7777 != 0o600
         || st.st_nlink != 1
     {
-        return Err(Error::Permission(
-            "journal/lock must be owned regular mode 0600 single-link file",
-        ));
+        return Err(Error::Permission(UNSAFE_FILE));
     }
     Ok(())
+}
+
+/// `ipc.private_dir`, with the Python's message when the directory is not private.
+fn private_dir(path: &Path) -> Result<PrivateDir, Error> {
+    PrivateDir::open(path, false).map_err(|e| match e.kind() {
+        io::ErrorKind::PermissionDenied if e.raw_os_error().is_none() => {
+            Error::Permission("directory must be owned and mode 0700")
+        }
+        _ => Error::Io(e),
+    })
 }
 
 fn split(path: &Path) -> Result<(PathBuf, String), Error> {
@@ -493,7 +314,7 @@ fn split(path: &Path) -> Result<(PathBuf, String), Error> {
     Ok((parent.to_owned(), name.to_owned()))
 }
 
-fn open_lock(dir: &OwnedFd, name: &str) -> Result<OwnedFd, Error> {
+fn open_lock(dir: &PrivateDir, name: &str) -> Result<OwnedFd, Error> {
     let fd = fs::openat(
         dir,
         name,
@@ -524,7 +345,7 @@ impl ManagedOwner {
 /// A journal transaction: the directory and the journal's `.lock`, held exclusively. Every journal call runs inside
 /// one, and recovery holds one throughout.
 pub struct Transaction {
-    dir: OwnedFd,
+    dir: PrivateDir,
     _lock: OwnedFd,
 }
 
@@ -538,6 +359,7 @@ pub struct Journal {
     pub run_id: String,
     pub session: String,
     pub records: Vec<Record>,
+    /// The ownership broker's scope, kept as written.
     pub broker: Option<Value>,
     exists: bool,
 }
@@ -552,8 +374,8 @@ impl Journal {
         existing_only: bool,
     ) -> Result<Journal, Error> {
         let path = path.as_ref().to_owned();
-        let run_id = token(&run_id.into())?.to_owned();
-        let session = token(&session.into())?.to_owned();
+        let run_id = token(run_id)?;
+        let session = token(session)?;
         let (parent, name) = split(&path)?;
         let mut journal = Journal {
             path,
@@ -586,154 +408,100 @@ impl Journal {
     }
 
     fn load(&mut self, tx: &Transaction) -> Result<(), Error> {
-        let fd = match fs::openat(
-            &tx.dir,
-            self.name.as_str(),
-            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
-            Mode::empty(),
-        ) {
-            Err(Errno::NOENT) => {
+        // PrivateDir::read opens without following a link and refuses an unsafe file before reading; its own messages
+        // (not owned, too large) become the Python's.
+        let raw = match tx.dir.read(&self.name, JOURNAL_LIMIT, true) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 self.exists = false;
                 self.records.clear();
                 self.broker = None;
                 return Ok(());
             }
+            Err(e) if e.raw_os_error().is_none() => {
+                return Err(match e.kind() {
+                    io::ErrorKind::PermissionDenied => Error::Permission(UNSAFE_FILE),
+                    io::ErrorKind::InvalidInput => Error::Invalid("journal too large".into()),
+                    _ => Error::Io(e),
+                });
+            }
             other => other?,
         };
         self.exists = true;
-        safe_file(&fd)?;
-        let mut raw = Vec::new();
-        std::fs::File::from(fd)
-            .take(MAX_JOURNAL as u64 + 1)
-            .read_to_end(&mut raw)?;
-        if raw.len() > MAX_JOURNAL {
-            return invalid("journal too large");
-        }
-        let data = pyjson::loads(&raw).map_err(|e| Error::Invalid(e.to_owned()))?;
-        let fields = ["schema", "run_id", "session", "operations"];
-        let Some(data) = data
-            .as_object()
-            .filter(|d| keys(d, &fields) || (keys(d, &[fields.as_slice(), &["broker"]].concat())))
-        else {
-            return invalid("invalid journal");
-        };
-        if int(&data["schema"]) != Some(1)
-            || data["run_id"].as_str() != Some(&self.run_id)
-            || data["session"].as_str() != Some(&self.session)
-        {
-            return invalid("wrong journal identity");
-        }
-        let Some(raw_records) = data["operations"].as_array() else {
-            return invalid("invalid records");
-        };
-        let mut records: Vec<Record> = Vec::with_capacity(raw_records.len());
-        for raw in raw_records {
-            let Some(raw) = raw
-                .as_object()
-                .filter(|r| keys(r, &["id", "operation", "state"]))
-            else {
-                return invalid("invalid record");
-            };
-            let id = match raw["id"].as_str() {
-                Some(id) if canonical_uuid(id)? && !records.iter().any(|r| r.id == id) => {
-                    id.to_owned()
-                }
-                _ => return invalid("invalid record id"),
-            };
-            let state = match raw["state"].as_str() {
-                Some("pending") => State::Pending,
-                Some("confirmed") => State::Confirmed,
-                Some("done") => State::Done,
-                _ => return invalid("invalid state"),
-            };
-            let operation = Operation::from_value(&raw["operation"])?;
-            records.push(Record {
-                id,
-                operation,
-                state,
-                raw: raw.clone(),
-            });
-        }
-        self.broker = data.get("broker").map(validate_broker).transpose()?;
-        self.records = records;
+        let journal = disk::Journal::parse(&raw, &self.run_id, &self.session)?;
+        self.records = journal
+            .records
+            .into_iter()
+            .map(Record::from_disk)
+            .collect::<Result<_, _>>()?;
+        self.broker = journal.broker;
         Ok(())
+    }
+
+    fn to_disk(&self) -> disk::Journal {
+        disk::Journal {
+            run_id: self.run_id.clone(),
+            session: self.session.clone(),
+            records: self.records.iter().map(Record::to_disk).collect(),
+            broker: self.broker.clone(),
+        }
     }
 
     /// `_save`, inside `tx`.
     pub fn save(&self, tx: &Transaction) -> Result<(), Error> {
-        let mut data = Map::new();
-        data.insert("schema".into(), 1.into());
-        data.insert("run_id".into(), self.run_id.clone().into());
-        data.insert("session".into(), self.session.clone().into());
-        data.insert(
-            "operations".into(),
-            self.records
-                .iter()
-                .map(|r| Value::Object(r.raw.clone()))
-                .collect(),
-        );
-        if let Some(broker) = &self.broker {
-            data.insert("broker".into(), validate_broker(broker)?);
+        let raw = self.to_disk().to_bytes()?;
+        tx.dir.replace(&self.name, &raw)?;
+        Ok(())
+    }
+
+    /// `validate_broker` and `validate_operation`, as xr-wire checks them for a write: a journal holding only `broker`
+    /// or `operation`.
+    fn check(&self, broker: Option<&Value>, operation: Option<&Value>) -> Result<(), Error> {
+        let records = operation
+            .map(|op| disk::Record {
+                id: "00000000-0000-4000-8000-000000000000".into(),
+                operation: op.clone(),
+                state: State::Pending,
+                keys: disk::Record::KEYS,
+            })
+            .into_iter()
+            .collect();
+        disk::Journal {
+            run_id: self.run_id.clone(),
+            session: self.session.clone(),
+            records,
+            broker: broker.cloned(),
         }
-        let raw = pyjson::dumps(&Value::Object(data));
-        if raw.len() > MAX_JOURNAL {
-            return invalid("journal too large");
-        }
-        let temp = format!(".journal-{}", uuid4()?);
-        let fd = fs::openat(
-            &tx.dir,
-            temp.as_str(),
-            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-            Mode::from_raw_mode(0o600),
-        )?;
-        let written = (|| -> Result<(), Error> {
-            let mut file = std::fs::File::from(fd);
-            file.write_all(raw.as_bytes())?;
-            file.sync_all()?;
-            fs::renameat(&tx.dir, temp.as_str(), &tx.dir, self.name.as_str())?;
-            fs::fsync(&tx.dir)?;
-            Ok(())
-        })();
-        match fs::unlinkat(&tx.dir, temp.as_str(), AtFlags::empty()) {
-            Ok(()) | Err(Errno::NOENT) => {}
-            Err(e) if written.is_ok() => return Err(e.into()),
-            Err(_) => {}
-        }
-        written
+        .to_bytes()?;
+        Ok(())
     }
 
     /// `bind_broker`: binds an empty journal to the broker scope `context`, once.
     pub fn bind_broker(&mut self, context: &Value) -> Result<(), Error> {
-        let context = validate_broker(context)?;
+        self.check(Some(context), None)?;
         let tx = self.begin()?;
-        if self.broker.as_ref() == Some(&context) {
+        if self.broker.as_ref().is_some_and(|b| same(b, context)) {
             return Ok(());
         }
         if self.broker.is_some() || !self.records.is_empty() {
             return invalid("cannot rebind existing journal authority");
         }
-        self.broker = Some(context);
+        self.broker = Some(context.clone());
         self.save(&tx)
     }
 
-    /// `prepare`: the intent of `operation`, written before it is made. Returns the record's id.
-    pub fn prepare(&mut self, operation: &Operation) -> Result<String, Error> {
-        let value = operation.to_value();
-        let operation = Operation::from_value(&value)?;
+    /// `prepare`: the intent of `operation` (an operation object, as [`Operation::to_value`] gives), written before it
+    /// is made. Returns the record's id.
+    pub fn prepare(&mut self, operation: &Value) -> Result<String, Error> {
+        self.check(None, Some(operation))?;
+        let typed = Operation::from_checked(operation)?;
         let id = uuid4()?;
         let tx = self.begin()?;
-        let Value::Object(op) = value else {
-            unreachable!()
-        };
-        let mut raw = Map::new();
-        raw.insert("id".into(), id.clone().into());
-        raw.insert("operation".into(), Value::Object(op));
-        raw.insert("state".into(), State::Pending.name().into());
         self.records.push(Record {
             id: id.clone(),
-            operation,
+            operation: typed,
             state: State::Pending,
-            raw,
+            value: operation.clone(),
+            keys: disk::Record::KEYS,
         });
         self.save(&tx)?;
         Ok(id)
@@ -767,7 +535,7 @@ impl Journal {
         if !matches {
             return invalid("mutation not observed");
         }
-        record.set_state(State::Confirmed);
+        record.state = State::Confirmed;
         self.save(&tx)
     }
 
@@ -784,7 +552,7 @@ impl Journal {
         match record.state {
             State::Done => return Ok(()),
             State::Pending => return invalid("output removal before its creation was confirmed"),
-            State::Confirmed => record.set_state(State::Done),
+            State::Confirmed => record.state = State::Done,
         }
         self.save(&tx)
     }
@@ -793,7 +561,7 @@ impl Journal {
     pub fn compositor_ended(&mut self) -> Result<(), Error> {
         let tx = self.begin()?;
         for record in &mut self.records {
-            record.set_state(State::Done);
+            record.state = State::Done;
         }
         self.save(&tx)
     }
@@ -836,18 +604,18 @@ mod tests {
 
     #[test]
     fn identifiers() {
-        assert!(is_token("XR-1") && is_token(&"a".repeat(128)) && !is_token(&"a".repeat(129)));
-        assert!(!is_token("") && !is_token("-a") && !is_token("a b") && !is_token("é"));
-        assert!(
-            is_instance(&format!("{}_1_2", "a".repeat(40)))
-                && !is_instance(&format!("{}_1_", "a".repeat(40)))
-        );
-        assert!(!is_instance(&format!("{}_1_2_3", "a".repeat(40))));
-        assert!(canonical_uuid("0b6f8a52-6a6e-4f3c-9d55-1f0d3f9a0c01").unwrap());
-        assert!(!canonical_uuid("0B6F8A52-6A6E-4F3C-9D55-1F0D3F9A0C01").unwrap());
-        assert!(!canonical_uuid("urn:uuid:0b6f8a526a6e4f3c9d551f0d3f9a0c01").unwrap());
-        assert!(canonical_uuid("XR-1").is_err());
         let id = uuid4().unwrap();
-        assert!(is_canonical_uuid(&id) && &id[14..15] == "4" && "89ab".contains(&id[19..20]));
+        let groups: Vec<usize> = id.split('-').map(str::len).collect();
+        assert_eq!(groups, [8, 4, 4, 4, 12]);
+        assert!(&id[14..15] == "4" && "89ab".contains(&id[19..20]));
+        assert!(token("XR-1").is_ok() && token("-a").is_err());
+    }
+
+    #[test]
+    fn broker_equality_ignores_key_order() {
+        let a = json::parse_strict(br#"{"a": 1, "b": {"c": "x", "d": [1]}}"#).unwrap();
+        let b = json::parse_strict(br#"{"b": {"d": [1], "c": "x"}, "a": 1}"#).unwrap();
+        let c = json::parse_strict(br#"{"b": {"d": [2], "c": "x"}, "a": 1}"#).unwrap();
+        assert!(same(&a, &b) && !same(&a, &c));
     }
 }

@@ -79,7 +79,7 @@ impl Format {
         if raw.len() > self.limit() {
             return Err(Error("file too large".into()));
         }
-        let value = json::parse_strict(raw)?;
+        let value = parse_file(raw)?;
         self.check(&value)?;
         Ok(value)
     }
@@ -146,6 +146,22 @@ fn token(value: Option<&Value>) -> Result<(), Error> {
     if value.and_then(Value::as_str).is_some_and(is_token) { Ok(()) } else { Err(Error("invalid identifier".into())) }
 }
 
+/// `str(uuid.UUID(s)) == s` where `s` is a string: `uuid.UUID` itself refuses anything that is not
+/// 32 hex digits once braces, `urn:uuid:` and hyphens are stripped, with its own message.
+fn canonical_uuid(value: Option<&Value>) -> Result<bool, Error> {
+    let Some(s) = value.and_then(Value::as_str) else { return Ok(false) };
+    if is_uuid(s) {
+        return Ok(true);
+    }
+    let hex = s.replace("urn:", "").replace("uuid:", "");
+    let hex = hex.trim_matches(|c| c == '{' || c == '}').replace('-', "");
+    if hex.len() == 32 && hex.bytes().all(|c| c.is_ascii_hexdigit()) {
+        Ok(false)
+    } else {
+        Err(Error("badly formed hexadecimal UUID string".into()))
+    }
+}
+
 /// `str(uuid.UUID(s)) == s`: lowercase, hyphenated 8-4-4-4-12.
 fn is_uuid(s: &str) -> bool {
     let b = s.as_bytes();
@@ -169,6 +185,12 @@ impl PrivateDir {
         let raw = format.encode(value).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         if format == Format::Consent { self.create(name, &raw) } else { self.replace(name, &raw) }
     }
+}
+
+/// A file's bytes parsed strictly, as `strict_json` parses bytes: `json.loads` skips a leading
+/// UTF-8 byte-order mark in bytes (though not in a decoded wire frame), so a file may start with one.
+fn parse_file(raw: &[u8]) -> Result<Value, Error> {
+    json::parse_strict(raw.strip_prefix(b"\xef\xbb\xbf").unwrap_or(raw))
 }
 
 /// A journal record's state.
@@ -196,6 +218,13 @@ pub struct Record {
     /// A checked operation, kept as written (its key order is the writer's).
     pub operation: Value,
     pub state: State,
+    /// The record's keys in file order. `_save` writes back each record dict as loaded, so a
+    /// record keeps its order; `prepare` writes [`Record::KEYS`].
+    pub keys: [&'static str; 3],
+}
+
+impl Record {
+    pub const KEYS: [&'static str; 3] = ["id", "operation", "state"];
 }
 
 /// The write-ahead journal, `journal.json`.
@@ -214,7 +243,7 @@ impl Journal {
         if raw.len() > JOURNAL_LIMIT {
             return Err(Error("journal too large".into()));
         }
-        Journal::from_value(&json::parse_strict(raw)?, Some((run_id, session)))
+        Journal::from_value(&parse_file(raw)?, Some((run_id, session)))
     }
 
     /// The bytes `Journal._save` writes.
@@ -233,11 +262,12 @@ impl Journal {
             .records
             .iter()
             .map(|r| {
-                Value::Object(vec![
-                    ("id".into(), Value::String(r.id.clone())),
-                    ("operation".into(), r.operation.clone()),
-                    ("state".into(), Value::String(r.state.as_str().into())),
-                ])
+                let field = |key: &str| match key {
+                    "id" => Value::String(r.id.clone()),
+                    "operation" => r.operation.clone(),
+                    _ => Value::String(r.state.as_str().into()),
+                };
+                Value::Object(r.keys.iter().map(|k| (k.to_string(), field(k))).collect())
             })
             .collect();
         let mut entries = vec![
@@ -276,7 +306,8 @@ impl Journal {
             if record.keys() != Some(["id", "operation", "state"].into()) {
                 return fail("invalid record");
             }
-            let id = record.get("id").and_then(Value::as_str).filter(|id| is_uuid(id));
+            let canonical = canonical_uuid(record.get("id"))?;
+            let id = record.get("id").and_then(Value::as_str).filter(|_| canonical);
             let Some(id) = id.filter(|id| ids.insert(*id)) else { return fail("invalid record id") };
             let state = match record.get("state").and_then(Value::as_str) {
                 Some("pending") => State::Pending,
@@ -286,7 +317,12 @@ impl Journal {
             };
             let operation = record.get("operation").expect("keys checked");
             validate_operation(operation)?;
-            records.push(Record { id: id.into(), operation: operation.clone(), state });
+            let Value::Object(fields) = record else { unreachable!("keys checked") };
+            let mut keys = Record::KEYS;
+            for (slot, (key, _)) in keys.iter_mut().zip(fields) {
+                *slot = Record::KEYS.into_iter().find(|k| k == key).expect("keys checked");
+            }
+            records.push(Record { id: id.into(), operation: operation.clone(), state, keys });
         }
         let broker = data.get("broker").map(|b| validate_broker(b).map(|()| b.clone())).transpose()?;
         Ok(Journal { run_id: run_id.into(), session: session.into(), records, broker })
@@ -298,6 +334,9 @@ fn validate_operation(op: &Value) -> Result<(), Error> {
     let fail = |m: &str| Err(Error(m.into()));
     let int = |k: &str| op.get(k).and_then(Value::as_int);
     let str_token = |k: &str| op.get(k).and_then(Value::as_str).is_some_and(is_token);
+    if !matches!(op, Value::Object(_)) {
+        return fail("invalid operation");
+    }
     let kind = op.get("kind").and_then(Value::as_str);
     let fields: BTreeSet<&str> = match kind {
         Some("setting") => ["kind", "key", "before", "applied"].into(),
@@ -326,7 +365,7 @@ fn validate_operation(op: &Value) -> Result<(), Error> {
             }
         }
         _ => {
-            if !op.get("id").and_then(Value::as_str).is_some_and(is_uuid) || op.get("before") != Some(&Value::Null) {
+            if !canonical_uuid(op.get("id"))? || op.get("before") != Some(&Value::Null) {
                 return fail("invalid output ownership");
             }
             let Some(index) = int("index").filter(|i| (0..=2147483647).contains(i)) else {
@@ -438,6 +477,32 @@ mod tests {
     use std::fs;
     use std::os::unix::fs::MetadataExt;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn files_may_start_with_a_byte_order_mark() {
+        let raw = br#"{"schema": 1, "run_id": "run-1", "session": "s-1", "operations": []}"#;
+        let bom = [b"\xef\xbb\xbf".as_slice(), raw].concat();
+        assert_eq!(Journal::parse(&bom, "run-1", "s-1").unwrap(), Journal::parse(raw, "run-1", "s-1").unwrap());
+        assert!(json::parse_strict(&bom).is_err(), "the wire still refuses one");
+    }
+
+    #[test]
+    fn uuids_are_refused_as_python_refuses_them() {
+        let journal = |id: &str| format!(r#"{{"schema": 1, "run_id": "r", "session": "s", "operations": [{{"id": "{id}", "operation": {{"kind": "setting", "key": "input:follow_mouse", "before": 1, "applied": 0}}, "state": "done"}}]}}"#);
+        let error = |id: &str| Journal::parse(journal(id).as_bytes(), "r", "s").unwrap_err().0;
+        assert_eq!(error("5eed"), "badly formed hexadecimal UUID string");
+        assert_eq!(error("0B6F8A52-6A6E-4F3C-9D55-1F0D3F9A0C01"), "invalid record id");
+        assert_eq!(error("urn:uuid:0b6f8a526a6e4f3c9d551f0d3f9a0c01"), "invalid record id");
+        assert!(Journal::parse(journal("0b6f8a52-6a6e-4f3c-9d55-1f0d3f9a0c01").as_bytes(), "r", "s").is_ok());
+    }
+
+    #[test]
+    fn records_keep_their_key_order() {
+        let raw = br#"{"schema": 1, "run_id": "run-1", "session": "s-1", "operations": [{"state": "done", "operation": {"key": "input:follow_mouse", "kind": "setting", "applied": 0, "before": 1}, "id": "0b6f8a52-6a6e-4f3c-9d55-1f0d3f9a0c01"}]}"#;
+        let journal = Journal::parse(raw, "run-1", "s-1").unwrap();
+        assert_eq!(journal.records[0].keys, ["state", "operation", "id"]);
+        assert_eq!(journal.to_bytes().unwrap(), raw);
+    }
 
     /// The phase 0 corpus, written by the shipped Python writers (tests/native_spike/state_file_corpus.py).
     fn corpus() -> PathBuf {

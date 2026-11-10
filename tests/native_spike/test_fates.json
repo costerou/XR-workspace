@@ -16,6 +16,10 @@
    "fate": "keep",
    "reason": "Checks frames with the C++ renderer's own decoder. The renderer stays C++ through phase 6."
   },
+  "journal_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/journal/cases.json and recovers journals for the cross-recovery gate, as the Python supervisor does."
+  },
   "keybinds_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/supervisor/ (keybinds, bind_check, options_text, environment), the parity corpus the Rust supervisor modules are held to."
@@ -35,3425 +39,3436 @@
  },
  "tests": {
   "test_adopt.py": {
-   "covers": "tools/native_spike/adopt.py",
    "classes": {
     "AdoptTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::adopt",
-     "rust_test": null
+     "tests": 4
     },
     "DesktopCountTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::adopt",
-     "rust_test": null
+     "tests": 2
     },
     "LuaRunTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 4,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "LuaShapeTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::adopt",
-     "rust_test": null
+     "tests": 3
     },
     "ManagedAdoptionTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::adopt",
-     "rust_test": null
+     "tests": 4
     },
     "PlanTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::adopt",
-     "rust_test": null
+     "tests": 11
     }
-   }
+   },
+   "covers": "tools/native_spike/adopt.py"
   },
   "test_bench_baseline.py": {
-   "reason": "Tests the phase 0 measurement harness (bench_baseline.py), which measures any supervisor through the run control socket. Not ported; it measures the Rust run too.",
    "classes": {
     "OverviewKeyPressTests": {
-     "tests": 2,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 2
     },
     "SamplerTests": {
-     "tests": 5,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 5
     }
-   }
+   },
+   "reason": "Tests the phase 0 measurement harness (bench_baseline.py), which measures any supervisor through the run control socket. Not ported; it measures the Rust run too."
   },
   "test_bump.py": {
-   "covers": "tools/native_spike/bump.py",
    "classes": {
     "BindRuleTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 5
     },
     "CollisionTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 5
     },
     "HandleContractTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 14
     },
     "NoRoomTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 3
     },
     "PushTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 12
     },
     "RunTests": {
-     "tests": 21,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 21
     },
     "SettleTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 14
     },
     "StabilityTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 7
     },
     "UnifiedHandleContractTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 14
     }
-   }
+   },
+   "covers": "tools/native_spike/bump.py"
   },
   "test_bump_gaps.py": {
-   "covers": "tools/native_spike/bump.py",
    "classes": {
     "Baseline": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 2
     },
     "Levelled": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 6
     },
     "Reachable": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 9
     },
     "SideBySide": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 3
     },
     "Stable": {
-     "tests": 15,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 15
     },
     "Stacked": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 7
     },
     "Strips": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::bump",
-     "rust_test": null
+     "tests": 8
     }
-   }
+   },
+   "covers": "tools/native_spike/bump.py"
   },
   "test_capture_consent.py": {
-   "covers": "tools/native_spike/supervisor.py",
    "classes": {
     "CaptureConsentTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/supervisor.py"
   },
   "test_continuity.py": {
-   "covers": "tools/native_spike/survive.py",
    "classes": {
     "ContinuityTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/survive.py"
   },
   "test_control_corpus.py": {
    "classes": {
     "ControlCorpusTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/control_frames.json",
-     "how": "The phase 6 parity gate: the Rust supervisor sends these frames byte for byte. The Python test keeps the corpus true to the Python."
+     "how": "The phase 6 parity gate: the Rust supervisor sends these frames byte for byte. The Python test keeps the corpus true to the Python.",
+     "tests": 4,
+     "via": "tests/native_spike/fixtures/control_frames.json"
     }
    }
   },
   "test_control_panel_fuzz.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "ContractTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 12
     },
     "InterleaveTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "PanelFlowTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     },
     "ThreadTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "TourTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_control_plane_perf.py": {
-   "covers": "tools/native_spike/hyprland.py",
    "classes": {
     "BindHelperTests": {
-     "tests": 4,
-     "fate": "port",
-     "target": "xr-workspace helper (phase 5, frame-for-frame with xr_control.py)",
      "drop": {
       "test_a_key_press_imports_no_json_re_or_socket": "Python import time of the key helper. The Rust helper is one binary; key-press latency is measured by bench_baseline (kept) against the phase 0 baseline."
      },
-     "rust_test": null
+     "fate": "port",
+     "rust_test": null,
+     "target": "xr-workspace helper (phase 5, frame-for-frame with xr_control.py)",
+     "tests": 4
     },
     "LazyImportTests": {
-     "tests": 1,
-     "fate": "port",
-     "target": "xr-workspace supervisor::hyprland",
      "drop": {
       "test_watchdog_module_leaves_multiprocessing_to_runs_with_a_guard": "Python import cost of the multiprocessing module. A Rust binary has no imports; start-up time is measured by bench_baseline (kept)."
      },
-     "rust_test": null
+     "fate": "port",
+     "rust_test": null,
+     "target": "xr-workspace supervisor::hyprland",
+     "tests": 1
     },
     "ReadbackCadenceTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::hyprland",
-     "rust_test": null
+     "tests": 3
     },
     "ReceiveTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::hyprland",
-     "rust_test": null
+     "tests": 4
     },
     "RendererSendTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::hyprland",
-     "rust_test": null
+     "tests": 3
     },
     "RequestPathTests": {
-     "tests": 5,
-     "fate": "port",
-     "target": "xr-workspace supervisor::hyprland",
      "drop": {
       "test_read_text_matches_path_read_text": "Proves a Python speed-up (_read_text) equals pathlib.Path.read_text. Rust reads /proc with std::fs; there is no second implementation to compare. The behaviour (the session check) is ported with the rest of the class."
      },
-     "rust_test": null
+     "fate": "port",
+     "rust_test": null,
+     "target": "xr-workspace supervisor::hyprland",
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/hyprland.py"
   },
   "test_control_wire.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "ImmersiveTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "SessionTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 13
     },
     "WalkTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_desktops.py": {
-   "covers": "tools/native_spike/desktops.py",
    "classes": {
     "ControlTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 8
     },
     "HeldNameTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 2
     },
     "LimitTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 2
     },
     "ManagerTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 10
     },
     "PlanTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 9
     },
     "PointerTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 3
     },
     "ProfileTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 2
     },
     "SupervisorGuardTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 1
     },
     "WireTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/desktops.py"
   },
   "test_directional_switch.py": {
-   "covers": "tools/native_spike/neighbors.py",
    "classes": {
     "ControlTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::neighbors",
-     "rust_test": null
+     "tests": 2
     },
     "EdgePushTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::neighbors",
-     "rust_test": null
+     "tests": 10
     },
     "MaximizeFollowTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::neighbors",
-     "rust_test": null
+     "tests": 11
     },
     "NeighbourTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::neighbors",
-     "rust_test": null
+     "tests": 10
     },
     "SamplerTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::neighbors",
-     "rust_test": null
+     "tests": 7
     }
-   }
+   },
+   "covers": "tools/native_spike/neighbors.py"
   },
   "test_dot_click_focus.py": {
-   "covers": "tools/native_spike/input_lock.py",
    "classes": {
     "ClickSelectSamplerTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 1
     },
     "LockedClickSelectTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 7
     }
-   }
+   },
+   "covers": "tools/native_spike/input_lock.py"
   },
   "test_dot_desktop_changes.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "AddTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "RemoveTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 5
     },
     "StartWithFourTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     },
     "UltrawideTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_edge_pan.py": {
-   "covers": "tools/native_spike/edge_pan.py",
    "classes": {
     "ConeTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 7
     },
     "EntryTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 5
     },
     "MappingTests": {
-     "tests": 17,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 17
     },
     "OverviewPlanTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 3
     },
     "OverviewPushTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 11
     },
     "PushTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 13
     },
     "SamplerTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 2
     },
     "TriggerTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::edge_pan",
-     "rust_test": null
+     "tests": 7
     }
-   }
+   },
+   "covers": "tools/native_spike/edge_pan.py"
   },
   "test_environment.py": {
-   "covers": "tools/native_spike/environment.py",
    "classes": {
     "BindTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::environment",
-     "rust_test": null
+     "tests": 6
     },
     "ControlTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::environment",
-     "rust_test": null
+     "tests": 11
     },
     "HitTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::environment",
-     "rust_test": null
+     "tests": 6
     },
     "PanelTests": {
-     "tests": 27,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::environment",
-     "rust_test": null
+     "tests": 27
     },
     "QualityMenuTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::environment",
-     "rust_test": null
+     "tests": 4
     },
     "SettingTests": {
-     "tests": 10,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/environment_payloads.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 10,
+     "via": "tests/native_spike/fixtures/environment_payloads.json"
     }
-   }
+   },
+   "covers": "tools/native_spike/environment.py"
   },
   "test_fates.py": {
-   "reason": "This record's own gate. It stays until phase 8 deletes the Python supervisor tests.",
    "classes": {
     "FatesTests": {
-     "tests": 6,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 6
     }
-   }
+   },
+   "reason": "This record's own gate. It stays until phase 8 deletes the Python supervisor tests."
   },
   "test_fit_windows.py": {
-   "covers": "tools/native_spike/fit_windows.py",
    "classes": {
     "LuaTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 4,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "ManagerTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::fit_windows",
-     "rust_test": null
+     "tests": 9
     },
     "PlanTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::fit_windows",
-     "rust_test": null
+     "tests": 9
     },
     "ShrunkTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::fit_windows",
-     "rust_test": null
+     "tests": 3
     },
     "TableTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::fit_windows",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/fit_windows.py"
   },
   "test_free_pointer.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "ClickTests": {
-     "tests": 15,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 15
     },
     "ContractTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/overview_pointer_payloads.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 4,
+     "via": "tests/native_spike/fixtures/overview_pointer_payloads.json"
     },
     "DragMathTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     },
     "GateTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 7
     },
     "HitTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "HugeResizeMathTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "LuaRunTests": {
-     "tests": 1,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 1,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "LuaTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 5
     },
     "ModeTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 11
     },
     "ProjectionTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 6
     },
     "SamplerTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 6
     },
     "WiringTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_free_pointer_focus.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "ClickSelectTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 11
     },
     "SelectDesktopTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 8
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_full_interaction.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "FocusAndKeyboardTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "ForwardingTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "HandleTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 5
     },
     "LuaTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "MappingTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "PointerMappingTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 1
     },
     "SamplerTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 1
     },
     "WindowDragOffTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_geometry.py": {
-   "covers": "tools/native_spike/geometry.py",
    "classes": {
     "GeometryTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::geometry",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/geometry.py"
   },
   "test_glass_pills.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "BelowTheBorderTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 7
     },
     "BindCheckTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 6
     },
     "ClickOutsideTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "CornerWithPanelTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     },
     "GeometryTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 6
     },
     "HelpCardTextTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 1
     },
     "HitTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 7
     },
     "KeyboardTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 8
     },
     "LegacyMouseModeTests": {
-     "tests": 8,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 8,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "OneAtATimeTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "PillClickTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 11
     },
     "PillDragTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 6
     },
     "PointerStaysOnTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "SamplerWithPanelTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     },
     "SliderTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 13
     },
     "TypingModeTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 2
     },
     "WireTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_grab_pill.py": {
-   "covers": "tools/native_spike/resize.py",
    "classes": {
     "DeadRunTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     },
     "LuaTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     },
     "MoveMathTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     },
     "OpsTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/resize.py"
   },
   "test_help_pages.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "BindAndRowTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "ControlTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "FrameTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "GeometryTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "PointerTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_hyprland.py": {
-   "covers": "tools/native_spike/hyprland.py",
    "classes": {
     "HyprlandTests": {
-     "tests": 32,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::hyprland",
-     "rust_test": null
+     "tests": 32
     },
     "PluginLifecycleTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::hyprland",
-     "rust_test": null
+     "tests": 11
     }
-   }
+   },
+   "covers": "tools/native_spike/hyprland.py"
   },
   "test_immersive.py": {
-   "covers": "tools/native_spike/immersive.py",
    "classes": {
     "BindTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 4
     },
     "ButtonTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 13
     },
     "FrameTests": {
-     "tests": 5,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/immersive_payloads.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 5,
+     "via": "tests/native_spike/fixtures/immersive_payloads.json"
     },
     "LookTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 11
     },
     "MemoryTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 4
     },
     "OffIsUnchangedTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 4
     },
     "ProcessEngineTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 11
     },
     "RealEngineTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 3
     },
     "RunTests": {
-     "tests": 15,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 15
     },
     "SavedTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 4
     },
     "Sbs2dTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 4
     },
     "SettingTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 8
     },
     "ViewTests": {
-     "tests": 18,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 18
     },
     "WholeRunTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/immersive.py"
   },
   "test_immersive_strength.py": {
-   "covers": "tools/native_spike/immersive.py",
    "classes": {
     "DesktopStrengthTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/immersive.py"
   },
   "test_input_lock.py": {
-   "covers": "tools/native_spike/input_lock.py",
    "classes": {
     "BindCheckTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 3
     },
     "CaptureTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 5
     },
     "LockTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 11
     },
     "LuaRunTests": {
-     "tests": 5,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 5,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "LuaTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 3
     },
     "SamplerTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::input_lock",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/input_lock.py"
   },
   "test_ipc.py": {
-   "covers": "tools/native_spike/ipc.py",
    "classes": {
     "IPCTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::ipc",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/ipc.py"
   },
   "test_isolated.py": {
-   "covers": "tools/native_spike/isolated.py",
    "classes": {
     "IsolatedTests": {
-     "tests": 17,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::isolated",
-     "rust_test": null
+     "tests": 17
     }
-   }
+   },
+   "covers": "tools/native_spike/isolated.py"
   },
   "test_journal.py": {
-   "covers": "tools/native_spike/journal.py",
    "classes": {
     "JournalTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::journal",
-     "rust_test": null
+     "tests": 10
     }
-   }
+   },
+   "covers": "tools/native_spike/journal.py"
+  },
+  "test_journal_corpus.py": {
+   "classes": {
+    "JournalCorpusTests": {
+     "fate": "wire",
+     "how": "Journals and fault-injected recoveries. Rust recovers the Python-written journals and Python recovers the Rust-written ones (rust/crates/xr-workspace/tests/cross_recovery.rs). The Python test keeps the corpus true to the Python.",
+     "tests": 5,
+     "via": "rust/corpus/journal/cases.json"
+    }
+   },
+   "covers": "tools/native_spike/journal.py"
   },
   "test_keybinds.py": {
-   "covers": "tools/native_spike/keybinds.py",
    "classes": {
     "ChordTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 5
     },
     "DesktopBindTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 3
     },
     "LuaAndWireTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 7
     },
     "ManagedTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 1
     },
     "PanelTests": {
-     "tests": 21,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 21
     },
     "RendererContractTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 1
     },
     "SavedFileTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::keybinds",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/keybinds.py"
   },
   "test_keybinds_corpus.py": {
    "classes": {
     "CorpusTests": {
-     "tests": 3,
      "fate": "wire",
-     "via": "rust/corpus/supervisor/keybinds.json",
-     "how": "The phase 6 parity gate: the Rust key bind panel, bind check, options text and environment modules give these results. The Python test keeps the corpus true to the Python."
+     "how": "The phase 6 parity gate: the Rust key bind panel, bind check, options text and environment modules give these results. The Python test keeps the corpus true to the Python.",
+     "tests": 3,
+     "via": "rust/corpus/supervisor/keybinds.json"
     }
    }
   },
   "test_layout_reset.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "BindTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "EaseTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "PlanTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "ResetTests": {
-     "tests": 16,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 16
     },
     "WindowMoveTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_leftover_rule.py": {
-   "covers": "tools/native_spike/monitor_rules.py",
    "classes": {
     "BrokerReplies": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 2
     },
     "Clearing": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 2
     },
     "CodeChangedUnderTheSession": {
-     "tests": 4,
-     "fate": "port",
-     "target": "xr-workspace supervisor::monitor_rules",
      "drop": {
       "test_stop_reads_nothing_more_from_a_tree_that_has_moved_on": "Python imports lazily from the worktree, so a Stop could load newer code. The Rust supervisor is one binary pinned by hash; it cannot load code at Stop. The other tests of the class (pinned plugin, refused pin change) are ported."
      },
-     "rust_test": null
+     "fate": "port",
+     "rust_test": null,
+     "target": "xr-workspace supervisor::monitor_rules",
+     "tests": 4
     },
     "Finding": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 6
     },
     "LiveRecoveryReports": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 1
     },
     "NoClickNoEdit": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 5
     },
     "Reach": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 5
     },
     "Removing": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 9
     },
     "TheIncident": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 7
     },
     "TheWholeStory": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 3
     },
     "WhyItDidNotFinish": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::monitor_rules",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/monitor_rules.py"
   },
   "test_lua_corpus.py": {
    "classes": {
     "LuaCorpusTest": {
-     "tests": 6,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The phase 6 parity gate: the Rust generators and Hyprland client produce these bytes. The Python test keeps the corpus true to the Python."
+     "how": "The phase 6 parity gate: the Rust generators and Hyprland client produce these bytes. The Python test keeps the corpus true to the Python.",
+     "tests": 6,
+     "via": "rust/corpus/hyprland/lua.json"
     }
    }
   },
   "test_managed.py": {
-   "covers": "tools/native_spike/managed.py",
    "classes": {
     "ManagedTests": {
-     "tests": 18,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 18
     }
-   }
+   },
+   "covers": "tools/native_spike/managed.py"
   },
   "test_maximize_level.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "HeldPlaceSavedTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "HeldPlaceTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 9
     },
     "RollsStayTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 11
     },
     "SavedRollsTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_mode_switch_gap.py": {
-   "reason": "Tests the offline tool tools/mode_switch_gap.py. It stays as is and retires with the Python supervisor in phase 8.",
    "classes": {
     "GapTests": {
-     "tests": 3,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 3
     }
-   }
+   },
+   "reason": "Tests the offline tool tools/mode_switch_gap.py. It stays as is and retires with the Python supervisor in phase 8."
   },
   "test_native_restore_acquisition.py": {
-   "covers": "tools/native_spike/restore_band.py",
    "classes": {
     "NativeRestoreTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore_band",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/restore_band.py"
   },
   "test_no_cursor_hooks.py": {
-   "reason": "Tests the C++ ownership plugin (spike/ownership/), which the plan keeps in C++. Nothing to port.",
    "classes": {
     "BuiltPluginTests": {
-     "tests": 2,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 2
     },
     "SourceTests": {
-     "tests": 5,
-     "fate": "keep"
+     "fate": "keep",
+     "tests": 5
     }
-   }
+   },
+   "reason": "Tests the C++ ownership plugin (spike/ownership/), which the plan keeps in C++. Nothing to port."
   },
   "test_options_adapters.py": {
-   "covers": "tools/native_spike/options_actions.py",
    "classes": {
     "AdapterTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 5
     },
     "NativeOwnerTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 2
     },
     "SessionAdapterTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "ViewAdapterTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/options_actions.py"
   },
   "test_options_backend_completion.py": {
-   "covers": "tools/native_spike/options_actions.py",
    "classes": {
     "CandidateFocus": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "Completions": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 4
     },
     "FastFailureRegistration": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "KeyboardState": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "OtherOwners": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 2
     },
     "ReadbackGates": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 3
     },
     "Rollback": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "ScreenText": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "SupersedingRequests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "TerminalEventOrdering": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/options_actions.py"
   },
   "test_options_callback_transport.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "CallbackTransportTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_options_deferred_video.py": {
-   "covers": "tools/native_spike/options_actions.py",
    "classes": {
     "DeferredStreamRestart": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 1
     },
     "DeferredVideo": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_actions",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/options_actions.py"
   },
   "test_options_owner_completion.py": {
-   "covers": "tools/native_spike/options_menu.py",
    "classes": {
     "OwnerTests": {
-     "tests": 18,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 18
     }
-   }
+   },
+   "covers": "tools/native_spike/options_menu.py"
   },
   "test_options_poll_completion_order.py": {
-   "covers": "tools/native_spike/options_menu.py",
    "classes": {
     "PollCompletionOrderTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/options_menu.py"
   },
   "test_options_readback.py": {
-   "covers": "tools/native_spike/options_menu.py",
    "classes": {
     "ReadbackTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/options_menu.py"
   },
   "test_options_review.py": {
-   "covers": "tools/native_spike/options_editors.py",
    "classes": {
     "ReviewRegressions": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_editors",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/options_editors.py"
   },
   "test_options_supervisor.py": {
-   "covers": "tools/native_spike/options_menu.py",
    "classes": {
     "KeyboardTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 1
     },
     "OcclusionTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 2
     },
     "OptionsTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 4
     },
     "WiringTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_menu",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/options_menu.py"
   },
   "test_options_text_runtime.py": {
-   "covers": "tools/native_spike/options_text.py",
    "classes": {
     "TextRuntimeTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::options_text",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/options_text.py"
   },
   "test_options_transport.py": {
-   "covers": "tools/native_spike/ipc.py",
    "classes": {
     "OptionsHelperTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace helper (phase 5, frame-for-frame with xr_control.py)",
-     "rust_test": null
+     "tests": 1
     },
     "OptionsTransportTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::ipc",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/ipc.py"
   },
   "test_orbit.py": {
-   "covers": "tools/native_spike/orbit.py",
    "classes": {
     "DragMappingTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 5
     },
     "FacingTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 3
     },
     "FootprintTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 5
     },
     "FullTurnTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 2
     },
     "OrbitGeometryTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 4
     },
     "RegrabTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::orbit",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/orbit.py"
   },
   "test_overview_cursor.py": {
-   "covers": "tools/native_spike/overview_cursor.py",
    "classes": {
     "CursorStateTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::overview_cursor",
-     "rust_test": null
+     "tests": 5
     },
     "DotTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::overview_cursor",
-     "rust_test": null
+     "tests": 5
     },
     "LuaStubTests": {
-     "tests": 6,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 6,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "SamplerTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::overview_cursor",
-     "rust_test": null
+     "tests": 4
     },
     "VerifyConfigTests": {
-     "tests": 1,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "Runs the generated Lua through Hyprland's own `hl --verify-config`. Fed the Rust generator's bytes, via the Lua corpus."
+     "how": "Runs the generated Lua through Hyprland's own `hl --verify-config`. Fed the Rust generator's bytes, via the Lua corpus.",
+     "tests": 1,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "WiringTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::overview_cursor",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/overview_cursor.py"
   },
   "test_owner_status_transport.py": {
-   "covers": "tools/native_spike/supervisor.py",
    "classes": {
     "StatusTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/supervisor.py"
   },
   "test_ownership.py": {
-   "covers": "tools/native_spike/ownership.py",
    "classes": {
     "OwnershipTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::ownership",
-     "rust_test": null
+     "tests": 10
     },
     "VerifyDiagnosticsTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::ownership",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/ownership.py"
   },
   "test_panel_consent.py": {
-   "covers": "tools/native_spike/panel_consent.py",
    "classes": {
     "PanelConsentTests": {
-     "tests": 20,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::panel_consent",
-     "rust_test": null
+     "tests": 20
     },
     "TrackingDriverConsentTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::panel_consent",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/panel_consent.py"
   },
   "test_panel_follows_focus.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "FollowTests": {
-     "tests": 23,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 23
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_pill_theme.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "InstalledPathThemeSwitchTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "PillThemeTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_placement.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "PlacementControlTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "PlacementProfileTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 8
     },
     "PlacementRuleTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     },
     "PlacementWireTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_placement_corpus.py": {
    "classes": {
     "PlacementCorpusTest": {
-     "tests": 3,
      "fate": "wire",
-     "via": "rust/corpus/placement/plans.json",
-     "how": "The placement gate: the Rust adopt, window_memory, desktops, fit_windows, send, resize and geometry decide what these cases record. The Python test keeps the corpus true to the Python."
+     "how": "The placement gate: the Rust adopt, window_memory, desktops, fit_windows, send, resize and geometry decide what these cases record. The Python test keeps the corpus true to the Python.",
+     "tests": 3,
+     "via": "rust/corpus/placement/plans.json"
     }
    }
   },
   "test_placement_menu.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "BindSafetyTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "GlassPanelSourceTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "MenuAdjustTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 7
     },
     "MenuBindTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     },
     "MenuControlSocketTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "MenuLiveApplyTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "MenuNavigationTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "MenuOpenCloseTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     },
     "MenuPersistenceTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "MenuSchemaTests": {
-     "tests": 5,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/placement_menu_payloads.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 5,
+     "via": "tests/native_spike/fixtures/placement_menu_payloads.json"
     },
     "MenuSupervisorEndToEndTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "MenuToggleKeyTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "NoScopeChangeTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "PanelHintAgreementTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "SentinelTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_pointer_zones.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "BorderTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "LookTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 8
     },
     "OneCursorTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 7
     },
     "ResizeDragTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 8
     },
     "ZoneTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 7
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_presentation_layout.py": {
-   "covers": "tools/native_spike/managed.py",
    "classes": {
     "PresentationLayoutTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 5
     },
     "ReloadPlacementTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/managed.py"
   },
   "test_presentation_only.py": {
-   "covers": "tools/native_spike/supervisor.py",
    "classes": {
     "PresentationOnlyTests": {
-     "tests": 19,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 19
     }
-   }
+   },
+   "covers": "tools/native_spike/supervisor.py"
   },
   "test_privacy.py": {
-   "covers": "tools/native_spike/privacy.py",
    "classes": {
     "GuardAndRecoveryTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::privacy",
-     "rust_test": null
+     "tests": 6
     },
     "HyprlandClientTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::privacy",
-     "rust_test": null
+     "tests": 1
     },
     "LuaTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 4,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "MainDisplayTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::privacy",
-     "rust_test": null
+     "tests": 5
     },
     "ToggleTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::privacy",
-     "rust_test": null
+     "tests": 9
     },
     "WiringTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::privacy",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/privacy.py"
   },
   "test_pro2_display.py": {
-   "covers": "tools/native_spike/display_policy.py",
    "classes": {
     "ModelEligibilityTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::display_policy",
-     "rust_test": null
+     "tests": 2
     },
     "SessionEligibilityTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::display_policy",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/display_policy.py"
   },
   "test_pro2_immersive.py": {
-   "covers": "tools/native_spike/immersive.py",
    "classes": {
     "AdapterSelection": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 1
     },
     "ProductionScope": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 2
     },
     "Reconnect": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::immersive",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/immersive.py"
   },
   "test_pro2_sbs.py": {
-   "covers": "tools/native_spike/sbs.py",
    "classes": {
     "Pro2ModeWrites": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 6
     },
     "Pro2Sbs": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 12
     },
     "Pro2SwitchedBySdk": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 9
     }
-   }
+   },
+   "covers": "tools/native_spike/sbs.py"
   },
   "test_pro2_usb_identity.py": {
-   "covers": "tools/native_spike/survive.py",
    "classes": {
     "Pro2IdentityTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/survive.py"
   },
   "test_profiles.py": {
-   "covers": "tools/native_spike/profiles.py",
    "classes": {
     "ProfileTests": {
-     "tests": 18,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::profiles",
-     "rust_test": null
+     "tests": 18
     }
-   }
+   },
+   "covers": "tools/native_spike/profiles.py"
   },
   "test_quality.py": {
-   "covers": "tools/native_spike/quality.py",
    "classes": {
     "MenuTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::quality",
-     "rust_test": null
+     "tests": 9
     },
     "SettingsTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::quality",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/quality.py"
   },
   "test_recovery.py": {
-   "covers": "tools/native_spike/journal.py",
    "classes": {
     "RecoveryTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::journal",
-     "rust_test": null
+     "tests": 13
     },
     "SupervisorTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::journal",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/journal.py"
   },
   "test_remember_setup.py": {
-   "covers": "tools/native_spike/managed.py",
    "classes": {
     "CreateFailureTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 5
     },
     "LoadSetupTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 11
     },
     "RunRestoreTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::managed",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/managed.py"
   },
   "test_renderer_flags.py": {
-   "covers": "tools/native_spike/supervisor.py",
    "classes": {
     "RendererFlagsTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 6
     }
-   }
+   },
+   "covers": "tools/native_spike/supervisor.py"
   },
   "test_resize.py": {
-   "covers": "tools/native_spike/resize.py",
    "classes": {
     "BindTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 6
     },
     "GeometryTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     },
     "HelpCardFitTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::resize",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/resize.py"
   },
   "test_resolution_dropdown.py": {
-   "covers": "tools/native_spike/desktops.py",
    "classes": {
     "BrokerTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 1
     },
     "ControlTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 9
     },
     "ListTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 6
     },
     "PlanTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 5
     },
     "PointerTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 3
     },
     "StateTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/desktops.py"
   },
   "test_restore.py": {
-   "covers": "tools/native_spike/restore.py",
    "classes": {
     "ManagedRestoreTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore",
-     "rust_test": null
+     "tests": 2
     },
     "OtherMonitorTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore",
-     "rust_test": null
+     "tests": 6
     },
     "RecoveryWiringTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore",
-     "rust_test": null
+     "tests": 3
     },
     "RoundTripTests": {
-     "tests": 7,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 7,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "SnapshotTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore",
-     "rust_test": null
+     "tests": 6
     },
     "UnpinTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/restore.py"
   },
   "test_restore_pointer.py": {
-   "covers": "tools/native_spike/restore_band.py",
    "classes": {
     "ClickBinds": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore_band",
-     "rust_test": null
+     "tests": 1
     },
     "RestoreEpochTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore_band",
-     "rust_test": null
+     "tests": 2
     },
     "RestoreSamplerTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore_band",
-     "rust_test": null
+     "tests": 2
     },
     "RestoreTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::restore_band",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/restore_band.py"
   },
   "test_roll_level.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "PointerTests": {
-     "tests": 18,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 18
     },
     "PureTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 14
     },
     "StatusLineTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_sbs.py": {
-   "covers": "tools/native_spike/sbs.py",
    "classes": {
     "EnterTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 10
     },
     "HoldTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 4
     },
     "LeaveTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 6
     },
     "ModesTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 8
     },
     "ParkTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 2
     },
     "ProbeTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 5
     },
     "RestoreTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 3
     },
     "RunTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 7
     },
     "ScopeTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 4
     },
     "WideModeRequestTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::sbs",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/sbs.py"
   },
   "test_scale_dropdown.py": {
-   "covers": "tools/native_spike/desktops.py",
    "classes": {
     "ControlTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 5
     },
     "PlanTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 3
     },
     "PointerTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 2
     },
     "StateTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 4
     },
     "StepTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::desktops",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/desktops.py"
   },
   "test_scroll_before_switch.py": {
-   "covers": "tools/native_spike/columns.py",
    "classes": {
     "AsBeforeTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 4
     },
     "BandTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 1
     },
     "EndOfColumnsTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 6
     },
     "HelperTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 4
     },
     "HoldTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 9
     },
     "LuaTests": {
-     "tests": 3,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 3,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "SamplerTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::columns",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/columns.py"
   },
   "test_send_window.py": {
-   "covers": "tools/native_spike/send.py",
    "classes": {
     "AllowlistTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 2
     },
     "BindCheckTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 4
     },
     "HelpCardTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 1
     },
     "LuaTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 5
     },
     "MoveTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 13
     },
     "NoSessionTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 4
     },
     "WiringTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 5
     },
     "WorkerTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::send",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/send.py"
   },
   "test_stabilization.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "(functions)": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_startup.py": {
-   "covers": "tools/native_spike/startup.py",
    "classes": {
     "CommandTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::startup",
-     "rust_test": null
+     "tests": 1
     },
     "MarkTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::startup",
-     "rust_test": null
+     "tests": 2
     },
     "SummaryTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::startup",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/startup.py"
   },
   "test_state_file_corpus.py": {
    "classes": {
     "StateFileCorpusTests": {
-     "tests": 4,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/state_files",
-     "how": "The journal and run files on disk. Rust must read and write them byte for byte (cross-recovery gate). The Python test keeps the corpus true to the Python."
+     "how": "The journal and run files on disk. Rust must read and write them byte for byte (cross-recovery gate). The Python test keeps the corpus true to the Python.",
+     "tests": 5,
+     "via": "tests/native_spike/fixtures/state_files"
     }
    }
   },
   "test_super_drag.py": {
-   "covers": "tools/native_spike/unified_cursor.py",
    "classes": {
     "CarryTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 10
     },
     "LandingDecisionTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 12
     },
     "LandingLuaTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 3
     },
     "LandingTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 12
     },
     "LuaTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 9
     },
     "SamplerTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 7
     },
     "SuperResizeTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 3
     },
     "SuperSuppressesTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 8
     },
     "TypingModeTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 9
     }
-   }
+   },
+   "covers": "tools/native_spike/unified_cursor.py"
   },
   "test_supervisor.py": {
-   "covers": "tools/native_spike/supervisor.py",
    "classes": {
     "StatusTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 6
     },
     "StopReasonTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 11
     },
     "SupervisorGuardTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "rust_test": null
+     "tests": 8
     }
-   }
+   },
+   "covers": "tools/native_spike/supervisor.py"
   },
   "test_supervisor_faults.py": {
-   "covers": "tools/native_spike/faults.py",
    "classes": {
     "FaultsTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::faults",
-     "rust_test": null
+     "tests": 6
     },
     "LoopTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::faults",
-     "rust_test": null
+     "tests": 8
     }
-   }
+   },
+   "covers": "tools/native_spike/faults.py"
   },
   "test_survive.py": {
-   "covers": "tools/native_spike/survive.py",
    "classes": {
     "HoldsTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 3
     },
     "KeepRendererTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 12
     },
     "RestartedRendererTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 2
     },
     "ReviveTrackingTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 3
     },
     "SecondRendererTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 1
     },
     "ServeWithoutRendererTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 1
     },
     "ShouldHoldTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 6
     },
     "UsbIdentityTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 4
     },
     "WaitTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/survive.py"
   },
   "test_text_cursor.py": {
-   "covers": "tools/native_spike/unified_cursor.py",
    "classes": {
     "BrokerClientTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 10
     },
     "ContractTests": {
-     "tests": 6,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/cursor_shape_names.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 6,
+     "via": "tests/native_spike/fixtures/cursor_shape_names.json"
     },
     "EndToEndTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 1
     },
     "HoldTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 10
     },
     "LookTests": {
-     "tests": 24,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 24
     },
     "MappingTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 3
     },
     "PlainPointerTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 1
     },
     "PushTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 11
     },
     "SamplerTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 14
     },
     "SourceContractTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 2
     },
     "WiringTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/unified_cursor.py"
   },
   "test_tracking.py": {
-   "covers": "tools/native_spike/tracking.py",
    "classes": {
     "DiedDuringStartTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 2
     },
     "DriverLifecycleTests": {
-     "tests": 34,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 34
     },
     "FeedScopeTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 1
     },
     "IsolatedTrackingConsentTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 2
     },
     "NetworkBlockTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 5
     },
     "NetworkIsolationCheckTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 5
     },
     "QuietDriverEnvTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 6
     },
     "QuietDriverScopeTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 3
     },
     "RecenterTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 1
     },
     "RestartSameTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 4
     },
     "TrackingConsentTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/tracking.py"
   },
   "test_tracking_luma.py": {
-   "covers": "tools/native_spike/tracking.py",
    "classes": {
     "LumaFlags": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 4
     },
     "LumaLifecycle": {
-     "tests": 34,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 34
     },
     "OtherDrivers": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 3
     },
     "RestartFailureNotice": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 1
     },
     "TrackingCli": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/tracking.py"
   },
   "test_tracking_pro2.py": {
-   "covers": "tools/native_spike/tracking.py",
    "classes": {
     "Pro2ProviderTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::tracking",
-     "rust_test": null
+     "tests": 7
     }
-   }
+   },
+   "covers": "tools/native_spike/tracking.py"
   },
   "test_two_drops.py": {
-   "covers": "tools/native_spike/survive.py",
    "classes": {
     "DropPairTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 9
     },
     "SameDriverAfterAVideoDropTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/survive.py"
   },
   "test_typing_mode.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "BindLuaTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "ChordTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "ControlTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 8
     },
     "ManagedWiringTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "VideoTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_unified_cursor.py": {
-   "covers": "tools/native_spike/unified_cursor.py",
    "classes": {
     "BindCheckTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 3
     },
     "ConfineTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 2
     },
     "CursorFollowRemovedTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 2
     },
     "EdgeTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 7
     },
     "HomeTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 7
     },
     "LuaTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 4
     },
     "SamplerTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 6
     },
     "SwitchTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 7
     },
     "WiringTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::unified_cursor",
-     "rust_test": null
+     "tests": 2
     }
-   }
+   },
+   "covers": "tools/native_spike/unified_cursor.py"
   },
   "test_usb_drop.py": {
-   "covers": "tools/native_spike/survive.py",
    "classes": {
     "DriverReconnectsItselfTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 5
     },
     "LaunchTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 2
     },
     "LostTimeoutConfigTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 3
     },
     "TrackingDropTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::survive",
-     "rust_test": null
+     "tests": 8
     }
-   }
+   },
+   "covers": "tools/native_spike/survive.py"
   },
   "test_video.py": {
-   "covers": "tools/native_spike/video.py",
    "classes": {
     "BindTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 4
     },
     "ControlTests": {
-     "tests": 14,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 14
     },
     "DetectTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 5
     },
     "FileTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 2
     },
     "PayloadTests": {
-     "tests": 3,
      "fate": "wire",
-     "via": "tests/native_spike/fixtures/video_payloads.json",
-     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8."
+     "how": "The renderer's C++ tests read the same fixture. The Rust encoders are held to it; the Python test stays until phase 8.",
+     "tests": 3,
+     "via": "tests/native_spike/fixtures/video_payloads.json"
     },
     "RealProbeTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 1
     },
     "TransportTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 3
     },
     "VideoIgnoresSendWindowTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 1
     },
     "VideoWithPillsAndResizeTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::video",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/video.py"
   },
   "test_view.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "BindTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "ConfigReloadTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "ControlClientTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace helper (phase 5, frame-for-frame with xr_control.py)",
-     "rust_test": null
+     "tests": 1
     },
     "EventStreamTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "EveryDesktopMaximizesTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     },
     "HyprlandViewRequestTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "StatusReplyTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "SupervisorControlTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "SupervisorEventSocketTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "SupervisorResetTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 1
     },
     "ThemeAccentTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     },
     "ViewModeAndCursorFollowTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "ViewStateTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 4
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_view_menu_wiring.py": {
-   "covers": "tools/native_spike/view.py",
    "classes": {
     "ManagedMenuWiringTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "MenuBindLuaTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 2
     },
     "MenuControlTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 8
     },
     "MenuStateTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 5
     },
     "OverlayIdleCloseTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 6
     },
     "StaleMenuBindTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::view",
-     "rust_test": null
+     "tests": 3
     }
-   }
+   },
+   "covers": "tools/native_spike/view.py"
   },
   "test_web_video.py": {
-   "covers": "tools/native_spike/web_video.py",
    "classes": {
     "BindHelperTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace helper (phase 5, frame-for-frame with xr_control.py)",
-     "rust_test": null
+     "tests": 2
     },
     "FormatAndSourceTests": {
-     "tests": 6,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 6
     },
     "PageFailureTests": {
-     "tests": 7,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 7
     },
     "RelayStopTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 4
     },
     "RelayTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 8
     },
     "ValidationTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 3
     },
     "WebControlTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 9
     },
     "WebVideoGatingTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::web_video",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/web_video.py"
   },
   "test_window_drag.py": {
-   "covers": "tools/native_spike/free_pointer.py",
    "classes": {
     "DropTests": {
-     "tests": 4,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 4
     },
     "FrameTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "FreeDragTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 11
     },
     "HomeDragTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "NoConflictTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 5
     },
     "QuickClickTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 3
     },
     "WindowAtTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::free_pointer",
-     "rust_test": null
+     "tests": 1
     }
-   }
+   },
+   "covers": "tools/native_spike/free_pointer.py"
   },
   "test_window_memory.py": {
-   "covers": "tools/native_spike/window_memory.py",
    "classes": {
     "CaptureTests": {
-     "tests": 15,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 15
     },
     "MatchTests": {
-     "tests": 15,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 15
     },
     "PlanTests": {
-     "tests": 29,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 29
     },
     "RemovalTests": {
-     "tests": 10,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 10
     },
     "StartTests": {
-     "tests": 9,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 9
     },
     "StoreTests": {
-     "tests": 12,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 12
     },
     "TrackerTests": {
-     "tests": 13,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 13
     },
     "ViewWiringTests": {
-     "tests": 11,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 11
     }
-   }
+   },
+   "covers": "tools/native_spike/window_memory.py"
   },
   "test_window_memory_lua.py": {
-   "covers": "tools/native_spike/window_memory.py",
    "classes": {
     "BatchTests": {
-     "tests": 7,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 7,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "MoveTests": {
-     "tests": 11,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 11,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "NeverLaunchesTests": {
-     "tests": 3,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 3
     },
     "RoundTripTests": {
-     "tests": 5,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 5,
+     "via": "rust/corpus/hyprland/lua.json"
     },
     "SettleTests": {
-     "tests": 19,
      "fate": "wire",
-     "via": "rust/corpus/hyprland/lua.json",
-     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte."
+     "how": "The Python test runs generated Lua in a real interpreter. It stays and runs the Rust generator's bytes; every input it uses is added to the Lua corpus so Rust is held to it byte for byte.",
+     "tests": 19,
+     "via": "rust/corpus/hyprland/lua.json"
     }
-   }
+   },
+   "covers": "tools/native_spike/window_memory.py"
   },
   "test_window_memory_run.py": {
-   "covers": "tools/native_spike/window_memory.py",
    "classes": {
     "BindCheckTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 2
     },
     "DocsTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 2
     },
     "EndTests": {
-     "tests": 1,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 1
     },
     "ManagerOrderTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 2
     },
     "RemoveTests": {
-     "tests": 2,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 2
     },
     "ResetTests": {
-     "tests": 8,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 8
     },
     "StartOrderTests": {
-     "tests": 5,
      "fate": "port",
+     "rust_test": null,
      "target": "xr-workspace supervisor::window_memory",
-     "rust_test": null
+     "tests": 5
     }
-   }
+   },
+   "covers": "tools/native_spike/window_memory.py"
   }
  }
 }

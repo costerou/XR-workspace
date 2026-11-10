@@ -10,6 +10,8 @@
 //! and a byte-order mark (C++ skips it). Integers outside the 64-bit range are read as floats, as
 //! C++ does. `rust/corpus/json/strict_json.json` (`tests/native_spike/strict_json_corpus.py`)
 //! records the three verdicts for each of its cases.
+//! (Python reads a file as bytes, where `json.loads` skips a byte-order mark, so `disk` skips one
+//! at the start of a file; the wire still refuses it.)
 //!
 //! Encoding takes a [`Style`] that names the `json.dumps` arguments a writer uses, `ensure_ascii`
 //! among them, and floats are written as Python's `repr` writes them, so a file or frame read here
