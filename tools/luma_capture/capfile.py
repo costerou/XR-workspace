@@ -1,6 +1,8 @@
 """The .lcap capture file: one header, then records. Spec: docs/capture-format.md."""
 from dataclasses import dataclass
+import io
 import json
+import lzma
 from pathlib import Path
 import struct
 
@@ -22,6 +24,15 @@ F_POLICY_DROPPED = 0x08  # the recorder refused to keep this payload (another de
 F_CAPPED = 0x10          # the recorder kept only the first part of this payload
 F_COMPANION = 0x20       # this event belongs to the glasses' companion, 35ca:1102 (buttons, microphone)
 PARTIAL = F_KERNEL_TRUNCATED | F_POLICY_DROPPED | F_CAPPED
+
+
+def _open(path, mode, buffering):
+    """A capture, or one compressed as FILE.lcap.xz. Fixtures are kept compressed; the format inside is the same."""
+    if Path(path).suffix != '.xz':
+        return open(path, mode, buffering=buffering)
+    if 'w' in mode:
+        return io.BufferedWriter(lzma.open(path, mode, preset=9), buffering)
+    return io.BufferedReader(lzma.open(path, mode), buffering)
 
 
 class CaptureError(ValueError):
@@ -90,7 +101,7 @@ class Writer:
     def __init__(self, path, *, start_ns, bus):
         self.path = Path(path)
         self.bytes = FILE_HEADER.size
-        self._file = open(self.path, 'wb', buffering=1 << 16)
+        self._file = _open(self.path, 'wb', 1 << 16)
         self._file.write(FILE_HEADER.pack(MAGIC, VERSION, FILE_HEADER.size, RECORD_HEADER.size, 0, start_ns, bus, 0))
 
     def write(self, record):
@@ -117,8 +128,11 @@ class Reader:
     def __init__(self, path):
         self.path = Path(path)
         self.truncated = False
-        with open(self.path, 'rb') as file:
-            raw = file.read(FILE_HEADER.size)
+        try:
+            with _open(self.path, 'rb', 1 << 12) as file:
+                raw = file.read(FILE_HEADER.size)
+        except (lzma.LZMAError, EOFError) as error:
+            raise CaptureError(f'{path}: not a compressed capture ({error})') from None
         if len(raw) < FILE_HEADER.size or raw[:8] != MAGIC:
             raise CaptureError(f'{path}: not a capture file')
         magic, self.version, self._file_header, self._record_header, _, self.start_ns, self.bus, _ = \
@@ -129,28 +143,31 @@ class Reader:
             raise CaptureError(f'{path}: record header of {self._record_header} bytes is too short')
 
     def __iter__(self):
-        with open(self.path, 'rb', buffering=1 << 20) as file:
+        with _open(self.path, 'rb', 1 << 20) as file:
             file.seek(self._file_header)
-            while True:
-                head = file.read(self._record_header)
-                if not head:
-                    return
-                if len(head) < self._record_header:
-                    self.truncated = True
-                    return
-                size, kind, event, xfer, ep, t_ns, urb_id, bus, dev, flags, status, urb_len, data_len, setup = \
-                    RECORD_HEADER.unpack_from(head)
-                if size != self._record_header + data_len:
-                    self.truncated = True  # the length fields disagree: nothing after this can be trusted
-                    return
-                data = file.read(data_len)
-                if len(data) < data_len:
-                    self.truncated = True
-                    return
-                if kind in (KIND_USB, KIND_NOTE):  # a future kind is skipped, as the spec promises
-                    yield Record(t_ns, kind, chr(event), xfer, ep, urb_id, bus, dev, flags, status, urb_len, setup,
-                                 data)
+            try:
+                while True:
+                    head = file.read(self._record_header)
+                    if not head:
+                        return
+                    if len(head) < self._record_header:
+                        self.truncated = True
+                        return
+                    size, kind, event, xfer, ep, t_ns, urb_id, bus, dev, flags, status, urb_len, data_len, setup = \
+                        RECORD_HEADER.unpack_from(head)
+                    if size != self._record_header + data_len:
+                        self.truncated = True  # the length fields disagree: nothing after this can be trusted
+                        return
+                    data = file.read(data_len)
+                    if len(data) < data_len:
+                        self.truncated = True
+                        return
+                    if kind in (KIND_USB, KIND_NOTE):  # a future kind is skipped, as the spec promises
+                        yield Record(t_ns, kind, chr(event), xfer, ep, urb_id, bus, dev, flags, status, urb_len, setup,
+                                     data)
 
+            except (EOFError, lzma.LZMAError):  # a compressed file cut off part way
+                self.truncated = True
 
 def expand(paths):
     """Capture files in time order, from any mix of files and folders."""

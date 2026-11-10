@@ -1,4 +1,4 @@
-"""python3 -m tools.luma_capture check|record|report|show|merge|pcap|import-usbmon. See tools/luma_capture/README.md."""
+"""python3 -m tools.luma_capture check|record|report|show|merge|pcap|import-usbmon|imu-fixture|drift-fixture|drift-summary. See tools/luma_capture/README.md."""
 import argparse
 import json
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 import signal
 import sys
 
-from . import capfile, pcap, rawmon
+from . import capfile, drift, pcap, rawmon
 from .audit import audit, compare, passed, render_audit, render_compare
 from .protocol import Framing, Labeler, status_name
 from .recorder import Recorder, add_mark, describe, start_followers
@@ -139,6 +139,20 @@ def command_fixture(args):
     return 0
 
 
+def command_drift_fixture(args):
+    summary, found = drift.make(args.paths, args.output, args.kind)
+    print(drift.render(summary, args.kind), end='')
+    print(f'{summary.samples} samples in {args.output}, {Path(args.output).stat().st_size >> 20} MiB; '
+          f'summary in {drift.sidecar(args.output)}')
+    return 1 if found else 0
+
+
+def command_drift_summary(args):
+    summary = drift.summarise(args.paths)
+    print(drift.render(summary, args.kind), end='')
+    return 1 if args.kind and drift.problems(summary, args.kind) else 0
+
+
 def parser():
     top = argparse.ArgumentParser(prog='python3 -m tools.luma_capture', description=__doc__)
     commands = top.add_subparsers(dest='command', required=True)
@@ -199,6 +213,17 @@ def parser():
     fixture.add_argument('--seconds', type=float, required=True)
     fixture.add_argument('--output', '-o', required=True)
     fixture.set_defaults(run=command_fixture)
+
+    still = commands.add_parser('drift-fixture', help='keep only the IMU stream, for heading-drift replay (D6)')
+    still.add_argument('paths', nargs='+')
+    still.add_argument('--kind', choices=drift.KINDS, required=True)
+    still.add_argument('--output', '-o', required=True, help='FILE.lcap, or FILE.lcap.xz to compress')
+    still.set_defaults(run=command_drift_fixture)
+
+    span = commands.add_parser('drift-summary', help='length, temperature span and stillness of a recording')
+    span.add_argument('paths', nargs='+')
+    span.add_argument('--kind', choices=drift.KINDS, help='also judge it against that kind; exit 1 if it fails')
+    span.set_defaults(run=command_drift_summary)
     return top
 
 

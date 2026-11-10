@@ -84,6 +84,10 @@ generator, regenerate them:
 TMPDIR=/tmp /usr/bin/python3 tests/native_spike/lua_corpus.py --write
 ```
 
+`corpus/drift/` holds the two real-glasses recordings that heading-drift work (plan D6) replays:
+`desk-still.lcap.xz` and `warm-up.lcap.xz`, each with a `.json` summary. See
+[corpus/drift/README.md](corpus/drift/README.md).
+
 ## Controller runs
 
 `xr-workspace` holds the controller's run half of the host probe (`src/host.rs`) and its run units

@@ -15,6 +15,7 @@ python3 -m tools.luma_capture report PATH           # everything; --audit exits 
 python3 -m tools.luma_capture compare OLD NEW       # two captures side by side
 python3 -m tools.luma_capture show FILE --limit 50  # raw records
 python3 -m tools.luma_capture merge DIR -o one.lcap # one file for --replay
+python3 -m tools.luma_capture drift-summary PATH   # length, temperature span and stillness (D6)
 python3 -m tools.luma_capture pcap DIR -o one.pcap  # for Wireshark
 ```
 
@@ -119,6 +120,39 @@ python3 -m tools.luma_capture compare OLD_CAPTURE NEW_CAPTURE
 
 That prints both drivers' rates and spacing side by side, then the wire rules for the new one, with anything it sent
 that the old one did not.
+
+## Drift recordings
+
+Heading-drift work (plan D6) replays two recordings of the glasses lying still: a 20-minute **desk-still** with the
+glasses warm, and a 20-minute **warm-up** from a cold plug-in. Both use our own `xr-luma-driver` with XR off, so the
+glasses run IMU only, cameras off, as they will under our driver. `record_drift.sh` starts the recorder and its own
+driver (private pose feed, own user and network namespace), stops both after 1290 s and writes
+`rust/corpus/drift/KIND.lcap.xz` with `KIND.json` beside it. It refuses to run while any tracking driver runs.
+
+Once per boot, grant usbmon as `check` prints. Build the driver (`docs/technical.md`). Then, from the repository root:
+
+```sh
+# Warm-up: glasses unplugged for at least an hour. Start this with them unplugged, plug them in when it asks,
+# lay them flat on the desk, arms open, and let go.
+tools/luma_capture/record_drift.sh warm-up
+
+# Desk-still: glasses plugged in and warm (straight after the warm-up is fine). Lay them flat and let go.
+tools/luma_capture/record_drift.sh desk-still
+```
+
+Touch neither the glasses nor the desk for the 21.5 minutes. The last lines say `PASS` or `FAIL` with the reasons;
+the run folder under `~/.local/state/viture-workspace/luma-drift/` keeps the full capture and the driver log.
+For any recording:
+
+```sh
+python3 -m tools.luma_capture drift-summary FOLDER_OR_FILE [--kind desk-still|warm-up]   # judge it, exit 1 on FAIL
+python3 -m tools.luma_capture drift-fixture FOLDER --kind KIND -o rust/corpus/drift/KIND.lcap.xz
+```
+
+A recording fails if it is shorter than 1200 s, lost more than 0.1% of samples, has usbmon losses or a disconnect,
+gravity moved more than 1° from the first second, or a 0.1 s gyro mean is more than 1°/s off its minute's median.
+A warm-up also fails if the stream began more than 120 s after the glasses powered up, or the temperature rose by
+less than 5 °C.
 
 ## Reading a disconnect
 

@@ -133,6 +133,12 @@ real read will see them too.
 - `spike/driver/docs/capture-findings.md` gives the roles of the endpoints, from a real session: 0x81 is the IMU, 0x83 the
   display's events, 0x82 the cameras, 0x06/0x87 the `FF FE` frames and 0x04/0x85 the `FA 55` frames.
 
+## Compressed files
+
+A file named `*.lcap.xz` is the same format, xz-compressed. `tools.luma_capture` reads and writes it directly; the C++
+and Rust replays do not, so decompress it first (`xz -dc FILE.lcap.xz > FILE.lcap`). A compressed file cut off part way
+reads as truncated, like a plain one. The drift fixtures in `rust/corpus/drift/` are kept this way.
+
 ## Importing a raw dump
 
 `python3 -m tools.luma_capture import-usbmon DUMP -o FILE.lcap` converts what `cat /dev/usbmonN` writes. A raw dump holds
