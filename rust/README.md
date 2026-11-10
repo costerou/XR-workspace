@@ -201,7 +201,8 @@ holds the Rust ports to them byte for byte.
   fixtures (`real.bin`, `upside_down.bin`, from `spike/driver/tests/fixtures/`) and for a faults run
   of the real one (`real_faults.bin`: warm-start bias, 10 lost samples, a 400 ms gap, a clock jump of
   1 s, a duplicate). `xr-luma-driver`'s `tests/fusion_parity.rs` replays them and requires every bit
-  to match.
+  to match. `tests/protocol.rs` holds the Rust packet parser and sequence tracker to the same files:
+  parsing either fixture must give exactly their input samples, bit for bit.
 
   Format, little endian: `LUMAFUS1`, `u32` sample count, `u32` status interval (100). Then per
   sample the input (`u64 t_ns`, `u32 seq`, `f32` gyro x3, `f32` accel x3) and the `PoseOut`
