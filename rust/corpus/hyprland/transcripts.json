@@ -1,0 +1,1102 @@
+{
+ "schema": 1,
+ "source": "tests/native_spike/lua_corpus.py",
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "note": "One request per connection. Requests and replies are the exact bytes, as UTF-8 text.",
+ "scenarios": [
+  {
+   "name": "query.monitors",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "returned": [
+    {
+     "id": 0,
+     "name": "eDP-1",
+     "description": "Synthetic eDP-1",
+     "width": 2880,
+     "height": 1800,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.5,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "Synthetic DP-2",
+     "width": 1920,
+     "height": 1200,
+     "refreshRate": 120.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "query.workspaces",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/workspaces",
+     "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"eDP-1\", \"windows\": 2}, {\"id\": 2, \"name\": \"2\", \"monitor\": \"DP-2\", \"windows\": 0}]"
+    }
+   ],
+   "returned": [
+    {
+     "id": 1,
+     "name": "1",
+     "monitor": "eDP-1",
+     "windows": 2
+    },
+    {
+     "id": 2,
+     "name": "2",
+     "monitor": "DP-2",
+     "windows": 0
+    }
+   ]
+  },
+  {
+   "name": "query.clients",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55d0c0de0001\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"floating\": false, \"at\": [0, 26], \"size\": [1920, 1174], \"class\": \"Alacritty\", \"title\": \"shell\"}]"
+    }
+   ],
+   "returned": [
+    {
+     "address": "0x55d0c0de0001",
+     "workspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "floating": false,
+     "at": [
+      0,
+      26
+     ],
+     "size": [
+      1920,
+      1174
+     ],
+     "class": "Alacritty",
+     "title": "shell"
+    }
+   ]
+  },
+  {
+   "name": "query.activewindow",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\":\"0x55d0c0de0001\",\"class\":\"Alacritty\"}"
+    }
+   ],
+   "returned": {
+    "address": "0x55d0c0de0001",
+    "class": "Alacritty"
+   }
+  },
+  {
+   "name": "query.cursorpos",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/cursorpos",
+     "reply": "{\"x\":960,\"y\":540}"
+    }
+   ],
+   "returned": {
+    "x": 960,
+    "y": 540
+   }
+  },
+  {
+   "name": "query.getoption_follow_mouse",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/getoption input:follow_mouse",
+     "reply": "{\"option\":\"input:follow_mouse\",\"int\":1,\"set\":true}"
+    }
+   ],
+   "returned": {
+    "option": "input:follow_mouse",
+    "int": 1,
+    "set": true
+   }
+  },
+  {
+   "name": "query.getoption_active_border",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/getoption general:col.active_border",
+     "reply": "{\"option\":\"general:col.active_border\",\"custom\":\"ff33ccff\",\"set\":true}"
+    }
+   ],
+   "returned": {
+    "option": "general:col.active_border",
+    "custom": "ff33ccff",
+    "set": true
+   }
+  },
+  {
+   "name": "mutate.follow_mouse",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/keyword input:follow_mouse 2",
+     "reply": "ok"
+    }
+   ],
+   "returned": "ok"
+  },
+  {
+   "name": "mutate.move_workspace",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/dispatch moveworkspacetomonitor 4 XR-2",
+     "reply": "ok"
+    }
+   ],
+   "returned": "ok"
+  },
+  {
+   "name": "mutate.focus_desktop",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/dispatch hl.dsp.focus({monitor=\"XR-1\"})",
+     "reply": "ok"
+    }
+   ],
+   "returned": "ok"
+  },
+  {
+   "name": "mutate.send_window",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"7\", follow = true, window = \"address:0x55d0c0de0001\" })",
+     "reply": "ok"
+    }
+   ],
+   "returned": "ok"
+  },
+  {
+   "name": "mutate.drop_window",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"7\", follow = false, window = \"address:0x55d0c0de0001\" })",
+     "reply": "ok"
+    }
+   ],
+   "returned": "ok"
+  },
+  {
+   "name": "binds_text",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "binds",
+     "reply": "bind\n\tmodmask: 12\n\tsubmap: \n\tkey: up\n\tkeycode: 0\n\tdispatcher: __lua\n\targ: \n\n"
+    }
+   ],
+   "returned": "bind\n\tmodmask: 12\n\tsubmap: \n\tkey: up\n\tkeycode: 0\n\tdispatcher: __lua\n\targ: \n\n"
+  },
+  {
+   "name": "reload_config",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/reload",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "plugins_loaded",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/plugin list",
+     "reply": "[{\"name\":\"xr-ownership\",\"author\":\"XR Workspace\",\"handle\":\"0x5555\",\"version\":\"1\"}]"
+    }
+   ],
+   "returned": [
+    "xr-ownership"
+   ]
+  },
+  {
+   "name": "plugin_load",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/plugin load /home/user/.local/share/viture-workspace/bin/0123456789ab/libxr-ownership.so",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "plugin_unload",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/plugin unload /home/user/.local/share/viture-workspace/bin/0123456789ab/libxr-ownership.so",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "install_view_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "install_view_binds.rejected",
+   "eval_replies": [
+    "error: bad bind"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+     "reply": "error: bad bind"
+    }
+   ],
+   "raised": "ValueError: compositor rejected bind change: error: bad bind"
+  },
+  {
+   "name": "install_view_binds.send_rejected",
+   "eval_replies": [
+    "ok",
+    "error: bad bind",
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+     "reply": "error: bad bind"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+     "reply": "ok"
+    }
+   ],
+   "raised": "ValueError: compositor rejected bind change: error: bad bind"
+  },
+  {
+   "name": "install_view_binds.panel_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"SHIFT + SUPER + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + Y\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "reinstall_view_binds.panel_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"SHIFT + SUPER + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + Y\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "reinstall_view_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "reinstall_view_binds.typing",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "remove_view_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "land_window",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval do local w = \"address:0x55d0c0de0001\" local p = hl.get_cursor_pos() hl.dispatch(hl.dsp.window.move({ workspace = \"2147483647\", follow = false, window = w })) hl.dispatch(hl.dsp.window.move({ x = -100, y = 1000000, window = w })) hl.dispatch(hl.dsp.focus({ window = w })) if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "adopt_windows",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local C={{\"0x55d0c0de0001\",\"XR-1\"}} local W={{4,\"XR-2\"}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) local a=m and m.active_workspace if a and a.id>0 then hl.dispatch(hl.dsp.window.move({workspace=tostring(a.id),follow=false,window=\"address:\"..e[1]})) end end) end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) local w=hl.get_workspace(e[1]) if w and w.monitor and w.monitor.name==e[2] then home(e[1],e[2]) end end) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "place_windows.moves",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local C={{\"0x55d0c0de0001\",\"XR-2\",71,0},{\"0x55d0c0de0002\",\"XR-3\",81,1}} local W={{1,\"XR-1\",61}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "place_windows.settle",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local L={{\"0x55d0c0de0001\",\"scrolling\"}} local S={{\"0x55d0c0de0001\",1,10,20,300,400},{\"0x55d0c0de0002\",0,0,0,0,0}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval local G={{\"0x55d0c0de0001\",0,300,400},{\"0x55d0c0de0002\",1,300,0}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval local F={{\"0x55d0c0de0001\",2,2}} local A={{\"XR-1\",\"0x55d0c0de0001\"}} local P=\"0x55d0c0de0001\" local PM=\"DP-1\" local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() for _,e in ipairs(F) do D(hl.dsp.window.fullscreen_state,{internal=e[2],client=e[3],action=\"set\",window=\"address:\"..e[1]}) end for _,e in ipairs(A) do local w=win(e[2]) local x=w and w.workspace local m=hl.get_monitor(e[1]) if x and m and x.monitor and x.monitor.name==e[1] then pcall(function() m:set_workspace({workspace=x.name}) end) end end if P~=\"\" and win(P) then D(hl.dsp.focus,{window=\"address:\"..P}) elseif PM~=\"\" and hl.get_monitor(PM) then D(hl.dsp.focus,{monitor=PM}) end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "fit_windows",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local M={{\"0x55d0c0de0001\",-40,30,0,0},{\"0x55d0c0de0002\",3800,30,1920,1050}} for _,e in ipairs(M) do pcall(function() local s=\"address:\"..e[1] if e[4]>0 then hl.dispatch(hl.dsp.window.resize({x=e[4],y=e[5],window=s})) end hl.dispatch(hl.dsp.window.move({x=e[2],y=e[3],window=s})) end) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "restore_layout",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local F=\"DP-1\" local A=2 local P=\"0x55d0c0de0001\" local PM=\"DP-1\" local S={{1,1},{2,0}} local W={{\"0x55d0c0de0001\",1,0,0,30,960,1050,0,0},{\"0x55d0c0de0002\",2,1,100,200,800,600,2,1}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function ws(id) return hl.get_workspace(id) end local function win(a) return hl.get_window(\"address:\"..a) end local function ren(a,b) D(hl.dsp.workspace.change_id,{workspace=tostring(a),id=b}) end local T={} for _,s in ipairs(S) do T[s[1]]=s end if not hl.get_monitor(F) then return end local function block(m) if not ow or type(ow.workspace_id)~=\"function\" or not m then return nil end local ok,v=pcall(ow.workspace_id,m,1) if ok and type(v)==\"number\" then return v-1 end end local base=block(hl.get_monitor(F)) local function free(b) if b then for s=1,10 do if not ws(b+s) and not T[b+s] then return b+s end end return nil end local n=1 for _,x in ipairs(hl.get_workspaces()) do if x.id>=n then n=x.id+1 end end while T[n] do n=n+1 end return n end local function aside(x) local n=free(block(x.monitor)) or free(nil) ren(x.id,n) end local function reg(x) return x and not x.special and x.id>0 end local function off(x) local m=x and x.monitor return m and m.name~=F and not m.name:match(\"^XR%-\") end D(hl.dsp.focus,{monitor=F}) local cnt={} for _,e in ipairs(W) do local t=T[e[2]] local w=win(e[1]) local c=w and w.workspace if t and t[2]==1 and reg(c) and not off(c) and (c.id==e[2] or not T[c.id]) then cnt[e[2]]=cnt[e[2]] or {} cnt[e[2]][c.id]=(cnt[e[2]][c.id] or 0)+1 end end local L={} for t,m in pairs(cnt) do for c,k in pairs(m) do L[#L+1]={k,t,c} end end table.sort(L,function(a,b) if a[1]~=b[1] then return a[1]>b[1] end if a[2]~=b[2] then return a[2]<b[2] end return a[3]<b[3] end) local got,used,tmp={},{},{} for _,x in ipairs(L) do if not got[x[2]] and not used[x[3]] then got[x[2]]=x[3] used[x[3]]=true end end for _,s in ipairs(S) do local c=got[s[1]] if c and c~=s[1] then local n=free(nil) ren(c,n) if ws(n) then tmp[#tmp+1]={n,s[1]} end end end for _,p in ipairs(tmp) do local x=ws(p[2]) if x then aside(x) end if not ws(p[2]) then ren(p[1],p[2]) end end for _,e in ipairs(W) do local w=win(e[1]) if w and not w.pinned and w.workspace and w.workspace.id~=e[2] and not off(w.workspace) then D(hl.dsp.window.move,{workspace=tostring(e[2]),follow=false,window=\"address:\"..e[1]}) end end for _,s in ipairs(S) do local x=ws(s[1]) if x and x.monitor and x.monitor.name~=F and not off(x) then D(hl.dsp.workspace.move,{workspace=tostring(s[1]),monitor=F}) end end local X={} for _,x in ipairs(hl.get_workspaces()) do if reg(x) and not T[x.id] and (x.windows or 0)>0 and x.monitor and x.monitor.name:match(\"^XR%-%d+$\") then X[#X+1]=x.id end end table.sort(X) for _,id in ipairs(X) do if base and not (id>base and id<=base+10) then local want=base+(id-1)%10+1 local n=(not ws(want) and not T[want]) and want or free(base) if n then ren(id,n) if ws(n) then id=n end end end D(hl.dsp.workspace.move,{workspace=tostring(id),monitor=F}) end local mine={} for _,e in ipairs(W) do local w=win(e[1]) if w and w.workspace and w.workspace.id==e[2] and not off(w.workspace) then mine[#mine+1]=e local sel=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=sel}) end if w.floating~=(e[3]==1) then D(hl.dsp.window.float,{action=e[3]==1 and \"on\" or \"off\",window=sel}) end end end local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local by={} for _,e in ipairs(mine) do if e[3]==0 and e[8]==0 and tl(win(e[1])) then by[e[2]]=by[e[2]] or {} local g=by[e[2]] g[#g+1]={a=e[1],x=e[4],y=e[5]} end end local function yx(p,q) if p.y~=q.y then return p.y<q.y end if p.x~=q.x then return p.x<q.x end return p.a<q.a end for t,g in pairs(by) do local cur,inq={},{} for _,p in ipairs(g) do inq[p.a]=true end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==t then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(g,yx) table.sort(cur,yx) for _,p in ipairs(cur) do if not inq[p.a] then g[#g+1]=p end end local pos={} for i,p in ipairs(cur) do pos[p.a]=i end for k,p in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[p.a] and b~=p.a then D(hl.dsp.window.swap,{window=\"address:\"..p.a,target=\"address:\"..b}) local i=pos[p.a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[p.a]=i,k end end end for _,e in ipairs(mine) do local sel=\"address:\"..e[1] if e[3]==1 then if e[6]>0 and e[7]>0 then D(hl.dsp.window.resize,{x=e[6],y=e[7],window=sel}) end D(hl.dsp.window.move,{x=e[4],y=e[5],window=sel}) end if e[8]~=0 or e[9]~=0 then D(hl.dsp.window.fullscreen_state,{internal=e[8],client=e[9],action=\"set\",window=sel}) end end if A>0 and not (off(ws(A)) and (ws(A).windows or 0)>0) then local x=ws(A) if x and x.monitor and x.monitor.name~=F then if (x.windows or 0)==0 then aside(x) else D(hl.dsp.workspace.move,{workspace=tostring(A),monitor=F}) end x=ws(A) end D(hl.dsp.focus,{monitor=F}) if x then pcall(function() hl.get_monitor(F):set_workspace({workspace=x.name}) end) else D(hl.dsp.focus,{workspace=tostring(A)}) end end if P~=\"\" and win(P) then D(hl.dsp.focus,{window=\"address:\"..P}) elseif PM~=\"\" and hl.get_monitor(PM) then D(hl.dsp.focus,{monitor=PM}) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "unpin_xr_windows",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _,w in ipairs(hl.get_windows()) do local m=w.pinned and w.workspace and w.workspace.monitor if m and m.name:match(\"^XR%-%d+$\") then pcall(function() hl.dispatch(hl.dsp.window.pin({action=\"disable\",window=\"address:\"..w.address})) end) end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "install_options_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"binds_key 0 111\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"binds_key 0 116\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"binds_key 0 113\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"binds_key 0 114\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"binds_key 0 23\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"binds_key 1 23\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"binds_key 0 9\")), hl.bind(\"Return\", hl.dsp.exec_cmd(c .. \"binds_key 0 36\")), hl.bind(\"space\", hl.dsp.exec_cmd(c .. \"binds_key 0 65\")), hl.bind(\"BackSpace\", hl.dsp.exec_cmd(c .. \"binds_key 0 22\")), hl.bind(\"Prior\", hl.dsp.exec_cmd(c .. \"binds_key 0 112\")), hl.bind(\"Next\", hl.dsp.exec_cmd(c .. \"binds_key 0 117\")) }",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "open_key_panel",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 binds_key \" if xr_workspace_keys_off then xr_workspace_keys_off() end local s = xr_workspace_keys or {} xr_workspace_keys = s if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then hl.define_submap(\"xr_workspace_keys\", function() s.catchall = hl.bind(\"catchall\", hl.dsp.no_op(), { ignore_mods = true }) end) end if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then error(\"no catch-all\") end local held, silent = { { 37, 4 }, { 105, 4 }, { 64, 8 }, { 108, 8 }, { 50, 1 }, { 62, 1 }, { 133, 64 }, { 134, 64 } }, { [37] = true, [105] = true, [64] = true, [108] = true, [50] = true, [62] = true, [133] = true, [134] = true, [66] = true, [77] = true, [92] = true } s.seen, s.esc = os.time(), 0 xr_workspace_keys_off = function() xr_workspace_keys_off = nil if s.sub then pcall(function() s.sub:remove() end) end s.sub = nil if s.timer then pcall(function() s.timer:set_enabled(false) end) end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end end local ok, sub = pcall(hl.on, \"input.keyboard.key\", function(code, _, state) if state ~= 1 or silent[code] then return end s.seen = os.time() local m, bits = 0, {} for _, k in ipairs(held) do if not bits[k[2]] and hl.is_key_down(k[1]) then bits[k[2]] = true m = m + k[2] end end if code == 9 and m == 0 then s.esc = s.esc + 1 else s.esc = 0 end if s.esc >= 3 and xr_workspace_keys_off then xr_workspace_keys_off() return end hl.exec_cmd(c .. m .. \" \" .. code) end) if not ok or not sub then xr_workspace_keys_off() error(\"no key subscription\") end s.sub = sub if not s.timer then pcall(function() s.timer = hl.timer(function() if os.time() - s.seen > 90 and xr_workspace_keys_off then xr_workspace_keys_off() end end, { timeout = 5000, type = \"repeat\" }) end) end if s.timer then pcall(function() s.timer:set_enabled(true) end) end pcall(hl.dispatch, hl.dsp.submap(\"xr_workspace_keys\")) if hl.get_current_submap() ~= \"xr_workspace_keys\" then xr_workspace_keys_off() error(\"no key submap\") end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "close_key_panel",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "set_dpms.off",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local t,g=\"eDP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "set_dpms.on",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval local t=\"HDMI-A-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "apply_session_mode",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@120\", position = \"1920x0\", scale = 1 })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "returned": {
+    "name": "DP-2",
+    "x": 1920,
+    "y": 0,
+    "scale": 1.0
+   }
+  },
+  {
+   "name": "restore_session_mode",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@120\", position = \"1920x0\", scale = 1 })",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "apply_wide_mode",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"3840x1200@90\", position = \"1920x0\", scale = 1 })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 3840, \"height\": 1200, \"refreshRate\": 90.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "returned": {
+    "id": 1,
+    "name": "DP-2",
+    "description": "Synthetic DP-2",
+    "width": 3840,
+    "height": 1200,
+    "refreshRate": 90.0,
+    "x": 1920,
+    "y": 0,
+    "scale": 1.0,
+    "transform": 0,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "activeWorkspace": {
+     "id": 2,
+     "name": "2"
+    },
+    "reserved": [
+     0,
+     26,
+     0,
+     0
+    ],
+    "availableModes": [
+     "3840x1200@90.00Hz",
+     "3840x1200@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1080@120.00Hz",
+     "1920x1080@60.00Hz"
+    ]
+   }
+  },
+  {
+   "name": "apply_wide_mode.rejected",
+   "eval_replies": [
+    "error: no such mode"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"3840x1200@90\", position = \"1920x0\", scale = 1 })",
+     "reply": "error: no such mode"
+    }
+   ],
+   "raised": "ValueError: compositor rejected bind change: error: no such mode"
+  },
+  {
+   "name": "apply_pro2_mode",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60\", position = \"1920x0\", scale = 1 })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "returned": {
+    "id": 1,
+    "name": "DP-2",
+    "description": "Synthetic DP-2",
+    "width": 1920,
+    "height": 1080,
+    "refreshRate": 60.0,
+    "x": 1920,
+    "y": 0,
+    "scale": 1.0,
+    "transform": 0,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "activeWorkspace": {
+     "id": 2,
+     "name": "2"
+    },
+    "reserved": [
+     0,
+     26,
+     0,
+     0
+    ],
+    "availableModes": [
+     "3840x1200@90.00Hz",
+     "3840x1200@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1080@120.00Hz",
+     "1920x1080@60.00Hz"
+    ]
+   }
+  },
+  {
+   "name": "park_presentation",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@120.000000\", position = \"-1920x9392\", scale = 1.0, transform = 0 })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"eDP-1\", \"description\": \"Synthetic eDP-1\", \"width\": 2880, \"height\": 1800, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.5, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"Synthetic DP-2\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 120.0, \"x\": -1920, \"y\": 9392, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "returned": {
+    "id": 1,
+    "name": "DP-2",
+    "description": "Synthetic DP-2",
+    "width": 1920,
+    "height": 1200,
+    "refreshRate": 120.0,
+    "x": -1920,
+    "y": 9392,
+    "scale": 1.0,
+    "transform": 0,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "activeWorkspace": {
+     "id": 2,
+     "name": "2"
+    },
+    "reserved": [
+     0,
+     26,
+     0,
+     0
+    ],
+    "availableModes": [
+     "3840x1200@90.00Hz",
+     "3840x1200@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1080@120.00Hz",
+     "1920x1080@60.00Hz"
+    ]
+   }
+  },
+  {
+   "name": "install_video_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_video_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_video_binds = nil local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_video_binds = { hl.bind(\"space\", hl.dsp.exec_cmd(c .. \"video_pause\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"video_seek_back\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"video_seek_fwd\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"video_seek_back_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"video_seek_fwd_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"video_format\")), hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"video_up\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"video_down\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"video_exit\")), hl.bind(\"q\", hl.dsp.exec_cmd(c .. \"video_quality\")) }",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "remove_video_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_video_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_video_binds = nil",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "install_menu_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"menu_field_prev\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"menu_field_next\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"menu_dec\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"menu_inc\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"menu_dec_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"menu_inc_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_next\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_prev\")), hl.bind(\"R\", hl.dsp.exec_cmd(c .. \"menu_reset\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"menu_back\")), hl.bind(\"U\", hl.dsp.exec_cmd(c .. \"menu_ultrawide\")), hl.bind(\"N\", hl.dsp.exec_cmd(c .. \"menu_add\")), hl.bind(\"SHIFT + Delete\", hl.dsp.exec_cmd(c .. \"menu_delete\")) }",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "remove_menu_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "install_resize_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_resize_binds = { hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_press\")), hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_release\"), { release = true, ignore_mods = true }) } local t = xr_workspace_resize_binds do local ok, b = pcall(hl.bind, \"Super_L\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end do local ok, b = pcall(hl.bind, \"Super_R\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "remove_resize_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "grab_pointer",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_resize_binds = { hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_press\")), hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_release\"), { release = true, ignore_mods = true }) } local t = xr_workspace_resize_binds do local ok, b = pcall(hl.bind, \"Super_L\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end do local ok, b = pcall(hl.bind, \"Super_R\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end if xr_workspace_grab == nil then local ok, hidden = pcall(hl.get_config, \"cursor.invisible\") local p = hl.get_cursor_pos() xr_workspace_grab = { invisible = ok and hidden == true, home = p and { x = p.x, y = p.y } } end pcall(hl.config, { cursor = { invisible = true } }) pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = 960, y = 540 })) end)",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "release_pointer",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "release_pointer.at",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) end end pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = -1920, y = 1200 })) end)",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "warp_cursor",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = -1000000, y = 1000000 })) end)",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "hide_overview_cursor",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval do local g = xr_workspace_grab if xr_workspace_overview_cursor == nil then local invisible if g then invisible = g.invisible == true else local ok, hidden = pcall(hl.get_config, \"cursor.invisible\") invisible = ok and hidden == true end xr_workspace_overview_cursor = { invisible = invisible } end if g then g.invisible = true end pcall(hl.config, { cursor = { invisible = true } }) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "show_overview_cursor",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval do local s = xr_workspace_overview_cursor xr_workspace_overview_cursor = nil if s then if xr_workspace_grab then xr_workspace_grab.invisible = s.invisible else pcall(hl.config, { cursor = { invisible = s.invisible } }) end end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "lock_pointer",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval if xr_workspace_grab then local p = hl.get_cursor_pos() if p then xr_workspace_grab.home = { x = p.x, y = p.y } end end for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" xr_workspace_resize_binds = { hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_press\")), hl.bind(\"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_release\"), { release = true, ignore_mods = true }) } local t = xr_workspace_resize_binds do local ok, b = pcall(hl.bind, \"Super_L\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end do local ok, b = pcall(hl.bind, \"Super_R\", hl.dsp.exec_cmd(c .. \"resize_cancel\"), { ignore_mods = true, non_consuming = true }) if ok and b then t[#t + 1] = b end end if xr_workspace_grab == nil then local ok, hidden = pcall(hl.get_config, \"cursor.invisible\") local p = hl.get_cursor_pos() xr_workspace_grab = { invisible = ok and hidden == true, home = p and { x = p.x, y = p.y } } end pcall(hl.config, { cursor = { invisible = true } }) pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = 4800, y = 600 })) end) do local t = xr_workspace_resize_binds or {} xr_workspace_resize_binds = t local ok, d = pcall(hl.get_config, \"binds.scroll_event_delay\") if ok and type(d) == \"number\" and d ~= 0 and pcall(hl.config, { binds = { scroll_event_delay = 0 } }) then t[#t + 1] = { remove = function() pcall(hl.config, { binds = { scroll_event_delay = d } }) end } end local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 resize_release\" for _, k in ipairs({ \"mouse:273\", \"mouse:274\", \"mouse:275\", \"mouse:276\", \"mouse:277\", \"mouse:278\", \"mouse:279\" }) do local ok, b = pcall(hl.bind, k, hl.dsp.exec_cmd(c)) if ok and b then t[#t + 1] = b end end local wc = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 options_scroll \" for _, k in ipairs({ \"mouse_up\", \"mouse_down\", \"mouse_left\", \"mouse_right\" }) do local action = function() end if k == \"mouse_up\" then action = hl.dsp.exec_cmd(wc .. \"-38\") elseif k == \"mouse_down\" then action = hl.dsp.exec_cmd(wc .. \"38\") end local ok, b = pcall(hl.bind, k, action) if ok and b then t[#t + 1] = b end end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "enter_desktop",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval pcall(function() hl.dispatch(hl.dsp.focus({ monitor = \"XR-2\" })) end) for _, b in ipairs(xr_workspace_resize_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_resize_binds = nil do local s = xr_workspace_grab xr_workspace_grab = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) end end pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = 2880, y = 600 })) end) do local t = xr_workspace_resize_binds or {} xr_workspace_resize_binds = t local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" local ok0, b0 = pcall(hl.bind, \"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_press\"), { non_consuming = true }) if ok0 and b0 then t[#t + 1] = b0 end local ok1, b1 = pcall(hl.bind, \"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_release\"), { release = true, non_consuming = true }) if ok1 and b1 then t[#t + 1] = b1 end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "arm_click_binds",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval do local t = xr_workspace_resize_binds or {} xr_workspace_resize_binds = t local c = \"/usr/bin/python3 -I /home/user/.local/share/viture-workspace/bin/0123456789ab/xr_control.py /run/user/1000/viture-workspace/run-1/control.sock run-1 a1b2c3 \" local ok0, b0 = pcall(hl.bind, \"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_press\"), { non_consuming = true }) if ok0 and b0 then t[#t + 1] = b0 end local ok1, b1 = pcall(hl.bind, \"mouse:272\", hl.dsp.exec_cmd(c .. \"resize_release\"), { release = true, non_consuming = true }) if ok1 and b1 then t[#t + 1] = b1 end end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "confine_cursor",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = 960, y = 600 })) end) pcall(function() hl.dispatch(hl.dsp.focus({ monitor = \"XR-1\" })) end)",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "scroll_to_window",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "/eval do local ok, w = pcall(hl.get_config, \"cursor.no_warps\") pcall(hl.config, { cursor = { no_warps = true } }) pcall(function() hl.dispatch(hl.dsp.focus({ window = \"address:0x55d0c0de0001\" })) end) pcall(hl.config, { cursor = { no_warps = ok and w == true } }) end",
+     "reply": "ok"
+    }
+   ],
+   "returned": null
+  },
+  {
+   "name": "verified_session.not_hyprland",
+   "eval_replies": [
+    "ok"
+   ],
+   "exchanges": [
+    {
+     "request": "j/cursorpos",
+     "reply": "{\"x\":960,\"y\":540}"
+    }
+   ],
+   "raised": "ValueError: socket peer is not the selected Hyprland process"
+  }
+ ]
+}
