@@ -161,6 +161,23 @@ the `sha2` hash of that fd matches, and never links the SDK at build time. The `
 adds `--fixture-root` and `--fixture-hash`, as `-DPRO2_SYNTHETIC` does for the C++ one; a production
 build refuses them.
 
+Three opt-in flags do the duties `tools/pro2_runtime/launch.py` otherwise does around the bridge,
+so a parent other than the Python launcher can run it. The launcher passes none of them and still
+does all three itself.
+
+- `--unshare` gives the host its own user and network namespace, as `unshare -Urn` does: this user
+  maps to root, and the network has only `lo`.
+- `--scan-competitors` refuses to start, with `competing-provider`, while another process of this
+  user is a known provider by name (`xrDriver`, `xr-luma-driver`, `pro2-sdk-bridge`,
+  `xr-pro2-bridge`) or has `libglasses.so` mapped. It then looks again once a second and ends the
+  run if one appears. The rescan runs in a child process forked before `--unshare`, because from
+  inside a new user namespace the kernel refuses to show other processes' `maps`. If the child dies,
+  the run ends with `provider-scan`.
+- `--health <path> --nonce <n>` writes the heartbeat `scope.TestScope.healthy` reads:
+  `{"nonce", "ready", "monotonic"}`, mode 0600, through `health.tmp` and a rename, every 20 ms once
+  the run is ready. Its last write is `ready: false`, with the run's error as `reason`. The path
+  must be absolute, and the nonce is 1 to 64 letters or digits.
+
 The Pro 2 suites run in private namespaces where cargo cannot work, so build the bridge first and
 point them at it:
 
@@ -173,6 +190,8 @@ PRO2_BRIDGE_RUST_DIR=<dir> /usr/bin/python3 tests/pro2_smooth_qa/run.py
 
 With `PRO2_BRIDGE_RUST_DIR` set, `tests/pro2_runtime_qa/test_rust_bridge.py` also runs both bridges
 side by side and compares them; without it the suites use the C++ bridge as before.
+`tests/pro2_runtime_qa/test_rust_host_duties.py` covers the three flags. Each host runs as pid 1 of
+its own PID namespace, so the scan sees only the test's stand-in competitors.
 
 ## Corpus
 

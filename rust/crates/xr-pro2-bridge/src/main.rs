@@ -23,7 +23,12 @@
 //! `--fixture-hash` (the fixture library's hash), for the QA suites. Without it those are
 //! unknown arguments, and the run ends with one stderr line, `wake_us n=.. p50=.. p99=.. max=..`:
 //! callback to published, per sample.
+//!
+//! Three opt-in flags do what `launch.py` otherwise does around it (see `host.rs`), checked
+//! first: `--unshare` (its own user and network namespace), `--scan-competitors` (refuse, or stop,
+//! while another same-user provider runs) and `--health <path> --nonce <n>` (the heartbeat file).
 
+mod host;
 mod sdk;
 
 use sha2::{Digest, Sha256};
@@ -225,6 +230,9 @@ struct Args {
     prefix: String,
     root: String,
     expected: String,
+    unshare: bool,
+    scan: bool,
+    health: Option<host::Health>,
 }
 
 fn parse_args(argv: &[String]) -> Option<Args> {
@@ -239,13 +247,19 @@ fn parse_args(argv: &[String]) -> Option<Args> {
         prefix: String::new(),
         root: "/sys/bus/usb/devices".into(),
         expected: SDK_HASH.into(),
+        unshare: false,
+        scan: false,
+        health: None,
     };
+    let (mut health, mut nonce) = (None::<String>, None::<String>);
     let (mut approved, mut max_seconds) = (false, DEFAULT_MAX_SECONDS);
     let mut it = argv.iter();
     while let Some(flag) = it.next() {
         match flag.as_str() {
             "--supervised-pro2-test" => approved = true,
             "--panel-route" => max_seconds = ROUTE_SECONDS,
+            "--unshare" => a.unshare = true,
+            "--scan-competitors" => a.scan = true,
             _ => {
                 let v = it.next()?;
                 match flag.as_str() {
@@ -257,6 +271,8 @@ fn parse_args(argv: &[String]) -> Option<Args> {
                     "--seconds" => a.seconds = v.parse().ok()?,
                     "--pose-rate" => a.pose_hz = v.parse().ok()?,
                     "--mount-pitch" => a.mount_pitch = v.parse().ok()?,
+                    "--health" => health = Some(v.clone()),
+                    "--nonce" => nonce = Some(v.clone()),
                     #[cfg(feature = "synthetic")]
                     "--fixture-root" => a.root = v.clone(),
                     #[cfg(feature = "synthetic")]
@@ -265,6 +281,11 @@ fn parse_args(argv: &[String]) -> Option<Args> {
                 }
             }
         }
+    }
+    match (health, nonce) {
+        (Some(path), Some(n)) => a.health = Some(host::Health::new(&path, &n)?),
+        (None, None) => {}
+        _ => return None,
     }
     let scoped = approved
         && a.sdk_fd >= 3
@@ -447,6 +468,7 @@ struct Run {
     /// Callback to published, per sample, for the synthetic build's stderr report.
     #[cfg(feature = "synthetic")]
     wake_ns: Vec<u64>,
+    scanner: Option<host::Scanner>,
 }
 
 /// One SDK session's sample checks. A reconnect starts a new one: the device clock may restart,
@@ -579,6 +601,17 @@ fn run(
     sdk_slot: &mut Option<sdk::Sdk>,
     out: &mut Run,
 ) -> Result<(), &'static str> {
+    if args.scan {
+        // Before the SDK is touched, as the launcher scans before it starts the bridge; then
+        // once a second for the rest of the run. Both before --unshare: see host::competing.
+        if host::competing(&[std::process::id()])? {
+            return Err("competing-provider");
+        }
+        out.scanner = Some(host::Scanner::spawn()?);
+    }
+    if args.unshare {
+        host::unshare_user_net()?;
+    }
     network_isolated()?;
     let mut fingerprint = identity(&args.root)?.ok_or("exclusive-identity-required")?;
     if hash_fd(args.sdk_fd)? != args.expected {
@@ -620,6 +653,16 @@ fn run(
             .is_some_and(|o| o.since.elapsed() > RECONNECT_WINDOW)
         {
             return Err("device-lost");
+        }
+        // Every pass, outage or not: the launcher's scanner and heartbeat run whatever the feed
+        // is doing, and health stays ready while a drop is waited out.
+        if let Some(scanner) = out.scanner.as_ref() {
+            scanner.check()?;
+        }
+        if out.ready
+            && let Some(h) = args.health.as_mut()
+        {
+            h.beat()?;
         }
         let present = identity(&args.root)?;
         if out.handle.is_none() {
@@ -824,6 +867,10 @@ fn main() {
     }
     let cleanup_errors = sdk.as_ref().map_or(0, |sdk| teardown(sdk, &mut out));
     drop(out.publisher.take()); // removes the private feed before the run is reported done
+    drop(out.scanner.take()); // killed and reaped: exit runs no destructors
+    if let Some(h) = args.health.as_mut() {
+        h.finish(error);
+    }
     let g = out.gaps;
     status(
         args.status_fd,
