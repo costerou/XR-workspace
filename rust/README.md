@@ -54,3 +54,18 @@ generator, regenerate them:
 ```sh
 TMPDIR=/tmp /usr/bin/python3 tests/native_spike/lua_corpus.py --write
 ```
+
+## Controller runs
+
+`xr-workspace` holds the controller's run half of the host probe (`src/host.rs`) and its run units
+(`src/units.rs`): the same `viture-xr-<run_id>` transient units, `systemctl` and `systemd-run` arguments
+and folders as `tools/xr_controller`, so a Rust controller adopts runs the Python one started.
+`xr-workspace runs` prints what a controller starting now would adopt; it only reads.
+
+The adoption gate runs against the real user systemd, so it is ignored by default:
+
+```sh
+cargo test --locked -p xr-workspace -- --ignored adoption_after_restart --nocapture
+```
+
+It starts and removes one short-lived `viture-xr-rstest…` unit and touches no XR session.
