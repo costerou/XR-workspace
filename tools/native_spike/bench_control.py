@@ -1,6 +1,7 @@
 """Control-plane timing harness. Offline: fakes only, never the live compositor, renderer, glasses or controller service.
 
 usage: python3 -m tools.native_spike.bench_control [--quick] [--json PATH] [--only NAME,...]
+                                                    [--overview-seconds S] [--press-every S]
 
 Benchmarks (one result block each; --json writes them all for a before / after comparison):
   hypr_query  HyprlandClient.query('cursorpos') against a fake Hyprland socket server in another process: client CPU
@@ -9,6 +10,8 @@ Benchmarks (one result block each; --json writes them all for a before / after c
               and UnifiedSampler, and a real HyprlandClient against the fake compositor, whose cursor moves 10 px every
               20 ms. A fake renderer process sends heartbeats at 120 Hz and times the overview_pointer frames it gets.
               Supervisor-process CPU (loop + sampler thread), samples per second, and cursor move -> dot frame latency.
+              --press-every S also presses the recenter key through the real bind helper every S seconds: key press
+              (helper spawn) -> the renderer reading the recenter frame. --overview-seconds sets the window.
   watchdog    The watchdog loop alone: 120 Hz heartbeats from the fake renderer and a real spawned guard worker (every
               managed run has one). Loop CPU per heartbeat.
   guard       validate_physical_pair, the watchdog guard's compositor check (every supervisor.GUARD_PERIOD while a run is
@@ -96,14 +99,15 @@ while True:
 '''
 
 # The fake renderer: b'H' heartbeats at `hz`, reads every frame the supervisor sends and records when each
-# overview_pointer frame arrived (CLOCK_MONOTONIC, shared with the fake compositor). SIGTERM writes the record and exits.
+# overview_pointer and recenter frame arrived (CLOCK_MONOTONIC, shared with the fake compositor and the bench).
+# SIGTERM writes the record and exits.
 FAKE_RENDERER = r'''
 import json, select, signal, socket, sys, time
 sock = socket.socket(fileno=int(sys.argv[1])); out, interval = sys.argv[2], 1 / float(sys.argv[3])
 stop = []
 signal.signal(signal.SIGTERM, lambda *a: stop.append(1))
 sock.setblocking(False)
-frames, counts, buf, due = [], {}, b'', time.monotonic()
+frames, recenters, counts, buf, due = [], [], {}, b'', time.monotonic()
 while not stop:
     now = time.monotonic()
     if now >= due:
@@ -124,7 +128,8 @@ while not stop:
         m = json.loads(line)
         counts[m['op']] = counts.get(m['op'], 0) + 1
         if m['op'] == 'overview_pointer': frames.append((t, m['payload']['x'], m['payload']['visible']))
-with open(out, 'w') as f: json.dump({'frames': frames, 'counts': counts}, f)
+        elif m['op'] == 'recenter': recenters.append(t)
+with open(out, 'w') as f: json.dump({'frames': frames, 'counts': counts, 'recenters': recenters}, f)
 '''
 
 
@@ -136,7 +141,7 @@ def pct(values, q):
 
 def summary(values, scale=1.0, digits=1):
     return {'p50': round(pct(values, 0.5) * scale, digits), 'p90': round(pct(values, 0.9) * scale, digits),
-            'p99': round(pct(values, 0.99) * scale, digits),
+            'p95': round(pct(values, 0.95) * scale, digits), 'p99': round(pct(values, 0.99) * scale, digits),
             'mean': round(statistics.fmean(values) * scale, digits) if values else None, 'n': len(values)}
 
 
@@ -200,14 +205,17 @@ def bench_hypr_query(quick):
             'sampler_cpu_pct_at_250hz': round(cpu / n * 250 * 100, 2)}
 
 
-def bench_overview(quick):
+def bench_overview(quick, window=None, press_every=None):
+    """window: seconds measured (default 2 / 5). press_every: also press the recenter key through the real bind helper
+    every this many seconds while the overview is open, and time spawn -> the renderer holding the recenter frame."""
     from . import view
     from .unified_cursor import UnifiedPointer, UnifiedSampler
     from .free_pointer import parse_overview_geometry
     from .ipc import PrivateServer
     from .profiles import LayoutStore
     from .supervisor import Supervisor
-    warmup, window = (0.7, 2.0) if quick else (1.0, 5.0)
+    warmup, default = (0.7, 2.0) if quick else (1.0, 5.0)
+    window = window or default
     fake = FakeCompositor('oscillate', 0.02)
     run_id, session = 'bench' + secrets.token_hex(4), 's' * 64
     out = fake.tmp / 'renderer.json'
@@ -236,11 +244,20 @@ def bench_overview(quick):
     loop_clock = time.pthread_getcpuclockid(threading.get_ident())  # this thread runs the supervisor loop
     sampler_clock = time.pthread_getcpuclockid(sampler._thread.ident)
 
+    presses = []
+
     def timer():
         time.sleep(warmup)
         marks['t0'], marks['c0'], marks['s0'] = time.monotonic(), time.process_time(), sampler.samples
         marks['l0'], marks['p0'] = time.clock_gettime(loop_clock), time.clock_gettime(sampler_clock)
-        time.sleep(window)
+        end = marks['t0'] + window
+        while press_every and time.monotonic() + press_every < end:
+            time.sleep(press_every)
+            c = time.thread_time()  # Hyprland spawns the helper, not the supervisor: this cost is reported apart
+            presses.append(time.monotonic())
+            subprocess.Popen([*bind_args, 'recenter'], stdin=subprocess.DEVNULL).wait()
+            marks['spawn_cpu'] = marks.get('spawn_cpu', 0.0) + time.thread_time() - c
+        time.sleep(max(0.0, end - time.monotonic()))
         marks['t1'], marks['c1'], marks['s1'] = time.monotonic(), time.process_time(), sampler.samples
         marks['l1'], marks['p1'] = time.clock_gettime(loop_clock), time.clock_gettime(sampler_clock)
         proc.terminate()
@@ -271,7 +288,15 @@ def bench_overview(quick):
             missed += 1
         k += 1
     samples = marks['s1'] - marks['s0']
-    return {'window_s': round(elapsed, 2), 'supervisor_cpu_pct': round((marks['c1'] - marks['c0']) / elapsed * 100, 2),
+    # Key press -> renderer frame: the first recenter frame the renderer read after each press.
+    arrivals, press_ms, unanswered = record.get('recenters', []), [], 0
+    for tp in presses:
+        later = [ta for ta in arrivals if ta >= tp]
+        if later and later[0] - tp < press_every: press_ms.append(later[0] - tp)
+        else: unanswered += 1
+    keys = {'key_press_to_frame_ms': summary(press_ms, 1e3, 2), 'key_presses_unanswered': unanswered,
+            'press_spawn_cpu_pct': round(marks.get('spawn_cpu', 0.0) / elapsed * 100, 3)} if press_every else {}
+    return {**keys, 'window_s': round(elapsed, 2), 'supervisor_cpu_pct': round((marks['c1'] - marks['c0']) / elapsed * 100, 2),
             'loop_thread_cpu_pct': round((marks['l1'] - marks['l0']) / elapsed * 100, 2),
             'sampler_thread_cpu_pct': round((marks['p1'] - marks['p0']) / elapsed * 100, 2),
             'sampler_cpu_us_per_sample': round((marks['p1'] - marks['p0']) / max(samples, 1) * 1e6, 1),
@@ -501,11 +526,14 @@ def main(argv=None):
     ap.add_argument('--quick', action='store_true', help='fewer iterations')
     ap.add_argument('--json', type=Path, help='also write the results here')
     ap.add_argument('--only', help='comma-separated benchmark names: ' + ', '.join(BENCHES))
+    ap.add_argument('--overview-seconds', type=float, help='overview: measure this long (bench_baseline uses 600)')
+    ap.add_argument('--press-every', type=float, help='overview: press the recenter key through the bind helper this often (s)')
     args = ap.parse_args(argv)
     names = args.only.split(',') if args.only else list(BENCHES)
     results = {}
     for name in names:
-        results[name] = BENCHES[name](args.quick)
+        extra = {'window': args.overview_seconds, 'press_every': args.press_every} if name == 'overview' else {}
+        results[name] = BENCHES[name](args.quick, **extra)
         print(f'{name}: {json.dumps(results[name])}', flush=True)
     if args.json: args.json.write_text(json.dumps(results, indent=2) + '\n')
     return 0

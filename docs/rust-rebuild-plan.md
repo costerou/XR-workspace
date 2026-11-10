@@ -250,9 +250,9 @@ Out of scope unless Cody decides otherwise: camera-based heading or 6DoF.
 | Driver lost samples, allocations | 0, 0 | 0, 0 | same, `malloc_count` |
 | Renderer GPU time | 17–70 µs (bench), 0.41 ms median stereo | no worse | `gl_bench`; add a GPU timer query to the status dict |
 | Renderer GL calls per frame | current `gl_call_counts` | equal or fewer | `gl_bench` |
-| Supervisor CPU with overview open | **not measured** (250 Hz loop, one new Hyprland connection per sample) | ≤ 1 % of a core | `pidstat` over a scripted overview session |
-| Key press to renderer frame | **not measured** (one Python start per press) | ≤ 5 ms | timestamp in helper against `control_applied` |
-| Memory | **not measured** | driver ≤ 8 MiB, supervisor ≤ 20 MiB, renderer no worse | `VmRSS` at 10 minutes |
+| Supervisor CPU with overview open | 3.7 % (loop 1.65 %, 240 Hz cursor sampler 2.0 %), 10 min offline, `docs/evidence/rust-baseline/` | ≤ 1 % of a core | `pidstat` over a scripted overview session (`bench_baseline`) |
+| Key press to renderer frame | p50 7.3 ms, p95 9.0 ms to the renderer reading the frame (one Python start per press), plus up to one refresh | ≤ 5 ms | timestamp in helper against `control_applied` (`bench_baseline`) |
+| Memory | VmRSS at 10 min (with swap / peak): driver pipeline 4.4 (5.1 / 5.0) MiB, supervisor bench 12.3 (21.8 / 24.5) MiB, live runner about 30 MiB, renderer 58.6 (98.1 / 124.6) MiB | driver ≤ 8 MiB, supervisor ≤ 20 MiB, renderer no worse | `VmRSS` at 10 minutes (`bench_baseline`) |
 | Heading drift | 0.5°/min | ≤ 0.1°/min | D6 recordings |
 | Calibration | 1.5–2.6 s, plus 5 s settle | first pose < 100 ms, no settle | driver log, `.progress.json` phase times |
 | Start-up, confirm to first frame | **not measured** | ≤ 3 s on Luma | phase marks in `.progress.json` and `.result.json` (`startup`); `python -m tools.native_spike.startup <run>.result.json --journal` adds the exact first frame from the renderer's timing report |

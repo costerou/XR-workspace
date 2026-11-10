@@ -1,0 +1,131 @@
+{
+  "seconds": 600.0,
+  "press_every_s": 2.0,
+  "cpus": 16,
+  "loadavg_start": [
+    4.35,
+    11.21,
+    12.6
+  ],
+  "loadavg_end": [
+    6.19,
+    5.16,
+    8.46
+  ],
+  "memory_pressure_end": "some avg10=0.79 avg60=2.46 avg300=1.56 total=168771963",
+  "swap_used_mib_end": 34880,
+  "processes": {
+    "supervisor": {
+      "pid": 3200489,
+      "exited": false,
+      "window_s": 600.0,
+      "cpu_pct": 3.68,
+      "usr_pct": 2.98,
+      "system_pct": 0.69,
+      "cpu_pct_per_second": {
+        "p50": 3.0,
+        "p90": 5.0,
+        "p95": 5.0,
+        "p99": 9.0,
+        "mean": 3.68,
+        "n": 600
+      },
+      "vmrss_kib": 12608,
+      "rssanon_kib": 3828,
+      "rssfile_kib": 8780,
+      "rssshmem_kib": 0,
+      "vmhwm_kib": 25104,
+      "vmswap_kib": 9700,
+      "vmrss_plus_swap_kib": 22308,
+      "press_spawn_cpu_pct": 0.006,
+      "cpu_pct_without_press_spawns": 3.67
+    },
+    "driver": {
+      "pid": 3200490,
+      "exited": false,
+      "window_s": 600.0,
+      "cpu_pct": 5.27,
+      "usr_pct": 4.93,
+      "system_pct": 0.34,
+      "cpu_pct_per_second": {
+        "p50": 5.0,
+        "p90": 6.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "mean": 5.27,
+        "n": 600
+      },
+      "vmrss_kib": 4464,
+      "rssanon_kib": 140,
+      "rssfile_kib": 4320,
+      "rssshmem_kib": 4,
+      "vmhwm_kib": 5076,
+      "vmswap_kib": 748,
+      "vmrss_plus_swap_kib": 5212
+    },
+    "renderer": {
+      "pid": 3200502,
+      "exited": false,
+      "window_s": 600.0,
+      "cpu_pct": 2.8,
+      "usr_pct": 2.45,
+      "system_pct": 0.35,
+      "cpu_pct_per_second": {
+        "p50": 3.0,
+        "p90": 4.0,
+        "p95": 4.0,
+        "p99": 7.0,
+        "mean": 2.8,
+        "n": 600
+      },
+      "vmrss_kib": 60024,
+      "rssanon_kib": 1576,
+      "rssfile_kib": 58448,
+      "rssshmem_kib": 0,
+      "vmhwm_kib": 127572,
+      "vmswap_kib": 40408,
+      "vmrss_plus_swap_kib": 100432
+    }
+  },
+  "key_press_to_frame_ms": {
+    "p50": 7.32,
+    "p90": 7.96,
+    "p95": 8.98,
+    "p99": 20.52,
+    "mean": 8.14,
+    "n": 301
+  },
+  "key_presses_unanswered": 0,
+  "overview": {
+    "supervisor_cpu_pct": 3.67,
+    "loop_thread_cpu_pct": 1.65,
+    "sampler_thread_cpu_pct": 2.02,
+    "samples_per_s": 240.4,
+    "move_to_frame_ms": {
+      "p50": 2.27,
+      "p90": 3.93,
+      "p95": 4.18,
+      "p99": 4.34,
+      "mean": 2.29,
+      "n": 30246
+    },
+    "sampler_errors": 0
+  },
+  "driver_bench": {
+    "mode": "ring",
+    "publish": "seqlock",
+    "reader_sched": "other",
+    "short_slice": true,
+    "load": 0,
+    "p50_us": 7.6,
+    "p99_us": 17.4,
+    "p999_us": 557.1,
+    "max_us": 15655.0,
+    "cpu_pct": 0.469,
+    "lost": 0,
+    "allocs": 0
+  },
+  "renderer_bench_exit": 0,
+  "driver_bench_exit": 0,
+  "live": {}
+}
