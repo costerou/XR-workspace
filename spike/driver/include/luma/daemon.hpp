@@ -58,7 +58,8 @@ enum class ReadStatus {
     gone,     // the device went away (read error or removal)
     end,      // a replay ran out; the live device never says this
 };
-struct ReadResult { ReadStatus status = ReadStatus::timeout; std::size_t size = 0; };
+// t_ns: CLOCK_MONOTONIC when the transfer completed (the URB was reaped), or the record time in a replay. 0: not known.
+struct ReadResult { ReadStatus status = ReadStatus::timeout; std::size_t size = 0; std::uint64_t t_ns = 0; };
 
 // The USB side. open() must not send anything to the device: the daemon decides what goes out.
 class Link {
@@ -257,6 +258,7 @@ struct Options {
     std::string state_dir;       // where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state
     std::optional<std::string> pose_log;  // --replay only: write every Nth pose here, for tools
     unsigned pose_log_every = 10;
+    std::optional<std::string> latency_log;  // host and device time of every IMU packet, for luma_latency_report
     std::vector<std::string> feature_flags;  // --feature-* and --no-feature-*, passed on as they are
     DaemonConfig config{};
 };

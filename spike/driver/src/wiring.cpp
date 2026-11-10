@@ -2,11 +2,15 @@
 #include "luma/wiring.hpp"
 #include "luma/features.hpp"
 #include "luma/fusion.hpp"
+#include "luma/latency_log.hpp"
 #include "luma/protocol.hpp"
 #include "luma/publish.hpp"
 #include "luma/transport.hpp"
 #include "luma/transport_link.hpp"
 #include <cerrno>
+#include <ctime>
+#include <fcntl.h>
+#include <unistd.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -57,6 +61,64 @@ private:
     std::FILE* file_;
     unsigned every_;
     std::uint64_t count_ = 0;
+};
+
+std::uint64_t monotonic_now_ns() {  // the transport's clock
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return std::uint64_t(ts.tv_sec) * 1'000'000'000ull + std::uint64_t(ts.tv_nsec);
+}
+
+class LatencyLog final : public Link {
+public:
+    LatencyLog(std::unique_ptr<Link> inner, int fd, Logger log) : inner_(std::move(inner)), fd_(fd), log_(std::move(log)) {
+        pending_.reserve(kBlock);
+    }
+    ~LatencyLog() override { flush(); ::close(fd_); }
+    bool open(std::string& why) override {
+        const bool ok = inner_->open(why);
+        if (ok) add({.flags = latency::kOpened});
+        return ok;
+    }
+    ReadResult read(std::span<std::uint8_t> into, milliseconds timeout) override {
+        const ReadResult r = inner_->read(into, timeout);
+        if (r.status == ReadStatus::data)
+            if (const auto s = parse_imu(into.first(std::min(r.size, into.size()))))
+                add({.host_ns = r.t_ns ? r.t_ns : monotonic_now_ns(), .device_ns = s->t_ns, .seq = s->seq});
+        return r;
+    }
+    bool write(std::span<const std::uint8_t> bytes) override { return inner_->write(bytes); }
+    void close() override { inner_->close(); }
+    bool wait_for_device(milliseconds timeout) override { return inner_->wait_for_device(timeout); }
+    bool exhausted() const override { return inner_->exhausted(); }
+private:
+    static constexpr std::size_t kBlock = 4096;  // about 4 s at 1 kHz, 96 KiB: one write(2) to the page cache
+    void add(const latency::Record& r) {
+        if (failed_) return;
+        pending_.push_back(r);
+        if (pending_.size() >= kBlock) flush();
+    }
+    void flush() {
+        const char* at = reinterpret_cast<const char*>(pending_.data());
+        std::size_t left = pending_.size() * sizeof(latency::Record);
+        while (left && !failed_) {
+            const ssize_t n = ::write(fd_, at, left);
+            if (n < 0 && errno == EINTR) continue;
+            if (n <= 0) {
+                failed_ = true;
+                if (log_) log_(std::string("luma: warning latency-log stopped reason=") + std::strerror(n < 0 ? errno : EIO));
+                break;
+            }
+            at += n;
+            left -= std::size_t(n);
+        }
+        pending_.clear();
+    }
+    std::unique_ptr<Link> inner_;
+    int fd_;
+    Logger log_;
+    std::vector<latency::Record> pending_;
+    bool failed_ = false;
 };
 
 class FusionEstimator final : public Estimator {
@@ -246,6 +308,18 @@ std::unique_ptr<Sink> logging_sink(std::unique_ptr<Sink> inner, const std::strin
         return nullptr;
     }
     return std::make_unique<PoseLog>(std::move(inner), file, every);
+}
+
+std::unique_ptr<Link> latency_log_link(std::unique_ptr<Link> inner, const std::string& path, Logger log, std::string& why) {
+    const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) { why = "cannot write " + path + ": " + std::strerror(errno); return nullptr; }
+    const latency::Header header{};
+    if (::write(fd, &header, sizeof header) != ssize_t(sizeof header)) {
+        why = "cannot write " + path + ": " + std::strerror(errno);
+        ::close(fd);
+        return nullptr;
+    }
+    return std::make_unique<LatencyLog>(std::move(inner), fd, std::move(log));
 }
 
 std::unique_ptr<Estimator> estimator() { return std::make_unique<FusionEstimator>(FusionConfig{}); }

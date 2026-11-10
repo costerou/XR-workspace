@@ -151,7 +151,7 @@ the pipeline, which is supported.
 ## What this does not prove
 
 - **Real glasses and USB.** The fake transport is not hidraw. The kernel's USB path, the glasses' own delay and the USB polling interval
-  all come on top.
+  all come on top. "Real glasses: USB latency" below is how that is measured; its numbers are still to be recorded.
 - **Real-time.** The FIFO path has only run against a fake `SysOps`. `apply_real_thread` will check it for real once the limits exist.
 - **Busy-CPU results.** `--load` has not been run: XR, or something that looked like it, was up when its turn came, so that was skipped.
   "Busy" above means the other work running that night, which varied.
@@ -173,3 +173,83 @@ and UBSan runs are clean; to repeat one, compile `rt_test.cpp` and `rt.cpp` with
 thread: 0.12 µs median, 10 to 70 µs worst, 1.2 million packets in 0.2 s. So the driver's own code is a rounding error next to USB
 and scheduling, which is why the daemon runs inline rather than through the ring. USB and scheduling have still only been
 measured against a fake transport.
+
+## Real glasses: USB latency
+
+The baseline every later driver change is judged against (`docs/rust-rebuild-plan.md`, D1). It measures how late each IMU packet
+reaches the driver, from the glasses' own stamp to the moment the transport reaps the finished URB.
+
+### Results
+
+Not recorded yet: it needs the glasses, with XR stopped. Run the steps below and fill this table from the `json` lines.
+
+| Machine | Packets | Rate | Lost | Excess p50 | p99 | p99.9 | Max | > 1 ms | > 8 ms | Inter-arrival p99 | Drift |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Idle | | | | | | | | | | | |
+| Loaded (one busy loop per CPU) | | | | | | | | | | | |
+
+Record the date, the kernel, and the `luma: scheduling` line each run printed (it says whether real-time was granted).
+
+### How it is measured
+
+`xr-luma-driver --latency-log FILE` works live and in replay. For every IMU packet it appends 24 bytes: the host time, the device
+time, and the sequence number.
+
+- **Host time** is `CLOCK_MONOTONIC`, stamped when the transport reaps the URB (usbdevfs) or when `read` returns (hidraw). It is
+  the time the packet first reached our code. In a replay it is the capture's time. A `.lcap` replay uses usbmon's kernel
+  completion time, which leaves out our own wake-up.
+- **Device time** is the stamp in the packet, in 100 µs ticks.
+- Each successful open adds a marker record.
+
+The log runs in the read path, on the daemon's thread. It keeps 4,096 records (about 4 s) in memory and writes each block with
+one `write(2)`. If a write fails, the driver logs it once and stops the log. Tracking carries on.
+
+The two clocks share no zero and tick at slightly different rates, so absolute latency cannot be measured here. What
+`luma_latency_report` measures is each packet's delay beyond the fastest packets around it:
+
+1. For each packet, d = host time − device time.
+2. Within 10 s windows, the lowest line under every (device time, d) point is fitted. This is the lower convex hull edge across
+   the window's mean time. Its slope is the clock drift.
+3. A packet's **excess** is its height above that line. The fastest packets have 0.
+
+Some packets are dropped before the percentiles are taken:
+
+- The first packet after each open: it can be one the previous reader left in the device.
+- A packet whose device time is not ahead of the last one: the Ultra sends its first ~60 packets twice.
+- A device restart, a reopen, or a silence over 1 s starts a new segment with its own line.
+
+Lost packets are counted from the 16-bit sequence numbers.
+
+The device stamps in 100 µs ticks, so about 100 µs of the excess is rounding, not delay. Read results below that as "within a
+tick". The excess also hides any delay every packet shares, such as the polling interval's average. It is the jitter on top that
+later changes can move.
+
+### Offline proof
+
+`ctest --test-dir build/release -R luma_latency_log` (`spike/driver/tests/latency_log_test.cpp`) runs synthetic streams with a
+known delay on every packet. The report recovers them within 1 µs at p50, p99, p99.9 and max, and the drift within 0.1 ppm, at
++75, −40 and 0 ppm. The streams include the Ultra's opening resends, a sequence wrap, lost packets, a device restart, a silence
+and a reopen. With 100 µs stamp rounding added, the results stay within one tick. `luma_daemon`'s `test_latency_log_binary` does
+the same through the real `xr-luma-driver` binary, with a replay that drops the device and brings it back.
+
+### Running it on the glasses
+
+With XR stopped and the glasses plugged in:
+
+```bash
+pgrep -x xr-luma-driver || pgrep -x xrDriver || echo "no driver: go"
+cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release
+make -C build/release -j"$(nproc)" xr-luma-driver luma_latency_report
+spike/driver/tools/latency_baseline.sh build/release 120
+```
+
+The script runs the driver for 120 s with the machine idle, then 120 s with one busy loop per CPU. The driver writes a private
+feed and keeps its gyro bias in the run's own folder, so the live feed and the saved bias are not touched. The script prints a
+report for each run and the folder that holds the logs. `luma_latency_report FILE` reads any log again.
+
+A run counts if:
+
+- Both reports print a `json` line.
+- `packets` is close to 1,000 per second of the run.
+- `segments` is 1 and `lost` is 0, or each loss is explained by a USB message in `journalctl -k`.
+

@@ -20,3 +20,14 @@ target_compile_options(luma_real_capture_test PRIVATE -Wall -Wextra -Wpedantic -
 add_test(NAME luma_real_capture COMMAND luma_real_capture_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin"
          "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_upside_down.bin")
 add_test(NAME luma_replay_report_smoke COMMAND luma_replay_report "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin" --every 2)
+
+add_executable(luma_latency_report tools/latency_report.cpp)
+target_include_directories(luma_latency_report PRIVATE include)
+target_compile_features(luma_latency_report PRIVATE cxx_std_20)
+target_compile_options(luma_latency_report PRIVATE -Wall -Wextra -Wpedantic -Werror)
+
+add_executable(luma_latency_log_test tests/latency_log_test.cpp)
+target_include_directories(luma_latency_log_test PRIVATE include)
+target_compile_features(luma_latency_log_test PRIVATE cxx_std_20)
+target_compile_options(luma_latency_log_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+add_test(NAME luma_latency_log COMMAND luma_latency_log_test "$<TARGET_FILE:luma_latency_report>")

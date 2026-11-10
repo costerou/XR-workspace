@@ -51,6 +51,9 @@ std::unique_ptr<Link> live_link(const Options& options, Logger log);
 std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments = false);
 // A sink that also logs poses, for --pose-log.
 std::unique_ptr<Sink> logging_sink(std::unique_ptr<Sink> inner, const std::string& path, unsigned every, std::string& why);
+// A link that also logs every IMU packet's host and device time, for --latency-log (include/luma/latency_log.hpp). It writes in
+// blocks of a few seconds; a failed write is logged once and ends the log, never the tracking.
+std::unique_ptr<Link> latency_log_link(std::unique_ptr<Link> inner, const std::string& path, Logger log, std::string& why);
 std::unique_ptr<Estimator> estimator();
 std::unique_ptr<Estimator> estimator_with(BiasStore& store);
 std::unique_ptr<Decoder> decoder();

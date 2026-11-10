@@ -33,7 +33,8 @@ public:
                     return {ReadStatus::timeout, 0};
                 }
             }
-            return {ReadStatus::data, r.bytes};
+            if constexpr (requires { r.t_ns; }) return {ReadStatus::data, r.bytes, r.t_ns};
+            else return {ReadStatus::data, r.bytes};
         case Io::Disconnected: case Io::Closed: link_up_ = false; return {ReadStatus::gone, 0};
         default: return {ReadStatus::timeout, 0};  // Timeout, Interrupted, and a Connected that needs nothing from us
         }

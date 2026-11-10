@@ -1,8 +1,10 @@
 // The daemon against a simulated device and clock: every failure mode, in moments, with no USB and no IPC. The second half
 // runs the real binary as a process (argv[1]) on captures in a private folder; it never opens a device or the live feed.
 #include "luma/daemon.hpp"
+#include "luma/latency_log.hpp"
 #include "luma/transport_link.hpp"
 #include "luma/wiring.hpp"
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <csignal>
@@ -961,6 +963,8 @@ void test_options() {
     CHECK(!parse({"--pose-log", "f"}));  // writes to disk on the pose thread: replay only
     const auto logged = parse({"--replay", "f", "--ipc-prefix", "/run/x_", "--pose-log", "p", "--pose-log-every", "5"});
     CHECK(logged && logged->pose_log == "p" && logged->pose_log_every == 5);
+    CHECK(parse({"--latency-log", "l"})->latency_log == "l");  // live too: it is what measures the real glasses
+    CHECK(!parse({"--latency-log"}));
 }
 
 // ---- the real binary -----------------------------------------------------------------------------------------------
@@ -1048,6 +1052,69 @@ void test_binary(const std::string& binary, const std::filesystem::path& dir) {
 }
 }
 
+// What --latency-log measures, through the real binary: a capture whose host times carry a known delay per packet, on a host
+// clock 50 ppm fast and offset from the device's, with the Ultra's resent first packets, a lost pair and a reconnect.
+void test_latency_log_binary(const std::string& binary, const std::filesystem::path& dir) {
+    if (binary.empty()) { ++g_failures; std::cerr << "  FAILED no binary given\n"; return; }
+    constexpr std::uint64_t kOffset = 7'000'000'123;  // host minus device at t=0
+    const auto injected = [](std::uint64_t i) -> std::uint64_t {  // us of delay: noise, every 50th 3 ms, one 8.5 ms
+        return (i * 37 % 51 + (i % 50 == 25 ? 3000 : 0) + (i == 2722 ? 8500 : 0)) * 1000;
+    };
+    std::vector<CaptureRecord> records{{kOffset, CaptureKind::to_device, {0x01}}};
+    std::vector<double> want;  // what each kept packet saw, in order
+    std::uint64_t host = 0;
+    const auto send = [&](std::uint64_t i, bool keep) {
+        const std::uint64_t device = i * kMs;
+        const std::uint64_t ideal = kOffset + device + device / 20'000;  // 50 ppm
+        host = std::max(host + 1000, ideal + injected(i));  // the bus hands packets over in order
+        records.push_back({host, CaptureKind::from_device, wiring::stand_in_packet(sample_at(device, std::uint32_t(i & 0xFFFF)))});
+        if (keep) want.push_back(double(host - ideal));
+    };
+    for (std::uint64_t i = 1; i <= 5; ++i) { send(i, i != 1); send(i, i == 1); }  // 1: the leftover, then its copy
+    for (std::uint64_t i = 6; i <= 3000; ++i) {
+        if (i == 1500 || i == 1501) continue;  // lost
+        if (i == 2000) {  // unplugged for 400 ms: the reopen starts a new segment
+            records.push_back({host + 1, CaptureKind::device_gone, {}});
+            records.push_back({host + 50 * kMs, CaptureKind::device_back, {}});
+        }
+        if (i >= 2000 && i < 2400) continue;
+        send(i, i != 2400);  // the first packet after the reopen is the leftover
+    }
+    const std::string cap = dir / "latency.cap", log_path = dir / "latency.log";
+    CHECK(save_capture(cap, records));
+    auto p = spawn(binary, {"--replay", cap, "--ipc-prefix", (dir / "lat_").string(), "--latency-log", log_path});
+    const std::string err = drain(p.err);
+    CHECK(wait_exit(p.pid) == 0);
+    std::string why;
+    const auto logged = latency::load(log_path, why);
+    CHECK(logged.has_value());
+    if (!logged) { std::cerr << "  " << why << "\n" << err; return; }
+    const latency::Report r = latency::analyze(*logged);
+    CHECK(r.opens == 2);
+    CHECK(r.leftovers == 2);
+    CHECK(r.repeats == 4);
+    CHECK(r.lost == 2);
+    CHECK(r.segments == 2);
+    std::sort(want.begin(), want.end());
+    const auto pick = [&](double q) { return want[std::min(want.size() - 1, std::size_t(std::ceil(q * double(want.size()))) - 1)]; };
+    const auto near = [](double got, double expect) { return std::fabs(got - expect) <= 2000; };  // 2 us
+    CHECK(r.packets == want.size());
+    CHECK(near(r.excess.p50, pick(0.5)));
+    CHECK(near(r.excess.p99, pick(0.99)));
+    CHECK(near(r.excess.p999, pick(0.999)));
+    CHECK(near(r.excess.max, want.back()));
+    CHECK(r.excess.max > 8.5e6 && r.over_8ms == 1);
+    CHECK(std::fabs(r.drift_ppm - 50) < 0.5);
+    CHECK(std::fabs(r.interarrival.p50 - 1e6) < 60'000);
+    if (!near(r.excess.p99, pick(0.99)))
+        std::cerr << "  got p50 " << r.excess.p50 << " p99 " << r.excess.p99 << " want " << pick(0.5) << " " << pick(0.99) << "\n";
+
+    auto bad = spawn(binary, {"--replay", cap, "--ipc-prefix", (dir / "lat_").string(), "--latency-log", (dir / "no-dir" / "l").string()});
+    const std::string refused = drain(bad.err);
+    CHECK(wait_exit(bad.pid) == 4);
+    CHECK(refused.find("cannot write") != std::string::npos);
+}
+
 int main(int argc, char** argv) {
     char tmpl[] = "/tmp/luma_daemon_test_XXXXXX";
     const char* dir = mkdtemp(tmpl);
@@ -1110,6 +1177,7 @@ int main(int argc, char** argv) {
     RUN(test_capture_file, dir);
     RUN(test_options);
     RUN(test_binary, argc > 1 ? argv[1] : "", dir);
+    RUN(test_latency_log_binary, argc > 1 ? argv[1] : "", dir);
     std::filesystem::remove_all(dir);
     std::cerr << (g_failures ? "FAILED\n" : "all passed\n");
     return g_failures ? 1 : 0;

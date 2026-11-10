@@ -390,7 +390,7 @@ ReadResult ReplayLink::read(std::span<std::uint8_t> into, milliseconds timeout) 
     if (r.kind == CaptureKind::device_back) return {ReadStatus::timeout, 0};
     const std::size_t n = std::min(r.payload.size(), into.size());
     std::copy_n(r.payload.begin(), n, into.begin());
-    return {ReadStatus::data, n};
+    return {ReadStatus::data, n, r.t_ns};
 }
 bool ReplayLink::wait_for_device(milliseconds timeout) {
     const std::uint64_t deadline = now_ + ns(timeout);
@@ -426,6 +426,7 @@ const char* const kUsage =
     "  --state-dir PATH         where the gyro bias is kept between runs\n"
     "  --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose\n"
     "  --pose-log-every N       default 10\n"
+    "  --latency-log FILE       host and device time of every IMU packet, live or replay; read it with luma_latency_report\n"
     "  --feature-NAME, --no-feature-NAME  optional features that send nothing; see spike/driver/docs/features.md\n"
     "  --help\n";
 
@@ -463,6 +464,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--no-rt") o.no_rt = true;
         else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }
         else if (arg == "--pose-log") { const char* v = value(); if (!v) return std::nullopt; o.pose_log = v; }
+        else if (arg == "--latency-log") { const char* v = value(); if (!v) return std::nullopt; o.latency_log = v; }
         else if (arg == "--pose-log-every") {
             milliseconds every{};
             if (!number(every)) return std::nullopt;

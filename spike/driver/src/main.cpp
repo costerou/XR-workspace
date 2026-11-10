@@ -95,6 +95,10 @@ int main(int argc, char** argv) {
     } else {
         link = wiring::live_link(*options, &log_line);
     }
+    if (options->latency_log) {
+        link = wiring::latency_log_link(std::move(link), *options->latency_log, &log_line, why);
+        if (!link) return fail(4, why);
+    }
     // Only the real feed is shared and left in place. Anything else, a replay or a bench run, makes its own segments and removes
     // them: ftok keys hold 16 bits of the inode, so attaching to whatever exists could land on the live feed.
     std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why, options->ipc_prefix != kLiveIpcPrefix);
