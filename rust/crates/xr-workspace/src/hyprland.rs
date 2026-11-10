@@ -531,7 +531,28 @@ fn connect_at(
     deadline: Instant,
     retry: bool,
 ) -> Result<UnixStream> {
+    let stream = connect_to(&socket_address(directory, name)?, deadline, retry)?;
+    stream.set_nonblocking(false)?;
+    Ok(stream)
+}
+
+/// The address of `name` inside the open `directory`, through `/proc/self/fd`.
+fn socket_address(directory: BorrowedFd<'_>, name: &str) -> Result<libc::sockaddr_un> {
     let path = format!("/proc/self/fd/{}/{name}", directory.as_raw_fd());
+    // SAFETY: sockaddr_un is plain old data; all zeroes is a valid value.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+    if path.len() >= addr.sun_path.len() {
+        return Err(Error::Io(io::Error::from(io::ErrorKind::InvalidInput)));
+    }
+    for (dst, src) in addr.sun_path.iter_mut().zip(path.bytes()) {
+        *dst = src as libc::c_char;
+    }
+    Ok(addr)
+}
+
+/// A non-blocking stream socket connected to `addr` (see [`connect_at`] for `retry`).
+fn connect_to(addr: &libc::sockaddr_un, deadline: Instant, retry: bool) -> Result<UnixStream> {
     // SAFETY: plain socket(2); the result is checked and owned at once.
     let raw: RawFd = unsafe {
         libc::socket(
@@ -545,15 +566,6 @@ fn connect_at(
     }
     // SAFETY: `raw` is a fresh descriptor nothing else owns.
     let socket = unsafe { OwnedFd::from_raw_fd(raw) };
-    // SAFETY: sockaddr_un is plain old data; all zeroes is a valid value.
-    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
-    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
-    if path.len() >= addr.sun_path.len() {
-        return Err(Error::Io(io::Error::from(io::ErrorKind::InvalidInput)));
-    }
-    for (dst, src) in addr.sun_path.iter_mut().zip(path.bytes()) {
-        *dst = src as libc::c_char;
-    }
     let timeout = || Error::Timeout("Hyprland connect deadline exceeded");
     loop {
         if Instant::now() >= deadline {
@@ -563,7 +575,7 @@ fn connect_at(
         let rc = unsafe {
             libc::connect(
                 socket.as_raw_fd(),
-                (&addr as *const libc::sockaddr_un).cast(),
+                (addr as *const libc::sockaddr_un).cast(),
                 std::mem::size_of::<libc::sockaddr_un>() as libc::socklen_t,
             )
         };
@@ -586,9 +598,7 @@ fn connect_at(
     if Instant::now() >= deadline {
         return Err(timeout());
     }
-    let stream = UnixStream::from(socket);
-    stream.set_nonblocking(false)?;
-    Ok(stream)
+    Ok(UnixStream::from(socket))
 }
 
 /// Field 22 of `/proc/<pid>/stat`: the process's start time in clock ticks since boot.
@@ -706,8 +716,9 @@ impl Client {
         })
     }
 
-    fn connect(&mut self, deadline: Instant, name: &str) -> Result<UnixStream> {
-        // No symlink traversal for the selected endpoint or its parents.
+    /// No symlink traversal for the selected endpoint or its parents: each is a directory of ours that no group or
+    /// other may write.
+    fn check_directories(&self) -> Result<()> {
         let uid = uid();
         for path in [
             self.runtime_dir.clone(),
@@ -719,6 +730,12 @@ impl Client {
                 return Err(Error::Permission("unsafe Hyprland socket directory"));
             }
         }
+        Ok(())
+    }
+
+    fn connect(&mut self, deadline: Instant, name: &str) -> Result<UnixStream> {
+        self.check_directories()?;
+        let uid = uid();
         if name != REQUEST_SOCKET && name != EVENT_SOCKET {
             return value("unknown Hyprland socket");
         }
@@ -804,6 +821,33 @@ impl Client {
         }
         let reply = self.request(kind.request(), timeout)?;
         Ok(json::parse_strict(&reply)?)
+    }
+
+    /// A [`Lane`] to the compositor every request so far was checked against: the socket directories checked again,
+    /// the directory opened, and a pidfd of that process taken (its start time read again after, so the pidfd is of
+    /// that process and not of one that reused its PID). Refused before any request verified a peer.
+    pub fn lane(&self) -> Result<Lane> {
+        let Some(identity) = self.peer.clone() else {
+            return value("no verified compositor peer yet");
+        };
+        self.check_directories()?;
+        let directory: OwnedFd = open_directory(&self.directory).map_err(Error::Io)?.into();
+        let addr = socket_address(directory.as_fd(), REQUEST_SOCKET)?;
+        let pid = rustix::process::Pid::from_raw(identity.pid)
+            .ok_or(Error::Permission("wrong compositor peer"))?;
+        let pidfd = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty())
+            .map_err(|e| Error::Io(e.into()))?;
+        if start_time(identity.pid)? != identity.start {
+            return value("compositor peer changed");
+        }
+        Ok(Lane {
+            directory,
+            addr,
+            identity,
+            pidfd,
+            reply: Vec::new(),
+            chunk: vec![0u8; 4096].into_boxed_slice(),
+        })
     }
 
     /// An allow-listed mutation (internal API only: never reached from the public control wire); Hyprland's reply.
@@ -1370,6 +1414,132 @@ impl Client {
             "Hyprland socket2 has no creation UUID, transaction acknowledgement, snapshot/event barrier or replay \
              cursor; independent incarnation continuity cannot be proven. No outputs were created or removed.",
         )
+    }
+}
+
+/// The request socket of one verified compositor, for a caller that queries it many times a second (the overview
+/// pointer's cursor samples). Hyprland answers one request per connection, so each request still connects anew; what
+/// [`Client::request`] repeats per request and this does once is the path walk with its three directory checks, the
+/// directory open, and the read of `/proc/<pid>/stat`. Per request: the socket is checked (`fstatat` in the open
+/// directory, never following a symlink: a socket of ours), the peer's credentials must be the kept identity's, and
+/// the kept pidfd must not be readable (the process has not exited, so its PID was not reused). Any error leaves the
+/// lane unusable for the caller's purposes: drop it and take a new one from [`Client::lane`] after a full request.
+pub struct Lane {
+    directory: OwnedFd,
+    addr: libc::sockaddr_un,
+    identity: Identity,
+    pidfd: OwnedFd,
+    reply: Vec<u8>,
+    chunk: Box<[u8]>,
+}
+
+impl Lane {
+    /// The compositor this lane talks to.
+    pub fn identity(&self) -> &Identity {
+        &self.identity
+    }
+
+    /// [`Client::query`] on this lane: the same request bytes, the same strict parse, the same limits.
+    pub fn query(&mut self, kind: Query, timeout: Duration) -> Result<Value> {
+        if timeout.is_zero() || timeout > DEADLINE {
+            return value("invalid timeout");
+        }
+        let deadline = Instant::now() + timeout;
+        self.check_socket()?;
+        let conn = connect_to(&self.addr, deadline, true)?;
+        let cred = Peer::of(&conn).map_err(Error::Io)?;
+        let id = &self.identity;
+        if (cred.pid, cred.uid, cred.gid) != (id.pid, id.uid, id.gid) || self.exited()? {
+            return value("compositor peer changed");
+        }
+        self.exchange(&conn, kind.request().as_bytes(), deadline)?;
+        Ok(json::parse_strict(&self.reply)?)
+    }
+
+    fn check_socket(&self) -> Result<()> {
+        let st = rustix::fs::statat(
+            &self.directory,
+            REQUEST_SOCKET,
+            rustix::fs::AtFlags::SYMLINK_NOFOLLOW,
+        )
+        .map_err(|e| Error::Io(e.into()))?;
+        if rustix::fs::FileType::from_raw_mode(st.st_mode) != rustix::fs::FileType::Socket
+            || st.st_uid != uid()
+        {
+            return Err(Error::Permission("unsafe IPC socket"));
+        }
+        Ok(())
+    }
+
+    /// The kept compositor has exited (its pidfd is readable).
+    fn exited(&self) -> Result<bool> {
+        Ok(wait_fd(self.pidfd.as_fd(), libc::POLLIN, 0)?)
+    }
+
+    /// `request` written and the whole reply read into `self.reply`, within `deadline` and LIMIT.
+    fn exchange(&mut self, conn: &UnixStream, request: &[u8], deadline: Instant) -> Result<()> {
+        let left = || deadline.saturating_duration_since(Instant::now());
+        let mut sent = 0;
+        while sent < request.len() {
+            match (&*conn).write(&request[sent..]) {
+                Ok(n) => sent += n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    if !wait_fd(conn.as_fd(), libc::POLLOUT, poll_ms(left()))? {
+                        return Err(Error::Timeout("whole-response deadline exceeded"));
+                    }
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+        self.reply.clear();
+        loop {
+            let want = self.chunk.len().min(LIMIT + 1 - self.reply.len());
+            match (&*conn).read(&mut self.chunk[..want]) {
+                Ok(0) => return Ok(()),
+                Ok(n) => {
+                    self.reply.extend_from_slice(&self.chunk[..n]);
+                    if self.reply.len() > LIMIT {
+                        return value("Hyprland response exceeds 1 MiB");
+                    }
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    let remaining = left();
+                    if remaining.is_zero()
+                        || !wait_fd(conn.as_fd(), libc::POLLIN, poll_ms(remaining))?
+                    {
+                        return Err(Error::Timeout("whole-response deadline exceeded"));
+                    }
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+    }
+}
+
+/// Milliseconds for poll(2), rounded up so a wait never ends before `d`.
+fn poll_ms(d: Duration) -> i32 {
+    d.as_micros().div_ceil(1000).min(i32::MAX as u128) as i32
+}
+
+/// `fd` became ready for `events` (or hung up) within `ms`.
+fn wait_fd(fd: BorrowedFd<'_>, events: libc::c_short, ms: i32) -> io::Result<bool> {
+    let mut p = libc::pollfd {
+        fd: fd.as_raw_fd(),
+        events,
+        revents: 0,
+    };
+    loop {
+        // SAFETY: one valid pollfd for the length given.
+        let rc = unsafe { libc::poll(&mut p, 1, ms) };
+        if rc >= 0 {
+            return Ok(rc > 0);
+        }
+        let e = io::Error::last_os_error();
+        if e.kind() != io::ErrorKind::Interrupted {
+            return Err(e);
+        }
     }
 }
 

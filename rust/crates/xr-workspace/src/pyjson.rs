@@ -118,8 +118,14 @@ pub fn float_repr(value: f64) -> String {
     if value.is_infinite() {
         return if value > 0.0 { "Infinity" } else { "-Infinity" }.into();
     }
-    // `{:e}` gives the shortest round-trip digits: "-1.25e3", "5e-5", "0e0".
-    let sci = format!("{value:e}");
+    // `{:e}` gives the shortest round-trip digits: "-1.25e3", "5e-5", "0e0". Where two strings of that length are
+    // equally near (664.26177978515625: ...1562 or ...1563) it can take the upper; Python takes the correctly rounded
+    // one, half to even, which `{:.N$e}` gives (the nearest of that length, so it round-trips too).
+    let shortest = format!("{value:e}");
+    let sig = shortest
+        .split_once('e')
+        .map_or(0, |(m, _)| m.bytes().filter(u8::is_ascii_digit).count());
+    let sci = format!("{value:.prec$e}", prec = sig.saturating_sub(1));
     let (mantissa, exp) = sci.split_once('e').expect("{:e} always has an exponent");
     let exp: i32 = exp.parse().expect("{:e} exponent is an integer");
     let (sign, mantissa) = mantissa
@@ -307,6 +313,9 @@ mod tests {
             (1.2345e20, "1.2345e+20"),
             (123456.789, "123456.789"),
             (0.1, "0.1"),
+            // a tie between two shortest strings: Python's is the half-to-even one
+            (664.2617797851562, "664.2617797851562"),
+            (31.978530883789062, "31.978530883789062"),
             (f64::NAN, "NaN"),
             (f64::NEG_INFINITY, "-Infinity"),
         ] {

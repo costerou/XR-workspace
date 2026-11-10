@@ -36,6 +36,10 @@
    "fate": "keep",
    "reason": "Writes rust/corpus/placement/plans.json, the corpus the Rust window placement is held to."
   },
+  "pointer_math_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/pointer/math.json, the recorded calls of orbit, neighbors, restore_band, bump and edge_pan the Rust pointer maths is held to."
+  },
   "pointer_trace_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/pointer/traces-*.json, the recorded overview pointer traces the Rust pointer is held to."
@@ -43,6 +47,10 @@
   "run_order_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/supervisor/run_order.json, the order of every managed run and recovery path and failure point that the Rust managed module is held to."
+  },
+  "sampler_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/pointer/sampler.json, the scripted sampler runs the Rust sampler, overview cursor and columns are held to."
   },
   "state_file_corpus.py": {
    "fate": "keep",
@@ -126,7 +134,7 @@
     },
     "CollisionTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 5
     },
@@ -138,13 +146,13 @@
     },
     "NoRoomTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 3
     },
     "PushTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 12
     },
@@ -156,13 +164,13 @@
     },
     "SettleTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 14
     },
     "StabilityTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 7
     },
@@ -179,7 +187,7 @@
    "classes": {
     "Baseline": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 2
     },
@@ -197,7 +205,7 @@
     },
     "SideBySide": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::bump",
      "tests": 3
     },
@@ -506,7 +514,7 @@
    "classes": {
     "ConeTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::edge_pan",
      "tests": 7
     },
@@ -518,7 +526,7 @@
     },
     "MappingTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::edge_pan",
      "tests": 17
     },
@@ -1657,37 +1665,37 @@
    "classes": {
     "DragMappingTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 5
     },
     "FacingTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 3
     },
     "FootprintTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 5
     },
     "FullTurnTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 2
     },
     "OrbitGeometryTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 4
     },
     "RegrabTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::orbit",
      "tests": 3
     }
@@ -1698,7 +1706,7 @@
    "classes": {
     "CursorStateTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/overview_cursor.rs::tests",
      "target": "xr-workspace supervisor::overview_cursor",
      "tests": 5
     },
@@ -1941,6 +1949,16 @@
     }
    },
    "covers": "tools/native_spike/view.py"
+  },
+  "test_pointer_math_corpus.py": {
+   "classes": {
+    "PointerMathCorpusTests": {
+     "tests": 3,
+     "fate": "wire",
+     "via": "rust/corpus/pointer/math.json",
+     "how": "The pointer maths gate: the Rust orbit, neighbors, restore_band, bump and edge_pan give the bytes the Python gave for every recorded call and trace. The Python test keeps the corpus true to the Python."
+    }
+   }
   },
   "test_pointer_trace_corpus.py": {
    "classes": {
@@ -2376,6 +2394,16 @@
     }
    },
    "covers": "tools/native_spike/managed.py"
+  },
+  "test_sampler_corpus.py": {
+   "classes": {
+    "SamplerCorpusTests": {
+     "tests": 3,
+     "fate": "wire",
+     "via": "rust/corpus/pointer/sampler.json",
+     "how": "The sampler gate: the Rust plain, locked and unified samplers replay every scripted run with the same compositor calls, arguments, outcomes, waits and state. The Python test keeps the runs true to the Python."
+    }
+   }
   },
   "test_sbs.py": {
    "classes": {

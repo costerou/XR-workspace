@@ -632,3 +632,96 @@ fn presentation_placement_matches_the_python() {
         );
     }
 }
+
+#[test]
+fn a_lane_sends_the_same_requests_and_parses_the_same() {
+    let runtime = Runtime::new("lane");
+    let replies = [
+        ("j/cursorpos", r#"{"x":1,"y":2.5}"#),
+        ("j/cursorpos", r#"{"x":1,"y":2.5}"#),
+        ("j/monitors all", r#"[{"name":"XR-1","x":0}]"#),
+        ("j/cursorpos", "{\"x\":1,\"x\":2}"),
+    ];
+    let compositor = Compositor::serve(
+        Runtime::listen(&runtime.instance_dir(), ".socket.sock"),
+        replies.iter().map(|(q, r)| (q.to_string(), r.to_string())).collect(),
+    );
+    let mut client = runtime.client();
+    assert!(matches!(client.lane(), Err(Error::Value(m)) if m == "no verified compositor peer yet"));
+    let full = client.query(Query::CursorPos, hyprland::DEADLINE).unwrap();
+    let mut lane = client.lane().unwrap();
+    assert_eq!(Some(lane.identity()), client.identity());
+    assert_eq!(lane.query(Query::CursorPos, hyprland::DEADLINE).unwrap(), full);
+    assert_eq!(
+        plain(&lane.query(Query::Monitors, hyprland::DEADLINE).unwrap()),
+        json!([{"name": "XR-1", "x": 0}])
+    );
+    // The strict parse: a duplicate key is refused as Client::query refuses it.
+    assert!(lane.query(Query::CursorPos, hyprland::DEADLINE).is_err());
+    assert!(matches!(
+        lane.query(Query::CursorPos, Duration::ZERO),
+        Err(Error::Value(m)) if m == "invalid timeout"
+    ));
+    let requests = compositor.finish();
+    assert_eq!(requests, replies.map(|(q, _)| q.to_string()));
+}
+
+#[test]
+fn a_lane_refuses_a_changed_peer_or_endpoint() {
+    let runtime = Runtime::new("lane-refused");
+    let dir = runtime.instance_dir();
+    let compositor = Compositor::serve(
+        Runtime::listen(&dir, ".socket.sock"),
+        vec![("j/cursorpos".into(), r#"{"x":1,"y":2}"#.into())],
+    );
+    let mut client = runtime.client();
+    client.query(Query::CursorPos, hyprland::DEADLINE).unwrap();
+    let mut lane = client.lane().unwrap();
+    compositor.finish();
+
+    // Another process behind the same endpoint: refused before anything is sent.
+    fs::remove_file(dir.join(".socket.sock")).unwrap();
+    let mut child = python_compositor(&dir);
+    let result = lane.query(Query::CursorPos, hyprland::DEADLINE);
+    child.wait().unwrap();
+    assert!(
+        matches!(&result, Err(Error::Value(m)) if m == "compositor peer changed"),
+        "{result:?}"
+    );
+
+    // The endpoint swapped for a symlink, or for a file.
+    fs::remove_file(dir.join(".socket.sock")).unwrap();
+    let real = Runtime::listen(&dir, "real.sock");
+    symlink(dir.join("real.sock"), dir.join(".socket.sock")).unwrap();
+    assert!(matches!(
+        lane.query(Query::CursorPos, hyprland::DEADLINE),
+        Err(Error::Permission("unsafe IPC socket"))
+    ));
+    drop(real);
+    fs::remove_file(dir.join(".socket.sock")).unwrap();
+    fs::write(dir.join(".socket.sock"), b"").unwrap();
+    assert!(matches!(
+        lane.query(Query::CursorPos, hyprland::DEADLINE),
+        Err(Error::Permission("unsafe IPC socket"))
+    ));
+}
+
+#[test]
+fn a_lane_refuses_an_oversized_reply() {
+    let runtime = Runtime::new("lane-oversized");
+    let compositor = Compositor::serve(
+        Runtime::listen(&runtime.instance_dir(), ".socket.sock"),
+        vec![
+            ("j/cursorpos".into(), r#"{"x":1,"y":2}"#.into()),
+            ("j/cursorpos".into(), "x".repeat(hyprland::LIMIT + 1)),
+        ],
+    );
+    let mut client = runtime.client();
+    client.query(Query::CursorPos, hyprland::DEADLINE).unwrap();
+    let result = client.lane().unwrap().query(Query::CursorPos, hyprland::DEADLINE);
+    compositor.finish();
+    assert!(
+        matches!(&result, Err(Error::Value(m)) if m == "Hyprland response exceeds 1 MiB"),
+        "{result:?}"
+    );
+}

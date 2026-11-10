@@ -47,6 +47,23 @@ pub mod process;
 pub mod quality;
 pub mod video;
 pub mod web_video;
+// The overview pointer's sampler side: the cursor reads and compositor calls, the real cursor's visibility and the
+// scrolling layout's columns, each held to `rust/corpus/pointer/sampler.json`.
+pub mod columns;
+pub mod overview_cursor;
+pub mod sampler;
+#[cfg(test)]
+mod sampler_corpus_tests;
+// The overview pointer's maths: the desktops as placed round you (orbit), the push past an edge (neighbors, edge_pan),
+// the bump of a dragged desktop into the others and the Step-Back Band's rest, each held to
+// `rust/corpus/pointer/math.json`.
+pub mod bump;
+pub mod edge_pan;
+pub mod neighbors;
+pub mod orbit;
+#[cfg(test)]
+mod pointer_math_corpus_tests;
+pub mod restore_band;
 mod parity;
 // Privacy mode (Ctrl+Alt+D): privacy.py's main display blank, its watcher and the recovery wake.
 pub mod privacy;

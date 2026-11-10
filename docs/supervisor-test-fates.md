@@ -28,7 +28,7 @@ whatever its fate. The fates say what will cover the Rust supervisor.
 
 | port | wire | keep | drop | all |
 |---|---|---|---|---|
-| 2502 | 158 | 26 | 4 | 2690 |
+| 2502 | 164 | 26 | 4 | 2696 |
 
 The `port` count is large because almost every supervisor test imports a Python module and calls it
 directly. Few tests drive the supervisor through a socket or a process the Rust binary would also serve,
@@ -62,6 +62,12 @@ The biggest port targets: `free_pointer` 301, `view` 297, `unified_cursor` 192, 
   `test_pointer_trace_corpus` (3) does the same for `rust/corpus/pointer/traces-*.json`: overview pointer runs
   recorded from the pointer's own tests (every call into the pointer, every call it makes into its view, the frames
   it returns and the state it leaves), which the Rust overview pointer replays.
+  `test_pointer_math_corpus` (3) does the same for `rust/corpus/pointer/math.json`: the calls the pointer's tests
+  make into orbit, neighbors, restore_band, bump and edge_pan (each function's arguments and result, and the
+  PillDrag, Pusher and Dwell traces), which the Rust ports of those modules replay byte for byte.
+  `test_sampler_corpus` (3) does the same for `rust/corpus/pointer/sampler.json`: scripted runs of the plain, locked
+  and unified samplers (every compositor call with its arguments and outcome, every wait and the state each step
+  leaves), which the Rust sampler, overview cursor and columns replay.
 - **The journal corpus (5 tests).** `test_journal_corpus` keeps `rust/corpus/journal/cases.json` (journals,
   fault-injected recoveries and refusals) true to the Python. `xr-workspace`'s `cross_recovery` test holds the
   Rust journal to it in both directions.
