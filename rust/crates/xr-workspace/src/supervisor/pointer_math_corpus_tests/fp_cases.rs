@@ -133,6 +133,7 @@ fn hit_json(h: &Hit, lx: impl Fn(f64) -> Json) -> Json {
         | Hit::Roll(at, name) => vec![k, index(at), s(name)],
         Hit::Desktop(at, q) => vec![k, index(at), floats(&q)],
         Hit::Help(name) => vec![k, s(name)],
+        Hit::OptionsPanel(at, x, y) => vec![k, index(at), Json::Float(x), Json::Float(y)],
     })
 }
 

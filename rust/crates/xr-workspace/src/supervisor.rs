@@ -71,8 +71,12 @@ pub mod free_pointer;
 pub mod neighbors;
 pub mod options_geometry;
 pub mod orbit;
+pub mod overview_pointer;
+pub mod unified_pointer;
 #[cfg(test)]
 mod pointer_math_corpus_tests;
+#[cfg(test)]
+mod pointer_trace_tests;
 pub mod restore_band;
 pub mod unified_cursor;
 mod parity;

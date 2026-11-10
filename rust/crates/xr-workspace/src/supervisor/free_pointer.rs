@@ -1,7 +1,8 @@
 //! The overview pointer's module-level maths: a port of `tools/native_spike/free_pointer.py` lines 1-1055 (its
 //! constants, the status-line parsers, the hit zones round each desktop, the projection between the canvas and a
-//! placed desktop's surface, the frames it sends and the Lua it evals). `OverviewPointer` and `PointerSampler` are the
-//! sampler's ([`super::sampler`]); the private helpers are public here, without the underscore.
+//! placed desktop's surface, the frames it sends and the Lua it evals). `OverviewPointer` is
+//! [`super::overview_pointer`]'s and `PointerSampler` the sampler's ([`super::sampler`]); the private helpers are public
+//! here, without the underscore. resize.py's two frames the pointer sends ([`pill_frame`], [`handle_frame`]) are here too.
 //!
 //! The Python's numbers keep the types its inputs give them (`inside_by` of an int tile is an int); the Rust is f64
 //! throughout, and `pointer_math_corpus_tests` rebuilds the Python's types from the inputs. Placements are
@@ -265,6 +266,8 @@ pub enum Hit {
     Help(&'static str),
     /// `('options_gear', i)`: the gear beside a pill (OverviewPointer's hit, free_pointer.py line 1430).
     OptionsGear(usize),
+    /// `('options_panel', i, x, y)`: the open options panel on desktop i, at panel px (x, y) (OverviewPointer's hit).
+    OptionsPanel(usize, f64, f64),
 }
 
 impl Hit {
@@ -290,6 +293,7 @@ impl Hit {
             Hit::Roll(..) => "roll",
             Hit::Help(_) => "help",
             Hit::OptionsGear(_) => "options_gear",
+            Hit::OptionsPanel(..) => "options_panel",
         }
     }
 }
@@ -1461,6 +1465,61 @@ pub fn overview_pointer_frame(run_id: &str, session: &str, request_id: u64, poin
         return Err(bad());
     }
     Ok(view::frame(run_id, session, request_id, "overview_pointer", Json::Object(entries.to_vec())))
+}
+
+/// resize.py `pill_frame(run_id, session, request_id, pill)`: the renderer's `move_handle` frame, the overview's glass
+/// pills. visible = shown under every desktop (an open placement panel is drawn either way); desktop + hover = the one
+/// under the pointer or held (brighter); active = that one is being dragged (brightest); desktop + gear = the pointer is
+/// on that desktop's options gear (the gear's hover glass). `pill` is {visible, desktop, hover, active, gear}.
+pub fn pill_frame(run_id: &str, session: &str, request_id: u64, pill: &Json) -> Result<String> {
+    let bad = || Invalid::new("invalid move handle");
+    let Some(entries) = pill.as_object() else { return Err(bad()) };
+    let bools = ["visible", "hover", "active", "gear"].iter().all(|k| pill.get(k).and_then(Json::as_bool).is_some());
+    let desktop = pill.get("desktop").and_then(Json::as_int).is_some_and(|d| 0 <= d && d < MAX_DESKTOPS as i64);
+    if !keys_are(pill, &["visible", "desktop", "hover", "active", "gear"]) || !bools || !desktop {
+        return Err(bad());
+    }
+    // `gear` goes on the wire only while true: a renderer built before it refuses any 5-key payload, which dropped every
+    // pill, the gear and the Maximize button live. The four-key frame is what every renderer accepts; only the gear's
+    // hover light needs the newer one.
+    let payload = entries.iter().filter(|(k, v)| k != "gear" || *v == Json::Bool(true)).cloned().collect();
+    Ok(view::frame(run_id, session, request_id, "move_handle", Json::Object(payload)))
+}
+
+/// resize.py `PILLS_HIDDEN`: the pills the renderer starts with.
+pub fn pills_hidden() -> Json {
+    Json::Object(vec![
+        ("visible".into(), Json::Bool(false)),
+        ("desktop".into(), Json::Int(0)),
+        ("hover".into(), Json::Bool(false)),
+        ("active".into(), Json::Bool(false)),
+        ("gear".into(), Json::Bool(false)),
+    ])
+}
+
+/// resize.py `handle_frame(run_id, session, request_id, handle)`: the renderer's `resize_handle` frame: visible = corner
+/// `corner` of `desktop` is under the dot or held, so its cap lights up (the caps themselves show with the level bars:
+/// [`roll_frame`]); active = it is being dragged. `handle` is {visible, desktop, corner, active}.
+pub fn handle_frame(run_id: &str, session: &str, request_id: u64, handle: &Json) -> Result<String> {
+    let bad = || Invalid::new("invalid resize handle");
+    let Some(entries) = handle.as_object() else { return Err(bad()) };
+    let bools = ["visible", "active"].iter().all(|k| handle.get(k).and_then(Json::as_bool).is_some());
+    let desktop = handle.get("desktop").and_then(Json::as_int).is_some_and(|d| 0 <= d && d < MAX_DESKTOPS as i64);
+    let corner = handle.get("corner").and_then(Json::as_str).is_some_and(|c| CORNERS.contains(&c));
+    if !keys_are(handle, &["visible", "desktop", "corner", "active"]) || !bools || !desktop || !corner {
+        return Err(bad());
+    }
+    Ok(view::frame(run_id, session, request_id, "resize_handle", Json::Object(entries.to_vec())))
+}
+
+/// resize.py `HIDDEN`: the corner cap the renderer starts with.
+pub fn handle_hidden() -> Json {
+    Json::Object(vec![
+        ("visible".into(), Json::Bool(false)),
+        ("desktop".into(), Json::Int(0)),
+        ("corner".into(), Json::Str("br".into())),
+        ("active".into(), Json::Bool(false)),
+    ])
 }
 
 #[cfg(test)]
