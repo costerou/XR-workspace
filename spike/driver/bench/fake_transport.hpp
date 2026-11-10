@@ -52,7 +52,10 @@ inline std::optional<FakePacket> parse_fake(std::span<const std::uint8_t> bytes)
 
 class FakeTransport {
 public:
-    FakeTransport(int rate_hz, std::uint32_t packets, int sender_cpu) : period_ns_(1'000'000'000ull / std::uint64_t(rate_hz)), packets_(packets), cpu_(sender_cpu) {}
+    // realtime: the sender asks for SCHED_FIFO like the reader. Real packets arrive from the USB interrupt, which no busy thread
+    // delays; a normal-class sender preempted between its timestamp and its write() would book its own stall as driver latency.
+    FakeTransport(int rate_hz, std::uint32_t packets, int sender_cpu, bool realtime = false)
+        : period_ns_(1'000'000'000ull / std::uint64_t(rate_hz)), packets_(packets), cpu_(sender_cpu), realtime_(realtime) {}
     ~FakeTransport() { stop(); if (rd_ >= 0) close(rd_); if (wr_ >= 0) close(wr_); }
     bool open(std::string& why) {  // before the reader's first read()
         int fds[2];
@@ -79,12 +82,13 @@ public:
     std::uint64_t queue_overflows() const noexcept { return overflows_.load(); }  // what hidraw would have discarded
     std::uint64_t late_sends() const noexcept { return late_.load(); }            // sender woke over 1 period late: our rig, not the driver
     bool finished() const noexcept { return finished_.load(); }
+    bool sender_fifo() const noexcept { return sender_sched_.load(); }  // once the first packet is out
 private:
     void send_loop() {
         rt::ThreadPolicy policy;
-        policy.realtime = false;
+        policy.realtime = realtime_;
         policy.cpu = cpu_;
-        rt::apply_thread_policy(policy);
+        sender_sched_.store(rt::apply_thread_policy(policy).sched == rt::SchedClass::fifo);
         std::uint64_t target = rt::monotonic_raw_ns() + period_ns_;
         FakePacket p{};
         constexpr std::uint64_t kSpinNs = 50'000;  // sleep most of the period, spin the rest: an exact cadence, whatever the scheduler does
@@ -113,6 +117,8 @@ private:
     std::uint64_t period_ns_;
     std::uint32_t packets_;
     int cpu_;
+    bool realtime_;
+    std::atomic<bool> sender_sched_{false};
     int rd_ = -1, wr_ = -1;
     std::thread sender_;
     std::atomic<bool> stop_{false}, finished_{false};

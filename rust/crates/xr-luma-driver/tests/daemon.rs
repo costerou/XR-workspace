@@ -1500,6 +1500,14 @@ fn options() {
     ])
     .unwrap();
     assert!(live.read_events && live.drain_camera && live.no_rt && live.state_dir == "/x");
+    assert_eq!(live.rt_cpu, None);
+    assert_eq!(parse(&["--rt-cpu", "3"]).unwrap().rt_cpu, Some(3));
+    for bad in ["1024", "-1", "x"] {
+        assert_eq!(
+            parse(&["--rt-cpu", bad]).unwrap_err(),
+            "--rt-cpu needs a CPU number, 0 to 1023"
+        );
+    }
     assert_eq!(
         live.feature_flags,
         ["--feature-discovery", "--no-feature-temperature"]

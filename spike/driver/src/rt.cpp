@@ -57,6 +57,7 @@ struct RealOps final : SysOps {
         if (getrlimit(RLIMIT_RTTIME, &limit) != 0) return errno;
         limit.rlim_cur = std::min<rlim_t>(limit.rlim_cur, rlim_t(us));
         limit.rlim_max = std::min<rlim_t>(limit.rlim_max, rlim_t(us) * 5);  // the soft limit's SIGXCPU first, SIGKILL if ignored
+        if (limit.rlim_cur < kRtTimeFloorUs) return ERANGE;
         return setrlimit(RLIMIT_RTTIME, &limit) == 0 ? 0 : errno;
     }
     int set_short_slice(std::uint64_t ns) const override {
@@ -104,7 +105,9 @@ ThreadPolicyResult apply_thread_policy(const ThreadPolicy& policy, const SysOps&
     }
     if (!policy.realtime) return result;
     if (const int guard = ops.arm_rttime_guard(kRtTimeGuardUs); guard != 0) {
-        add_detail(result.detail, "no SCHED_FIFO: cannot arm RLIMIT_RTTIME: " + errno_text(guard));
+        add_detail(result.detail, guard == ERANGE ? "no SCHED_FIFO: the inherited RLIMIT_RTTIME is under " + std::to_string(kRtTimeFloorUs / 1000) +
+                                                        " ms, so the kernel would kill a FIFO thread at random"
+                                                  : "no SCHED_FIFO: cannot arm RLIMIT_RTTIME: " + errno_text(guard));
     } else {
         int priority = policy.fifo_priority;
         if (const int rc = ops.set_fifo(priority); rc == 0) {

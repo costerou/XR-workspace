@@ -310,6 +310,14 @@ void policy_refuses_fifo_without_the_runaway_guard() {
     CHECK(ops.fifo_calls == 0);
     CHECK(r.sched == SchedClass::nice);
 }
+// A launcher's RLIMIT_RTTIME 0 would make FIFO a random SIGKILL under load: that is a fallback with its own reason, not FIFO.
+void policy_refuses_fifo_under_a_near_zero_rttime_limit() {
+    FakeOps ops; ops.guard_rc = ERANGE;
+    const auto r = apply_thread_policy({}, ops);
+    CHECK(ops.fifo_calls == 0);
+    CHECK(r.sched == SchedClass::nice && r.needs_setup);
+    CHECK(r.detail.find("RLIMIT_RTTIME is under 10 ms") != std::string::npos);
+}
 // The slice is a normal-class setting: it applies when FIFO was refused, whether or not nice was, and needs no privilege.
 void policy_asks_for_a_short_slice_only_as_a_fallback() {
     {
@@ -459,10 +467,14 @@ void real_rttime_guard_lands_in_the_kernel() {
         // Sandboxed launchers may already impose a tighter (even zero) limit.
         // The guard must land without relaxing that limit, including when a
         // later caller requests a longer allowance than the current guard.
+        // Below kRtTimeFloorUs the guard is refused and nothing changes.
         for (const auto us : {kRtTimeGuardUs, kRtTimeGuardUs / 2, kRtTimeGuardUs * 2}) {
-            expected.rlim_cur = std::min<rlim_t>(expected.rlim_cur, us);
-            expected.rlim_max = std::min<rlim_t>(expected.rlim_max, us * 5);
-            if (real_sys_ops().arm_rttime_guard(us) != 0) return false;
+            const bool refused = std::min<rlim_t>(expected.rlim_cur, us) < kRtTimeFloorUs;
+            if (!refused) {
+                expected.rlim_cur = std::min<rlim_t>(expected.rlim_cur, us);
+                expected.rlim_max = std::min<rlim_t>(expected.rlim_max, us * 5);
+            }
+            if (real_sys_ops().arm_rttime_guard(us) != (refused ? ERANGE : 0)) return false;
             rlimit limit{};
             if (getrlimit(RLIMIT_RTTIME, &limit) != 0 || limit.rlim_cur != expected.rlim_cur || limit.rlim_max != expected.rlim_max)
                 return false;
@@ -719,7 +731,8 @@ int main() {
         T(shm_reader_refuses_a_different_layout), T(shm_writer_replaces_a_different_layout), T(shm_reader_of_nothing_says_why),
         T(shm_is_private_to_the_user), T(pose_record_layout_is_fixed), T(policy_uses_fifo_when_permitted),
         T(policy_reports_the_priority_a_limit_allowed), T(policy_falls_back_to_nice), T(policy_survives_having_no_privilege_at_all),
-        T(policy_refuses_fifo_without_the_runaway_guard), T(policy_asks_for_a_short_slice_only_as_a_fallback),
+        T(policy_refuses_fifo_without_the_runaway_guard), T(policy_refuses_fifo_under_a_near_zero_rttime_limit),
+        T(policy_asks_for_a_short_slice_only_as_a_fallback),
         T(policy_survives_a_kernel_without_slices), T(short_slice_reaches_the_real_kernel), T(policy_realtime_off_never_asks),
         T(policy_pins_only_when_asked_and_survives_a_bad_cpu), T(policy_pins_fifo_cpu_only_once_fifo_is_granted), T(the_default_priority_is_20),
         T(describe_names_what_was_granted), T(apply_real_thread), T(pinning_to_a_cpu_that_does_not_exist_is_reported),

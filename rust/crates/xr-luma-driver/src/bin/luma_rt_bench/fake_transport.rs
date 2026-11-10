@@ -90,12 +90,14 @@ struct Counters {
     sent: AtomicU64,
     overflows: AtomicU64,
     late: AtomicU64,
+    sender_fifo: AtomicBool,
 }
 
 pub struct FakeTransport {
     period_ns: u64,
     packets: u32,
     cpu: Option<usize>,
+    realtime: bool,
     rd: OwnedFd,
     wr: Arc<OwnedFd>,
     counters: Arc<Counters>,
@@ -134,7 +136,15 @@ impl FakeReader {
 
 impl FakeTransport {
     /// Opens the queue: before the reader's first read.
-    pub fn open(rate_hz: u32, packets: u32, sender_cpu: Option<usize>) -> Result<Self, String> {
+    /// realtime: the sender asks for SCHED_FIFO like the reader. Real packets arrive from the USB
+    /// interrupt, which no busy thread delays; a normal-class sender preempted between its
+    /// timestamp and its write() would book its own stall as driver latency.
+    pub fn open(
+        rate_hz: u32,
+        packets: u32,
+        sender_cpu: Option<usize>,
+        realtime: bool,
+    ) -> Result<Self, String> {
         let mut fds = [0; 2];
         // SAFETY: `fds` has room for the two descriptors.
         if unsafe {
@@ -157,6 +167,7 @@ impl FakeTransport {
             period_ns: 1_000_000_000 / rate_hz as u64,
             packets,
             cpu: sender_cpu,
+            realtime,
             rd,
             wr: Arc::new(wr),
             counters: Arc::default(),
@@ -171,11 +182,12 @@ impl FakeTransport {
     }
 
     pub fn start(&mut self) {
-        let (period_ns, packets, cpu) = (self.period_ns, self.packets, self.cpu);
+        let (period_ns, packets, cpu, realtime) =
+            (self.period_ns, self.packets, self.cpu, self.realtime);
         let wr = Arc::clone(&self.wr);
         let c = Arc::clone(&self.counters);
         self.sender = Some(std::thread::spawn(move || {
-            send_loop(period_ns, packets, cpu, &wr, &c)
+            send_loop(period_ns, packets, cpu, realtime, &wr, &c)
         }));
     }
 
@@ -197,6 +209,10 @@ impl FakeTransport {
     pub fn late_sends(&self) -> u64 {
         self.counters.late.load(Ordering::SeqCst)
     }
+    /// The sender got SCHED_FIFO; known once the first packet is out.
+    pub fn sender_fifo(&self) -> bool {
+        self.counters.sender_fifo.load(Ordering::SeqCst)
+    }
     pub fn finished(&self) -> bool {
         self.counters.finished.load(Ordering::SeqCst)
     }
@@ -208,13 +224,21 @@ impl Drop for FakeTransport {
     }
 }
 
-fn send_loop(period_ns: u64, packets: u32, cpu: Option<usize>, wr: &OwnedFd, c: &Counters) {
+fn send_loop(
+    period_ns: u64,
+    packets: u32,
+    cpu: Option<usize>,
+    realtime: bool,
+    wr: &OwnedFd,
+    c: &Counters,
+) {
     let policy = ThreadPolicy {
-        realtime: false,
+        realtime,
         cpu,
         ..ThreadPolicy::default()
     };
-    apply_thread_policy(&policy, &rt::RealSysOps);
+    let granted = apply_thread_policy(&policy, &rt::RealSysOps).sched == rt::SchedClass::Fifo;
+    c.sender_fifo.store(granted, Ordering::SeqCst);
     let mut target = monotonic_raw_ns() + period_ns;
     // Sleep most of the period, spin the rest: an exact cadence, whatever the scheduler does.
     const SPIN_NS: u64 = 50_000;

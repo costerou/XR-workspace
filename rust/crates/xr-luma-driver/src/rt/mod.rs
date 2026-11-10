@@ -20,9 +20,9 @@ pub use pipeline::{
     Source, SourceStatus,
 };
 pub use policy::{
-    MEMLOCK_WANTED_BYTES, MemoryLockResult, RT_TIME_GUARD_US, RealSysOps, SHORT_SLICE_NS,
-    SchedClass, SysOps, ThreadPolicy, ThreadPolicyResult, apply_thread_policy, lock_memory,
-    memlock_is_safe, prefault_stack,
+    MEMLOCK_WANTED_BYTES, MemoryLockResult, RT_TIME_FLOOR_US, RT_TIME_GUARD_US, RealSysOps,
+    SHORT_SLICE_NS, SchedClass, SysOps, ThreadPolicy, ThreadPolicyResult, apply_thread_policy,
+    describe, lock_memory, memlock_is_safe, prefault_stack,
 };
 pub use spsc::{Consumer, Producer, spsc_ring};
 

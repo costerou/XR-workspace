@@ -59,6 +59,10 @@ struct ThreadPolicyResult {
 // A FIFO thread that stops blocking gets SIGXCPU after this much CPU, so a bug cannot freeze a core until reboot. The hot path
 // blocks about 1000 times a second, so only a real hang ever gets near it.
 inline constexpr std::uint64_t kRtTimeGuardUs = 200'000;
+// The guard never relaxes a tighter RLIMIT_RTTIME it inherits, but below this it refuses FIFO instead. The kernel kills once a
+// FIFO thread is caught running by more ticks than the limit allows; with a limit under one tick (10 ms at HZ=100), the first
+// tick that lands while it runs is a SIGKILL. A sandbox that hands down RLIMIT_RTTIME 0 makes that random death on a busy machine.
+inline constexpr std::uint64_t kRtTimeFloorUs = 10'000;
 
 // Since Linux 6.12 a normal thread may ask for a shorter EEVDF time slice, which brings its deadline forward so it runs sooner after
 // waking. No privilege, no limit. 100 us is the shortest the kernel takes. It is what stands between the driver and a busy desktop
@@ -72,7 +76,7 @@ struct SysOps {
     virtual int set_fifo(int& priority) const = 0;  // may lower priority to what RLIMIT_RTPRIO allows
     virtual int set_nice(int nice) const = 0;
     virtual int set_affinity(int cpu) const = 0;
-    virtual int arm_rttime_guard(std::uint64_t us) const = 0;
+    virtual int arm_rttime_guard(std::uint64_t us) const = 0;  // ERANGE, changing nothing: the inherited limit is under kRtTimeFloorUs
     virtual int set_short_slice(std::uint64_t ns) const = 0;
 };
 const SysOps& real_sys_ops() noexcept;

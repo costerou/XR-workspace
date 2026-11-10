@@ -15,7 +15,9 @@ use xr_luma_driver::fusion::FusionConfig;
 use xr_luma_driver::instance::{log_line, take_instance_lock};
 use xr_luma_driver::options::{LIVE_IPC_PREFIX, Start, USAGE, parse_options};
 use xr_luma_driver::protocol::LumaDecoder;
-use xr_luma_driver::rt::{RealSysOps, ThreadPolicy, apply_thread_policy};
+use xr_luma_driver::rt::{
+    RealSysOps, ThreadPolicy, apply_thread_policy, describe, lock_memory, prefault_stack,
+};
 use xr_luma_driver::transport::Transport;
 use xr_luma_driver::wiring::{self, PoseLog, TransportLink};
 
@@ -82,10 +84,32 @@ fn run() -> i32 {
     }
 
     // Live only. It helps when it can and costs nothing when it cannot: acceptance P3, works without privileges.
+    // The daemon is one thread, this one, so the policy covers the whole hot path. Memory first: a FIFO thread that faults
+    // waits on the disk like any other. lock_memory declines below a safe RLIMIT_MEMLOCK, and then the stack is still
+    // prefaulted.
     if options.replay.is_none() && !options.no_rt {
-        let result = apply_thread_policy(&ThreadPolicy::default(), &RealSysOps);
+        let memory = lock_memory();
+        prefault_stack::<{ 256 * 1024 }>();
+        let policy = ThreadPolicy {
+            fifo_cpu: options.rt_cpu,
+            ..ThreadPolicy::default()
+        };
+        let result = apply_thread_policy(&policy, &RealSysOps);
+        log_line(&format!(
+            "luma: scheduling {} memory={}{}",
+            describe(&result),
+            if memory.locked { "locked" } else { "unlocked" },
+            if result.needs_setup {
+                " setup=docs/performance.md#setting-up-real-time-once"
+            } else {
+                ""
+            }
+        ));
         if !result.detail.is_empty() {
             log_line(&format!("luma: scheduling {}", result.detail));
+        }
+        if !memory.detail.is_empty() {
+            log_line(&format!("luma: scheduling {}", memory.detail));
         }
     }
 

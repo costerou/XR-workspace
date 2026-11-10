@@ -236,7 +236,7 @@ int main(int argc, char** argv) {
     std::vector<std::thread> load;
     for (int i = 0; i < a.load; ++i) load.emplace_back([&] { while (!load_stop.load(std::memory_order_relaxed)) __builtin_ia32_pause(); });
 
-    bench::FakeTransport transport(a.rate, last + 20, a.sender_cpu);
+    bench::FakeTransport transport(a.rate, last + 20, a.sender_cpu, a.rt);
     if (!transport.open(why)) { std::fprintf(stderr, "%s\n", why.c_str()); return 2; }
     Source source{transport, first, last, 0, {}, {}};
     Options o;
@@ -273,8 +273,8 @@ int main(int argc, char** argv) {
     const std::uint64_t allocs = sink.allocs_end - sink.allocs_start;
     const std::uint64_t lost = transport.sent() - stats.items_published;
 
-    std::printf("%s fusion, %s, %s, %d Hz, %.1f s, reader %s%s, fusion thread %s, %d busy threads\n", kRealFusion ? "real" : "stand-in", a.inline_mode ? "inline" : "ring", a.mutex_publish ? "mutex" : "seqlock", a.rate, wall_s,
-                reader_sched.c_str(), pipeline.reader_policy().short_slice ? " short-slice" : "", fusion_sched.c_str(), a.load);
+    std::printf("%s fusion, %s, %s, %d Hz, %.1f s, reader %s%s, fusion thread %s, sender %s, %d busy threads\n", kRealFusion ? "real" : "stand-in", a.inline_mode ? "inline" : "ring", a.mutex_publish ? "mutex" : "seqlock", a.rate, wall_s,
+                reader_sched.c_str(), pipeline.reader_policy().short_slice ? " short-slice" : "", fusion_sched.c_str(), transport.sender_fifo() ? "fifo" : "other", a.load);
     if (!pipeline.reader_policy().detail.empty()) std::printf("  reader: %s\n", pipeline.reader_policy().detail.c_str());
     if (pipeline.reader_policy().needs_setup && !a.quick) std::printf("  one-time setup for real-time: see docs/performance.md\n");
     show("sensor -> published", sink.total);

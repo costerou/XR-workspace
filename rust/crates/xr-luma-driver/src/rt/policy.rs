@@ -16,12 +16,15 @@ pub struct ThreadPolicy {
     /// false: leave the thread as it is.
     pub realtime: bool,
     /// Above every normal task, below the kernel's interrupt threads (50), so USB itself is never
-    /// starved.
+    /// starved. The limits file grants exactly 20; a lower RLIMIT_RTPRIO lowers it to match.
     pub fifo_priority: i32,
     /// When real-time is not permitted.
     pub fallback_nice: i32,
     /// Pin to this CPU; `None` lets the scheduler choose.
     pub cpu: Option<usize>,
+    /// Pin to this CPU only once SCHED_FIFO is granted: a pinned normal thread is the worst case
+    /// measured.
+    pub fifo_cpu: Option<usize>,
     /// Without real-time, ask for the shortest time slice ([`SHORT_SLICE_NS`]).
     pub short_slice: bool,
 }
@@ -30,9 +33,10 @@ impl Default for ThreadPolicy {
     fn default() -> Self {
         Self {
             realtime: true,
-            fifo_priority: 10,
+            fifo_priority: 20,
             fallback_nice: -10,
             cpu: None,
+            fifo_cpu: None,
             short_slice: true,
         }
     }
@@ -60,6 +64,13 @@ pub struct ThreadPolicyResult {
 /// near it.
 pub const RT_TIME_GUARD_US: u64 = 200_000;
 
+/// The guard never relaxes a tighter RLIMIT_RTTIME it inherits, but below this it refuses FIFO
+/// instead. The kernel kills once a FIFO thread is caught running by more ticks than the limit
+/// allows; with a limit under one tick (10 ms at HZ=100), the first tick that lands while it runs
+/// is a SIGKILL. A sandbox that hands down RLIMIT_RTTIME 0 makes that random death on a busy
+/// machine.
+pub const RT_TIME_FLOOR_US: u64 = 10_000;
+
 /// Since Linux 6.12 a normal thread may ask for a shorter EEVDF time slice, which brings its
 /// deadline forward so it runs sooner after waking. No privilege, no limit. 100 us is the shortest
 /// the kernel takes.
@@ -74,6 +85,7 @@ pub trait SysOps {
     fn set_fifo(&self, priority: &mut i32) -> Result<(), i32>;
     fn set_nice(&self, nice: i32) -> Result<(), i32>;
     fn set_affinity(&self, cpu: usize) -> Result<(), i32>;
+    /// `Err(ERANGE)`, changing nothing: the inherited limit is under [`RT_TIME_FLOOR_US`].
     fn arm_rttime_guard(&self, us: u64) -> Result<(), i32>;
     fn set_short_slice(&self, ns: u64) -> Result<(), i32>;
 }
@@ -170,6 +182,9 @@ impl SysOps for RealSysOps {
         let mut limit = getrlimit(libc::RLIMIT_RTTIME).ok_or_else(errno)?;
         limit.rlim_cur = limit.rlim_cur.min(us);
         limit.rlim_max = limit.rlim_max.min(us * 5); // the soft limit's SIGXCPU first, SIGKILL if ignored
+        if limit.rlim_cur < RT_TIME_FLOOR_US {
+            return Err(libc::ERANGE);
+        }
         // SAFETY: `limit` is a valid rlimit.
         check(unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &limit) })
     }
@@ -230,6 +245,13 @@ pub fn apply_thread_policy(policy: &ThreadPolicy, ops: &dyn SysOps) -> ThreadPol
         return result;
     }
     match ops.arm_rttime_guard(RT_TIME_GUARD_US) {
+        Err(libc::ERANGE) => add_detail(
+            &mut result.detail,
+            &format!(
+                "no SCHED_FIFO: the inherited RLIMIT_RTTIME is under {} ms, so the kernel would kill a FIFO thread at random",
+                RT_TIME_FLOOR_US / 1000
+            ),
+        ),
         Err(e) => add_detail(
             &mut result.detail,
             &format!("no SCHED_FIFO: cannot arm RLIMIT_RTTIME: {}", errno_text(e)),
@@ -240,6 +262,15 @@ pub fn apply_thread_policy(policy: &ThreadPolicy, ops: &dyn SysOps) -> ThreadPol
                 Ok(()) => {
                     result.sched = SchedClass::Fifo;
                     result.priority = priority;
+                    if let (Some(cpu), None) = (policy.fifo_cpu, result.cpu) {
+                        match ops.set_affinity(cpu) {
+                            Ok(()) => result.cpu = Some(cpu),
+                            Err(e) => add_detail(
+                                &mut result.detail,
+                                &format!("not pinned to cpu {cpu}: {}", errno_text(e)),
+                            ),
+                        }
+                    }
                     return result;
                 }
                 Err(e) => add_detail(
@@ -270,6 +301,27 @@ pub fn apply_thread_policy(policy: &ThreadPolicy, ops: &dyn SysOps) -> ThreadPol
         }
     }
     result
+}
+
+/// One line for the log: what was granted, as key=value pairs (`class=fifo priority=20 cpu=3`).
+pub fn describe(r: &ThreadPolicyResult) -> String {
+    let mut out = match r.sched {
+        SchedClass::Fifo => format!("class=fifo priority={}", r.priority),
+        SchedClass::Nice => format!("class=nice nice={}", r.nice),
+        SchedClass::Normal => "class=normal".to_owned(),
+    };
+    if r.sched != SchedClass::Fifo {
+        out += if r.short_slice {
+            " short_slice=yes"
+        } else {
+            " short_slice=no"
+        };
+    }
+    match r.cpu {
+        Some(cpu) => out += &format!(" cpu={cpu}"),
+        None => out += " cpu=any",
+    }
+    out
 }
 
 /// `mlockall(MCL_FUTURE)` makes later mmaps fail once the limit is reached, so it is only safe

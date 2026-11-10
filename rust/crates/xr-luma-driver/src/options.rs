@@ -21,6 +21,7 @@ pub const USAGE: &str = "usage: xr-luma-driver [options]
   --read-events            also read endpoint 0x83, and throw it away
   --drain-camera           also read camera endpoint 0x82 and throw it away: 19 MB/s, for a device that stalls without it
   --no-rt                  leave scheduling alone
+  --rt-cpu N               pin to CPU N, but only once SCHED_FIFO is granted (default: not pinned)
   --state-dir PATH         where the gyro bias is kept between runs
   --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose
   --pose-log-every N       default 10
@@ -54,6 +55,8 @@ pub struct Options {
     pub drain_camera: bool,
     /// Leave the thread's scheduling alone.
     pub no_rt: bool,
+    /// Pin to this CPU, but only once SCHED_FIFO is granted.
+    pub rt_cpu: Option<usize>,
     /// Where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state.
     pub state_dir: String,
     /// --replay only: write every Nth pose here, for tools.
@@ -78,6 +81,7 @@ impl Default for Options {
             read_events: false,
             drain_camera: false,
             no_rt: false,
+            rt_cpu: None,
             state_dir: String::new(),
             pose_log: None,
             pose_log_every: 10,
@@ -123,6 +127,15 @@ pub fn parse_options<S: AsRef<str>>(args: &[S]) -> Result<Options, String> {
             "--read-events" => o.read_events = true,
             "--drain-camera" => o.drain_camera = true,
             "--no-rt" => o.no_rt = true,
+            "--rt-cpu" => {
+                o.rt_cpu = Some(
+                    value()?
+                        .parse::<usize>()
+                        .ok()
+                        .filter(|&cpu| cpu < 1024)
+                        .ok_or("--rt-cpu needs a CPU number, 0 to 1023")?,
+                )
+            }
             "--state-dir" => o.state_dir = value()?,
             "--pose-log" => o.pose_log = Some(value()?),
             "--latency-log" => o.latency_log = Some(value()?),

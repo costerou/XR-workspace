@@ -93,7 +93,36 @@ luma: scheduling class=normal short_slice=yes cpu=any memory=unlocked setup=docs
 
 The second is what this machine prints without the limits file (checked 2026-11-10, with `chrt -p` showing `SCHED_OTHER` and a
 100000 ns runtime). Under `--load 16` with the machine's load average near 30, that fallback measured p99.9 143 ms and lost 89
-samples to kernel queue overflow: the gap the limits file is for. The FIFO numbers are still to be measured.
+samples to kernel queue overflow: the gap the limits file is for.
+
+FIFO is also refused, with its own reason, when the process inherits an `RLIMIT_RTTIME` under 10 ms (`kRtTimeFloorUs`). The guard
+never relaxes a tighter inherited limit, and at 0 (which an agent sandbox on this machine hands down) the kernel kills a FIFO
+thread on the first tick that lands while it runs: unseen on an idle machine, a SIGKILL within seconds under `--load`. The log line
+then reads `no SCHED_FIFO: the inherited RLIMIT_RTTIME is under 10 ms, so the kernel would kill a FIFO thread at random`.
+
+FIFO results, 2026-11-10, 30 s each, XR off, with the limits file's values applied to the bench alone (`sudo prlimit --pid $$
+--rtprio=20:20 --nice=30:30 --memlock=134217728:134217728 --rttime=unlimited:unlimited`, the same as the desktop session gets once
+the file is installed; the file itself is not installed yet). Every run `--check` passed, with 0 lost, 0 allocations and 0 late
+sends:
+
+| Run | p50 | p99 | p99.9 | max |
+|---|---|---|---|---|
+| ring, `--load 16` | 6.3 | 15.4 | 69.6 | 176.6 |
+| ring, `--load 16` again | 5.0 | 12.5 | 15.6 | 337.7 |
+| inline, `--load 16` | 2.9 | 7.9 | 12.0 | 84.1 |
+| ring, `--load 24` | 4.7 | 34.8 | 77.8 | 298.8 |
+| ring, `--load 16 --reader-cpu 7 --fusion-cpu 7` | 4.9 | 12.5 | 22.0 | 259.6 |
+
+All in us. Pinning lands inside the unpinned spread, so `--rt-cpu` stays off by default. With real-time asked for, the bench's fake
+sender is FIFO too (the first line says `sender fifo`): real packets come from the USB interrupt, which no busy thread delays, and
+a normal-class sender preempted between its timestamp and its `write()` booked its own stall as driver latency. Before that change
+the same runs had 1500 to 4300 late sends and p99.9 from 35 to 113 us. The driver itself, started the same way, logged
+`class=fifo priority=20 cpu=any memory=locked`, `chrt -p` showed `SCHED_FIFO|SCHED_RESET_ON_FORK` 20, and `--rt-cpu 3` pinned it
+to CPU 3.
+
+The Rust port (`rust/crates/xr-luma-driver`) does the same at start, with the same log lines, the same RTTIME floor
+(`RT_TIME_FLOOR_US`) and the same `--rt-cpu`. Its `luma_rt_bench --check --load 16 --lock`, run the same way, passed at p50 5.8,
+p99 12.3, p99.9 52.2 and max 272.1 us, with 0 lost and 0 allocations.
 
 ## Without real-time
 
@@ -171,9 +200,9 @@ the pipeline, which is supported.
 
 - **Real glasses and USB.** The fake transport is not hidraw. The kernel's USB path, the glasses' own delay and the USB polling interval
   all come on top. "Real glasses: USB latency" below is how that is measured; its numbers are still to be recorded.
-- **Real-time.** The FIFO path has only run against a fake `SysOps`. `apply_real_thread` will check it for real once the limits exist.
-- **Busy-CPU results.** `--load` has not been run: XR, or something that looked like it, was up when its turn came, so that was skipped.
-  "Busy" above means the other work running that night, which varied.
+- **Real-time from the limits file.** FIFO was measured with the file's values applied by `prlimit`, not by the installed file
+  after a reboot. Once it is installed, check `systemd-run --user --wait --pipe -q sh -c 'ulimit -Hr; ulimit -He; ulimit -Hl'`.
+- **Busy-CPU results** come from `--load` threads, which spin at nice 0. A desktop's load also touches memory and caches harder.
 - **The renderer's reading.** The `/dev/shm/xr-luma-pose` feed has no real consumer yet.
 - **CPU %** counts the driver's two threads in user and kernel time. Interrupt work for USB is on top, and would be there with any driver.
 

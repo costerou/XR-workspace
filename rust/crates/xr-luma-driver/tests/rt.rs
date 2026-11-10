@@ -223,6 +223,85 @@ fn policy_refuses_fifo_without_the_runaway_guard() {
     assert_eq!(r.sched, SchedClass::Nice);
 }
 
+/// An inherited RLIMIT_RTTIME under one tick would let the kernel kill a FIFO thread at random;
+/// the guard reports ERANGE and the policy falls back instead.
+#[test]
+fn policy_refuses_fifo_under_a_near_zero_rttime_limit() {
+    let ops = FakeOps {
+        guard_rc: libc::ERANGE,
+        ..Default::default()
+    };
+    let r = apply_thread_policy(&defaults(), &ops);
+    assert_eq!(ops.fifo_calls.get(), 0);
+    assert!(r.sched == SchedClass::Nice && r.needs_setup);
+    assert!(
+        r.detail.contains("RLIMIT_RTTIME is under 10 ms"),
+        "{}",
+        r.detail
+    );
+}
+
+/// Pinning helps a FIFO thread keep its cache and hurts a normal one most of all
+/// (docs/performance.md), so fifo_cpu waits for FIFO.
+#[test]
+fn policy_pins_fifo_cpu_only_once_fifo_is_granted() {
+    let p = ThreadPolicy {
+        fifo_cpu: Some(5),
+        ..defaults()
+    };
+    let granted = FakeOps::default();
+    let r = apply_thread_policy(&p, &granted);
+    assert!(r.sched == SchedClass::Fifo && r.cpu == Some(5) && granted.last_cpu.get() == Some(5));
+    let refused = FakeOps {
+        fifo_rc: libc::EPERM,
+        ..Default::default()
+    };
+    let fallback = apply_thread_policy(&p, &refused);
+    assert!(
+        fallback.sched == SchedClass::Nice
+            && fallback.cpu.is_none()
+            && refused.last_cpu.get().is_none()
+    );
+    let bad = FakeOps {
+        affinity_rc: libc::EINVAL,
+        ..Default::default()
+    };
+    let unpinned = apply_thread_policy(&p, &bad);
+    assert!(
+        unpinned.sched == SchedClass::Fifo && unpinned.cpu.is_none() && !unpinned.detail.is_empty()
+    );
+}
+
+#[test]
+fn the_default_priority_is_20() {
+    assert_eq!(ThreadPolicy::default().fifo_priority, 20);
+}
+
+#[test]
+fn describe_names_what_was_granted() {
+    let fifo = ThreadPolicyResult {
+        sched: SchedClass::Fifo,
+        priority: 20,
+        cpu: Some(3),
+        ..Default::default()
+    };
+    assert_eq!(describe(&fifo), "class=fifo priority=20 cpu=3");
+    let normal = ThreadPolicyResult {
+        short_slice: true,
+        ..Default::default()
+    };
+    assert_eq!(describe(&normal), "class=normal short_slice=yes cpu=any");
+    let nice = ThreadPolicyResult {
+        sched: SchedClass::Nice,
+        nice: -10,
+        ..Default::default()
+    };
+    assert_eq!(
+        describe(&nice),
+        "class=nice nice=-10 short_slice=no cpu=any"
+    );
+}
+
 /// The slice is a normal-class setting: it applies when FIFO was refused, whether or not nice was,
 /// and needs no privilege.
 #[test]
@@ -435,10 +514,17 @@ fn real_rttime_guard_lands_in_the_kernel() {
         // Sandboxed launchers may already impose a tighter (even zero) limit. The guard must land
         // without relaxing that limit, including when a later caller asks for longer.
         for us in [RT_TIME_GUARD_US, RT_TIME_GUARD_US / 2, RT_TIME_GUARD_US * 2] {
-            expected.rlim_cur = expected.rlim_cur.min(us);
-            expected.rlim_max = expected.rlim_max.min(us * 5);
-            if RealSysOps.arm_rttime_guard(us).is_err() {
-                return false;
+            // Under the floor the guard refuses FIFO and leaves the limit alone.
+            if expected.rlim_cur.min(us) < RT_TIME_FLOOR_US {
+                if RealSysOps.arm_rttime_guard(us) != Err(libc::ERANGE) {
+                    return false;
+                }
+            } else {
+                expected.rlim_cur = expected.rlim_cur.min(us);
+                expected.rlim_max = expected.rlim_max.min(us * 5);
+                if RealSysOps.arm_rttime_guard(us).is_err() {
+                    return false;
+                }
             }
             match rlimit(libc::RLIMIT_RTTIME) {
                 Some(l) if l.rlim_cur == expected.rlim_cur && l.rlim_max == expected.rlim_max => {}

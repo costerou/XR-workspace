@@ -4,7 +4,8 @@
 //! can be run side by side; `docs/performance.md` explains what it does and does not prove.
 //!   luma_rt_bench                       30 s, ring mode, real-time if permitted
 //!   luma_rt_bench --check               the same, and exits 1 if a target is missed
-//!                                       (p99 < 0.5 ms, < 1% of a core, nothing lost)
+//!                                       (p99 < 0.5 ms, < 1% of a core, nothing lost;
+//!                                       with SCHED_FIFO also p99.9 <= 100 us)
 //!   luma_rt_bench --quick               1 s; asserts only that nothing is lost or allocated
 //!   --mode ring|inline  --seconds N  --rate HZ  --rt auto|off  --no-slice  --lock
 //!   --reader-cpu N  --fusion-cpu N  --sender-cpu N  --load N (N busy threads)
@@ -355,7 +356,7 @@ fn main() -> ExitCode {
         })
         .collect();
 
-    let mut transport = match FakeTransport::open(a.rate, last + 20, a.sender_cpu) {
+    let mut transport = match FakeTransport::open(a.rate, last + 20, a.sender_cpu, a.rt) {
         Ok(t) => t,
         Err(why) => {
             eprintln!("{why}");
@@ -429,12 +430,17 @@ fn main() -> ExitCode {
     let samples = sink.total.count().max(1);
 
     println!(
-        "stand-in fusion, {mode}, seqlock, {} Hz, {wall_s:.1} s, reader {reader_sched}{}, fusion thread {fusion_sched}, {} busy threads",
+        "stand-in fusion, {mode}, seqlock, {} Hz, {wall_s:.1} s, reader {reader_sched}{}, fusion thread {fusion_sched}, sender {}, {} busy threads",
         a.rate,
         if reader_policy.short_slice {
             " short-slice"
         } else {
             ""
+        },
+        if transport.sender_fifo() {
+            "fifo"
+        } else {
+            "other"
         },
         a.load
     );
@@ -504,6 +510,14 @@ fn main() -> ExitCode {
     if a.check {
         require(lost == 0, "nothing lost");
         require(sink.total.percentile(99.0) < 500_000, "p99 under 0.5 ms");
+        // D9's target, and only where it is meant to hold: the tail a normal thread gets under
+        // load is the reason FIFO exists.
+        if reader_sched == "fifo" {
+            require(
+                sink.total.percentile(99.9) <= 100_000,
+                "p99.9 at most 100 us with SCHED_FIFO",
+            );
+        }
         require(cpu_pct < 1.0, "under 1% of a core");
     }
     if failed > 0 {
