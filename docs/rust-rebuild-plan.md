@@ -306,8 +306,14 @@ the top acceptance priorities. The renderer is last because it is the largest an
   that test behaviour through a wire can be kept; the rest must be ported or dropped knowingly.
 - **Hand-written usbdevfs and pthread FFI** are `unsafe` and tied to the kernel and glibc layouts.
   They stay small and are covered by the fake transport and cross-language tests.
-- **inotify inside the user and network namespace** (D8) is assumed to see `/dev/bus/usb` changes.
-  This must be checked before it is relied on.
+- **inotify inside the user and network namespace** (D8). Checked 2026-11-10: **yes**, it works.
+  `unshare --user --net` makes no mount namespace, so the driver sees the host's devtmpfs, and
+  inotify follows the inode, not the namespace. `rust/crates/xr-luma-driver/tests/inotify_userns.rs`
+  runs a watcher under the driver's exact `unshare` flags and receives an event made on
+  `/dev/bus/usb` from the host namespaces. A returning device node is created by devtmpfs through
+  `vfs_mknod`, which raises `IN_CREATE` on the bus directory by the same path; the ignored test
+  `replug_is_seen_inside_namespace` checks that with a real replug (not yet run). D8 keeps inotify as its wake
+  source.
 - **Late latch (D4)** trades latency against missed frames. A late frame is worse than a slow one,
   so the margin has to adapt.
 - **Plugin stays pinned** to one Hyprland commit. Rust changes nothing there.
