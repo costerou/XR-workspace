@@ -25,6 +25,8 @@ cargo deny check licenses bans sources
 `xr-pose`'s `tests/cpp_interop.rs` builds a small C++ helper from the driver's own `rt.cpp` and
 `predict.cpp` with `c++` (or `$CXX`), so `cargo test` needs a C++20 compiler. It checks the
 `PoseRecord` seqlock object and `PredictionWire` against the C++ layout and code, both ways.
+`tests/feed_cpp_interop.rs` builds `spike/tests/pose_test.cpp` with the renderer's `pose.cpp` the
+same way and runs it against the Rust SysV feed, both ways, including a lock holder that died.
 
 `Cargo.lock` is committed. `deny.toml` allows permissive third-party licences only (MIT, Apache-2.0,
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own

@@ -5,7 +5,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <pthread.h>
 #include <stdexcept>
 #include <string>
@@ -131,7 +133,91 @@ void run() {
 }
 }  // namespace drop
 
-int main() {
+// Interop with the Rust port of the feed (rust/crates/xr-pose/tests/cpp_interop.rs drives these; plain pose_test runs
+// the tests below). Floats are printed with 9 significant digits, which round-trips every float exactly.
+//   pose_test --feed-read <prefix> <n>  PoseFeed::open, then n reads. Prints "fov <v|none>", "look_ahead <4 floats|none>",
+//                                        then per read "sample <16 floats as read: q0 xyzw normalised, q1, q2, t0 t1 t2 0>"
+//                                        or "none". "open-failed <why>" if the feed cannot be opened.
+//   pose_test --feed-write <prefix>     A FakeFeed (the driver's layout and locking) at prefix, "ready" once it exists, then
+//                                        one command per stdin line, each answered with one line:
+//                                          write <16 floats>  the driver's publish                   -> ok
+//                                          disabled <0|1>                                            -> ok
+//                                          die-holding        a child process locks and exits        -> ok
+//                                          probe              pthread_mutex_timedlock, 1 s, unlocked -> rc <errno or 0>
+//                                        EOF or "quit" removes the feed.
+namespace interop {
+void print_floats(const char* tag, const float* v, int n) {
+    std::printf("%s", tag);
+    for (int i = 0; i < n; ++i) std::printf(" %.9g", double(v[i]));
+    std::printf("\n");
+}
+int read(const std::string& prefix, int n) {
+    std::string why;
+    auto feed = PoseFeed::open(prefix, why);
+    if (!feed) { std::printf("open-failed %s\n", why.c_str()); return 0; }
+    if (auto fov = feed->display_fov()) std::printf("fov %.9g\n", double(*fov)); else std::printf("fov none\n");
+    if (auto la = feed->look_ahead_cfg()) print_floats("look_ahead", la->data(), 4); else std::printf("look_ahead none\n");
+    for (int i = 0; i < n; ++i) {
+        const auto s = feed->read();
+        if (!s) { std::printf("none\n"); continue; }
+        const float v[16] = {s->orientation.x, s->orientation.y, s->orientation.z, s->orientation.w,
+                             s->older[0].x, s->older[0].y, s->older[0].z, s->older[0].w,
+                             s->older[1].x, s->older[1].y, s->older[1].z, s->older[1].w,
+                             s->device_ms, s->older_ms[0], s->older_ms[1], 0};
+        print_floats("sample", v, 16);
+    }
+    return 0;
+}
+int write(const std::string& prefix) {
+    test::FakeFeed fake(prefix);
+    std::printf("ready\n");
+    std::fflush(stdout);
+    std::string line;
+    while (std::getline(std::cin, line) && line != "quit") {
+        std::istringstream in(line);
+        std::string cmd;
+        in >> cmd;
+        if (cmd == "write") {
+            float v[16];
+            for (float& f : v) in >> f;
+            fake.write(v);
+            std::printf("ok\n");
+        } else if (cmd == "disabled") {
+            int on = 0;
+            in >> on;
+            *fake.disabled = on != 0;
+            std::printf("ok\n");
+        } else if (cmd == "die-holding") {
+            const pid_t child = fork();
+            if (child == 0) { pthread_mutex_lock(fake.mutex); _exit(0); }
+            int status = 0;
+            waitpid(child, &status, 0);
+            std::printf("ok\n");
+        } else if (cmd == "probe") {
+            timespec deadline{};
+            clock_gettime(CLOCK_REALTIME, &deadline);
+            deadline.tv_sec += 1;
+            const int rc = pthread_mutex_timedlock(fake.mutex, &deadline);
+            if (rc == 0) pthread_mutex_unlock(fake.mutex);
+            std::printf("rc %d\n", rc);
+        } else {
+            std::printf("unknown %s\n", cmd.c_str());
+        }
+        std::fflush(stdout);
+    }
+    return 0;
+}
+int run(int argc, char** argv) {
+    const std::string mode = argv[1];
+    if (mode == "--feed-read" && argc == 4) return read(argv[2], std::atoi(argv[3]));
+    if (mode == "--feed-write" && argc == 3) return write(argv[2]);
+    std::fprintf(stderr, "usage: pose_test [--feed-read <prefix> <n> | --feed-write <prefix>]\n");
+    return 2;
+}
+}  // namespace interop
+
+int main(int argc, char** argv) {
+    if (argc > 1) return interop::run(argc, argv);
     // Quaternion basics.
     auto q = axis_angle(0, 0, 1, 90);
     auto r = quat_mul(q, quat_conj(q));
