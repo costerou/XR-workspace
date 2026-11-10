@@ -456,7 +456,8 @@ _CONTROL = ('accepted', 'refused')
 _REPORT_KINDS = ('generated_pattern_presentation_timing', 'managed_output_capture', 'control_stream')
 
 
-def _report(line):
+def exit_report(line):
+    """The renderer exit report (a `_REPORT_KINDS` dict) on one journal line, or None."""
     m = _JOURNAL_LINE.fullmatch(line.rstrip('\n'))
     body = m[1] if m else line
     if not body.startswith('{'): return None
@@ -465,7 +466,7 @@ def _report(line):
     return value if isinstance(value, dict) and value.get('kind') in _REPORT_KINDS else None
 
 
-def is_exit_report(line): return _report(line) is not None
+def is_exit_report(line): return exit_report(line) is not None
 
 
 def exit_metrics(lines):
@@ -473,7 +474,7 @@ def exit_metrics(lines):
     reach an incident by accident."""
     out = {}
     for line in lines:
-        report = _report(line)
+        report = exit_report(line)
         if report is None: continue
         if report['kind'] == _REPORT_KINDS[0]:
             out['presentation'] = {k: report[k] for k in _PRESENTATION if k in report}

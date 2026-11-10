@@ -57,8 +57,10 @@ goal, and anything marked **(not measured)** has no baseline yet.
    `move_handle`, `overview_pointer`, `roll`, `desktops`, `environment`, `binds`, `edge_pan`,
    `immersive`, `restore_band`, `video`.
 4. **Renderer → supervisor.** Heartbeat byte `H` (2 s gap ends the run). Status datagrams:
-   `control_applied`, `control_refused`, `owner_readback`, geometry replies, and the status dict
-   (`presented_hz`, `missed`, `capture_path`, `pose_age_ms`, `read_to_present` p50/p95/mean/max).
+   `control_applied`, `control_refused`, `owner_readback`, geometry replies, and the 1 Hz status dict
+   (`presented_hz`, `missed`, `capture_path`, `tracking`, `video`, `capture_failure_run`; the supervisor also
+   accepts `pose_age_ms`, which the renderer does not send). Whole-run `read_to_present` and `pose_age_relative`
+   p50/p95/mean/max are in the `managed_output_capture` exit report on stderr, kept in the run's journal.
 5. **Supervisor ↔ plugin.** hyprctl command `xrspike `, seven keys including `epoch`, at most
    8,192 bytes in and 1 MiB out. Ops: `hello`, `pair_hello`, `pair_observe`, `cursor_shape`,
    `create`, `reshape`, `inspect`, `remove`.
@@ -238,9 +240,9 @@ Out of scope unless Cody decides otherwise: camera-based heading or 6DoF.
 | Presented rate | 119.9–120.0 Hz | ≥ 119.9 Hz | `presented_hz`, timing report |
 | Missed frames | 0 in accepted runs | 0 `discarded` in a 30-minute run | `missed`, `discarded` |
 | Stalls | — | 0 intervals over 34 ms | `stall_intervals` |
-| Read-to-present | 16.6 ms | p50 ≤ 9 ms, p95 ≤ 11 ms | `read_to_present` |
+| Read-to-present | 16.6 ms (Pro 2); Luma: phase 0 run pending | p50 ≤ 9 ms, p95 ≤ 11 ms | `read_to_present` (exit report; `python3 -m tools.latency_baseline`) |
 | Capture-to-present, head-tracked | 13.15 / 16.47 ms | ≤ 7 / 11 ms | `capture_e2e_bench` |
-| Pose age, Luma | — (**not measured** live) | p99 ≤ 1.5 ms | `pose_age_ms` |
+| Pose age, Luma | — (**not measured** live; phase 0 run pending) | p99 ≤ 1.5 ms | `pose_age_relative` (exit report; `python3 -m tools.latency_baseline`). Relative to the best case in the last 8 s, and p50/p95/max only: an absolute age and a p99 need D2 |
 | Pose age, Pro 2 | 9.4 ms p50 | ≤ 3 ms p50 | same |
 | Sensor-to-vsync (motion-to-photon proxy) | **not measured** | ≤ 12 ms before prediction, residual ≤ 2 ms after | D5 vsync events; optional 240 fps camera check |
 | Driver added latency | p50 5–10 µs, p99 23–40 µs | no worse; p99.9 ≤ 100 µs with real-time scheduling | `tracking_bench` |
