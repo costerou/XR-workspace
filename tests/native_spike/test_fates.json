@@ -1376,6 +1376,16 @@
    },
    "reason": "Tests the offline tool tools/mode_switch_gap.py. It stays as is and retires with the Python supervisor in phase 8."
   },
+  "test_monitor_rules_corpus.py": {
+   "classes": {
+    "MonitorRulesCorpusTest": {
+     "fate": "wire",
+     "how": "The phase 6 monitor rules gate: the Rust monitor_rules module removes only the confirmed one-line rule and keeps every other byte. The Python test keeps the corpus true to the Python.",
+     "tests": 2,
+     "via": "rust/corpus/supervisor/monitor_rules.json"
+    }
+   }
+  },
   "test_native_restore_acquisition.py": {
    "classes": {
     "NativeRestoreTests": {
