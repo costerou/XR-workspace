@@ -1,0 +1,5339 @@
+{
+ "about": "monitor_rules.py results, made by tests/native_spike/monitor_rules_corpus.py.",
+ "limit": 1048576,
+ "desktops": [
+  {
+   "name": "XR-1",
+   "ok": true
+  },
+  {
+   "name": "XR-10",
+   "ok": true
+  },
+  {
+   "name": "XR-0",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "XR-",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "xr-1",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "XR-1 ",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": " XR-1",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "XR-1\n",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "XR-١",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "DP-1",
+   "error": "not an XR desktop"
+  },
+  {
+   "name": "",
+   "error": "not an XR desktop"
+  }
+ ],
+ "cases": [
+  {
+   "name": "incident",
+   "raw": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 3,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 3,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- See https://wiki.hypr.land/Configuring/Basics/Monitors/\nhl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = omarchy_monitor_scale })\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n\n-- Ultrawide at its full 240Hz refresh rate.\nhl.monitor({ output = \"DP-1\", mode = \"5120x1440@240\", position = \"0x0\", scale = 1.25 })\n-- hl.monitor({ output = \"DP-2\", mode = \"2560x1440@144\", position = \"0x0\", scale = 1 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 3 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 3 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 3 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "empty",
+   "raw": "",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "no-rule",
+   "raw": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"DP-1\", mode = \"preferred\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "no-final-newline",
+   "raw": "a = 1\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "a = 1\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "a = 1\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "crlf",
+   "raw": "a = 1\r\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\r\nb = 2\r\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "a = 1\r\nb = 2\r\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "a = 1\r\nb = 2\r\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\r\nb = 2\r\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\r\nb = 2\r\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\r\nb = 2\r\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\r\nb = 2\r\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\r\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\r\nb = 2\r\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\r\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\r\nb = 2\r\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "cr-only",
+   "raw": "a = 1\rhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\rb = 2",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "a = 1\rb = 2"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "a = 1\rb = 2"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\rb = 2",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\rb = 2",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a = 1\rb = 2",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a = 1\rb = 2",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\rhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\rb = 2",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\rhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\rb = 2",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "unicode-breaks",
+   "raw": "a hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) b\u000bc\fhl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\u001cde\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    },
+    {
+     "name": "XR-2",
+     "line": 5,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "a b\u000bc\fhl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\u001cde\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "a b\u000bc\fde\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": "a hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) b\u000bc\fde\n"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a b\u000bc\fhl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\u001cde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a b\u000bc\fhl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\u001cde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 and XR-2 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a b\u000bc\fde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1, XR-2 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a b\u000bc\fde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-2 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "a hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) b\u000bc\fde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-2 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "a hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) b\u000bc\fde\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 5 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 5 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "unicode-spaces",
+   "raw": "　hl.monitor(\t{ output\u001f= \"XR-1\" } )\u001d -- note\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": " -- note\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": " -- note\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": " -- note\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": " -- note\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": " -- note\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": " -- note\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "　hl.monitor(\t{ output\u001f= \"XR-1\" } )\u001d -- note\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "　hl.monitor(\t{ output\u001f= \"XR-1\" } )\u001d -- note\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "trailing-comment",
+   "raw": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })  -- added by the scale control\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })  -- added by the scale control\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })  -- added by the scale control\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "commented-out",
+   "raw": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "-- hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n  --hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "comment-mid-line",
+   "raw": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\" -- output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "string-dashes",
+   "raw": "hl.monitor({ output = \"XR-1\", description = \"a--b\" })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", description = \"a--b\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", description = \"a--b\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "single-quotes",
+   "raw": "hl.monitor({output='XR-3'})\n",
+   "find": [
+    {
+     "name": "XR-3",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": ""
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output='XR-3'})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output='XR-3'})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output='XR-3'})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output='XR-3'})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-3 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-3 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-3, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-3, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "mixed-quotes",
+   "raw": "hl.monitor({ output = \"XR-4' })\n",
+   "find": [
+    {
+     "name": "XR-4",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": ""
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-4' })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-4' })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-4' })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-4' })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-4 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-4 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-4, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-4, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "no-options",
+   "raw": "hl.monitor({ output = \"XR-12\" })\n",
+   "find": [
+    {
+     "name": "XR-12",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": ""
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-12\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-12\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-12\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-12\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-12 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-12 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-12, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-12, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "tight",
+   "raw": "hl.monitor({output=\"XR-1\",})\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": ""
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output=\"XR-1\",})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({output=\"XR-1\",})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "xr-zero",
+   "raw": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-0\" })\nhl.monitor({ output = \"XR-01\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "xr-long",
+   "raw": "hl.monitor({ output = \"XR-123456789\" })\n",
+   "find": [
+    {
+     "name": "XR-123456789",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-123456789\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-123456789, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "lowercase",
+   "raw": "hl.monitor({ output = \"xr-1\" })\n",
+   "find": [],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"xr-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "other-key-first",
+   "raw": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ mode = \"preferred\", output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "nested-table",
+   "raw": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", transform = { 1 } })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "space-before-paren",
+   "raw": "hl.monitor ({ output = \"XR-1\" })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor ({ output = \"XR-1\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "code-after",
+   "raw": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 }) x = 1\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "two-on-a-line",
+   "raw": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output = \"XR-1\" }) hl.monitor({ output = \"XR-2\" })\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "multi-line",
+   "raw": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": false
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 2,
+     "removable": false
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({\n  output = \"XR-1\",\n  mode = \"preferred\",\n})\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 2 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "several",
+   "raw": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+   "find": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    },
+    {
+     "name": "XR-2",
+     "line": 2,
+     "removable": true
+    },
+    {
+     "name": "XR-2",
+     "line": 4,
+     "removable": false
+    },
+    {
+     "name": "XR-1",
+     "line": 6,
+     "removable": true
+    }
+   ],
+   "find_xr1": [
+    {
+     "name": "XR-1",
+     "line": 1,
+     "removable": true
+    },
+    {
+     "name": "XR-1",
+     "line": 6,
+     "removable": true
+    }
+   ],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": "hl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\n"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": "hl.monitor({\n output = \"XR-2\"\n})\n"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-1 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "hl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "hl.monitor({ output = \"XR-2\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 4 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [
+      "Removed the XR-1 and XR-2 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "hl.monitor({\n output = \"XR-2\"\n})\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-1, XR-2 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "hl.monitor({\n output = \"XR-2\"\n})\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "monitors.lua line 4 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ],
+     "notes": [
+      "Removed the XR-2 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-2 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "hl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\nhl.monitor({\n output = \"XR-2\"\n})\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 6 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 2 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 4 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 6 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 2 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload",
+      "monitors.lua line 4 names XR-2, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-1, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "output-in-text",
+   "raw": "local note = \"output = 'XR-7' is a desktop\"\n",
+   "find": [
+    {
+     "name": "XR-7",
+     "line": 1,
+     "removable": false
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": null
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "local note = \"output = 'XR-7' is a desktop\"\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-7, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "spaces-around-equals",
+   "raw": "hl.monitor({ output\t =\t\t\"XR-5\" , scale = 2 })\t\n",
+   "find": [
+    {
+     "name": "XR-5",
+     "line": 1,
+     "removable": true
+    }
+   ],
+   "find_xr1": [],
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "result": null
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "result": ""
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output\t =\t\t\"XR-5\" , scale = 2 })\t\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output\t =\t\t\"XR-5\" , scale = 2 })\t\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output\t =\t\t\"XR-5\" , scale = 2 })\t\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [],
+     "notes": [],
+     "reloads": 0,
+     "after": "hl.monitor({ output\t =\t\t\"XR-5\" , scale = 2 })\t\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [],
+     "notes": [
+      "Removed the XR-5 line Omarchy's scale control added to monitors.lua. A copy is in <backup>."
+     ],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for XR-5 out of monitors.lua: config reload rejected: nope"
+     ],
+     "notes": [],
+     "reloads": 1,
+     "after": "",
+     "files": [
+      "<backup>",
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": [
+      "monitors.lua line 1 names XR-5, so that desktop cannot be used: remove that line, then run hyprctl reload"
+     ]
+    }
+   ],
+   "refuse_start": "monitors.lua line 1 names XR-5, so that desktop cannot be used: remove that line, then run hyprctl reload"
+  },
+  {
+   "name": "bad-start-byte",
+   "raw_hex": "61203d20310aff0a",
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xff in position 6: invalid start byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a = 1\n�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "bad-continuation",
+   "raw_hex": "610a686c2e6d6f6e69746f72287b206f7574707574203d202258522d31222c206d6f6465203d2022707265666572726564222c20706f736974696f6e203d20226175746f222c207363616c65203d20312e3235207d290ae228a10a",
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 87: invalid continuation byte"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "a\nhl.monitor({ output = \"XR-1\", mode = \"preferred\", position = \"auto\", scale = 1.25 })\n�(�\n",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "truncated-one",
+   "raw_hex": "616263e2",
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "error": "'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  },
+  {
+   "name": "truncated-two",
+   "raw_hex": "616263e282",
+   "remove": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "error": "'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "error": "'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "error": "'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+    }
+   ],
+   "clear": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": null,
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reload_error": "config reload rejected: nope",
+     "reasons": [
+      "could not take the rule for an XR desktop out of monitors.lua: 'utf-8' codec can't decode bytes in position 3-4: unexpected end of data"
+     ],
+     "notes": [],
+     "reloads": 0,
+     "after": "abc�",
+     "files": [
+      "monitors.lua"
+     ]
+    }
+   ],
+   "named": [
+    {
+     "names": [
+      "XR-1"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-1",
+      "XR-2"
+     ],
+     "reasons": []
+    },
+    {
+     "names": [
+      "XR-2",
+      "XR-3",
+      "XR-4",
+      "XR-5",
+      "XR-12"
+     ],
+     "reasons": []
+    }
+   ],
+   "refuse_start": null
+  }
+ ]
+}

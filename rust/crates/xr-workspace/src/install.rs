@@ -53,7 +53,7 @@ const ENGINE_PYTHON: [&str; 5] = [".cache", "viture-depth", "venv", "bin", "pyth
 const WORKSPACE_SOURCES: [&str; 3] = ["tools", "packaging", "omarchy-plugin"];
 const PRO2_SOURCES: [&str; 3] = ["tools", "omarchy-plugin", "docs/pro2"];
 // tools/pro2_runtime/package.py and launch.py: the Pro 2 manifest's fixed fields.
-const PRO2_SDK_SHA: &str = "8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e";
+pub(crate) const PRO2_SDK_SHA: &str = "8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e";
 const PRO2_FIRMWARE: &str = "30.0.00.002_20260804";
 const PRO2_PROJECTION: &str =
     "explicit provisional diagonal44.5..50, seed44.5 TBD; no optical correction";

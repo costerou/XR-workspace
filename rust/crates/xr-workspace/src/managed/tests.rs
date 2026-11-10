@@ -388,6 +388,92 @@ fn run_order_equals_the_python_on_every_path_and_failure_point() {
     );
 }
 
+/// The gate of privacy mode (docs/rust-rebuild-plan.md, "Privacy mode wakes the fallback display before anything
+/// else during recovery"), checked on the Rust's own trace rather than the corpus: in every path and every fault that
+/// reaches recovery, the fallback is woken before any recovery step touches the compositor, the broker or the windows,
+/// and nothing that changes them comes between the run's end and the wake. A run whose compositor has exited
+/// (`recover_ended`) has no display to wake and only closes its journal.
+#[test]
+fn recovery_wakes_the_fallback_first_in_every_fault() {
+    const RECOVERY: [&str; 8] = [
+        "sbs.restore_2d",
+        "journal.output_names",
+        "broker.from_journal",
+        "monitor_rules.clear",
+        "monitor_rules.named",
+        "layout.unpin",
+        "layout.restore",
+        "journal.recover",
+    ];
+    // Everything a trace may hold before the wake: the run's set-up, the run itself and its teardown. None of it is a
+    // recovery step, so a wake after any other step would be late.
+    const BEFORE_WAKE: [&str; 26] = [
+        "session.verify",
+        "pair.validate",
+        "outputs.plan",
+        "broker.open",
+        "broker.require_ownership",
+        "private_dir",
+        "owner.lock",
+        "journal.open",
+        "journal.check_fresh",
+        "journal.bind_broker",
+        "layout.take",
+        "outputs.create",
+        "broker.verify",
+        "broker.cursor_reader",
+        "setup.discard_unusable",
+        "adopt",
+        "desktops.manager",
+        "window_memory.open",
+        "window_memory.place",
+        "window_memory.finish",
+        "view_controls.enter",
+        "continuity.open",
+        "renderer.keep",
+        "renderer.launch",
+        "continuity.close",
+        "view_controls.exit",
+    ];
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../corpus/supervisor/run_order.json"
+    );
+    let corpus: Value =
+        serde_json::from_str(&std::fs::read_to_string(path).expect("corpus")).expect("json");
+    let fallible = strings(&corpus["fallible"]);
+    let wake = format!("privacy.wake {FALLBACK}");
+    let (mut recovering, mut faults) = (0, 0);
+    let mut wrong = vec![];
+    for case in corpus["cases"].as_array().expect("cases") {
+        let name = case["name"].as_str().expect("name");
+        let (trace, _) = replay(&corpus["defaults"], &fallible, case);
+        let step = |s: &String| s.split(' ').next().unwrap_or("").to_owned();
+        let Some(first) = trace
+            .iter()
+            .position(|s| RECOVERY.contains(&step(s).as_str()))
+        else {
+            continue;
+        };
+        recovering += 1;
+        faults += usize::from(name.contains("/fail "));
+        match trace.iter().position(|s| *s == wake) {
+            Some(at) if at < first => {
+                for other in &trace[..at] {
+                    let s = step(other);
+                    if !BEFORE_WAKE.contains(&s.as_str()) {
+                        wrong.push(format!("{name}: {other} before the wake"));
+                    }
+                }
+            }
+            _ => wrong.push(format!("{name}: {} before {wake}", trace[first])),
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    assert!(recovering > 100 && faults > 50, "{recovering} recovering cases, {faults} faults");
+    eprintln!("fallback woken first in {recovering} recovering cases, {faults} of them faults");
+}
+
 #[test]
 fn a_run_id_outside_the_token_alphabet_is_not_a_journal_path() {
     let consent = |run_id: &str| Consent {

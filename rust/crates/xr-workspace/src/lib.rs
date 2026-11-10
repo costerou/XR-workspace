@@ -18,6 +18,8 @@ pub mod journal;
 pub mod json;
 pub mod lua;
 pub mod managed;
+pub mod monitor_rules;
+pub mod pro2_route;
 pub mod private_file;
 mod py;
 pub mod pyjson;

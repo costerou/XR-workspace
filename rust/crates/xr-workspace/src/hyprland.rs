@@ -961,6 +961,14 @@ impl Client {
         self.eval4k(&privacy::blank_lua(name, keep)?)
     }
 
+    /// The file Omarchy's monitor scale writes to (monitor_rules.rs), from this process's environment.
+    pub fn monitors_config(&self) -> Option<PathBuf> {
+        crate::monitor_rules::config_path(
+            std::env::var_os("XDG_CONFIG_HOME").as_deref(),
+            std::env::var_os("HOME").as_deref(),
+        )
+    }
+
     /// Hyprland reads its config again; returns once it has.
     pub fn reload_config(&mut self) -> Result<()> {
         let reply = self.request_text("/reload")?;

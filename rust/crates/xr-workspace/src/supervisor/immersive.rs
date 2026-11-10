@@ -680,7 +680,7 @@ impl Event {
 pub type Done = Box<dyn FnOnce(bool, String) + Send>;
 
 /// Bounded completion, isolated from a callback that panics (send.complete).
-fn complete(done: Done, success: bool, detail: &str) {
+pub(crate) fn complete(done: Done, success: bool, detail: &str) {
     let mut end = detail.len().min(256);
     while !detail.is_char_boundary(end) {
         end -= 1;

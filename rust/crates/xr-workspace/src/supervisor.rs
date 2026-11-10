@@ -48,6 +48,8 @@ pub mod quality;
 pub mod video;
 pub mod web_video;
 mod parity;
+// Privacy mode (Ctrl+Alt+D): privacy.py's main display blank, its watcher and the recovery wake.
+pub mod privacy;
 #[cfg(test)]
 use parity::corpus;
 use parity::{json_int, json_str, py_repr, py_strip};
