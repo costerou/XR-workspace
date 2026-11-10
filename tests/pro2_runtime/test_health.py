@@ -89,5 +89,9 @@ class Reasons(unittest.TestCase):
         from tools.xr_controller.pro2_test import provider_summary
         class P:done=dict(samples=9,seconds=1.0);failure='x'
         self.assertEqual(provider_summary(P())['failure'],'x')
-        class Q:done=dict(samples=9);failure=None
-        self.assertNotIn('failure',provider_summary(Q()))
+        class Q:done=dict(samples=9,error='');failure=None
+        self.assertEqual(provider_summary(Q()),dict(samples=9))
+    def test_the_result_names_the_bridges_error(self):
+        from tools.xr_controller.pro2_test import provider_summary
+        class P:done=dict(samples=9,error='stale');failure='Pro2 test provider no longer ready'
+        self.assertEqual(provider_summary(P()),dict(samples=9,error='stale',failure='Pro2 test provider no longer ready'))

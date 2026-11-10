@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pickle
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import Mock,patch
@@ -30,6 +31,8 @@ class ControllerTests(unittest.TestCase):
             def __init__(self,root,directory,projection,seconds,approved,**_):
                 directory.mkdir();self.prefix=str(directory/'pose_');self.projection=projection;self.nonce='n';self.health_path=directory/'health.json'
                 self.health_path.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic())));self.health_path.chmod(0o600)
+                self.lock=threading.RLock()  # as RuntimeSession: its display switch cannot cross into the spawned guard worker
+            def set_display(self,on):pass
             def start(self):return self
             def close(self):pass
         with patch.dict(os.environ,XDG_RUNTIME_DIR=str(self.root)),patch('tools.xr_controller.pro2_test.monitor_rules.refuse_start'):
@@ -39,7 +42,9 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[1]['mode_switch'],False)
         self.assertEqual(run.call_args.args[1]['sbs_mode'],None)
         client.apply_session_mode.assert_not_called();client.plugin_unload.assert_called_once()
-        self.assertEqual(pickle.loads(pickle.dumps(kwargs['test_scope'])).projection,44.5)
+        scope=kwargs['test_scope'];self.assertIsNotNone(scope.display)
+        guard=pickle.loads(pickle.dumps(ScopedGuard(Mock,scope)))  # supervisor._start_guard pickles the guard into a spawn worker
+        self.assertEqual(guard.scope.projection,44.5);self.assertIsNone(guard.scope.display);self.assertIsNotNone(scope.display)
     def test_health_fails_closed(self):
         f=self.root/'health';f.write_text(json.dumps(dict(nonce='n',ready=True,monotonic=time.monotonic()-3)));f.chmod(0o600)
         with self.assertRaises(ValueError):TestScope('/private/pose_',44.5,str(f),'n').healthy()

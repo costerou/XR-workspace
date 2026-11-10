@@ -76,7 +76,7 @@ import threading
 import time
 
 from .geometry import MAX_DESKTOPS
-from .sbs import ButtonSbs, SbsError, scope_ok
+from .sbs import ButtonSbs, SbsError, scope_ok, trace
 
 # near, far: arcminutes either side of the plane. text: percent of the parallax left on small text. range_ms: how slowly the plane
 # follows the scene. convergence: the preset's default plane. tests/native_spike/test_immersive.py holds these to
@@ -213,12 +213,12 @@ class NoDeviceSbs:
         pass
 
 
-def make_sbs(client=None, output=None, consent=None, tell=lambda text: None):
-    """The run's Sbs: the glasses' own button, if this run's consent has the scope."""
+def make_sbs(client=None, output=None, consent=None, tell=lambda text: None, glasses=None):
+    """The run's Sbs, if this run's consent has the scope: `glasses` switches them (a Pro 2 bridge), else their own button."""
     if client is None or output is None or not isinstance(consent, dict): return NoDeviceSbs()
     model = consent.get('model', 'luma-ultra')
     if not scope_ok(consent.get('sbs_mode'), model=model): return NoDeviceSbs()
-    return ButtonSbs(client, output, tell, model=model)
+    return ButtonSbs(client, output, tell, model=model, glasses=glasses)
 
 
 def restore_2d(sbs=None):
@@ -384,6 +384,7 @@ class ImmersiveRun:
             if not desktops: self._failed = False
             if self._stopping or desktops == self._target or (desktops and (self._failure_pending or self._failed)): return
             self._target = desktops
+            trace(f'3D requested {desktops}')
             if desktops and self._thread is None:
                 self._thread = threading.Thread(target=self._work, daemon=True, name='xr-immersive')
                 self._thread.start()
@@ -480,9 +481,11 @@ class ImmersiveRun:
 
     def _down(self):
         """The glasses, then the engine. Never raises."""
+        trace('3D off: leave')
         try: self.sbs.leave()
         except Exception as exc: self._emit('leave', str(exc) or type(exc).__name__)  # any adapter error: the engine must still stop
         self.engine.stop()
+        trace('3D off: engine stopped')
         with self._cond: self._current = []
         self.phase = 'off'
 
@@ -517,6 +520,7 @@ class ImmersiveRun:
     def _up(self, target):
         self.starts += 1
         self.phase = 'engine'
+        trace(f'3D on {target}: engine start')
         try:
             if not self.engine.start(target, self._cancelled):
                 self.phase = 'off'
@@ -528,6 +532,7 @@ class ImmersiveRun:
             self.phase = 'off'
             return
         self.phase = 'glasses'
+        trace('3D on: engine ready')
         try: entered = self.sbs.enter(self._cancelled)
         except Exception as exc: return self._fail('sbs', str(exc) or type(exc).__name__)
         if entered is False:  # the press was called off
@@ -537,6 +542,7 @@ class ImmersiveRun:
         if not self.engine.alive(): return self._fail('died', 'it quit')  # it had up to a minute alone
         with self._cond: self._current = list(target)
         self.phase = 'on'
+        trace('3D on: glasses entered')
         self._emit('active', list(target))
 
     def _work(self):

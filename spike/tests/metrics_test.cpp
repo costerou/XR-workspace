@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <time.h>
+#include <vector>
 
 namespace { std::atomic<unsigned long> allocations{0}; }
 // Counted allocations (noinline: GCC otherwise pairs the inlined malloc/free with new/delete and warns).
@@ -162,6 +163,39 @@ int main() {
             alone.presented(*alone.submit(), 0, std::uint32_t(t2 / 1000000000ULL), std::uint32_t(t2 % 1000000000ULL), 8333333, 0, i, 0, true);
         }
         check(allocations.load() == quiet, "presentation feedback does not allocate");
+    }
+    // Stalls (intervals over 34 ms) keep their end timestamp (CLOCK_MONOTONIC ns, the journal's monotonic clock): the
+    // first 32 and the last 32, in order, plus how many fell between. Also the first and last presentation.
+    {
+        xr::Metrics stalls; stalls.bind(1); stalls.clock(CLOCK_MONOTONIC);
+        std::uint64_t ts = 2'000'000'000ULL, seq = 0;
+        auto present = [&](std::uint64_t at) {
+            stalls.presented(*stalls.submit(), 0, std::uint32_t(at / 1000000000ULL), std::uint32_t(at % 1000000000ULL), 0, 0, std::uint32_t(++seq), 0, true);
+        };
+        present(ts);
+        auto empty = nlohmann::json::parse(stalls.report());
+        check(empty["stall_intervals"].empty() && empty["stall_intervals_dropped"] == 0, "no stall, none listed");
+        check(empty["first_presented_ns"] == ts && empty["last_presented_ns"] == ts, "first and last presentation timestamps");
+        std::vector<std::uint64_t> ends;
+        ends.reserve(100);
+        const auto quiet = allocations.load();
+        for (int i = 0; i < 100; ++i) {
+            ts += 8'333'333; present(ts);
+            ts += 34'000'000; present(ts);                     // exactly 34 ms: not a stall
+            ts += 34'000'001 + std::uint64_t(i); present(ts);   // a stall
+            ends.push_back(ts);
+        }
+        check(allocations.load() == quiet, "recording stalls does not allocate");
+        auto j = nlohmann::json::parse(stalls.report());
+        const auto& list = j["stall_intervals"];
+        bool same = list.size() == 64 && j["stall_intervals_dropped"] == 36;
+        for (std::size_t k = 0; same && k < 64; ++k) {
+            const std::size_t i = k < 32 ? k : 68 + (k - 32);
+            same = list[k][0] == ends[i] && list[k][1] == 34'000'001 + i;
+        }
+        check(same, "first 32 and last 32 stalls, in order, with end timestamp and length");
+        check(j["last_presented_ns"] == ts, "last presentation timestamp");
+        check(j["stall_threshold_ns"] == 34000000, "threshold reported");
     }
     return failures ? 1 : 0;
 }

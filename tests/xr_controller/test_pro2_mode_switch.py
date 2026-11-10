@@ -31,6 +31,35 @@ class Pro2ModeSwitchTests(unittest.TestCase):
                 self.assertEqual(watch.mode, (1920, 1080, rate))
                 self.assertEqual(watch.mode_switches, 2)
 
+    def test_back_to_back_switches_in_one_switching_window_are_all_switches(self):
+        """Run 5ba108c6 (2026-11-08): the bridge switches the glasses in milliseconds, so 3D off and straight back on fall in
+        one switching window. The second switch was a video-lost toast, and the next one logged the old mode as the new."""
+        watch = self.watch()
+        wide = dict(NARROW, width=3840, refresh=60)
+        pending = dict(GOOD, immersive={'switching': True})
+        signals, at = [], 20
+        for monitor in (wide, NARROW, wide, NARROW):
+            signals += run(watch, 2, start=at, status=pending, monitor=None, drm='disconnected')
+            signals += run(watch, 6, start=at + 2, status=pending, monitor=monitor)
+            at += 8
+            self.assertEqual(watch.mode, (monitor['width'], 1080, round(monitor['refresh'])))
+        self.assertEqual(watch.mode_switches, 4)
+        signals += run(watch, 20, start=at, monitor=NARROW)
+        self.assertNotIn('video-lost', kinds(signals))
+
+    def test_the_renderer_gap_of_a_switch_is_not_a_stall(self):
+        """Run 5ba108c6: the old renderer ends before the output goes, the new one starts after the new mode is up; about
+        5 s without frames, reported as a stall."""
+        watch = self.watch()
+        gap = dict(GOOD, presented_hz=None, immersive={'switching': True})
+        wide = dict(NARROW, width=3840, refresh=60)
+        signals = run(watch, 2, start=20, status=gap, monitor=NARROW)
+        signals += run(watch, 2, start=22, status=gap, monitor=None, drm='disconnected')
+        signals += run(watch, 2, start=24, status=gap, monitor=wide)
+        signals += run(watch, 20, start=26, status=dict(GOOD, presented_hz=60.0), monitor=wide)
+        self.assertEqual(kinds(signals), [])
+        self.assertIn('present-stall', kinds(run(watch, 6, start=46, status=dict(GOOD, presented_hz=None), monitor=wide)))
+
     def test_unsupported_wide_or_luma_modes_are_faults(self):
         for width, height, rate in ((3840, 1080, 90), (3840, 1200, 60), (1920, 1200, 120), (1920, 1080, 240)):
             with self.subTest(mode=(width, height, rate)):

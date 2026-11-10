@@ -57,6 +57,13 @@ void Metrics::presented(std::uint64_t ticket, std::uint32_t hi, std::uint32_t lo
         auto delta = timestamp - *previous_ns_;
         auto index = std::lower_bound(bounds.begin(), bounds.end(), delta) - bounds.begin();
         increment(state_.intervals[index]);
+        if (index >= 6) {  // over 34 ms
+            constexpr std::size_t tail = stall_capacity - stall_head;
+            const auto slot = stall_total_ < stall_capacity ? std::size_t(stall_total_)
+                                                            : stall_head + std::size_t((stall_total_ - stall_head) % tail);
+            stalls_[slot] = {timestamp, delta};
+            increment(stall_total_);
+        }
         increment(state_.interval_count);
         // Disjoint increasing timestamp intervals sum to at most INT64_MAX.
         state_.interval_sum_ns += delta;
@@ -117,6 +124,20 @@ std::string Metrics::report() const {
     // First-to-last accepted presentation timestamps, not requested run length,
     // callback arrival time, refresh prediction, or an FPS denominator.
     if (state_.valid_presented >= 2) j["observation_duration_ns"] = *last_valid_ns_ - *first_valid_ns_;
+    j["first_presented_ns"] = first_valid_ns_ ? nlohmann::json(*first_valid_ns_) : nlohmann::json(nullptr);
+    j["last_presented_ns"] = last_valid_ns_ ? nlohmann::json(*last_valid_ns_) : nlohmann::json(nullptr);
+    j["stall_threshold_ns"] = 34000000;
+    auto stalls = nlohmann::json::array();
+    const auto kept = std::min<std::uint64_t>(stall_total_, stall_capacity);
+    const std::size_t tail = stall_capacity - stall_head;
+    for (std::size_t k = 0; k < kept; ++k) {
+        // Past capacity the ring's oldest entry sits where the next write goes.
+        const auto slot = stall_total_ <= stall_capacity || k < stall_head ? k
+            : stall_head + std::size_t((stall_total_ - stall_head + (k - stall_head)) % tail);
+        stalls.push_back({stalls_[slot][0], stalls_[slot][1]});
+    }
+    j["stall_intervals"] = stalls;
+    j["stall_intervals_dropped"] = stall_total_ - kept;
     if (state_.clock_id) j["clock_id"] = *state_.clock_id;
     return j.dump();
 }

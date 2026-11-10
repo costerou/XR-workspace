@@ -62,6 +62,7 @@ int xr_device_provider_open_imu(void *h,uint8_t mode,uint8_t rate) {
     else { atomic_store(&running,1); if(pthread_create(&worker,NULL,produce,NULL))return -1;started_thread=1; }
     return is("open")?-37:0;
 }
+int xr_device_provider_set_display_mode(void *h,int mode) { (void)h;{char name[24];snprintf(name,sizeof name,"display:%d",mode);trace(name);}return result("display"); }
 int xr_device_provider_close_imu(void *h,uint8_t mode) { (void)h;(void)mode; if(is("callback_during_close"))emit(5,now_ns());return result("close"); }
 int xr_device_provider_stop(void *h) { (void)h;atomic_store(&running,0);if(started_thread){pthread_join(worker,NULL);started_thread=0;}return result("stop"); }
 int xr_device_provider_shutdown(void *h) { (void)h;return result("shutdown"); }

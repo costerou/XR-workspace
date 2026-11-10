@@ -47,5 +47,10 @@ private:
     std::array<std::uint64_t, recent_capacity> recent_{};
     std::size_t recent_head_ = 0, recent_size_ = 0;
     bool clock_conflict_ = false, interval_anchor_ = false;
+    // Intervals over 34 ms as {end timestamp, length} (CLOCK_MONOTONIC ns, comparable with the journal's monotonic
+    // time): slots 0..31 keep the first ones, 32..63 a ring of the latest, so both ends of a segment are located.
+    static constexpr std::size_t stall_capacity = 64, stall_head = 32;
+    std::array<std::array<std::uint64_t, 2>, stall_capacity> stalls_{};
+    std::uint64_t stall_total_ = 0;
 };
 }

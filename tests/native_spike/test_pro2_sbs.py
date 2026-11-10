@@ -7,6 +7,12 @@ from tests.native_spike.test_sbs import Clock, monitor
 
 NARROW = ['1920x1080@120.00Hz', '1920x1080@90.00Hz', '1920x1080@60.00Hz']
 WIDE = ['3840x1080@60.00Hz']
+BACK = ['1920x1080@120.00Hz', '1920x1080@119.88Hz']  # live, after 0x34: the 2D EDID is back...
+
+
+def stale():
+    """...but the run's wide rule keeps Hyprland driving 3840x1080, which the glasses no longer offer (probe, 2026-11-08)."""
+    return pro2(width=3840, hz=60, modes=BACK)
 
 
 def pro2(width=1920, hz=120, modes=NARROW):
@@ -122,6 +128,14 @@ class Pro2Sbs(unittest.TestCase):
         self.assertTrue(button.settle())
         self.assertEqual(client.writes, [('narrow', 'DP-2', 120)])
 
+    def test_l1_back_to_2d_is_seen_while_hyprland_still_drives_the_stale_wide_mode(self):
+        button, client, _ = self.button(pro2(), pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        client.script = [stale()]
+        self.assertTrue(button.left_by_hand())
+        self.assertTrue(button.settle())
+        self.assertEqual(client.writes, [('narrow', 'DP-2', 120)])
+
     def test_mode_probe_marks_late_physical_transitions_without_extending_stable_state(self):
         button, client, _ = self.button(pro2(width=3840, hz=60, modes=WIDE))
         self.assertTrue(button.enter())
@@ -135,6 +149,86 @@ class Pro2Sbs(unittest.TestCase):
         client.script = [pro2(width=3840, hz=60, modes=WIDE)]
         button.follow_by_hand()
         self.assertTrue(button.switching())
+
+
+class Pro2SwitchedBySdk(unittest.TestCase):
+    """A panel session's bridge owns the SDK: 3D on and off switch the glasses themselves, with no L1 prompt."""
+    def button(self, *script, glasses=None, **kw):
+        client = Display(*script)
+        clock, messages, sent = Clock(), [], []
+        def switch(on):
+            sent.append(on)
+            if glasses is not None: glasses(on)
+        button = sbs.ButtonSbs(client, 'DP-2', messages.append, model='pro2', clock=clock, sleep=clock.sleep,
+                               glasses=switch, **kw)
+        return button, client, messages, sent
+
+    def test_enter_switches_the_glasses_and_follows_the_wide_mode(self):
+        button, client, messages, sent = self.button(pro2(), None, pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        self.assertEqual(sent, [True])
+        self.assertEqual(client.writes, [])
+        self.assertFalse(any('L1' in m for m in messages))
+
+    def test_already_wide_sends_nothing(self):
+        button, _, _, sent = self.button(pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        self.assertEqual(sent, [])
+
+    def test_leave_switches_back_to_2d_at_120_without_a_prompt(self):
+        button, client, messages, sent = self.button(pro2(), pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        button.leave()
+        self.assertEqual(sent, [True, False])
+        self.assertFalse(any('L1' in m for m in messages))
+        self.assertTrue(button.parked())
+        client.script = [pro2(hz=120, modes=['1920x1080@120.00Hz'])]
+        self.assertTrue(button.settle())
+        self.assertEqual(client.writes, [])
+
+    def test_leave_drives_2d_although_hyprland_keeps_the_stale_wide_mode(self):
+        button, client, _, sent = self.button(pro2(), pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        button.leave()
+        self.assertEqual(sent, [True, False])
+        client.script = [stale()]
+        self.assertTrue(button.settle())
+        self.assertEqual(client.writes, [('narrow', 'DP-2', 120)])
+
+    def test_still_offering_3d_is_not_back(self):
+        button, client, _, _ = self.button(pro2(), pro2(width=3840, hz=60, modes=WIDE))
+        self.assertTrue(button.enter())
+        button.leave()
+        self.assertFalse(button.settle())
+        self.assertEqual(client.writes, [])
+
+    def test_hold_restore_drives_2d_from_the_stale_wide_mode(self):
+        from tools.native_spike import managed
+        client = Display(pro2(), stale())
+        client.park_presentation = lambda output: None
+        client.query = lambda kind, timeout=None, script=[pro2(), stale()]: [script.pop(0) if len(script) > 1 else script[0]]
+        restore = managed._restore_output(client, {'model': 'pro2', 'sbs_mode': dict(sbs.PRO2_SCOPE), 'mode_switch': False}, 'DP-2')
+        restore()
+        self.assertEqual(client.writes, [('narrow', 'DP-2', 120)])
+
+    def test_leave_in_2d_sends_nothing(self):
+        button, _, _, sent = self.button(pro2())
+        button.leave()
+        self.assertEqual(sent, [])
+
+    def test_a_switch_that_cannot_be_sent_falls_back_to_l1(self):
+        def broken(on): raise OSError('bridge gone')
+        button, _, messages, _ = self.button(pro2(), pro2(width=3840, hz=60, modes=WIDE), glasses=broken)
+        self.assertTrue(button.enter())
+        self.assertEqual(messages, ['Hold L1 on the glasses to switch them to 3D.'])
+        button.leave()
+        self.assertEqual(messages[-1], 'Hold L1 on the glasses to go back to 2D.')
+
+    def test_make_sbs_hands_the_switch_to_a_pro2_run(self):
+        from tools.native_spike import immersive
+        switch = Mock()
+        made = immersive.make_sbs(Display(pro2()), 'DP-2', {'sbs_mode': sbs.PRO2_SCOPE, 'model': 'pro2'}, glasses=switch)
+        self.assertIs(made.glasses, switch)
 
 
 class Pro2ModeWrites(unittest.TestCase):
@@ -162,6 +256,12 @@ class Pro2ModeWrites(unittest.TestCase):
         client = self.client(pro2(hz=60), pro2(hz=119.999))
         result = client.apply_pro2_mode('DP-2', 120)
         self.assertEqual(result['height'], 1080)
+        self.assertIn('mode = "1920x1080@120"', client._eval.call_args.args[0])
+
+    def test_narrow_restore_replaces_the_stale_wide_mode(self):
+        client = self.client(stale(), pro2(hz=120, modes=BACK))
+        result = client.apply_pro2_mode('DP-2', 120)
+        self.assertEqual((result['width'], result['refreshRate']), (1920, 120))
         self.assertIn('mode = "1920x1080@120"', client._eval.call_args.args[0])
 
     def test_narrow_restore_refuses_wide_unoffered_and_invalid_rates(self):

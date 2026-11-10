@@ -33,6 +33,11 @@ class TestScope:
     smooth_ms:float=SMOOTH_MS
     level_gravity:bool=False  # the comparison: level to the SDK's gravity at each recentre, in place of the mount pitch alone
     fixed_desktops:bool=True  # a supervised test keeps exactly the desktops its consent names; a panel session may change them
+    display:object=None  # switch(on): the bridge's SDK puts the glasses in 3D or back in 2D at 120 Hz (RuntimeSession.set_display)
+    def __getstate__(self):
+        """The run guard's spawned worker gets a pickled copy (supervisor._start_guard): it checks health only, and the
+        display switch (bound to the bridge session and its lock) stays in the run's process."""
+        return {**self.__dict__,'display':None}
     def healthy(self):
         validate_projection(self.projection,True)
         data=read_health(self.health_path)

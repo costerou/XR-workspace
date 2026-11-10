@@ -111,10 +111,10 @@ class RuntimeSession:
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
         self.directory=Path(run_dir).absolute();self.directory.mkdir(mode=0o700,parents=False,exist_ok=False)
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
-        self.status=None;self.started=None;self.log=None;self.scanner=None
+        self.status=None;self.started=None;self.log=None;self.scanner=None;self.display=None;self.last_display=None
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
-    def command(self,exe,sdk,write):
-        return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
+    def command(self,exe,sdk,write,display=None):
+        return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),*(['--display-fd',str(display)] if display is not None else []),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
             *(['--pose-rate',str(self.pose_rate_hz)] if self.pose_rate_hz!=60 else []),*(['--mount-pitch',str(self.mount_pitch_deg)] if self.mount_pitch_deg else []),*(['--panel-route'] if self.panel_route else [])]
     def start(self):
         admit(inventory())
@@ -124,8 +124,9 @@ class RuntimeSession:
                 sdk=pinned_fd(LIBRARY,SHA256);resources.callback(os.close,sdk)
                 exe=pinned_fd(self.root/'bin/pro2-sdk-bridge',self.manifest['files']['bin/pro2-sdk-bridge']);resources.callback(os.close,exe)
                 read,write=os.pipe();self.status=read;os.set_blocking(read,False);resources.callback(os.close,write)
+                display,self.display=os.pipe();resources.callback(os.close,display)
                 self.log=open(self.directory/'sdk.private.log','xb');os.chmod(self.directory/'sdk.private.log',0o600)
-                self.child=subprocess.Popen(self.command(exe,sdk,write),pass_fds=(sdk,exe,write),stdin=subprocess.DEVNULL,stdout=self.log,stderr=self.log,start_new_session=True)
+                self.child=subprocess.Popen(self.command(exe,sdk,write,display),pass_fds=(sdk,exe,write,display),stdin=subprocess.DEVNULL,stdout=self.log,stderr=self.log,start_new_session=True)
                 self.started=time.monotonic()
                 metadata=self.directory/'process.json'
                 fd=os.open(metadata,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
@@ -161,6 +162,7 @@ class RuntimeSession:
                         if abs(event.get('mount_pitch_deg',0)-self.mount_pitch_deg)>.001:raise ValueError('mount pitch status mismatch')
                         self.ready=True
                     elif event.get('event')=='done':self.done=event
+                    elif event.get('event')=='display':self.last_display=event;continue  # one per 3D switch: not counted as a flood
                     else:raise ValueError('runtime status event')
                     self.events.append(event)
                     if len(self.events)>8:raise ValueError('runtime status flood')
@@ -184,6 +186,12 @@ class RuntimeSession:
             try:
                 if competing(exclude=(self.child.pid,)):self.failure=self.failure or 'competing provider during bounded test'
             except Exception as exc:self.failure=self.failure or f'provider scan: {exc}'
+    def set_display(self,on):
+        """The glasses to 3D (3840x1080@60) or back to 2D at 1920x1080@120, through the bridge's SDK (bridge.cpp --display-fd).
+        Returns at once: the caller follows the mode Hyprland then reads (sbs.ButtonSbs). OSError once the bridge is gone."""
+        with self.lock:
+            if self.display is None or self.child is None or self.child.poll() is not None:raise OSError('Pro 2 bridge not running')
+            os.write(self.display,b'\x32' if on is True else b'\x34')
     def healthy(self):
         if self.failure:raise ValueError(self.failure)
         self.poll()
@@ -193,6 +201,8 @@ class RuntimeSession:
         if self.thread:self.thread.join(timeout=2)
         if self.scanner:self.scanner.join(timeout=2)
         self.write_health(False,self.failure)
+        with self.lock:
+            if self.display is not None:os.close(self.display);self.display=None
         if self.child is not None:
             if self.child.poll() is None:
                 os.killpg(self.child.pid,signal.SIGTERM)

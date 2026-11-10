@@ -134,6 +134,7 @@ def _restore_output(client, consent, output):
     if model == 'pro2':
         narrow = sbs.narrow_rate(next((m for m in monitors(client.query('monitors')) if m['name'] == output), None), model)
     def restore():
+        sbs.trace('hold: restore')
         rate = None
         monitor = None
         if sbs.scope_ok(consent.get('sbs_mode'), model=model):
@@ -141,9 +142,10 @@ def _restore_output(client, consent, output):
             rate = sbs.best_wide(monitor, model=model)
         if rate is not None: client.apply_wide_mode(output, rate, **({'model': model} if model == 'pro2' else {}))
         elif model == 'pro2':
-            if sbs.narrow_rate(monitor, model) is None: raise ValueError('Pro 2 display has not returned to a supported mode')
-            if narrow is not None and any((w,h)==(1920,1080) and abs(hz-narrow)<0.5 for w,h,hz in sbs.offered(monitor)):
-                client.apply_pro2_mode(output, narrow)
+            target = sbs.pro2_2d_rate(monitor, narrow)
+            if target is None: raise ValueError('Pro 2 display has not returned to a supported mode')
+            current = sbs.narrow_rate(monitor, model)
+            if current is None or abs(current - target) >= 0.5: client.apply_pro2_mode(output, target)
         elif consent.get('mode_switch') is not False: client.apply_session_mode(output)
         client.park_presentation(output)
     return restore
@@ -236,13 +238,14 @@ from contextlib import contextmanager
 
 @contextmanager
 def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
-                  cursor_shape=None, renderer=None, sbs_mode=None, display_restore=None):
+                  cursor_shape=None, renderer=None, sbs_mode=None, display_restore=None, glasses=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
     run's desktops.DesktopManager (the pills' Ultrawide / Add / Remove); closed here, before the run's recovery. `windows`:
     the run's window_memory.WindowTracker; it takes its last capture here, while the XR outputs still hold the windows.
-    `cursor_shape`: the broker's read of the cursor an app asked for (ownership.cursor_reader), for the dot's look over text."""
+    `cursor_shape`: the broker's read of the cursor an app asked for (ownership.cursor_reader), for the dot's look over text.
+    `glasses`: switch(on), the glasses' own 3D mode (a Pro 2 bridge's SDK), so 3D needs no button press (sbs.ButtonSbs)."""
     if not capture:
         yield None
         return
@@ -340,7 +343,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         engine_binary = immersive.find_engine(renderer)
         depth_memory = control.depth_memory = immersive.DepthMemory() if engine_binary is not None else None
         control.immersive_run = immersive.ImmersiveRun(immersive.ProcessEngine(engine_binary, memory=depth_memory),
-                                                       immersive.make_sbs(client, output, {'sbs_mode': sbs_mode, 'model': getattr(store, 'model', 'luma-ultra')}, tell=control._tell))
+                                                       immersive.make_sbs(client, output, {'sbs_mode': sbs_mode, 'model': getattr(store, 'model', 'luma-ultra')}, tell=control._tell,
+                                                                          glasses=glasses))
         if windows is not None:  # where each window is, kept current (window_memory.py); Super drags and events reach it
             control.windows = windows
             windows.context = control.window_context
@@ -472,9 +476,11 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         serve_without_renderer(control, seconds)
     while True:
         usb_before = usb_identity()
+        if restore_output is not None: sbs.trace('renderer: launch')
         returncode = launch()
         if restore_output is None: return returncode
         expected = switching()
+        sbs.trace(f"renderer: ended {returncode} {report.get('stop_reason')} expected={expected}")
         usb_now = usb_identity()
         try: output_ready = survive.output_ok(client, output)
         except (OSError, ValueError, TimeoutError): return returncode
@@ -508,6 +514,7 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         try:
             back = survive.wait_for_glasses(ready, restore=restore_output, serve=serve,
                                             settle=0.0 if expected else None)
+            sbs.trace(f'hold: output back={back}')
             if back:
                 continuous = continuous and usb_identity() == usb_before
                 if pro2_scope is not None:
@@ -592,7 +599,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
                            memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode,
-                           **({'display_restore': restore_output} if pro2_scope is not None else {})) as control:
+                           **({'display_restore': restore_output, 'glasses': getattr(pro2_scope, 'display', None)} if pro2_scope is not None else {})) as control:
             if control is not None and getattr(pro2_scope, 'fixed_desktops', False): control.fixed_desktops = True
             def launch():
                 report.clear()

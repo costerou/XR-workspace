@@ -41,9 +41,10 @@ def journal_unfinished(path):
 
 
 def provider_summary(provider):
-    """The bridge's closing counts, for the run's result: how many samples at what rate. Aggregates only, no pose."""
+    """The bridge's closing counts, for the run's result: how many samples at what rate, and the error it stopped on (bridge.cpp
+    tokens such as 'stale'). Aggregates only, no pose."""
     done=getattr(provider,'done',None)
-    summary={k:done[k] for k in ('samples','seconds','pose_rate_hz','gap_ms_counts') if k in done} if isinstance(done,dict) else None
+    summary={k:done[k] for k in ('samples','seconds','pose_rate_hz','gap_ms_counts','error') if done.get(k) not in (None,'')} if isinstance(done,dict) else None
     failure=getattr(provider,'failure',None)
     return {**(summary or {}),'failure':failure} if failure else summary
 
@@ -79,7 +80,8 @@ def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seco
         options={**({'pose_rate_hz':pose_rate_hz} if pose_rate_hz!=60 else {}),**({'panel_route':True} if panel_route else {}),**({'mount_pitch_deg':mount_pitch_deg} if mount_pitch_deg else {})}
         provider=session_factory(root,state_dir/consent['run_id'],projection,seconds,True,**options)
         provider.start()
-        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route,level_gravity=level_gravity);scope.healthy()
+        scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route,level_gravity=level_gravity,
+                      display=getattr(provider,'set_display',None));scope.healthy()
         attempted=True  # before the call: a load that took effect and then raised still has to be unloaded
         client.plugin_load(plugin)
         if ownership_plugin_count(client.plugins_loaded())!=1:raise ValueError('test ownership plugin load unconfirmed')

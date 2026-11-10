@@ -384,13 +384,14 @@ class HyprlandClient:
         return self._apply_mode_rule(output, rule, wide, rate)
 
     def apply_pro2_mode(self, output, rate):
-        """Restore an observed Pro 2 1080p refresh only after its button returns the display to 2D."""
-        from .sbs import narrow_rate, offered, pro2_mode_lua
+        """Restore an observed Pro 2 1080p refresh once the glasses offer it again (back in 2D), also from the stale wide mode a
+        wide rule leaves Hyprland driving (sbs.pro2_2d_rate)."""
+        from .sbs import offered, pro2_2d_rate, pro2_mode_lua
         found = [m for m in monitors(self.query('monitors', timeout=DEADLINE)) if m['name'] == output]
         if len(found) != 1: raise ValueError('Pro 2 mode output not found')
         m = found[0]
         rule = pro2_mode_lua(m['name'], m['x'], m['y'], float(m['scale']), rate)
-        if narrow_rate(m, model='pro2') is None or not any(
+        if pro2_2d_rate(m) is None or not any(
                 (w, h) == (1920, 1080) and abs(hz - rate) < 0.5 for w, h, hz in offered(m)):
             raise ValueError('Pro 2 2D mode is not offered on the current narrow display')
         return self._apply_mode_rule(output, rule, (1920, 1080), rate)

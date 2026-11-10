@@ -37,3 +37,65 @@ class PipelineTests(unittest.TestCase):
                 finally:session.close()
                 self.assertEqual(session.done['cleanup_errors'],0)
                 self.assertFalse(list((root/'run').glob('pose_*')))
+
+    def test_a_reader_holding_the_pose_lock_skips_writes_and_does_not_end_the_bridge(self):
+        # A renderer preempted while it copies a sample holds the lock: publish() skips that write (luma/publish.hpp).
+        # It ended the whole session ('publish') right after a 3D-off renderer restart (run 36128eab).
+        import time
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'bin').mkdir();usb=root/'sysfs';(usb/'1-1').mkdir(parents=True)
+            for name,value in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='13').items():(usb/'1-1'/name).write_text(value+'\n')
+            sdk=root/'fixture.so';binary=root/'bin/pro2-sdk-bridge';holder=root/'hold_lock'
+            for cmd in (
+                ['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],
+                ['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)],
+                ['cc','-pthread','tests/pro2_runtime/hold_lock.c','-o',str(holder)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
+            digest=hashlib.sha256(sdk.read_bytes()).hexdigest()
+            for name in ('xr-native-spike','libxr-ownership.so'):(root/'bin'/name).write_bytes(b'fixture')
+            files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'bin').iterdir()}
+            (root/'manifest.json').write_text(json.dumps(dict(schema=1,sdk_sha256=digest,files=files)))
+            class SyntheticSession(launch.RuntimeSession):
+                def command(self,*args):return super().command(*args)+['--fixture-root',str(usb),'--fixture-hash',digest]
+            with patch.object(launch,'LIBRARY',str(sdk)),patch.object(launch,'SHA256',digest),patch.object(launch,'inventory',return_value=[('35ca','1301','VITURE PRO 2 XR Glasses')]),patch.object(launch,'competing',return_value=False):
+                session=SyntheticSession(root,root/'run',44.5,3,True)
+                try:
+                    session.start()
+                    held=subprocess.run([str(holder),session.prefix,'200'],capture_output=True,timeout=5)  # the fixture's 16 ms samples land under it
+                    self.assertEqual(held.returncode,0,held.stderr)
+                    time.sleep(.1)
+                    session.healthy()
+                finally:session.close()
+                self.assertEqual(session.done['error'],'')
+
+    def test_3d_switch_reaches_the_sdk_on_the_owner_thread_with_tracking_live(self):
+        import time
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'bin').mkdir();usb=root/'sysfs';(usb/'1-1').mkdir(parents=True);trace=root/'trace'
+            for name,value in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='13').items():(usb/'1-1'/name).write_text(value+'\n')
+            sdk=root/'fixture.so';binary=root/'bin/pro2-sdk-bridge'
+            for cmd in (
+                ['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],
+                ['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
+            digest=hashlib.sha256(sdk.read_bytes()).hexdigest()
+            for name in ('xr-native-spike','libxr-ownership.so'):(root/'bin'/name).write_bytes(b'fixture')
+            files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'bin').iterdir()}
+            (root/'manifest.json').write_text(json.dumps(dict(schema=1,sdk_sha256=digest,files=files)))
+            class SyntheticSession(launch.RuntimeSession):
+                def command(self,*args):return super().command(*args)+['--fixture-root',str(usb),'--fixture-hash',digest]
+            with patch.object(launch,'LIBRARY',str(sdk)),patch.object(launch,'SHA256',digest),patch.object(launch,'inventory',return_value=[('35ca','1301','VITURE PRO 2 XR Glasses')]),patch.object(launch,'competing',return_value=False),patch.dict(os.environ,PRO2_QA_TRACE=str(trace)):
+                session=SyntheticSession(root,root/'run',44.5,3,True)
+                try:
+                    session.start()
+                    for on,mode in ((True,0x32),(False,0x34)):
+                        session.set_display(on)
+                        deadline=time.monotonic()+2
+                        while (session.last_display or {}).get('mode')!=mode and time.monotonic()<deadline:
+                            with session.lock:session.poll()
+                            time.sleep(.01)
+                        self.assertEqual(session.last_display,dict(event='display',mode=mode,result=0))
+                        session.healthy()  # tracking never paused for it
+                finally:session.close()
+                self.assertEqual(session.done['error'],'')
+                with self.assertRaises(OSError):session.set_display(True)
+            lines=trace.read_text().split()
+            self.assertEqual([x for x in lines if x.startswith('display:')],['display:50','display:52'])  # never WRONG_OWNER

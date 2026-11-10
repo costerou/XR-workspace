@@ -167,18 +167,19 @@ class RunWatch:
                 supported = mode and ((mode[:2] == (3840, 1200) and mode[2] in (60, 90))
                                       or (mode[:2] == (1920, 1200) and mode[2] == 120))
             if supported and mode != self.mode:
+                # Not latched: a bridge-switched Pro 2 can go 3D off and straight back on within one switching window.
                 self.mode_switches += 1
                 self.mode = self.seen_mode = mode
                 self.switch_started = None
-                self.switch_done = True
                 self._video.update(at, False)
                 self._output_gone.update(at, False)
                 self._mode_changed.update(at, False)
+                self._stall.restart()  # the switch ended the renderer; frames count from the new mode
                 return
             if at - self.switch_started < 8.0:
                 return
             self.switch_started = None
-            self.switch_done = True
+            self.switch_done = True  # a switch that never landed: the checks below, until the window closes
         self.drm = o.get('drm')
         if self._video.update(at, self.drm == 'disconnected'):
             out.append(Signal(at, 'video-lost', 'drm', f"the glasses' display output {self.consent.get('output')} disconnected"))
