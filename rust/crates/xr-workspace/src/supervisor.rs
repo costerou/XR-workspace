@@ -14,6 +14,12 @@
 //! Not here yet (later phase 6 tasks): the run control socket, Hyprland events, the overview pointer's `poll`, the status
 //! dict's parsing (each status line goes to a caller's handler), the journal recovery and the start-up marks.
 
+// The tracking side: the driver wrappers, the Luma crash watch and the USB-drop hold.
+pub mod luma_watch;
+pub mod pro2;
+pub mod survive;
+pub mod tracking;
+
 use std::io::{self, Read, Write};
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
 use std::os::unix::net::{UnixDatagram, UnixStream};

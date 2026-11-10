@@ -6,7 +6,7 @@
 //! `xr-workspace install --build DIR [--repo DIR]`: see [`xr_workspace::install`].
 
 mod host;
-mod private_file;
+use xr_workspace::private_file;
 // `spawn` and `stop` are for the controller state machine, which is not wired into `main` yet.
 #[cfg(test)]
 mod testdir;

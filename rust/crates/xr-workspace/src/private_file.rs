@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 /// The limit `ipc.read_private_json` uses by default (consents, progress and result files).
 pub const DEFAULT_LIMIT: u64 = 16384;
 
-pub(crate) fn invalid(message: impl Into<String>) -> io::Error {
+pub fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 

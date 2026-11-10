@@ -52,6 +52,18 @@ interrupts, a foreign Wayland peer) against shell stand-ins and checks the timin
 worker or renderer is left unreaped. The control socket, Hyprland events and the physical-pair
 guard check are later tasks.
 
+The tracking side ports `tools/native_spike/tracking.py`, `survive.py` and `tools/pro2_runtime/scope.py`:
+
+- `supervisor::tracking`: the Luma and XRLinuxDriver lifecycles in their namespaces, the pinned quiet shim for the
+  standard driver, and start, reuse, swap and stop on the frozen `tracking.json` (byte-equal to Python's `json.dump`)
+- `supervisor::luma_watch`: a crashed Luma driver comes back at most 3 times in 300 s, then the person is told
+- `supervisor::survive`: what counts as a USB drop, the hold (120 s limit, 3 s settle, at most 8 holds in 600 s) and
+  reviving a dead driver by its record
+- `supervisor::pro2`: the supervised Pro 2 scope's health check and renderer arguments
+
+`tests/tracking.rs` runs fake drivers in real namespaces against a temporary tree, and checks that the shipped Python
+reads a state file this wrote.
+
 ## Key helper (`xr-control`)
 
 `xr-control` is the Rust port of `tools/native_spike/xr_control.py`, the helper Hyprland runs once per bound key press. It
