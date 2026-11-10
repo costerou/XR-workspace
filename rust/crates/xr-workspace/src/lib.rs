@@ -2,5 +2,6 @@
 
 pub mod install;
 pub mod json;
+pub mod lua;
 pub mod managed;
 pub mod supervisor;

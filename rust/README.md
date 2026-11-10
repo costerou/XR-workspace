@@ -13,7 +13,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | `xr-luma-driver` | binary | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
 | `xr-renderer` | binary | The C++ renderer |
-| `xr-workspace` | binary + library | Controller, supervisor, key helper and installer |
+| `xr-workspace` | binary + library | Controller, supervisor, key helper and installer; the supervisor's Lua generators are in `xr_workspace::lua` |
 
 ## Gates
 
@@ -106,6 +106,14 @@ generator, regenerate them:
 ```sh
 TMPDIR=/tmp /usr/bin/python3 tests/native_spike/lua_corpus.py --write
 ```
+
+`crates/xr-workspace/tests/lua_corpus.rs` holds `xr_workspace::lua` to `lua.json`: every case gives the
+same bytes, or the same refusal message. Python also refuses some values for their JSON type (a float
+for an int, a number for a path, a missing key). The typed Rust API cannot be given those, so the
+test fails them while decoding the arguments. It lists each such case by name in `TYPE_REFUSALS`, and
+fails on any case it does not list. The Python helper keeps copies of a few strings
+(`xr_control.REMOVE_MENU_BINDS` and others), because it runs with `-I` and imports nothing. Rust has
+one source for each, and the test checks those cases against it.
 
 - `corpus/supervisor/run_order.json` lists the ordered steps `managed.py` takes on a start, a stop, a
   recovery and a recovery after the compositor exited, with the result. Each path has one case per
