@@ -803,7 +803,8 @@ fn s10_live_run_is_unprivileged_and_waits_quietly() {
     }
     let dir = scratch("live");
     let mut c = Command::new(BIN);
-    c.arg("--ipc-prefix").arg(prefix(&dir)).arg("--start").arg("listen");
+    // Its own state directory too, so the saved gyro bias of the real glasses is never read or rewritten.
+    c.arg("--ipc-prefix").arg(prefix(&dir)).arg("--state-dir").arg(&dir).arg("--start").arg("listen");
     c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
     #[cfg(target_arch = "x86_64")]
     let mut c = filtered(c);

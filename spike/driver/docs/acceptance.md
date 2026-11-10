@@ -237,6 +237,30 @@ file and return by other means. R2 keeps it honest. A test outside the namespace
 | S9 | Clean stop | SIGTERM sends stop, releases the interface and exits. After `kill -9` the renderer recovers the lock. | Tests, Bench | Offline, Bench |
 | S10 | Unprivileged | Runs as Cody with no sudo. Access comes from the xr-driver package's `70-viture-xr.rules`, so removing that package needs a replacement rule first. | luma_probe | Bench |
 
+#### S1 to S10 on the Rust driver
+
+`rust/crates/xr-luma-driver/tests/safety.rs` runs the offline half of S1 to S10 against the built `xr-luma-driver` binary
+(`cargo test -p xr-luma-driver --test safety`). No test there opens a USB device. Every run uses its own `--ipc-prefix`,
+and the one live run is skipped while VITURE glasses are plugged in.
+
+| Id | Rust evidence |
+|---|---|
+| S1 | `s1_s2_s5_s6_sources_have_nothing_forbidden`: the source scan applies `contract_test`'s rules after stripping comments, and also checks `std::net`, `TcpStream`, `UdpSocket`, `libc::socket` and every `libc::SYS_*` except `futex` and `sched_setattr`. `s1_s2_replay_makes_no_network_or_reset_syscall`: a whole replay with a drop runs under a seccomp filter that kills the process on any socket syscall (`seccomp_filter_kills_a_socket_call` shows the filter works). `s1_s6_running_process_has_no_network_and_no_input_device`: the process runs inside `unshare --user --net`; `/proc/<pid>/net/dev` lists only `lo`, `lo` is DOWN, the tcp/udp/raw tables are empty, and no fd is a socket |
+| S2 | The same scan. `libc::ioctl` has one call site, in `usbdevfs.rs`, behind `is_allowed_ioctl` (`libc_sys_refuses_a_forbidden_code_before_the_kernel`). The seccomp filter also kills on USBDEVFS RESET, RESETEP, CLEAR_HALT, SETINTERFACE, SETCONFIGURATION, DISCONNECT and DISCONNECT_CLAIM |
+| S3 | `s3_start_once_per_connection_and_nothing_else`: the binary's own wiring runs over a capture with a drop and a device that waits for its start. The wire shows `FA 55 95 00 00` once per connection, twice in all, and nothing else. There is no stop command. Daemon tests: `no_stop_command_configured`, `stop_while_disconnected_sends_nothing` |
+| S4 | `s4_every_command_is_an_allowed_frame`: every frame each `--start` mode can send passes `allowed_mcu_frame`. The only data-channel request is MsgID `0x100B` (`--start full`), and MsgID `0x0007` is never sent. `Transport` refuses everything else: `mcu_channel_passes_only_allowlisted_frames`, `usbfs_refuses_the_flash_channel_on_the_ultra` |
+| S5 | `s5_ldd_shows_only_the_c_runtime`: `linux-vdso`, `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the loader. Rust links no C++ runtime. `s5_dependencies_are_libc_and_xr_pose_only` checks both Cargo.toml files |
+| S6 | The scan forbids `uinput` and `/dev/input`. The running process has no such fd |
+| S7 | `s7_listen_sends_nothing_and_unported_features_are_refused`: `--start listen` writes nothing. `--feature-*` exits 2 and `--latency-log` exits 4: they are refused, not run differently from the C++ driver |
+| S8 | `s8_second_copy_refuses_to_start`: a second copy on the same prefix exits 5 with `already-running` and logs nothing else, while the first keeps running. The feed's own guard: `second_writer_is_refused_until_the_first_is_gone` |
+| S9 | `s9_sigterm_stops_cleanly`: SIGTERM, SIGINT and SIGHUP each give exit 0 within 500 ms. `s9_kill_9_leaves_the_lock_free`: after `kill -9` the next copy takes the lock on the same prefix. The interface release: `usbfs_close_cancels_and_releases`. The renderer side: xr-pose `reader_recovers_a_lock_whose_holder_died` |
+| S10 | `s10_running_driver_has_no_privilege`: no uid 0, and CapEff, CapPrm and CapAmb are all zero. `getcap` on the binary is empty. `s10_live_run_is_unprivileged_and_waits_quietly` scans for the glasses as the user under the seccomp filter and stops on SIGTERM. It runs only when no glasses are plugged in |
+
+What is not covered here:
+- strace is not installed, and the audit does not install it. The seccomp filter stands in for it, and it is the stronger proof: the process dies on its first forbidden call, where a trace only shows what one run did.
+- The bench half still needs the glasses: usbmon for S2 to S4, the kernel log for S2, the live netns check for S1, and S10 against the real device rule.
+- The Rust driver does not yet have the vsync feed, PredictionWire's motion state, `--latency-log` or any `--feature-*`.
+
 ### F. Fit with the renderer (no renderer change)
 
 | Id | Criterion | Target | Measured by | Level |

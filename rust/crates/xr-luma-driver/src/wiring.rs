@@ -1,9 +1,9 @@
 //! The one module that knows the real Transport, the commands, Fusion and the feed Publisher: a port of
 //! `spike/driver/src/wiring.cpp` and `include/luma/transport_link.hpp`.
 //!
-//! Not ported yet, and refused by the binary rather than run differently: the VsyncState feed (`--read-events` still reads
-//! 0x83, and throws it away, as the usage says), PredictionWire's motion state (the daemon's `Sink` has no sample to give
-//! it), `--latency-log`, `--feature-*` and the saved gyro bias (the calibration task's). See `src/main.rs`.
+//! Not ported yet: the VsyncState feed (`--read-events` still reads 0x83, and throws it away, as the usage says) and
+//! PredictionWire's motion state (the daemon's `Sink` has no sample to give it). `--latency-log` and `--feature-*` are
+//! refused by the binary rather than run differently. The saved gyro bias is `crate::bias`, wired in `src/main.rs`.
 
 use crate::daemon::{Link, ReadResult, Sink};
 use crate::options::{Options, Start};

@@ -2,15 +2,16 @@
 //! and log lines. Exit codes: 0 stopped, 2 usage or feature flag, 3 replay file, 4 feed or log file, 5 another driver.
 //!
 //! Refused for now, rather than run differently from the C++ driver (spike/driver/docs/acceptance.md S7: an optional
-//! feature sends nothing unless asked): `--feature-*` and `--latency-log`. Not done yet: the saved gyro bias (the
-//! calibration task), the VsyncState feed and PredictionWire's motion state. See `src/wiring.rs`.
+//! feature sends nothing unless asked): `--feature-*` and `--latency-log`. Not done yet: the VsyncState feed and
+//! PredictionWire's motion state. See `src/wiring.rs`.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use xr_luma_driver::bias::{BiasStore, FusionEstimator};
 use xr_luma_driver::capture::{ReplayLink, load_capture};
 use xr_luma_driver::daemon::{Daemon, DaemonParts, Estimator, Link, Sink};
-use xr_luma_driver::fusion::{Fusion, FusionConfig};
+use xr_luma_driver::fusion::FusionConfig;
 use xr_luma_driver::instance::{log_line, take_instance_lock};
 use xr_luma_driver::options::{LIVE_IPC_PREFIX, Start, USAGE, parse_options};
 use xr_luma_driver::protocol::LumaDecoder;
@@ -88,6 +89,12 @@ fn run() -> i32 {
         }
     }
 
+    // Live only: a replay must neither learn from nor overwrite the bias the glasses' own runs saved.
+    let bias = if options.replay.is_none() { BiasStore::open(&options.state_dir).map(RefCell::new) } else { None };
+    if bias.as_ref().is_some_and(|b| b.borrow().bias().is_some()) {
+        log_line("luma: bias restored");
+    }
+
     let mut replay_clock: Option<Rc<Cell<u64>>> = None;
     let mut link: Box<dyn Link> = match &options.replay {
         Some(path) => match load_capture(std::path::Path::new(path)) {
@@ -129,7 +136,10 @@ fn run() -> i32 {
     let parts = DaemonParts {
         link: link.as_mut(),
         decoder: &mut decoder,
-        make_estimator: Box::new(|| Box::new(Fusion::new(FusionConfig::default())) as Box<dyn Estimator>),
+        make_estimator: Box::new(|| match &bias {
+            Some(store) => Box::new(FusionEstimator::with_store(store)) as Box<dyn Estimator>,
+            None => Box::new(FusionEstimator::new(FusionConfig::default())),
+        }),
         sink: sink.as_mut(),
         now_ns,
         log: Box::new(log_line),
@@ -137,21 +147,27 @@ fn run() -> i32 {
         stop_command,
         before_start: wiring::before_start(options.start),
         on_link: None,
-        on_tick: None,
+        // The five-minute rewrite. Live only, so a replay's simulated clock never drives it.
+        on_tick: bias.as_ref().map(|store| Box::new(|now: u64| store.borrow_mut().tick(now)) as Box<dyn FnMut(u64)>),
     };
-    let mut daemon = Daemon::new(parts, options.config.clone());
-    daemon.run(&STOP);
-    if options.replay.is_some() {
-        let times = daemon.process_times();
-        let us = |ns: u64| ns as f64 / 1000.0;
-        log_line(&format!(
-            "luma: replay process_us p50={:.2} p99={:.2} p999={:.2} max={:.2} packets={}",
-            us(times.percentile(0.5)),
-            us(times.percentile(0.99)),
-            us(times.percentile(0.999)),
-            us(times.max()),
-            times.count()
-        ));
+    {
+        let mut daemon = Daemon::new(parts, options.config.clone());
+        daemon.run(&STOP);
+        if options.replay.is_some() {
+            let times = daemon.process_times();
+            let us = |ns: u64| ns as f64 / 1000.0;
+            log_line(&format!(
+                "luma: replay process_us p50={:.2} p99={:.2} p999={:.2} max={:.2} packets={}",
+                us(times.percentile(0.5)),
+                us(times.percentile(0.99)),
+                us(times.percentile(0.999)),
+                us(times.max()),
+                times.count()
+            ));
+        }
+    } // the estimator hands over its bias as the daemon goes
+    if let Some(store) = &bias {
+        store.borrow().save();
     }
     0
 }
