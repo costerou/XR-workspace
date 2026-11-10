@@ -304,6 +304,19 @@ TMPDIR=/tmp /usr/bin/python3 tests/native_spike/keybinds_corpus.py --write
 `tests/native_spike/view_corpus.py --write` makes the view file, and `test_view_corpus.py` fails
 when it is stale.
 
+`corpus/incidents/scenarios.json` replays whole sessions through the incident monitor: the
+controller's observations, the passes of the monitor and the changes to a fake host (logs, DRM, USB,
+core dumps, results). For each scenario it records what the Python `IncidentMonitor` left: the report
+`.json` and `.md` files and `.monitor-state` byte for byte, the toasts, the reports handed to the
+on-incident hook and the `incident:` and `mode-switch:` journal lines. The first scenario is the RR-55
+gate, an injected renderer SIGSEGV with its core dump and exit report.
+`tests/xr_controller/incident_corpus.py` makes it and `test_incident_corpus.py` fails when it goes
+stale. Regenerate with:
+
+```sh
+TMPDIR=/tmp /usr/bin/python3 -m tests.xr_controller.incident_corpus --write
+```
+
 ## Controller runs
 
 `xr-workspace` holds the controller's run half of the host probe (`src/host.rs`) and its run units
@@ -331,3 +344,25 @@ callback to publish, per sample. Gate: `test_callback_to_publish_p99_under_200_u
 74 and 82 us (p50 about 30 us). No real-time policy is applied. At load average 19 one run had a
 3.7 ms p99, which is the scheduler; the short EEVDF slice the Luma driver uses is the fix if that
 matters live.
+
+## Incident monitor
+
+`src/incident/` ports `tools/xr_controller/incident_detect.py`, `incident_report.py` and
+`incident_monitor.py`: the detectors, the report bundle and its Markdown, the scrubber, the rate
+limit, the private incidents folder, the on-incident hook and the monitor thread that ties them
+together. It is not wired into a running controller yet; that comes with the controller state
+machine. `corpus_tests.rs` replays `corpus/incidents/scenarios.json`. Where it differs from the Python:
+
+- The scrubber uses the `regex` crate, which has no lookbehind, so the base64 rule is matched by
+  hand. The scrubber tests hold it to strings checked against the Python.
+- An exit report line holding `NaN` is skipped: serde_json does not read it, Python's `json.loads` does.
+- Reading the tracking state never creates its folder (the Python `private_dir(create=True)` does).
+- The hook runs in its own process group (`process_group(0)`) and a timeout kills that group; the
+  Python starts a new session. Both take the hook's children with it.
+- `incident monitor: <source> failed: ...` lines name the error in Rust's words, so the corpus
+  leaves them out.
+- The reports keep Python's dict order through serde_json's `preserve_order`. That feature is a
+  dev-dependency for now: as a normal dependency it would unify into the renderer's serde_json in
+  workspace builds and reorder its output. Wiring the monitor into the controller has to settle
+  that, either by turning the feature on for the controller binary alone or by writing the reports
+  in a fixed order.

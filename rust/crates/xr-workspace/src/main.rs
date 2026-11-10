@@ -6,6 +6,9 @@
 //! `xr-workspace install --build DIR [--repo DIR]`: see [`xr_workspace::install`].
 
 mod host;
+// The incident monitor runs once the controller state machine is wired into `main`.
+#[allow(dead_code)]
+mod incident;
 use xr_workspace::private_file;
 // `spawn` and `stop` are for the controller state machine, which is not wired into `main` yet.
 #[cfg(test)]
