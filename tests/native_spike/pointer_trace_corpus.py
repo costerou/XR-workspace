@@ -13,14 +13,17 @@ A trace is the pointer's whole conversation with the outside, one step per outer
     attributes after it returns (`s`, `c`, applied by a replay) and before it (`chk`, the pointer's own changes, which a
     replay checks). Callbacks passed to the control (a window lookup) are `{"$cb": n}`; `cb` lists those called
     during the call, with their arguments;
+  * `ck`: on a pointer that runs on the wall clock (UnifiedPointer as the view makes it), each time the pointer read its
+    clock during the step, in order; a replay answers its clock reads from that list (the last value once it runs out),
+    and `t` is the clock when the step began. A fake-clock run has no `ck`: its clock reads `t` throughout;
   * `r`: the result (frames are {"$b": text}); `post_s`, `post_c`: the state and control attributes the step ends
     with (the pointer's own changes, checked); `p`: the pointer fields in PROBE that changed (checked).
 The Rust port (rust/crates/xr-workspace/src/supervisor/) replays each trace with a control that answers from the
 trace, and must make the same calls with the same arguments and return the same bytes.
 
 A run is kept only when it replays clean through the shipped Python pointer (ReplayControl below): a test that reaches
-into the pointer's internals, drives it from another thread or uses the wall clock is left out, and the count of each
-is printed. test_pointer_trace_corpus.py replays every stored trace through the current Python and fails when they
+into the pointer's internals, drives it from another thread or reads its wall clock outside a call is left out, and the
+count of each is printed. test_pointer_trace_corpus.py replays every stored trace through the current Python and fails when they
 disagree, so the files stay true to the shipped code.
 
 Regenerate (after a deliberate change to the pointer or its tests) with:
@@ -35,6 +38,7 @@ import math
 from pathlib import Path
 import sys
 import threading
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,10 +59,10 @@ CONTROL_ATTRS = ('video_active', 'keys_open', 'help_visible', 'reloads', 'next_i
                  'options.keyboard_owned', 'sender')
 # Pointer fields a replay checks after each step.
 PROBE = ('mode', 'want', 'desktop', 'pointer', 'hover', 'gain', 'summoned', 'rolls', 'levelling', 'zoom_held', 'shown',
-         'roll_names', 'binds_dropped')
-# Pointer fields the view itself writes (view.ViewControl, managed.py): a step's `pf` holds those changed since the
-# last step, set before the call.
-EXTERNAL = ('rolls', 'roll_names', 'binds_dropped')
+         'roll_names', 'binds_dropped', 'window_drag')
+# Pointer fields written from outside (view.ViewControl and managed.py; window_drag, a switch the window-drag tests turn
+# on): a step's `pf` holds those changed since the last step, set before the call.
+EXTERNAL = ('rolls', 'roll_names', 'binds_dropped', 'window_drag')
 # Every public method of the two pointer classes is an entry; so are these (the view and the sampler call them).
 EXTRA_ENTRIES = ('_poke',)
 
@@ -142,6 +146,7 @@ class Recording:
                      'state': {k: json.loads(v) for k, v in self.state.items()},
                      'control': {k: json.loads(v) for k, v in self.attrs.items()}}
         self.call_log = None
+        self.reads = None  # the step's clock reads (a wall-clock pointer), or None outside a step
 
     def fail(self, why):
         if self.bad is None: self.bad = why
@@ -256,7 +261,9 @@ def _entry(name, fn):
         if rec is None or rec.depth:
             return fn(self, *args, **kwargs)
         if threading.get_ident() != rec.thread: rec.fail(f'{name} from another thread')
-        step = {'m': name, 't': enc(rec.pointer.clock())}
+        clock = rec.pointer.clock
+        step = {'m': name, 't': enc(clock.real() if isinstance(clock, LoggedClock) else clock())}
+        if isinstance(clock, LoggedClock): rec.reads = step['ck'] = []
         try: step['a'] = enc(list(args))
         except Unreplayable as e: rec.fail(f'{name} args: {e}'); step['a'] = None
         if kwargs:
@@ -281,6 +288,7 @@ def _entry(name, fn):
         finally:
             rec.depth = 0
             rec.call_log = None
+            rec.reads = None
         if calls: step['calls'] = calls
         try: step['r'] = enc(result)
         except Unreplayable as e: rec.fail(f'{name} result: {e}')
@@ -314,7 +322,7 @@ def install():
 
     def init(self, control, *args, **kwargs):
         clock = kwargs.get('clock', args[0] if args else None)
-        record = isinstance(control, view.ViewControl) and clock is not None and not _wall(clock) and len(args) <= 1
+        record = isinstance(control, view.ViewControl) and len(args) <= 1
         if not record:
             return original(self, control, *args, **kwargs)
         try: kw = enc({k: v for k, v in kwargs.items() if k != 'clock'})
@@ -323,9 +331,15 @@ def install():
         rec.test = getattr(_LOCAL, 'test', None)
         rec.depth = 1  # the constructor's own calls are the replay's constructor's
         rec.call_log = []
+        args, kwargs = (), {k: v for k, v in kwargs.items() if k != 'clock'}
+        if clock is None or _wall(clock):  # the pointer's default (time.monotonic) or a wall clock passed in
+            clock = LoggedClock(rec, clock or time.monotonic)
+            rec.init['clock'] = 'wall'
+            rec.reads = rec.init['ck'] = []  # the constructor's reads
         try:
-            original(self, RecordingControl(rec, control), *args, **kwargs)
+            original(self, RecordingControl(rec, control), clock=clock, **kwargs)
         finally:
+            rec.reads = None
             rec.depth = 0
             if rec.call_log: rec.fail('control calls in the constructor')
             rec.call_log = None
@@ -339,14 +353,32 @@ def install():
 
 
 def _wall(clock):
-    import time
     return clock in (time.monotonic, time.time, time.perf_counter)
+
+
+class LoggedClock:
+    """A wall clock whose reads during a step are recorded (the step's `ck`); a read outside a step refuses the run."""
+    def __init__(self, rec, real):
+        self._rec, self.real = rec, real
+
+    def __call__(self):
+        now = self.real()
+        if self._rec.reads is None:
+            self._rec.fail('clock read outside an entry')
+        else:
+            self._rec.reads.append(now)
+        return now
 
 
 # --- replay ---------------------------------------------------------------------------------------------------------
 class ReplayClock:
-    def __init__(self, now): self.now = now
-    def __call__(self): return self.now
+    """`now` (a step's `t`), or the step's recorded reads in order (`reads`, a wall-clock run), the last one repeated."""
+    def __init__(self, now): self.now, self.reads = now, None
+
+    def __call__(self):
+        if self.reads:
+            self.now = self.reads.pop(0)
+        return self.now
 
 
 class ReplayOptions:
@@ -430,6 +462,7 @@ def replay(case):
     init = case['init']
     control = ReplayControl(init)
     clock = ReplayClock(0.0)
+    clock.reads = list(init.get('ck', ())) or None
     cls = {'OverviewPointer': fp.OverviewPointer, 'UnifiedPointer': uc.UnifiedPointer}[init['class']]
     pointer = cls(control, clock=clock, **dec(init['kwargs']))
     try:
@@ -439,6 +472,7 @@ def replay(case):
         for n, step in enumerate(case['steps']):
             where = f'step {n} {step["m"]}'
             clock.now = dec(step['t'])
+            clock.reads = list(step['ck']) if 'ck' in step else None
             control._apply_state(step.get('s', {}))
             control._apply_attrs(step.get('c', {}))
             for k, v in step.get('pf', {}).items(): setattr(pointer, k, dec(v))
