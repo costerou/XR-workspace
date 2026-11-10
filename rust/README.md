@@ -26,6 +26,9 @@ cargo deny check licenses bans sources
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own
 crates are `publish = false` and are skipped by the licence check.
 
+`tests/run_all.sh rust` runs these gates from the repository root, and a bare `tests/run_all.sh` runs them together
+with ctest, the Python suites and the QML tests.
+
 ## Corpus
 
 `corpus/` holds golden files taken from the shipped Python and C++ code. The phase 6 parity gate

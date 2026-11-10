@@ -2171,7 +2171,15 @@ Steps I1-I12 and S1-S14 are in [placement-menu-test-plan.md](placement-menu-test
 
 ## Tests
 
-Bare `python -m unittest` from the root finds nothing. Run each suite explicitly:
+`tests/run_all.sh` runs every offline suite in one command: it builds `build/release` (configuring it with the flags
+above if it has no cache), runs ctest (the `capture_e2e` tests one at a time), pytest on each directory under `tests/`
+plus the panel's and `spike/driver`'s Python tests (through `uv`, with `CONTROL_WIRE_CHECK` pointing at the build), the
+QML tests, and `cargo build` and `cargo test` in `rust/` (and `cargo deny` when it is installed). Name stages to run
+fewer: `tests/run_all.sh rust python` (stages `ctest`, `python`, `qml`, `rust`). Every stage runs even after a
+failure, a summary lists each suite, and the exit status is 1 if any failed. `BUILD_DIR` and `JOBS` override the build
+directory and the parallelism.
+
+Bare `python -m unittest` from the root finds nothing. To run one suite by hand:
 
 ```sh
 python -m unittest discover -s tests/probe -v
@@ -2182,6 +2190,7 @@ python -m unittest discover -s tests/depth_engine -v
 QT_QPA_PLATFORM=offscreen QT_QUICK_CONTROLS_STYLE=Basic /usr/lib/qt6/bin/qmltestrunner \
   -input omarchy-plugin/cody.viture-workspace/tests -import omarchy-plugin/cody.viture-workspace/tests/imports
 ctest --test-dir build/release --output-on-failure
+(cd rust && cargo test --locked)
 ```
 
 The `qmltestrunner` line runs the panel's QML tests offscreen: `tst_model.qml` (the model: start blockers, reason
