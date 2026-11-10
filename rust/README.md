@@ -2,7 +2,9 @@
 
 The Cargo workspace for the Rust rebuild planned in
 [docs/rust-rebuild-plan.md](../docs/rust-rebuild-plan.md). Nothing here ships yet: the live system
-still runs the Python and C++ stack, and no installer step builds or installs these crates.
+still runs the Python and C++ stack, and no installer step builds or installs these crates. The one
+exception is opt-in: `xr-workspace install` is a Rust port of the installer, run by hand (see
+[Build and install](../docs/technical.md#the-rust-installer-xr-workspace-install)).
 
 | Crate | Kind | Replaces |
 | --- | --- | --- |

@@ -2,6 +2,8 @@
 //!
 //! `xr-workspace runs` prints what a controller starting now would adopt, from the same folders the Python
 //! controller uses. It only reads: files, `systemctl --user is-active`, and a connect to a run's control socket.
+//!
+//! `xr-workspace install --build DIR [--repo DIR]`: see [`xr_workspace::install`].
 
 mod host;
 mod private_file;
@@ -11,15 +13,29 @@ mod testdir;
 #[allow(dead_code)]
 mod units;
 
-use std::path::PathBuf;
-use std::process::ExitCode;
+use std::env;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitCode};
+
+use xr_workspace::install::{self, Options};
+
+const USAGE: &str = "usage: xr-workspace runs | xr-workspace install --build DIR [--repo DIR]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.as_slice() {
         [cmd] if cmd == "runs" => runs(),
+        [cmd, rest @ ..] if cmd == "install" => {
+            match parse_install(rest).and_then(|o| run_install(&o)) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(msg) => {
+                    eprintln!("install failed: {msg}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         _ => {
-            eprintln!("usage: xr-workspace runs");
+            eprintln!("{USAGE}");
             ExitCode::from(2)
         }
     }
@@ -53,4 +69,52 @@ fn runs() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn parse_install(args: &[String]) -> Result<Options, String> {
+    let (mut build, mut repo) = (None, None);
+    let mut it = args.iter();
+    while let Some(flag) = it.next() {
+        let value = it.next().ok_or_else(|| USAGE.to_string())?;
+        match flag.as_str() {
+            "--build" => build = Some(PathBuf::from(value)),
+            "--repo" => repo = Some(PathBuf::from(value)),
+            _ => return Err(USAGE.into()),
+        }
+    }
+    let build = build.ok_or_else(|| USAGE.to_string())?;
+    let home = PathBuf::from(env::var_os("HOME").ok_or("HOME is not set")?);
+    let xdg = |name: &str, fallback: &str| {
+        env::var_os(name)
+            .filter(|v| !v.is_empty())
+            .map_or_else(|| home.join(fallback), PathBuf::from)
+    };
+    let absolute = |p: PathBuf| std::path::absolute(&p).map_err(|e| e.to_string());
+    Ok(Options {
+        build: absolute(build)?,
+        // The checkout this binary was built from, as the Python installer uses the checkout it runs from.
+        repo: repo
+            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
+            .canonicalize()
+            .map_err(|e| format!("checkout: {e}"))?,
+        data_home: xdg("XDG_DATA_HOME", ".local/share"),
+        config_home: xdg("XDG_CONFIG_HOME", ".config"),
+        self_exe: env::current_exe().map_err(|e| e.to_string())?,
+        home,
+    })
+}
+
+fn run_install(o: &Options) -> Result<(), String> {
+    let report = install::install(o).map_err(|e| e.to_string())?;
+    eprintln!("Pro 2 bundle: {}", report.pro2_bundle.display());
+    eprintln!("Workspace bundle: {}", report.workspace_bundle.display());
+    let status = Command::new("systemctl")
+        .args(["--user", "daemon-reload"])
+        .status()
+        .map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err(format!("systemctl --user daemon-reload failed: {status}"));
+    }
+    println!("{}", report.installed_json().pretty());
+    Ok(())
 }
