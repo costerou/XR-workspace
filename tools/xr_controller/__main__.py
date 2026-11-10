@@ -253,10 +253,11 @@ def settings_command(args):
 
 
 def override_command(args):
-    """The hidden way back to XRLinuxDriver on a Luma Ultra (docs/own-drivers-default.md). Takes effect at the next Start."""
+    """The hidden way back to XRLinuxDriver, or from the Rust Luma driver to the C++ one (luma-cpp), on a Luma Ultra
+    (docs/own-drivers-default.md). Takes effect at the next Start."""
     try:
         if args.action=='set':
-            if args.driver is None: raise ValueError('set needs xrdriver or 3dof')
+            if args.driver is None: raise ValueError('set needs '+', '.join(tracking.OVERRIDES[:-1])+' or '+tracking.OVERRIDES[-1])
             tracking.save_override(args.driver)
         elif args.action=='clear': tracking.clear_override()
         print(json.dumps(dict(override=tracking.read_override())))
@@ -280,6 +281,7 @@ def install_unit(config_home):
 def main(argv=None):
     ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest='command',required=True)
     sub.add_parser('serve'); p=sub.add_parser('install'); p.add_argument('--build',type=Path,required=True)
+    p.add_argument('--rust-driver',type=Path,help='also pin this Rust xr-luma-driver as the Luma Ultra\'s driver (rust/target/release/xr-luma-driver)')
     p=sub.add_parser('recover-run'); p.add_argument('--consent',required=True); p.add_argument('--journal',required=True)
     p.add_argument('--clear-rule',action='append',default=[],type=monitor_rules.desktop,help='a desktop whose monitors.lua rule the confirm box listed')
     p=sub.add_parser('pro2-route',help='which installed bundle a Pro 2 start runs; the install sets it')
@@ -297,7 +299,7 @@ def main(argv=None):
         try:
             if _luma_output(args.build) is None: raise ValueError('this build has no xr-luma-driver, the Luma Ultra\'s default: build with -DXR_ENABLE_LUMA_DRIVER=ON')
             route=install_pro2_bundle(args.build,data)  # first: a bundle that fails to build leaves the install as it was
-            entry=install(args.build,data)
+            entry=install(args.build,data,rust_driver=args.rust_driver)
             print(f"Pro 2 bundle: {route['bundle']}",file=sys.stderr)
             install_unit(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')
             print(json.dumps(entry,indent=2)); return 0

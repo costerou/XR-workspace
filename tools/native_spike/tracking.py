@@ -31,6 +31,7 @@ import time
 from .ipc import private_dir, read_private_json
 
 XRDRIVER, DOF3, LUMA = 'xrdriver', '3dof', 'luma'  # the profile's tracking_driver
+LUMA_CPP = 'luma-cpp'  # an override, not a driver kind: the Luma driver still, the C++ build instead of the pinned Rust one
 DRIVERS = (XRDRIVER, DOF3, LUMA)
 SCOPES = ('xrlinuxdriver', 'luma')  # a consent's `tracking`: what the click agreed to run. Both feed the renderer the same way
 PRO2_TRACKING = 'pro2-sdk'  # a Pro 2 consent's `tracking` (panel_consent.py): its bridge, no driver process of this module
@@ -39,8 +40,10 @@ PRO2_TRACKING = 'pro2-sdk'  # a Pro 2 consent's `tracking` (panel_consent.py): i
 LUMA_MODEL = 'luma-ultra'
 # The one hidden way back to XRLinuxDriver: `python -m tools.xr_controller tracking-override set xrdriver` (or 3dof), Luma Ultra
 # only, and the panel says when it is on. Anything but a valid file is no override: it must never be how our driver gets replaced.
+# `set luma-cpp` is the way back from the Rust Luma driver to the C++ one (install.load_installed), with no XRLinuxDriver.
 OVERRIDE_FILE = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/tracking-override.json'
-OVERRIDES = (XRDRIVER, DOF3)
+XRDRIVER_OVERRIDES = (XRDRIVER, DOF3)  # the overrides that run XRLinuxDriver instead of our driver
+OVERRIDES = (*XRDRIVER_OVERRIDES, LUMA_CPP)
 DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
 DRIVER_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'xr_driver/config.ini'

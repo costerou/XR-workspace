@@ -8,11 +8,18 @@ import shutil
 import stat
 import tempfile
 
-from tools.native_spike.tracking import DOF3, DRIVER as STANDARD_DRIVER, LUMA, XRDRIVER
+from tools.native_spike import tracking
+from tools.native_spike.tracking import DOF3, DRIVER as STANDARD_DRIVER, LUMA, LUMA_CPP, XRDRIVER
 
 RENDERER, PLUGIN, SHIM = 'xr-native-spike', 'libxr-ownership.so', 'libxr-quiet-driver.so'
 SHIM_PIN = 'quiet-driver.pin.json'
 LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
+# The Rust Luma driver (rust/crates/xr-luma-driver, docs/rust-rebuild-plan.md phase 2), pinned only by `install --rust-driver`.
+# Its own file, like the quiet driver's: installed.json keeps the C++ driver, so an older controller, which refuses any extra
+# key there and ignores this file, rolls back to the C++ one by itself. While this pin exists a Luma start runs it, unless
+# `tracking-override set luma-cpp` asks for the C++ one (load_installed). It sits in a `rust/` folder beside the renderer so
+# its file name stays xr-luma-driver, the name tracking._other_drivers looks for.
+RUST_LUMA_PIN, RUST_DIR = 'luma-driver-rust.pin.json', 'rust'
 PRO2_DIR = 'pro2'  # bundles live in <root>/pro2/<manifest hash>; pro2_route.py reads the pin, this writes it
 ENGINE, ENGINE_PYTHON = 'xr-depth-engine', ('.cache', 'viture-depth', 'venv', 'bin', 'python')
 REPO = Path(__file__).resolve().parents[2]
@@ -60,13 +67,17 @@ def _pin_shim(build_dir, target):
     source = Path(build_dir) / SHIM
     if not source.exists(): return None
     sha = _sha(source)
-    dest = Path(target) / SHIM
+    return _copy_pinned(source, Path(target) / SHIM, sha)
+
+
+def _copy_pinned(source, dest, sha):
+    """Copy `source` to `dest` read-only and return its pin; identical bytes already there are kept."""
     entry = {'path': str(dest), 'sha256': sha}
     try:
         verify_pinned(entry); return entry
     except ValueError:
         pass
-    fd, tmp = tempfile.mkstemp(dir=target, prefix='.tmp-')
+    fd, tmp = tempfile.mkstemp(dir=dest.parent, prefix='.tmp-')
     try:
         with os.fdopen(fd, 'wb') as out, open(source, 'rb') as src:
             shutil.copyfileobj(src, out); out.flush(); os.fsync(out.fileno())
@@ -103,46 +114,41 @@ def load_shim(data_home):
     return entry['path']
 
 
-def install(build_dir, data_home):
+def install(build_dir, data_home, rust_driver=None):
+    """Pin a build. `rust_driver`, the Rust Luma driver's binary, is pinned too when given and is then what a Luma start runs
+    (RUST_LUMA_PIN); without it any earlier Rust pin is removed, so a plain install is also the way back to the C++ driver."""
     build_dir = Path(build_dir)
     sources = {'renderer': build_dir / RENDERER, 'plugin': build_dir / PLUGIN}
     luma = _luma_output(build_dir)
     if luma: sources[LUMA_KEY] = luma  # main() refuses a build without it: here an older build dir can still be read back
     try:
         shas = {key: _sha(path) for key, path in sources.items()}
+        rust_sha = _sha(rust_driver) if rust_driver is not None else None
     except OSError as e:
         raise ValueError(f'build output unreadable: {e}') from None
-    # The Luma driver joins the hash, so a new driver alone gets its own folder and a running session's pins stay true.
-    combined = hashlib.sha256(''.join(shas.values()).encode('ascii')).hexdigest()[:12]
+    # The Luma drivers join the hash, so a new driver alone gets its own folder and a running session's pins stay true. With no
+    # Rust driver the name is what it was before there was one.
+    combined = hashlib.sha256(''.join([*shas.values(), *([rust_sha] if rust_sha else [])]).encode('ascii')).hexdigest()[:12]
     root = _root(data_home)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     (root / 'bin').mkdir(mode=0o700, exist_ok=True)
     target = root / 'bin' / combined
     target.mkdir(mode=0o700, exist_ok=True)
-    entry = {}
-    for key, source in sources.items():
-        dest = target / source.name
-        entry[key] = {'path': str(dest), 'sha256': shas[key]}
-        try:
-            verify_pinned(entry[key]); continue  # identical bytes already pinned
-        except ValueError:
-            pass
-        fd, tmp = tempfile.mkstemp(dir=target, prefix='.tmp-')
-        try:
-            with os.fdopen(fd, 'wb') as out, open(source, 'rb') as src:
-                shutil.copyfileobj(src, out); out.flush(); os.fsync(out.fileno())
-            os.chmod(tmp, 0o500)
-            if _sha(tmp) != shas[key]: raise ValueError('build output changed during install')
-            os.replace(tmp, dest)
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True); raise
+    entry = {key: _copy_pinned(source, target / source.name, shas[key]) for key, source in sources.items()}
+    rust = None
+    if rust_sha:
+        (target / RUST_DIR).mkdir(mode=0o700, exist_ok=True)
+        rust = _copy_pinned(rust_driver, target / RUST_DIR / LUMA_DRIVER, rust_sha)
     # Its own file: installed.json is read strictly, by whatever worktree a run comes from.
     shim = _pin_shim(build_dir, target)
     if shim is not None: _atomic_write(root / SHIM_PIN, json.dumps(shim, indent=2).encode(), 0o600)
     else: (root / SHIM_PIN).unlink(missing_ok=True)
     _write_engine(target)
     _atomic_write(root / 'installed.json', json.dumps(entry, indent=2).encode(), 0o600)
-    return entry
+    # After installed.json: a Rust pin never points into a set whose C++ half is not pinned yet.
+    if rust is not None: _atomic_write(root / RUST_LUMA_PIN, json.dumps(rust, indent=2).encode(), 0o600)
+    else: (root / RUST_LUMA_PIN).unlink(missing_ok=True)
+    return entry if rust is None else dict(entry, rust_luma_driver=rust)
 
 
 def install_pro2_bundle(build_dir, data_home, builder=None):
@@ -185,6 +191,8 @@ def _check_entry(entry, bin_dir):
 
 
 def load_installed(data_home):
+    """installed.json, with `luma_driver` the Luma driver a start runs now: the Rust pin while there is one, else the C++ driver.
+    The controller's probe, the runner's check of a consent and the spike CLI all read it here, so they agree on which."""
     root = _root(data_home)
     try:
         data = json.loads((root / 'installed.json').read_text())
@@ -192,6 +200,14 @@ def load_installed(data_home):
         raise ValueError(f'installed.json unreadable: {e}') from None
     if type(data) is not dict or set(data) - {LUMA_KEY} != {'plugin', 'renderer'}: raise ValueError('malformed installed.json')
     for entry in data.values(): _check_entry(entry, root / 'bin')
+    # The way back is never behind the Rust pin: with luma-cpp set the file is not even read, so a broken one cannot block it.
+    if LUMA_KEY in data and tracking.load_override() != LUMA_CPP:
+        try: rust = json.loads((root / RUST_LUMA_PIN).read_text())
+        except FileNotFoundError: rust = None
+        except (OSError, ValueError) as e: raise ValueError(f'{RUST_LUMA_PIN} unreadable: {e}') from None
+        if rust is not None:
+            _check_entry(rust, root / 'bin')
+            data[LUMA_KEY] = rust
     return data
 
 

@@ -20,11 +20,11 @@ A Pro 2 needs both the id and the product string `VITURE PRO 2 XR Glasses`. A `3
 
 Luma Ultra only, from a terminal, with no session running. It takes effect at the next Start:
 
-    python -m tools.xr_controller tracking-override set xrdriver    # or 3dof
+    python -m tools.xr_controller tracking-override set xrdriver    # or 3dof, or luma-cpp
     python -m tools.xr_controller tracking-override status
     python -m tools.xr_controller tracking-override clear
 
-This writes `~/.config/viture-workspace/tracking-override.json`. It does not appear in `--help`. The panel shows an amber line while it is on, so it cannot be forgotten. A broken or world-readable file counts as no override, because a typo must never be what replaces our driver.
+This writes `~/.config/viture-workspace/tracking-override.json`. It does not appear in `--help`. `luma-cpp` is not XRLinuxDriver: it keeps our Luma driver but runs the C++ build instead of a pinned Rust one (`install --rust-driver`, see technical.md, Which driver runs). The panel shows an amber line while it is on, so it cannot be forgotten. A broken or world-readable file counts as no override, because a typo must never be what replaces our driver.
 
 It does nothing on a Pro 2. Those glasses run the bridge or nothing, and `tracking.py` refuses every driver on them. The way back to XRLinuxDriver for a Pro 2 is the rollback below.
 

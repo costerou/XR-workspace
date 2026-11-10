@@ -23,7 +23,7 @@ from .install import verify_tracking_driver
 
 
 # The panel's name for each driver a run can use: consent `tracking`, or `tracking_driver` for the 3DoF test.
-DRIVER_LABELS={tracking.LUMA:'XR Luma driver',PRO2_TRACKING:'Pro 2 SDK bridge',tracking.XRDRIVER:'XRLinuxDriver','xrlinuxdriver':'XRLinuxDriver',tracking.DOF3:'XRLinuxDriver 3DoF test'}
+DRIVER_LABELS={tracking.LUMA:'XR Luma driver',tracking.LUMA_CPP:'XR Luma driver (C++)',PRO2_TRACKING:'Pro 2 SDK bridge',tracking.XRDRIVER:'XRLinuxDriver','xrlinuxdriver':'XRLinuxDriver',tracking.DOF3:'XRLinuxDriver 3DoF test'}
 
 
 def _monitor_facts(monitor):
@@ -97,9 +97,10 @@ class Controller:
         if model!=tracking.LUMA_MODEL:
             return dict(key=tracking.XRDRIVER,label=DRIVER_LABELS[tracking.XRDRIVER],available=True,note='Automatic: our own drivers do not support these glasses.')
         override=o.get('tracking_override')
-        if override:
-            return dict(key=override,label=DRIVER_LABELS[override],available=True,note='Recovery setting on. To go back: python -m tools.xr_controller tracking-override clear')
         ready=LUMA_PIN in (o.get('installed') or {})
+        if override:
+            return dict(key=override,label=DRIVER_LABELS[override],available=ready if override==tracking.LUMA_CPP else True,
+                        note='Recovery setting on. To go back: python -m tools.xr_controller tracking-override clear')
         return dict(key=tracking.LUMA,label=DRIVER_LABELS[tracking.LUMA],available=ready,note=None if ready else 'Not installed: XR cannot start with head tracking.')
 
     def _pro2_snapshot(self):
@@ -238,7 +239,7 @@ class Controller:
         """What this start's consent asks to run: False, or the driver this model runs (tracking.default_driver), decided here and
         not in the profile. A Luma Ultra runs our driver or nothing, unless the hidden recovery setting says otherwise."""
         if not profile['tracking']: return False
-        if tracking.default_driver(model)!=tracking.LUMA or self.observed.get('tracking_override'): return 'xrlinuxdriver'
+        if tracking.default_driver(model)!=tracking.LUMA or self.observed.get('tracking_override') in tracking.XRDRIVER_OVERRIDES: return 'xrlinuxdriver'
         if luma: return tracking.LUMA
         raise ValueError(tracking.LUMA_MISSING)
 
