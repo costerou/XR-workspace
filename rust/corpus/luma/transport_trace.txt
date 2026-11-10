@@ -1,0 +1,101 @@
+# The usbdevfs requests and one scripted session, as both the C++ and the Rust driver must make them.
+# Written by spike/driver/tests/transport_test.cpp with LUMA_TRACE_WRITE=1; read by rust/crates/xr-luma-driver.
+request CONTROL 0xc0185500 refused
+request BULK 0xc0185502 refused
+request RESETEP 0x80045503 refused
+request SETINTERFACE 0x80085504 refused
+request SETCONFIGURATION 0x80045505 refused
+request GETDRIVER 0x41045508 refused
+request SUBMITURB 0x8038550a allowed
+request DISCARDURB 0x550b allowed
+request REAPURB 0x4008550c refused
+request REAPURBNDELAY 0x4008550d allowed
+request DISCSIGNAL 0x8010550e refused
+request CLAIMINTERFACE 0x8004550f allowed
+request RELEASEINTERFACE 0x80045510 allowed
+request CONNECTINFO 0x40085511 refused
+request IOCTL 0xc0105512 refused
+request HUB_PORTINFO 0x80805513 refused
+request RESET 0x5514 refused
+request CLEAR_HALT 0x80045515 refused
+request DISCONNECT 0x5516 refused
+request CONNECT 0x5517 refused
+request CLAIM_PORT 0x80045518 refused
+request RELEASE_PORT 0x80045519 refused
+request GET_CAPABILITIES 0x8004551a refused
+request DISCONNECT_CLAIM 0x8108551b refused
+request ALLOC_STREAMS 0x8008551c refused
+request FREE_STREAMS 0x8008551d refused
+request DROP_PRIVILEGES 0x4004551e refused
+request GET_SPEED 0x551f refused
+request FORBID_SUSPEND 0x5521 refused
+request ALLOW_SUSPEND 0x5522 refused
+request WAIT_FOR_RESUME 0x5523 refused
+open bus/usb/005/101 O_RDWR|O_NONBLOCK|O_CLOEXEC|O_NOCTTY = fd
+ioctl CLAIMINTERFACE 0 = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x81, status=0, actual_length=1}
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl REAPURBNDELAY = {endpoint=0x82, status=0, actual_length=2}
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl SUBMITURB {type=bulk, endpoint=0x06, flags=0x0, buffer_length=1} = 0
+ioctl REAPURBNDELAY = {endpoint=0x06, status=0, actual_length=1}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl SUBMITURB {type=bulk, endpoint=0x06, flags=0x0, buffer_length=1} = 0
+ioctl DISCARDURB {endpoint=0x06, buffer_length=1} = 0
+ioctl REAPURBNDELAY = {endpoint=0x06, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-EPIPE, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-EPIPE, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl RELEASEINTERFACE 0 = 0
+close = 0
+open bus/usb/005/101 O_RDWR|O_NONBLOCK|O_CLOEXEC|O_NOCTTY = fd
+ioctl CLAIMINTERFACE 0 = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-EPIPE, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-EPIPE, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl RELEASEINTERFACE 0 = 0
+close = 0
+open bus/usb/005/103 O_RDWR|O_NONBLOCK|O_CLOEXEC|O_NOCTTY = fd
+ioctl CLAIMINTERFACE 0 = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x82, status=0, actual_length=1}
+ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl DISCARDURB {endpoint=0x81, buffer_length=1024} = 0
+ioctl DISCARDURB {endpoint=0x81, buffer_length=1024} = 0
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl DISCARDURB {endpoint=0x82, buffer_length=512} = 0
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x81, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = {endpoint=0x82, status=-ENOENT, actual_length=0}
+ioctl REAPURBNDELAY = -1 EAGAIN
+ioctl RELEASEINTERFACE 0 = 0
+close = 0

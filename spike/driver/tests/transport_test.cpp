@@ -77,6 +77,28 @@ int open_fd_count() {
     return count;
 }
 
+// Symbolic errno names, as strace prints them. Only the ones a session can produce.
+std::string errno_name(int error) {
+    switch (error) {
+    case EPERM: return "EPERM";
+    case ENOENT: return "ENOENT";
+    case EINTR: return "EINTR";
+    case EAGAIN: return "EAGAIN";
+    case EACCES: return "EACCES";
+    case EBUSY: return "EBUSY";
+    case ENODEV: return "ENODEV";
+    case EINVAL: return "EINVAL";
+    case EPIPE: return "EPIPE";
+    case ENOTTY: return "ENOTTY";
+    case EOVERFLOW: return "EOVERFLOW";
+    case ECONNRESET: return "ECONNRESET";
+    case ESHUTDOWN: return "ESHUTDOWN";
+    case ETIMEDOUT: return "ETIMEDOUT";
+    case EPROTO: return "EPROTO";
+    default: return "E" + std::to_string(error);
+    }
+}
+
 void write_file(const fs::path& path, const std::string& text) {
     fs::create_directories(path.parent_path());
     std::ofstream(path) << text << '\n';
@@ -351,25 +373,33 @@ public:
     int open_flags() { std::lock_guard lock(m_); return open_flags_; }
     int missed() { std::lock_guard lock(m_); return missed_; }
     bool descriptor_open() { std::lock_guard lock(m_); return event_ >= 0; }
+    // Every open, close of the device and ioctl, in order, in the form rust/corpus/luma/transport_trace.txt keeps.
+    // Recording allocates, so it is off unless a test asks for it.
+    std::vector<std::string> trace() { std::lock_guard lock(m_); return trace_; }
+    void start_trace() { std::lock_guard lock(m_); tracing_ = true; }
 
     // Sys ---------------------------------------------------------------
     int open(const char* path, int flags) override {
         std::lock_guard lock(m_);
-        if (!fs::exists(path)) return fail(ENOENT);
+        const std::string call =
+            tracing_ ? "open " + fs::relative(path, tree_.dev()).string() + " " + open_flag_names(flags) : std::string();
+        if (!fs::exists(path)) return traced_fail(call, ENOENT);
         ++opens_;
-        if (gone_) return fail(ENODEV);  // The node outlives the device for a moment.
+        if (gone_) return traced_fail(call, ENODEV);  // The node outlives the device for a moment.
         if (open_failures_ > 0) {
             --open_failures_;
-            return fail(open_errno_);
+            return traced_fail(call, open_errno_);
         }
         open_flags_ = flags;
         event_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+        if (tracing_) trace_.push_back(call + " = fd");
         return event_;
     }
     int close(int fd) override {
         std::lock_guard lock(m_);
         if (fd != event_) return ::close(fd);
         ::close(event_);  // usbdev_release() destroys every URB of this file.
+        if (tracing_) trace_.push_back("close = 0");
         event_ = -1;
         inflight_.clear();
         done_.clear();
@@ -407,8 +437,24 @@ public:
         errno = saved;
         return result;
     }
-    int ioctl(int, unsigned long request, void* argument) override {
+    int ioctl(int fd, unsigned long request, void* argument) override {
         std::lock_guard lock(m_);
+        if (!tracing_) return ioctl_locked(fd, request, argument);
+        const std::string call = describe_call(request, argument);
+        errno = 0;
+        const int result = ioctl_locked(fd, request, argument);
+        const int error = errno;
+        std::string line = call + " = ";
+        if (result != 0) line += "-1 " + errno_name(error);
+        else if (request == USBDEVFS_REAPURBNDELAY) line += describe_reaped(*static_cast<usbdevfs_urb**>(argument));
+        else line += "0";
+        trace_.push_back(std::move(line));
+        errno = error;
+        return result;
+    }
+
+private:
+    int ioctl_locked(int, unsigned long request, void* argument) {
         if (recording_) requests_.insert(request);
         if (request == USBDEVFS_CLAIMINTERFACE) {
             if (gone_) return fail(ENODEV);
@@ -477,7 +523,6 @@ public:
         return fail(ENOTTY);
     }
 
-private:
     struct Done {
         usbdevfs_urb* urb;
         int status;
@@ -487,6 +532,61 @@ private:
     int fail(int error) {
         errno = error;
         return -1;
+    }
+    int traced_fail(const std::string& call, int error) {
+        if (tracing_) trace_.push_back(call + " = -1 " + errno_name(error));
+        return fail(error);
+    }
+    static std::string open_flag_names(int flags) {
+        std::string out;
+        for (auto [bit, name] : {std::pair{O_NONBLOCK, "O_NONBLOCK"}, {O_CLOEXEC, "O_CLOEXEC"}, {O_NOCTTY, "O_NOCTTY"}}) {
+            if (!(flags & bit)) continue;
+            out += std::string("|") + name;
+            flags &= ~bit;
+        }
+        const int access = flags & O_ACCMODE;
+        flags &= ~O_ACCMODE;
+        std::string head = access == O_RDWR ? "O_RDWR" : access == O_WRONLY ? "O_WRONLY" : "O_RDONLY";
+        if (flags) head += "|" + std::to_string(flags);
+        return head + out;
+    }
+    static const char* urb_type_name(unsigned char type) {
+        switch (type) {
+        case USBDEVFS_URB_TYPE_ISO: return "iso";
+        case USBDEVFS_URB_TYPE_INTERRUPT: return "interrupt";
+        case USBDEVFS_URB_TYPE_CONTROL: return "control";
+        case USBDEVFS_URB_TYPE_BULK: return "bulk";
+        default: return "?";
+        }
+    }
+    static std::string urb_text(const usbdevfs_urb* urb, bool submitted) {
+        char text[128];
+        if (submitted)
+            std::snprintf(text, sizeof text, "{type=%s, endpoint=0x%02x, flags=0x%x, buffer_length=%d}", urb_type_name(urb->type),
+                          urb->endpoint, urb->flags, urb->buffer_length);
+        else
+            std::snprintf(text, sizeof text, "{endpoint=0x%02x, buffer_length=%d}", urb->endpoint, urb->buffer_length);
+        return text;
+    }
+    static std::string describe_reaped(const usbdevfs_urb* urb) {
+        char text[128];
+        std::snprintf(text, sizeof text, "{endpoint=0x%02x, status=%s, actual_length=%d}", urb->endpoint,
+                      urb->status == 0 ? "0" : ("-" + errno_name(-urb->status)).c_str(), urb->actual_length);
+        return text;
+    }
+    static std::string describe_call(unsigned long request, void* argument) {
+        switch (request) {
+        case USBDEVFS_CLAIMINTERFACE: return "ioctl CLAIMINTERFACE " + std::to_string(*static_cast<unsigned int*>(argument));
+        case USBDEVFS_RELEASEINTERFACE: return "ioctl RELEASEINTERFACE " + std::to_string(*static_cast<unsigned int*>(argument));
+        case USBDEVFS_SUBMITURB: return "ioctl SUBMITURB " + urb_text(static_cast<usbdevfs_urb*>(argument), true);
+        case USBDEVFS_DISCARDURB: return "ioctl DISCARDURB " + urb_text(static_cast<usbdevfs_urb*>(argument), false);
+        case USBDEVFS_REAPURBNDELAY: return "ioctl REAPURBNDELAY";
+        default: {
+            char text[48];
+            std::snprintf(text, sizeof text, "ioctl 0x%lx", request);
+            return text;
+        }
+        }
     }
     void fail_queued(std::uint8_t endpoint, int status) {
         for (auto it = inflight_.begin(); it != inflight_.end();) {
@@ -541,6 +641,8 @@ private:
     std::vector<SeenUrb> seen_;
     std::vector<int> claimed_list_;
     std::multiset<unsigned long> requests_;
+    std::vector<std::string> trace_;
+    bool tracing_ = false;
 };
 
 using Buffer = std::array<std::uint8_t, 2048>;
@@ -2198,6 +2300,108 @@ void test_a_whole_session_only_used_allowed_ioctls() {
     for (unsigned long request : used) CHECK(luma::is_allowed_ioctl(request));
 }
 
+// Every usbdevfs request the kernel header defines, with the verdict of the allowlist. The Rust driver's table must match.
+std::vector<std::string> request_table() {
+    const std::pair<const char*, unsigned long> requests[] = {
+        {"CONTROL", USBDEVFS_CONTROL},
+        {"BULK", USBDEVFS_BULK},
+        {"RESETEP", USBDEVFS_RESETEP},
+        {"SETINTERFACE", USBDEVFS_SETINTERFACE},
+        {"SETCONFIGURATION", USBDEVFS_SETCONFIGURATION},
+        {"GETDRIVER", USBDEVFS_GETDRIVER},
+        {"SUBMITURB", USBDEVFS_SUBMITURB},
+        {"DISCARDURB", USBDEVFS_DISCARDURB},
+        {"REAPURB", USBDEVFS_REAPURB},
+        {"REAPURBNDELAY", USBDEVFS_REAPURBNDELAY},
+        {"DISCSIGNAL", USBDEVFS_DISCSIGNAL},
+        {"CLAIMINTERFACE", USBDEVFS_CLAIMINTERFACE},
+        {"RELEASEINTERFACE", USBDEVFS_RELEASEINTERFACE},
+        {"CONNECTINFO", USBDEVFS_CONNECTINFO},
+        {"IOCTL", USBDEVFS_IOCTL},
+        {"HUB_PORTINFO", USBDEVFS_HUB_PORTINFO},
+        {"RESET", USBDEVFS_RESET},
+        {"CLEAR_HALT", USBDEVFS_CLEAR_HALT},
+        {"DISCONNECT", USBDEVFS_DISCONNECT},
+        {"CONNECT", USBDEVFS_CONNECT},
+        {"CLAIM_PORT", USBDEVFS_CLAIM_PORT},
+        {"RELEASE_PORT", USBDEVFS_RELEASE_PORT},
+        {"GET_CAPABILITIES", USBDEVFS_GET_CAPABILITIES},
+        {"DISCONNECT_CLAIM", USBDEVFS_DISCONNECT_CLAIM},
+        {"ALLOC_STREAMS", USBDEVFS_ALLOC_STREAMS},
+        {"FREE_STREAMS", USBDEVFS_FREE_STREAMS},
+        {"DROP_PRIVILEGES", USBDEVFS_DROP_PRIVILEGES},
+        {"GET_SPEED", USBDEVFS_GET_SPEED},
+        {"FORBID_SUSPEND", USBDEVFS_FORBID_SUSPEND},
+        {"ALLOW_SUSPEND", USBDEVFS_ALLOW_SUSPEND},
+        {"WAIT_FOR_RESUME", USBDEVFS_WAIT_FOR_RESUME},
+    };
+    std::vector<std::string> lines;
+    for (auto [name, code] : requests) {
+        char line[96];
+        std::snprintf(line, sizeof line, "request %s 0x%lx %s", name, code, luma::is_allowed_ioctl(code) ? "allowed" : "refused");
+        lines.push_back(line);
+    }
+    return lines;
+}
+
+// One scripted session, single-threaded so the order of calls is fixed: connect, read, write, a write timeout,
+// a halt, a yank and a return. The Rust driver's tests run the same script against rust/corpus/luma/transport_trace.txt,
+// so the two drivers are held to the same ioctls in the same order. LUMA_TRACE_WRITE=1 rewrites the file.
+void test_a_scripted_session_matches_the_shared_trace() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, usb_config(tree));
+    fake->start_trace();
+    std::vector<std::string> marks;
+    {
+        std::unique_ptr<Transport> t(raw);
+        Buffer buffer;
+        t->open();
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Connected);
+        fake->deliver(0x81, {1});
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+        fake->deliver(0x82, {2, 3});
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+        CHECK(t->write(std::vector<std::uint8_t>{1}) == IoStatus::Ok);
+        fake->hold_out_urbs(true);
+        CHECK(t->write(std::vector<std::uint8_t>{2}, 20ms) == IoStatus::Timeout);
+        fake->hold_out_urbs(false);
+        fake->stall(0x81);
+        CHECK(read_until(*t, buffer, IoStatus::Disconnected, 500ms).status == IoStatus::Disconnected);
+        CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Disconnected);  // Still halted: reopening does not clear it.
+        fake->yank();
+        fake->arrive(103);
+        CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+        fake->deliver(0x82, {4});
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+        t->close();
+    }
+    std::vector<std::string> lines = request_table();
+    for (auto& line : fake->trace()) lines.push_back(std::move(line));
+    const std::string path = LUMA_TRANSPORT_TRACE;
+    const char* write = std::getenv("LUMA_TRACE_WRITE");
+    if (write && std::string(write) == "1") {
+        std::ofstream out(path);
+        out << "# The usbdevfs requests and one scripted session, as both the C++ and the Rust driver must make them.\n"
+               "# Written by spike/driver/tests/transport_test.cpp with LUMA_TRACE_WRITE=1; read by rust/crates/xr-luma-driver.\n";
+        for (const auto& line : lines) out << line << '\n';
+        return;
+    }
+    std::ifstream in(path);
+    CHECK(in.good());
+    std::vector<std::string> golden;
+    for (std::string line; std::getline(in, line);)
+        if (!line.empty() && line[0] != '#') golden.push_back(line);
+    CHECK(golden.size() == lines.size());
+    for (std::size_t i = 0; i < std::min(golden.size(), lines.size()); ++i)
+        if (golden[i] != lines[i]) {
+            std::fprintf(stderr, "  trace line %zu: got '%s', want '%s'\n", i + 1, lines[i].c_str(), golden[i].c_str());
+            ++failures;
+            break;
+        }
+}
+
 // The default Sys refuses a forbidden ioctl before it reaches the kernel, even if handed a real file.
 void test_default_sys_refuses_forbidden_ioctl_itself() {
     luma::Sys sys;
@@ -2311,6 +2515,7 @@ int main() {
         T(test_usbfs_close_cancels_and_releases),
         T(test_only_the_harmless_ioctls_are_allowed),
         T(test_a_whole_session_only_used_allowed_ioctls),
+        T(test_a_scripted_session_matches_the_shared_trace),
         T(test_default_sys_refuses_forbidden_ioctl_itself),
         T(test_signal_interrupts_a_blocked_read),
 #undef T

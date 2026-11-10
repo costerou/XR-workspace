@@ -11,6 +11,9 @@ target_link_libraries(xr_luma_driver PUBLIC Threads::Threads)
 add_executable(luma_transport_test tests/transport_test.cpp)
 target_compile_options(luma_transport_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_link_libraries(luma_transport_test PRIVATE xr_luma_daemon)
+# The ioctl trace the Rust driver is held to as well.
+target_compile_definitions(luma_transport_test PRIVATE
+    LUMA_TRANSPORT_TRACE="${CMAKE_CURRENT_SOURCE_DIR}/../../rust/corpus/luma/transport_trace.txt")
 add_test(NAME luma_transport COMMAND luma_transport_test)
 set_tests_properties(luma_transport PROPERTIES TIMEOUT 60)
 
