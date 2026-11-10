@@ -9,6 +9,7 @@
 
 pub mod adopt;
 pub mod control;
+pub mod controller;
 pub mod desktops;
 pub mod fit_windows;
 pub mod geometry;
