@@ -727,8 +727,8 @@ class MenuBindTests(unittest.TestCase):
 
     def test_readme_documents_the_real_toggle_chord(self):
         chord = view.chord_label(next(c for c, op in view.BINDS if op == 'menu_toggle'))
-        # The README is the plain-language guide (its "## Placing desktops" section); docs/technical.md has the detail.
-        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
+        # docs/user-guide.md is the plain-language guide (its "## Placing desktops" section); docs/technical.md has the detail.
+        for doc, heading in (('docs/user-guide.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
             section = (ROOT / doc).read_text().split(heading, 1)
             self.assertEqual(len(section), 2, f'{doc} needs a "{heading}" section')
             self.assertIn(chord, section[1].split('\n## ', 1)[0])
@@ -766,7 +766,7 @@ HINT_KEYS = {'\u2191': 'up', '\u2193': 'down', '\u2190': 'left', '\u2192': 'righ
 
 @unittest.skipUnless(WIRING, 'needs MENU-WIRING binds')
 class PanelHintAgreementTests(unittest.TestCase):
-    """The keys the open panel's footer tells you to press are the keys wiring binds, and the README names them."""
+    """The keys the open panel's footer tells you to press are the keys wiring binds, and the user guide names them."""
     def hint_keys(self):
         src = (ROOT / 'spike/src/glass.cpp').read_text()
         raw = re.search(r'glass_panel_hint\(bool ascii\) \{\s*return ascii \? "[^"]+" : "([^"]+)"', src).group(1)
@@ -781,7 +781,7 @@ class PanelHintAgreementTests(unittest.TestCase):
             with self.subTest(key=key): self.assertIn(HINT_KEYS[key], parts)
 
     def test_readme_names_every_footer_key(self):
-        section = (ROOT / 'README.md').read_text().split('## Placing desktops', 1)[1].split('\n## ', 1)[0]
+        section = (ROOT / 'docs/user-guide.md').read_text().split('## Placing desktops', 1)[1].split('\n## ', 1)[0]
         for key in self.hint_keys():
             with self.subTest(key=key): self.assertIn(HINT_KEYS[key].title() if len(HINT_KEYS[key]) > 1 else key, section)
 
@@ -793,12 +793,13 @@ class MenuToggleKeyTests(unittest.TestCase):
         self.assertEqual([op for chord, op in view.BINDS if chord == MENU_TOGGLE_CHORD and op != 'menu_toggle'], [])
 
     def test_readme_section_uses_ctrl_alt_l(self):
-        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
+        for doc, heading in (('docs/user-guide.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
             section = (ROOT / doc).read_text().split(heading, 1)[1].split('\n## ', 1)[0]
             self.assertIn(MENU_TOGGLE_LABEL, section)
             self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\*')  # the old mouse mode's key is gone
             self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
-        self.assertNotIn('Ctrl+Alt+M', (ROOT / 'README.md').read_text())  # the user guide no longer names it at all
+        for doc in ('README.md', 'docs/user-guide.md'):  # the user docs no longer name it at all
+            self.assertNotIn('Ctrl+Alt+M', (ROOT / doc).read_text())
 
 
 class NoScopeChangeTests(unittest.TestCase):

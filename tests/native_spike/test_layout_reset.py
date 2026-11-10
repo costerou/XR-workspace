@@ -69,8 +69,8 @@ class BindTests(unittest.TestCase):
         self.assertIn('{"Ctrl+Alt+Space / R", "Recenter / reset to 3 flat desktops"}', src)
 
     def test_the_docs_list_it(self):
-        readme = (ROOT / 'README.md').read_text()
-        self.assertIn('| Ctrl+Alt+R, twice |', readme.split('### Key cheat sheet', 1)[1].split('\n## ', 1)[0])
+        readme = (ROOT / 'docs/user-guide.md').read_text()
+        self.assertIn('| Ctrl+Alt+R, twice |', readme.split('## Keys', 1)[1].split('\n## ', 1)[0])
         self.assertIn(view.RESET_TOASTS['confirm'], readme)
         technical = (ROOT / 'docs/technical.md').read_text()
         self.assertIn('| Ctrl+Alt+R, twice within 3 s | run |', technical)

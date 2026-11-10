@@ -329,7 +329,7 @@ class DocsTests(unittest.TestCase):
 
     def test_the_docs_describe_it(self):
         self.assertIn('window-memory.json', (self.ROOT / 'docs/technical.md').read_text())
-        self.assertIn('window-memory.json', (self.ROOT / 'README.md').read_text())
+        self.assertIn('window-memory.json', (self.ROOT / 'docs/user-guide.md').read_text())
 
     def test_the_glasses_script_exists(self):
         plan = (self.ROOT / 'docs/placement-menu-test-plan.md').read_text()

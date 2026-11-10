@@ -54,9 +54,10 @@ class ChordTests(unittest.TestCase):
         self.assertIn(['Ctrl+Alt+P', 'Toggle pose prediction'], rows)  # cursor follow (Ctrl+Alt+F) was removed
 
     def test_readme_and_technical_docs_name_the_key(self):
-        readme = (ROOT / 'README.md').read_text()
-        self.assertRegex(readme, r'\| Ctrl\+Alt\+T \| Typing mode')
-        self.assertIn('**Typing mode.** Press **Ctrl+Alt+T**', readme)
+        self.assertRegex((ROOT / 'README.md').read_text(), r'\| Ctrl\+Alt\+T \| Typing mode')
+        guide = (ROOT / 'docs/user-guide.md').read_text()
+        self.assertRegex(guide, r'\| Ctrl\+Alt\+T \| Typing mode')
+        self.assertIn('## Typing mode\n\n**Ctrl+Alt+T**', guide)
         self.assertIn('### Typing mode', (ROOT / 'docs/technical.md').read_text())
 
 

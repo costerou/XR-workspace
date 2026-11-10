@@ -86,7 +86,7 @@ Supervisor (Python, offline), in `tests/native_spike/`:
 - `test_placement_menu.py`, `test_view_menu_wiring.py`: the keyboard contract (Ctrl+Alt+L toggles the selected desktop's
   pill; Tab / Shift+Tab move the open panel, wrapping; the four fields, value keys, clamps, Left/right wrapping past
   behind you, and reset; the live `placement` and `placement_menu` frames; saving, debounced and on close; the modal
-  keys installed and removed; the 30 s idle close); the open panel's footer keys are bound and named in the README; the
+  keys installed and removed; the 30 s idle close); the open panel's footer keys are bound and named in the user guide; the
   panel loads the help card's font and uses its dimmed colours. `test_typing_mode.py`: typing mode closes an open panel
   and hides the pills.
 

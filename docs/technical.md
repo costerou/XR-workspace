@@ -1,6 +1,6 @@
 # XR Workspace: technical reference
 
-The [README](../README.md) is the friendly guide. This page keeps the full detail: what has been tested and how,
+The [README](../README.md) and the [user guide](user-guide.md) are the friendly guides. This page keeps the full detail: what has been tested and how,
 how the pieces fit together, build and install internals, the exact keybind rules, the safety model, the tests and the
 host diagnostic. Feature deep dives live in [vr-video.md](vr-video.md), [web-video.md](web-video.md) and
 [placement-menu-test-plan.md](placement-menu-test-plan.md).
