@@ -7,4 +7,6 @@ pub mod fusion;
 pub mod instance;
 pub mod latency;
 pub mod options;
+pub mod transport;
 pub mod types;
+pub mod usbdevfs;

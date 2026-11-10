@@ -108,6 +108,10 @@ holds the Rust ports to them byte for byte.
 - `corpus/hyprland/transcripts.json` records the request bytes `HyprlandClient` sends and the replies
   it gets, for each public call that talks to the compositor. A scripted stand-in compositor on a
   temporary socket gives the replies; the real Hyprland is never used.
+- `corpus/luma/transport_trace.txt` lists every usbdevfs request with the allowlist's verdict, then
+  each open, close and ioctl of one scripted session on a fake kernel. The C++ transport test writes
+  it (`LUMA_TRACE_WRITE=1`) and checks it; `crates/xr-luma-driver/tests/transport.rs` holds the Rust
+  transport to the same calls in the same order.
 
 - `corpus/luma-fusion/` holds the C++ `luma::Fusion`'s output for every sample of the two replay
   fixtures (`real.bin`, `upside_down.bin`, from `spike/driver/tests/fixtures/`) and for a faults run
