@@ -621,12 +621,14 @@ struct Transport::Impl {
 
     TransportRead read(std::span<std::uint8_t> buffer, milliseconds timeout) {
         const auto deadline = deadline_after(timeout);
+        bool reaped = false;  // This call already took everything the kernel had finished.
         for (;;) {
             if (!opened) return {IoStatus::Closed};
             if (count > 0) {
                 // A backed-up device is when the ring holds packets, and its queue must not run dry
-                // while the caller works through them, so handing one over refills it too.
-                if (fd >= 0 && current->backend == Backend::Usbfs) {
+                // while the caller works through them, so handing one over refills it too. Not straight
+                // after the wake's own reap: that one ended on EAGAIN microseconds ago.
+                if (!reaped && fd >= 0 && current->backend == Backend::Usbfs) {
                     reap_all();
                     finish_reap();
                 }
@@ -665,7 +667,9 @@ struct Transport::Impl {
                 }
                 continue;
             }
+            // One wake, every finished URB: a burst the host handed over together costs one wake-up (D10).
             reap_all();
+            reaped = true;
             if (fds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) mark_lost("poll: device removed");
             finish_reap();
         }

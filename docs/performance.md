@@ -174,6 +174,52 @@ thread: 0.12 µs median, 10 to 70 µs worst, 1.2 million packets in 0.2 s. So th
 and scheduling, which is why the daemon runs inline rather than through the ring. USB and scheduling have still only been
 measured against a fake transport.
 
+## Wake-ups
+
+`docs/rust-rebuild-plan.md` D10 targets 1,100 context switches per second or fewer and 0.3 % of one core or less, with no added
+latency. The plan's "about 2,000 wakes per second" is the two-thread ring above (reader and fusion each wake per sample). The
+live daemon is not that: it runs on one thread, and `Transport::read` already reaps every finished URB on each wake, in a loop
+that ends on `EAGAIN`. So it wakes once per host completion, and a burst the host hands over together costs one wake-up.
+
+What D10 changed (2026-11-10): a packet that the wake's own reap just put in the queue is handed over without a second reap.
+That reap had ended on `EAGAIN` microseconds before, so it could only find nothing. One packet now costs one `poll`, two
+`REAPURBNDELAY` (the one that gets it and the one that ends the loop) and one `SUBMITURB`, instead of three reaps. The refill
+on a backlog stays: a `read()` that starts with packets queued still reaps first, so the kernel's queue never runs dry. Latency
+is unchanged: the stamp is still taken at the reap, and nothing waits.
+
+### Offline proof
+
+`luma_transport` runs the whole live path (TransportLink, Daemon, real decoder and fusion) on the fake kernel, which wakes `poll`
+through a real eventfd. It measures the daemon thread's context switches from `/proc/self/task/TID/status` over 3.2 s:
+
+| Feed | Switches per second | Wakes per packet | CPU % (thread, fake kernel included) |
+|---|---:|---:|---:|
+| 1 packet per 1 ms | 929 to 991 | 0.96 to 0.985 | 0.65 to 0.75 |
+| 2 packets per 2 ms, handed over together | 477 to 504 | 0.49 to 0.50 | 0.35 to 0.67 |
+
+Measured at load average 30 to 45 on 16 CPUs. The test checks at most 1.05 voluntary wakes per packet and 0.55 for pairs, and
+that 50 packets cost exactly 100 reaps and 50 submits (150 before the change). The CPU figures include the fake kernel's mutex
+and eventfd work and a busy machine, so the CPU target can only be judged on the glasses.
+
+### On the glasses
+
+With XR stopped, the glasses plugged in and still on the desk for the first seconds (a fresh bias folder means a calibration):
+
+```bash
+cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release
+make -C build/release -j"$(nproc)" xr-luma-driver
+spike/driver/tools/wake_check.sh build/release 60
+```
+
+It runs the driver with a private feed and bias folder, waits 15 s, then counts the process's context switches and CPU over
+60 s. It prints `PASS` when switches/s is 1,100 or fewer and CPU is 0.3 % or less, with `samples/s` near 1,000. Then run
+`spike/driver/tools/latency_baseline.sh build/release 120` and compare its excess p99 with the D1 table below: "no added latency"
+means no worse.
+
+| Date | Switches/s | Voluntary/s | CPU % | Samples/s | Latency excess p99 |
+|---|---:|---:|---:|---:|---:|
+| | | | | | |
+
 ## Real glasses: USB latency
 
 The baseline every later driver change is judged against (`docs/rust-rebuild-plan.md`, D1). It measures how late each IMU packet

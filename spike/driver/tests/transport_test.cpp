@@ -27,6 +27,7 @@
 #include <mutex>
 #include <new>
 #include <set>
+#include <span>
 #include <stdlib.h>
 #include <string>
 #include <sys/eventfd.h>
@@ -34,6 +35,7 @@
 #include <termios.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -270,8 +272,28 @@ public:
         flush(status);
         remove_nodes();
     }
+    // The wake comes after the lock is let go, as the kernel's does: a reader woken while the lock is still held would
+    // sleep once more on it, a wake-up the real driver never pays.
     bool deliver(std::uint8_t endpoint, const std::vector<std::uint8_t>& bytes, int status = 0) {
-        std::lock_guard lock(m_);
+        return deliver_together(endpoint, std::span(&bytes, 1), status) == 1;
+    }
+    // Several packets finished in one go, as one host controller interrupt hands them over. How many found a queued read.
+    std::size_t deliver_together(std::uint8_t endpoint, std::span<const std::vector<std::uint8_t>> packets, int status = 0) {
+        std::unique_lock lock(m_);
+        defer_signal_ = true;
+        std::size_t done = 0;
+        for (const auto& bytes : packets) done += deliver_locked(endpoint, bytes, status);
+        defer_signal_ = false;
+        const bool wake = std::exchange(signal_owed_, false);
+        const int event = event_;
+        lock.unlock();
+        if (wake && event >= 0) {
+            std::uint64_t one = 1;
+            if (::write(event, &one, sizeof one) < 0) std::abort();
+        }
+        return done;
+    }
+    bool deliver_locked(std::uint8_t endpoint, const std::vector<std::uint8_t>& bytes, int status) {
         for (auto it = inflight_.begin(); it != inflight_.end(); ++it) {
             usbdevfs_urb* urb = *it;
             if (urb->endpoint != endpoint) continue;
@@ -481,6 +503,7 @@ private:
         signal();
     }
     void signal() {
+        if (defer_signal_) { signal_owed_ = true; return; }
         std::uint64_t one = 1;
         if (event_ >= 0 && ::write(event_, &one, sizeof one) < 0) std::abort();
     }
@@ -498,6 +521,7 @@ private:
     bool hold_out_ = false;
     bool finish_on_discard_ = false;
     bool recording_ = true;
+    bool defer_signal_ = false, signal_owed_ = false;
     bool claimed_now_ = false;
     int out_status_ = 0;
     int open_failures_ = 0;
@@ -1066,6 +1090,126 @@ void test_whole_driver_on_a_fake_kernel() {
     CHECK(said("luma: reply endpoint=0x85 bytes=6 head=fa5595000000"));
     CHECK(said("luma: calibrated restored=0"));
     CHECK(!said("disconnected"));
+}
+
+// voluntary + involuntary context switches of one thread, from /proc (what D10 counts), and its CPU time.
+struct ThreadCost {
+    std::uint64_t voluntary = 0;    // went to sleep: one per wake-up
+    std::uint64_t involuntary = 0;  // preempted: the machine's load, not the driver's design
+    std::uint64_t cpu_ns = 0;
+};
+ThreadCost thread_cost(pid_t tid) {
+    ThreadCost cost;
+    std::ifstream status("/proc/self/task/" + std::to_string(tid) + "/status");
+    for (std::string line; std::getline(status, line);) {
+        if (line.rfind("voluntary_ctxt_switches:", 0) == 0) cost.voluntary = std::strtoull(line.c_str() + 24, nullptr, 10);
+        if (line.rfind("nonvoluntary_ctxt_switches:", 0) == 0) cost.involuntary = std::strtoull(line.c_str() + 27, nullptr, 10);
+    }
+    std::ifstream stat("/proc/self/task/" + std::to_string(tid) + "/schedstat");
+    stat >> cost.cpu_ns;  // time on the CPU, ns
+    return cost;
+}
+
+struct WakeRun {
+    std::uint64_t samples = 0;
+    double switches_per_s = 0, wakes_per_packet = 0, cpu_percent = 0, packets_per_s = 0;
+};
+
+// The whole live driver (TransportLink, Daemon, real decoder and fusion) on the fake kernel, fed in bursts of `burst` packets every
+// `period`, as the host controller hands them over. Measured on the daemon's own thread over the steady part of the run.
+WakeRun run_paced(std::chrono::microseconds period, int burst, std::uint32_t packets) {
+    FakeTree tree;
+    auto config = luma::wiring::live_config(luma::Options{});
+    config.rescan_interval = 10ms;
+    config.sysfs_root = tree.sysfs();
+    config.dev_root = tree.dev();
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    fake->arrive(101);
+    fake->stop_recording();  // the record lists would allocate in the loop being measured
+    const luma::Logger quiet = [](std::string_view) {};
+    const auto link = luma::wiring::link_with(config, fake, quiet);
+    const auto decoder = luma::wiring::decoder();
+    CountingSink sink;
+    luma::DaemonParts parts{*link, *decoder, &luma::wiring::estimator, sink,
+                            [] { return std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count()); },
+                            quiet, luma::wiring::start_command(), luma::wiring::stop_command()};
+    luma::Daemon daemon(std::move(parts));
+    std::atomic<bool> stop{false};
+    const pid_t reader = gettid();
+    WakeRun run;
+    std::thread glasses([&] {
+        const auto give_up = Clock::now() + 5s;
+        while (fake->inflight() == 0 && Clock::now() < give_up) std::this_thread::sleep_for(1ms);
+        fake->deliver(0x85, {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00});
+        const std::uint32_t warmup = packets / 5;
+        ThreadCost first{};
+        std::uint64_t delivered = 0;
+        Clock::time_point began{};
+        auto next = Clock::now();
+        for (std::uint32_t i = 1; i <= packets;) {
+            if (i >= warmup && began == Clock::time_point{}) { first = thread_cost(reader); began = Clock::now(); }
+            std::vector<std::vector<std::uint8_t>> together;
+            const bool counted = began != Clock::time_point{};
+            for (int b = 0; b < burst && i <= packets; ++b, ++i) {
+                luma::ImuSample sample{i * 1'000'000ull, {0.006f, 0.001f, 0.005f}, {0.1f, 0.2f, 9.8f}, std::nullopt, i & 0xffff};
+                const auto packet = luma::encode_luma_imu(sample);
+                together.emplace_back(packet.begin(), packet.end());
+            }
+            const std::size_t taken = fake->deliver_together(0x81, together);
+            if (counted) delivered += taken;
+            next += period;
+            std::this_thread::sleep_until(next);
+        }
+        std::this_thread::sleep_for(20ms);
+        const ThreadCost last = thread_cost(reader);
+        const double seconds = std::chrono::duration<double>(Clock::now() - began).count();
+        run.samples = delivered;  // all read: the reader's queue never overflows at this rate
+        run.switches_per_s = double(last.voluntary + last.involuntary - first.voluntary - first.involuntary) / seconds;
+        run.wakes_per_packet = double(last.voluntary - first.voluntary) / double(std::max<std::uint64_t>(run.samples, 1));
+        run.cpu_percent = 100.0 * double(last.cpu_ns - first.cpu_ns) / 1e9 / seconds;
+        run.packets_per_s = double(run.samples) / seconds;
+        stop = true;
+    });
+    daemon.run(stop);
+    glasses.join();
+    std::printf("  wakes: period=%lldus burst=%d packets/s=%.0f switches/s=%.0f wakes/packet=%.3f cpu=%.3f%%\n",
+                (long long)period.count(), burst, run.packets_per_s, run.switches_per_s, run.wakes_per_packet, run.cpu_percent);
+    return run;
+}
+
+// The system calls behind one packet, which is most of the driver's CPU: one poll, one reap that gets it, one that finds
+// nothing (the reap loop's end), one resubmit. No second empty reap when the packet is handed over.
+void test_one_packet_costs_one_poll_two_reaps_one_submit() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {luma::kLumaUltraDataIn};
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);  // Connected
+    const auto before = fake->requests();
+    constexpr int kPackets = 50;
+    for (int i = 0; i < kPackets; ++i) {
+        CHECK(fake->deliver(luma::kLumaUltraDataIn, std::vector<std::uint8_t>(64, std::uint8_t(i))));
+        const auto r = t->read(buffer, 100ms);
+        CHECK(r.status == IoStatus::Ok && buffer[0] == i);
+    }
+    const auto after = fake->requests();
+    const auto calls = [&](unsigned long request) { return after.count(request) - before.count(request); };
+    CHECK(calls(USBDEVFS_REAPURBNDELAY) == 2 * kPackets);
+    CHECK(calls(USBDEVFS_SUBMITURB) == kPackets);
+    CHECK(t->stats().dropped_packets == 0);
+}
+
+void test_one_wake_per_host_completion_batch() {
+    const WakeRun single = run_paced(1000us, 1, 4000);
+    CHECK(single.samples > 2500);
+    CHECK(single.wakes_per_packet <= 1.05);
+    const WakeRun pairs = run_paced(2000us, 2, 4000);
+    CHECK(pairs.samples > 2500);
+    CHECK(pairs.wakes_per_packet <= 0.55);  // both packets of a burst in one wake
 }
 
 void test_live_config_follows_the_flags() {
@@ -2120,6 +2264,8 @@ int main() {
         T(test_write_to_reaches_only_configured_endpoints),
         T(test_drain_endpoint_reads_and_throws_away),
         T(test_whole_driver_on_a_fake_kernel),
+        T(test_one_packet_costs_one_poll_two_reaps_one_submit),
+        T(test_one_wake_per_host_completion_batch),
         T(test_live_config_follows_the_flags),
         T(test_usbfs_needs_an_in_endpoint),
         T(test_usbfs_waits_for_a_busy_interface_and_never_takes_it),
