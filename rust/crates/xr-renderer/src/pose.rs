@@ -191,6 +191,7 @@ pub fn aim_along(from: Quat, to: Quat, way: f32, turned: f32, side: u8) -> Quat 
         d = Quat { x: -d.x, y: -d.y, z: -d.z, w: -d.w };
     }
     let sn = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // true for NaN too, as in the C++
     if !(sn > 1e-6) {
         return if s < 1.0 { from } else { to };
     }

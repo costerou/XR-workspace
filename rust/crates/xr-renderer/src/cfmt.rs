@@ -39,6 +39,7 @@ mod tests {
     use super::g;
 
     #[test]
+    #[allow(clippy::excessive_precision)] // the literals are the strings printf shows
     fn matches_printf_g() {
         // Expected strings from glibc printf("%.9g") / ("%g").
         assert_eq!(g(f64::from(0.414213568f32), 9), "0.414213568");
