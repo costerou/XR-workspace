@@ -11,6 +11,7 @@ pub mod egl;
 pub mod glass;
 pub mod glass_theme;
 pub mod hud;
+pub mod ipc;
 pub mod layout;
 pub mod material;
 pub mod options_geometry;

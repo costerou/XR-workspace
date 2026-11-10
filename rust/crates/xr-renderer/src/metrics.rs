@@ -279,6 +279,9 @@ impl Metrics {
                 );
             }
         }
+        // nlohmann's sorted order, whichever map serde_json was built with (xr-workspace turns on
+        // preserve_order for the whole workspace).
+        j.sort_keys();
         Value::Object(j).to_string()
     }
 
@@ -377,6 +380,9 @@ impl Metrics {
             "stall_intervals_dropped",
             json!(self.stall_total - kept as u64),
         );
+        // nlohmann's sorted order, whichever map serde_json was built with (xr-workspace turns on
+        // preserve_order for the whole workspace).
+        j.sort_keys();
         Value::Object(j).to_string()
     }
 }

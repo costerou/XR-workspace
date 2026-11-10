@@ -1,16 +1,15 @@
 //! XR renderer on GLES and Wayland.
 //!
 //! So far the presentation shell: the supervised launch of `spike/src/main.cpp` with the generated
-//! test pattern (static, or `--animate-pattern-ms`), the start/stop control frames, the status
-//! samples and the timing report. Capture, tracking, depth and the other control ops are refused
-//! at launch (exit 2) until they are ported.
+//! test pattern (static, or `--animate-pattern-ms`), the control stream (every op is decoded,
+//! receipted and refused as the C++ does; only `stop` acts so far), the status samples and the
+//! timing report. Capture, tracking and depth are refused at launch (exit 2) until they are ported.
 
-mod control;
 mod metrics;
 mod pattern;
 mod shell;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::Write as _;
 use std::os::fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
@@ -22,8 +21,10 @@ use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use rustix::io::Errno;
 use rustix::net::{RecvFlags, SendFlags, recv, send};
 
-use control::{Op, Refusal, Stream};
 use shell::{Presentation, monotonic_ms_f64};
+use xr_renderer::ipc::{self, ControlStream, Descriptors, StatusExtras};
+use xr_wire::control::{self, Message, Op, Payload, Refused, Video};
+use xr_wire::status::{encode_applied, encode_refused};
 
 const HELP: &str = "xr-renderer: native output-bound layer-shell renderer (no SDK/input).\n\
 Launched only by the permission-gated Python supervisor with inherited capability sockets.\n\
@@ -32,7 +33,7 @@ Optional --status-fd FD: nonblocking measured status JSON, at most once per seco
 Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n\
 Optional --control-errors fatal, for tests: a bad control frame stops the renderer. Otherwise it is logged and dropped.\n\
 Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n\
-Not yet in this build: --capture, --pose-feed, --depth-fd, --continuity-fd and control ops other than start and stop.\n\
+Not yet in this build: --capture, --pose-feed, --depth-fd, --continuity-fd. Control ops other than stop are receipted but not drawn.\n\
 Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
 
 static STOPPING: AtomicBool = AtomicBool::new(false);
@@ -93,9 +94,34 @@ fn send_line(fd: Option<BorrowedFd>, line: &str) {
     }
 }
 
-/// The first `n` characters (the C++ `substr` on these ASCII-only fields).
-fn prefix(s: &str, n: usize) -> &str {
-    s.char_indices().nth(n).map_or(s, |(i, _)| &s[..i])
+/// What a delivered frame does in this build: `stop` stops; a `video` open takes its descriptor,
+/// which is closed unread until the player is ported. Other ops are logged once each.
+fn apply(m: &Message, descriptors: &mut Descriptors, unhandled: &mut HashSet<Op>) {
+    match &m.payload {
+        _ if m.op == Op::Stop => STOPPING.store(true, Ordering::Relaxed),
+        Payload::Video(Video::Open { .. }) => match descriptors.take() {
+            Some(_closed) => eprintln!("control: video open: no player in this build, file closed"),
+            None => eprintln!("control: video open without a file descriptor"),
+        },
+        _ => {
+            if unhandled.insert(m.op) {
+                eprintln!("control: {} received; not drawn in this build", m.op.name());
+            }
+        }
+    }
+}
+
+/// The journal line for a refused frame, bounded: a supervisor that keeps doing this must not fill
+/// the journal. The frame is redacted to its protocol words.
+fn refused(r: &Refused, refusals: &mut u64) {
+    *refusals += 1;
+    if *refusals <= 20 || *refusals % 1000 == 0 {
+        let op = r.op.as_deref().unwrap_or("unreadable");
+        eprintln!(
+            "control: refused frame {} ({op}): {}: {} ({refusals} so far): {}",
+            r.request_id, r.refusal.code, r.refusal.detail, r.frame
+        );
+    }
 }
 
 fn main() -> ExitCode {
@@ -209,33 +235,14 @@ fn run(argv: &[String]) -> u8 {
         }
     }
 
-    // Further supervisor frames (stop) on the same private socket, replay-protected. A bad one is dropped.
-    let mut stream = Stream::new(args["--run-id"], args["--session"], fatal, &start);
+    // Further supervisor frames on the same private socket, replay-protected. A bad one is dropped.
+    let Some(mut stream) = ControlStream::new(args["--run-id"], args["--session"], fatal) else {
+        return 2;
+    };
+    stream.start(&start);
+    let mut descriptors = Descriptors::default();
+    let mut unhandled = HashSet::new();
     let mut refusals = 0u64;
-    let mut deliver = |m: control::Message| {
-        if m.op == Op::Stop {
-            STOPPING.store(true, Ordering::Relaxed);
-        }
-        send_line(
-            status,
-            &format!("{{\"control_applied\":{}}}\n", m.request_id),
-        );
-    };
-    let mut refused = |r: Refusal| {
-        let line = serde_json::json!({"control_refused": {
-            "request_id": r.request_id, "op": prefix(&r.op, 64), "detail": prefix(&r.error.detail, 256),
-        }});
-        send_line(status, &format!("{line}\n"));
-        refusals += 1;
-        // Bounded: a supervisor that keeps doing this must not fill the journal.
-        if refusals <= 20 || refusals % 1000 == 0 {
-            let op = if r.op.is_empty() { "unreadable" } else { &r.op };
-            eprintln!(
-                "control: refused frame {} ({op}): {}: {} ({refusals} so far)",
-                r.request_id, r.error.code, r.error.detail
-            );
-        }
-    };
     let mut closed = String::from("EOF");
     let mut next_status = Instant::now();
     if let Some(p) = &mut presentation {
@@ -254,10 +261,25 @@ fn run(argv: &[String]) -> u8 {
             if ready {
                 let mut buffer = [0u8; 4096];
                 let open = loop {
-                    match recv(&control, &mut buffer, RecvFlags::DONTWAIT) {
-                        Ok((0, _)) => break false, // supervisor gone
-                        Ok((n, _)) => {
-                            if !stream.feed(&buffer[..n], &mut deliver, &mut refused) {
+                    match ipc::receive(&control, &mut buffer, &mut descriptors) {
+                        Ok(0) => break false, // supervisor gone
+                        Ok(n) => {
+                            let more = stream.feed(&buffer[..n], &mut |verdict| match verdict {
+                                Ok(m) => {
+                                    apply(&m, &mut descriptors, &mut unhandled);
+                                    send_line(status, &encode_applied(m.request_id));
+                                }
+                                Err(r) => {
+                                    refused(r, &mut refusals);
+                                    let op = r.op.as_deref().unwrap_or("");
+                                    send_line(
+                                        status,
+                                        &encode_refused(r.request_id, op, &r.refusal.detail),
+                                    );
+                                    descriptors.refused(r);
+                                }
+                            });
+                            if !more {
                                 break false;
                             }
                         }
@@ -281,7 +303,9 @@ fn run(argv: &[String]) -> u8 {
             let now = Instant::now();
             if status.is_some() && now >= next_status {
                 next_status = now + Duration::from_secs(1);
-                send_line(status, &format!("{}\n", p.status_json(monotonic_ms_f64())));
+                let sample =
+                    ipc::status_dict(&p.status_json(monotonic_ms_f64()), &StatusExtras::default());
+                send_line(status, &format!("{sample}\n"));
             }
             if let Err(e) = send(&control, b"H", SendFlags::NOSIGNAL | SendFlags::DONTWAIT) {
                 eprintln!("control: supervisor channel closed (heartbeat: {e})");

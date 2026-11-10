@@ -152,6 +152,25 @@ pub struct Refusal {
     pub detail: String,
 }
 
+impl Refusal {
+    /// `ignorable_control_error`: a malformed display-only payload, which stops nothing even under
+    /// `--control-errors fatal`. `invalid_edge_pan` and `invalid_restore_band` are not among them.
+    pub fn ignorable(&self) -> bool {
+        matches!(
+            self.code,
+            "invalid_options_menu"
+                | "invalid_menu"
+                | "invalid_resize_handle"
+                | "invalid_move_handle"
+                | "invalid_overview_pointer"
+                | "invalid_roll"
+                | "invalid_environment"
+                | "invalid_binds"
+                | "invalid_immersive"
+        )
+    }
+}
+
 fn invalid(detail: impl Into<String>) -> Refusal {
     Refusal {
         code: "invalid_control",
@@ -1521,7 +1540,7 @@ pub fn decode(frame: &[u8]) -> Result<Message, Refusal> {
     })
 }
 
-/// A refused frame, as `ControlRefusal` reports it to the log (without its redacted text).
+/// A refused frame, as `ControlRefusal` reports it to the log.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Refused {
     pub refusal: Refusal,
@@ -1529,6 +1548,90 @@ pub struct Refused {
     pub op: Option<String>,
     /// The frame's `request_id` if it read as JSON and that is unsigned; 0 otherwise.
     pub request_id: u64,
+    /// What a log may say of the frame: [`redacted_frame`].
+    pub frame: String,
+}
+
+/// The most of a frame [`redacted_frame`] keeps (`kMaxRedactedFrame`).
+pub const MAX_REDACTED_FRAME: usize = 200;
+
+/// String values a log may show: this protocol's own words, never a person's text.
+fn harmless_string(key: &str, s: &str) -> bool {
+    const KEYS: [&str; 11] = [
+        "action",
+        "background",
+        "corner",
+        "field",
+        "look",
+        "mode",
+        "op",
+        "projection",
+        "side",
+        "state",
+        "stereo",
+    ];
+    KEYS.contains(&key) && is_token(s) && s.len() <= 32
+}
+
+fn redact(value: serde_json::Value, key: &str, depth: usize) -> serde_json::Value {
+    use serde_json::Value as J;
+    if depth > 8 {
+        return J::String("***".into()); // deeper than any frame this protocol has
+    }
+    match value {
+        J::Object(o) => {
+            // nlohmann's object is a sorted map: the same order whatever the frame's.
+            let mut out = std::collections::BTreeMap::new();
+            for (name, item) in o {
+                let item = redact(item, &name, depth + 1);
+                out.insert(if is_token(&name) { name } else { "***".into() }, item);
+            }
+            J::Object(out.into_iter().collect())
+        }
+        J::Array(a) => J::Array(a.into_iter().map(|v| redact(v, key, depth + 1)).collect()),
+        J::String(s) if !harmless_string(key, &s) => J::String("***".into()),
+        other => other,
+    }
+}
+
+/// `redacted_frame`: a frame's first [`MAX_REDACTED_FRAME`] bytes on one line, with no string it
+/// does not know to be harmless. Frames carry video titles and the bind panel's text.
+pub fn redacted_frame(frame: &[u8]) -> String {
+    if frame.is_empty() {
+        return String::new();
+    }
+    let mut out = match serde_json::from_slice::<serde_json::Value>(frame) {
+        Ok(v) => {
+            let v = redact(v, "", 0);
+            let text = serde_json::to_string(&v).unwrap_or_default();
+            // ensure_ascii, as nlohmann's dump writes it.
+            text.chars().fold(String::new(), |mut o, c| {
+                if c.is_ascii() {
+                    o.push(c);
+                } else {
+                    for u in c.encode_utf16(&mut [0; 2]) {
+                        o.push_str(&format!("\\u{u:04x}"));
+                    }
+                }
+                o
+            })
+        }
+        // Not JSON: nothing tells its strings from any other text, so no words at all.
+        Err(_) => frame
+            .iter()
+            .take(MAX_REDACTED_FRAME + 1)
+            .map(|&c| match c {
+                c if c.is_ascii_alphanumeric() => 'x',
+                0x20..0x7f => c as char,
+                _ => '.',
+            })
+            .collect(),
+    };
+    if out.len() > MAX_REDACTED_FRAME {
+        out.truncate(MAX_REDACTED_FRAME);
+        out.push_str("...");
+    }
+    out
 }
 
 /// `ControlStream` and its `ControlQueue`: frames for one run and session, request ids strictly
@@ -1640,6 +1743,7 @@ impl Stream {
             refusal,
             op,
             request_id,
+            frame: redacted_frame(frame),
         }
     }
 }
@@ -1749,5 +1853,41 @@ mod tests {
                 .iter()
                 .all(|op| Op::from_name(op.name()) == Some(*op))
         );
+    }
+
+    #[test]
+    fn redacted_frames_keep_only_protocol_words() {
+        let frame = br#"{"schema":1,"request_id":4,"run_id":"run","session":"s","op":"video","payload":{"action":"open","title":"Holiday \u00e9 2025","fov":180,"projection":"360"}}
+"#;
+        assert_eq!(
+            redacted_frame(frame),
+            r#"{"op":"video","payload":{"action":"open","fov":180,"projection":"360","title":"***"},"request_id":4,"run_id":"***","schema":1,"session":"***"}"#
+        );
+        assert_eq!(redacted_frame(b"pass word=1\n\x01"), "xxxx xxxx=x..");
+        assert_eq!(redacted_frame(b""), "");
+        let long = format!("{}\n", "a".repeat(500));
+        assert_eq!(
+            redacted_frame(long.as_bytes()),
+            format!("{}...", "x".repeat(200))
+        );
+        let deep = format!("{}1{}", "[".repeat(12), "]".repeat(12));
+        assert_eq!(
+            redacted_frame(deep.as_bytes()),
+            format!("{}\"***\"{}", "[".repeat(9), "]".repeat(9))
+        );
+        let mut stream = Stream::new("run", "s").unwrap();
+        let got = stream.feed(b"{\"op\":\"view\",\"note\":\"secret\"}\n");
+        assert_eq!(
+            got[0].as_ref().unwrap_err().frame,
+            r#"{"note":"***","op":"view"}"#
+        );
+    }
+
+    #[test]
+    fn only_display_payloads_are_ignorable() {
+        let refusal = |op: Op| op.payload_refusal();
+        assert!(refusal(Op::PlacementMenu).ignorable() && refusal(Op::Binds).ignorable());
+        assert!(!refusal(Op::EdgePan).ignorable() && !refusal(Op::RestoreBand).ignorable());
+        assert!(!refusal(Op::View).ignorable() && !invalid("not JSON").ignorable());
     }
 }

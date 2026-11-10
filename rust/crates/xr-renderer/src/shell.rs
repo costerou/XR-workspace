@@ -453,7 +453,7 @@ pub struct Presentation {
 impl Presentation {
     /// Connects over the inherited socket and maps the layer surface on the named output.
     pub fn open(socket: UnixStream, output_name: &str) -> Result<Self, Error> {
-        if !crate::control::token(output_name) {
+        if !xr_wire::control::is_token(output_name) {
             return Err(Error::new("output", "invalid output name"));
         }
         let conn = Connection::from_socket(socket)

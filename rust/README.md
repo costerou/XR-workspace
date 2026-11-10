@@ -98,9 +98,24 @@ pass ASCII numbers.
 supervised launch (same arguments, descriptor checks and start frame), an overlay layer surface on
 the named output that takes no input, frame-callback pacing, `wp_presentation` feedback and the
 `generated_pattern_presentation_timing` report, and the fractional scale through `wp_viewporter`. It
-draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). Control frames other
-than `start` and `stop` are refused, and `--capture`, `--pose-feed`, `--depth-fd` and
-`--continuity-fd` exit 2, until those parts are ported.
+draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). `--capture`,
+`--pose-feed`, `--depth-fd` and `--continuity-fd` exit 2 until those parts are ported.
+
+Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
+`xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
+`control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
+on any refusal except a malformed display-only payload, refused frames are logged redacted to
+their protocol words, and the `SCM_RIGHTS` descriptors a `video` open brings are kept (at most two,
+close-on-exec) and handed to its open. Only `stop` acts so far; the other ops are logged once and
+a video file is closed unread until the player is wired in. `control_wire_check` is the Rust twin
+of `spike/tests/control_wire_check.cpp`; the control suites run against it with
+
+    cargo build -p xr-renderer --bins
+    CONTROL_WIRE_CHECK=$PWD/rust/target/debug/control_wire_check PYTHONPATH=.:tests/native_spike \
+      python3 -m unittest test_control_wire test_control_panel_fuzz test_control_corpus
+
+(`test_strict_json_corpus`'s regeneration check records the C++ tool's verdicts, so it needs the
+C++ build; the Rust tool gives the corpus's `rust` column.)
 
 `golden/metrics.cpp` and `golden/pattern.cpp` print the C++ timing reports and pattern frame hashes
 the unit tests compare against byte for byte. The loopback compositor drives it end to end:

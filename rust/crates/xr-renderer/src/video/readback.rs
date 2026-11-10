@@ -63,15 +63,16 @@ impl Readback {
 
     /// Keys sorted, as nlohmann::json writes them.
     pub fn json(&self) -> Value {
+        // Written in nlohmann's sorted order so it holds whichever map serde_json was built with.
         json!({
+            "command_error": self.command_error,
+            "command_errors": self.command_errors,
+            "command_replies": self.command_replies,
+            "deband_applied": self.deband,
+            "duration_s": self.duration,
             "paused": self.paused,
             "position_s": self.position,
-            "duration_s": self.duration,
-            "deband_applied": self.deband,
             "revision": self.revision,
-            "command_replies": self.command_replies,
-            "command_errors": self.command_errors,
-            "command_error": self.command_error,
         })
     }
 }
