@@ -1,6 +1,6 @@
 """VR video from the web: a direct stream link, or a video page link resolved with yt-dlp (docs/web-video.md).
 
-1. Ctrl+Alt+U in the glasses (or the panel's "Paste from browser") reads the clipboard once and sends the link to the
+1. Ctrl+Alt+U in the glasses (or the options menu's Video tab, "Paste") reads the clipboard once and sends the link to the
    run as a `video_open` request (`{"url": "https://..."}`).
 2. The run (this module) checks the request, probes the stream with ffprobe and starts a relay: an ffmpeg process that
    copies the stream (no re-encoding) into NUT on a pipe. The renderer gets the pipe's read end as the descriptor it
@@ -14,7 +14,7 @@ and tags (360, 180, VR180, SBS/LR, TB/OU, fisheye...), else the picture shape; T
 refusal says so. Reasons never contain the link (it may hold a signed token) or a video id.
 
 Seeking restarts the relay at the new position (a pipe cannot seek). The run estimates the position from the renderer's
-playing state, so it can seek, resume after the end, and show the position in the panel.
+playing state, so it can seek, resume after the end, and show the position on the controls card.
 """
 import fcntl
 import ipaddress

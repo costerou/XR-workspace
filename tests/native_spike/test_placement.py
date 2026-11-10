@@ -55,13 +55,12 @@ class PlacementRuleTests(unittest.TestCase):
         with self.assertRaises(ValueError): g.validate_placements([TILTED] * 2, 3)
 
     def test_mirrored_bounds_match(self):
-        """Renderer (ipc.cpp) and panel (Model.js) carry the same table; drift would reject or clip valid values."""
+        """Renderer (ipc.cpp) and the run (geometry.py) carry the same table; drift would reject or clip valid values.
+        The panel no longer edits placement, so it carries no copy."""
         cpp = (ROOT / 'spike/src/ipc.cpp').read_text()
-        js = (ROOT / 'omarchy-plugin/cody.viture-workspace/Model.js').read_text()
         for key, (lo, hi) in g.PLACEMENT_BOUNDS.items():
             with self.subTest(key=key):
                 self.assertRegex(cpp, r'\{"%s",\s*%d,\s*%d\}' % (key, lo, hi))
-                self.assertRegex(js, r'\b%s:\s*\[%d,\s*%d\]' % (key, lo, hi))
         self.assertEqual(re.findall(r'\{"(\w+)",\s*-?\d+,\s*-?\d+\}', cpp), list(g.PLACEMENT_KEYS))
 
 

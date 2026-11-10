@@ -1342,13 +1342,6 @@ class HelpCardTextTests(unittest.TestCase):
         self.assertNotIn('Ctrl+Alt+M', ' '.join(k + ' ' + a for k, a in view.help_rows()))
         self.assertFalse(any('menu' in a.lower() or 'bars' in a.lower() for _, a in view.help_rows()))
 
-    def test_the_settings_panels_placement_hint_names_the_pill_under_the_desktop(self):
-        # The panel's Place hint (PlacementEditor.qml) was the last user-facing text describing the old bar above.
-        qml = (ROOT / 'omarchy-plugin/cody.viture-workspace/PlacementEditor.qml').read_text()
-        self.assertIn("dragging the glass pill under a desktop in the glasses' overview sets them", qml)
-        self.assertNotIn('bar above', qml)
-        self.assertIn("dragging a desktop's corner in the glasses' overview sets it too", qml)  # still true
-
 
 class BindCheckTests(unittest.TestCase):
     """tools/native_spike/bind_check.py: the run's chords against a desktop config, through Hyprland's own loader."""

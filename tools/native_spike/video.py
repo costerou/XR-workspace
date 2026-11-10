@@ -4,9 +4,9 @@ in the glasses instead of the desktops.
 A video is a mode of a running capture session, not a new run. It needs no new consent: the run's consent already covers
 the glasses display, and a video only changes what the renderer draws. Nothing is captured, journaled or created on the
 compositor for it, and recovery has nothing to undo. It is opened from a file the user picks: Ctrl+Alt+O (the bind
-helper xr_control.py shows a file picker on the focused desktop), the panel's Browse/Play, or a path sent to the
+helper xr_control.py shows a file picker on the focused desktop), the options menu's Video tab (Browse/Play), or a path sent to the
 controller. A web video (a stream or video page link, docs/web-video.md) comes from the clipboard with Ctrl+Alt+U
-or the panel; web_video.py relays the stream through ffmpeg into a pipe, and the renderer gets that pipe's read end. This supervisor checks the path is a readable regular file, opens it, probes the opened file with ffprobe
+or the options menu's Video tab; web_video.py relays the stream through ffmpeg into a pipe, and the renderer gets that pipe's read end. This supervisor checks the path is a readable regular file, opens it, probes the opened file with ffprobe
 (never the path again, so the file cannot be swapped in between), detects the format, and hands the renderer that open
 descriptor over the run's private control socket (SCM_RIGHTS). The renderer never sees or opens a path.
 
@@ -50,7 +50,7 @@ from .send import SEND_OPS
 QUALITY_OPS = ('video_quality', 'video_up', 'video_down')
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit') + QUALITY_OPS
-KEY_OPS = VIDEO_OPS[1:9]  # no payload: the panel's buttons (and binds); QUALITY_OPS are binds only
+KEY_OPS = VIDEO_OPS[1:9]  # no payload: the video's keys (binds); QUALITY_OPS are binds only
 SEEK_S = {'video_seek_back': -10, 'video_seek_fwd': 10, 'video_seek_back_big': -60, 'video_seek_fwd_big': 60}
 # Modal binds while a video plays (Hyprland Lua key strings). Ctrl+Alt+O (open) is a run bind in view.BINDS.
 VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 'video_seek_fwd'),

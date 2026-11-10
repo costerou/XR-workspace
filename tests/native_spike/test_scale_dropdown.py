@@ -29,7 +29,7 @@ class StepTests(unittest.TestCase):
         # The broker: quarter steps 1.0 .. 2.0, then half steps to 3.0 (n = scale * 4).
         self.assertIn('n<4 || n>12 || (n>8 && n%2)', (root / 'spike/ownership/registry.cpp').read_text())
         self.assertIn('const SCALES = [1, 1.25, 1.5, 1.75, 2, 2.5, 3];', (root / 'omarchy-plugin/cody.viture-workspace/Model.js').read_text())
-        self.assertIn('model: Model.SCALES', (root / 'omarchy-plugin/cody.viture-workspace/DesktopEditor.qml').read_text())
+        self.assertIn('options: Model.SCALES.map(', (root / 'omarchy-plugin/cody.viture-workspace/DesktopEditor.qml').read_text())
 
     def test_with_scale_keeps_the_size_and_refuses_inexact_scales(self):
         self.assertEqual(g.with_scale(D169, 1.5), {'width': 1920, 'height': 1080, 'scale': 1.5})
