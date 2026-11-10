@@ -76,6 +76,27 @@ One knowing difference: Python's `isdigit` and `int` also take non-ASCII digits 
 arguments; the Rust helper takes ASCII digits only and treats anything else as a bad command line. Hyprland's binds only
 pass ASCII numbers.
 
+## Renderer
+
+`xr-renderer` so far is the presentation shell of `spike/src/wayland.cpp` and `main.cpp`: the
+supervised launch (same arguments, descriptor checks and start frame), an overlay layer surface on
+the named output that takes no input, frame-callback pacing, `wp_presentation` feedback and the
+`generated_pattern_presentation_timing` report, and the fractional scale through `wp_viewporter`. It
+draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). Control frames other
+than `start` and `stop` are refused, and `--capture`, `--pose-feed`, `--depth-fd` and
+`--continuity-fd` exit 2, until those parts are ported.
+
+`golden/metrics.cpp` and `golden/pattern.cpp` print the C++ timing reports and pattern frame hashes
+the unit tests compare against byte for byte. The loopback compositor drives it end to end:
+
+```sh
+capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \
+  --renderer rust/target/release/xr-renderer [--fractional-scale 150]
+```
+
+Its output carries the renderer's `timing_report`, so the C++ and Rust reports can be compared
+field by field.
+
 ## Corpus
 
 `corpus/` holds golden files taken from the shipped Python and C++ code. The phase 6 parity gate
