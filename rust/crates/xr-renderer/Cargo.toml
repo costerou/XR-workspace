@@ -10,6 +10,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+drm-fourcc = { version = "2", default-features = false }
+gbm = { version = "0.18.0", default-features = false }
 glow = "0.18.0"
 khronos-egl = { version = "6.0.0", features = ["static"] }
 libc = "0.2.191"

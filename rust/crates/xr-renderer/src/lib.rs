@@ -11,6 +11,7 @@ pub mod depth;
 pub mod depth_feed;
 pub mod depth_link;
 pub mod desktops;
+pub mod dmabuf;
 pub mod egl;
 pub mod gl;
 pub mod glass;

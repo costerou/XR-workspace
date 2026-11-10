@@ -20,7 +20,23 @@ use std::time::Instant;
 use glow::HasContext;
 
 use crate::depth::DepthInput;
-use crate::egl::{Headless, proc_address};
+use crate::egl::{DmabufPlane, Headless, proc_address};
+
+/// An EGLImage on the compositor's display (a dmabuf); destroy it with [`GlCompositor::destroy_image`].
+pub struct GpuImage(khronos_egl::Image);
+
+type ImageTarget = unsafe extern "system" fn(u32, *mut c_void);
+
+fn image_entry(name: &std::ffi::CStr) -> Option<ImageTarget> {
+    let p = proc_address(name);
+    // SAFETY: the GL_OES_EGL_image entry points have this signature; null means absent.
+    (!p.is_null()).then(|| unsafe { std::mem::transmute::<*mut c_void, ImageTarget>(p) })
+}
+
+static IMAGE_TARGET_TEXTURE: std::sync::LazyLock<Option<ImageTarget>> =
+    std::sync::LazyLock::new(|| image_entry(c"glEGLImageTargetTexture2DOES"));
+static IMAGE_TARGET_RENDERBUFFER: std::sync::LazyLock<Option<ImageTarget>> =
+    std::sync::LazyLock::new(|| image_entry(c"glEGLImageTargetRenderbufferStorageOES"));
 use crate::glass::{
     AtlasBox, CONTENT_FROM, GLASS_IDLE, GLASS_SHADOW_MARGIN, GLASS_STYLE_VECS, GRABBER_H,
     GRABBER_TOP, GRABBER_W, GlassFrame, GlassLook, LevelSegment, PANEL_RADIUS, corner_cap_box,
@@ -702,6 +718,8 @@ struct SourceTexture {
     width: u32,
     height: u32,
     valid: bool,
+    /// wl_shm bytes (B/R swapped in the shader); false for an imported dmabuf, which samples true RGB.
+    swizzle: bool,
 }
 
 /// A head-locked card and what it shows.
@@ -971,7 +989,13 @@ impl GlCompositor {
     /// The compositor without a window (tests and benches): a surfaceless GLES 3 context drawing into its own
     /// width x height RGBA8 framebuffer, left bound and current; "swap" is a glFlush. Err (the C++ `why`) without one.
     pub fn create_offscreen(width: u32, height: u32, sources: usize) -> Result<Self, String> {
-        let headless = Headless::new(None)?;
+        Self::create_on(None, width, height, sources)
+    }
+
+    /// As [`Self::create_offscreen`], on the GPU of render node `gpu` (None: Mesa's surfaceless choice). The renderer
+    /// draws on the compositor's main device so captured and presented dmabufs need no copy.
+    pub fn create_on(gpu: Option<&str>, width: u32, height: u32, sources: usize) -> Result<Self, String> {
+        let headless = Headless::new(gpu)?;
         // SAFETY: Headless made its context current on this thread; it is dropped after every user of `gl`.
         let gl = Rc::new(unsafe { Gl::new(headless.gl.clone()) }?);
         let raw = gl.raw();
@@ -1093,6 +1117,7 @@ impl GlCompositor {
                 width: 0,
                 height: 0,
                 valid: false,
+                swizzle: true,
             });
         }
         let out = Self {
@@ -1204,7 +1229,7 @@ impl GlCompositor {
         let gl = &*self.gl;
         gl.bind_texture(Some(t.id));
         gl.pixel_store(glow::UNPACK_ALIGNMENT, 4);
-        if t.width != width || t.height != height {
+        if t.width != width || t.height != height || !t.swizzle {
             gl.tex_image(width, height, Some(pixels));
             t.width = width;
             t.height = height;
@@ -1212,7 +1237,88 @@ impl GlCompositor {
             gl.tex_sub_image(0, width, height, pixels);
         }
         t.valid = gl.get_error() == glow::NO_ERROR;
+        t.swizzle = true;
         t.valid
+    }
+
+    /// Whether this context's EGL samples a `fourcc` dmabuf with `modifier` (MOD_INVALID: implicit).
+    pub fn dmabuf_importable(&self, fourcc: u32, modifier: u64) -> bool {
+        self.headless.dmabuf_importable(fourcc, modifier)
+    }
+
+    /// An EGLImage over a dmabuf on this context's display; None if EGL refuses it.
+    pub fn import_dmabuf(&self, plane: &DmabufPlane) -> Option<GpuImage> {
+        self.headless.import_dmabuf(plane).map(GpuImage)
+    }
+
+    pub fn destroy_image(&self, image: GpuImage) {
+        self.headless.destroy_image(image.0);
+    }
+
+    /// Source `source` samples `image` (an imported capture dmabuf, no copy) until the next upload or bind.
+    pub fn bind_source_image(&mut self, source: usize, image: &GpuImage, width: u32, height: u32) -> bool {
+        let Some(target) = *IMAGE_TARGET_TEXTURE else {
+            return false;
+        };
+        let Some(t) = self.textures.get_mut(source) else {
+            return false;
+        };
+        let gl = &*self.gl;
+        gl.bind_texture(Some(t.id));
+        // SAFETY: the texture is bound on the current context; the image is live on this context's display.
+        unsafe { target(glow::TEXTURE_2D, image.0.as_ptr()) };
+        t.valid = gl.get_error() == glow::NO_ERROR;
+        // The storage is the image now (swizzle false): the next SHM upload respecifies, never writes into it.
+        (t.width, t.height) = if t.valid { (width, height) } else { (0, 0) };
+        t.swizzle = false;
+        t.valid
+    }
+
+    /// A renderbuffer whose storage is `image` (a swapchain buffer the compositor shows).
+    pub fn image_renderbuffer(&self, image: &GpuImage) -> Option<glow::Renderbuffer> {
+        let storage = (*IMAGE_TARGET_RENDERBUFFER)?;
+        let raw = self.gl.raw();
+        // SAFETY: plain GL calls on the current context; the image is live on this context's display.
+        unsafe {
+            let rb = raw.create_renderbuffer().ok()?;
+            raw.bind_renderbuffer(glow::RENDERBUFFER, Some(rb));
+            storage(glow::RENDERBUFFER, image.0.as_ptr());
+            if raw.get_error() != glow::NO_ERROR {
+                raw.delete_renderbuffer(rb);
+                return None;
+            }
+            Some(rb)
+        }
+    }
+
+    pub fn delete_renderbuffer(&self, rb: glow::Renderbuffer) {
+        // SAFETY: a renderbuffer made by image_renderbuffer on this context.
+        unsafe { self.gl.raw().delete_renderbuffer(rb) };
+    }
+
+    /// Draw into `rb` (None: back to the compositor's own renderbuffer). False if the framebuffer is incomplete.
+    pub fn set_target(&mut self, rb: Option<glow::Renderbuffer>) -> bool {
+        let Some((fb, own)) = self.framebuffer else {
+            return false;
+        };
+        let raw = self.gl.raw();
+        // SAFETY: plain GL calls on the current context.
+        unsafe {
+            raw.bind_framebuffer(glow::FRAMEBUFFER, Some(fb));
+            raw.framebuffer_renderbuffer(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::RENDERBUFFER,
+                Some(rb.unwrap_or(own)),
+            );
+            raw.check_framebuffer_status(glow::FRAMEBUFFER) == glow::FRAMEBUFFER_COMPLETE
+        }
+    }
+
+    /// Wait for the GPU: the drawn buffer is complete before the compositor reads it.
+    pub fn finish(&self) {
+        // SAFETY: a plain GL call on the current context.
+        unsafe { self.gl.raw().finish() };
     }
 
     /// A desktop added during the run: a new, empty source at `at` (later sources move up one).
@@ -1242,6 +1348,7 @@ impl GlCompositor {
                 width: 0,
                 height: 0,
                 valid: false,
+                swizzle: true,
             },
         );
         if let Some(pass) = &mut self.stereo.pass {
@@ -1984,10 +2091,10 @@ impl GlCompositor {
                     _ => program(gl, current, &mut p.tile, &fp),
                 }
             }
-            if swizzle != 1.0 {
-                // SHM bytes: B/R swapped
-                gl.uniform_1f(warp.map_or(p.swizzle.as_ref(), |(_, pass)| pass.warp_swizzle()), 1.0);
-                swizzle = 1.0;
+            let want = if t.swizzle { 1.0 } else { 0.0 }; // SHM bytes: B/R swapped; imported dmabufs are RGB
+            if swizzle != want {
+                gl.uniform_1f(warp.map_or(p.swizzle.as_ref(), |(_, pass)| pass.warp_swizzle()), want);
+                swizzle = want;
             }
             if let Some((e, pass)) = warp {
                 let budget = st.tile_budget(i, &canvas, &tiles[i], &resolved[i], view, eye_w);

@@ -250,6 +250,122 @@ impl Headless {
     }
 }
 
+const LINUX_DMA_BUF_EXT: egl::Enum = 0x3270;
+const LINUX_DRM_FOURCC_EXT: egl::Attrib = 0x3271;
+const DMA_BUF_PLANE0_FD_EXT: egl::Attrib = 0x3272;
+const DMA_BUF_PLANE0_OFFSET_EXT: egl::Attrib = 0x3273;
+const DMA_BUF_PLANE0_PITCH_EXT: egl::Attrib = 0x3274;
+const DMA_BUF_PLANE0_MODIFIER_LO_EXT: egl::Attrib = 0x3443;
+const DMA_BUF_PLANE0_MODIFIER_HI_EXT: egl::Attrib = 0x3444;
+const MOD_INVALID: u64 = 0x00ff_ffff_ffff_ffff;
+
+type QueryDmaBufFormats = unsafe extern "system" fn(*mut c_void, i32, *mut i32, *mut i32) -> u32;
+type QueryDmaBufModifiers =
+    unsafe extern "system" fn(*mut c_void, i32, i32, *mut u64, *mut u32, *mut i32) -> u32;
+
+/// One single-plane dmabuf as EGL takes it (EGL_EXT_image_dma_buf_import[_modifiers]).
+#[derive(Clone, Copy, Debug)]
+pub struct DmabufPlane {
+    pub fd: i32,
+    pub width: u32,
+    pub height: u32,
+    pub fourcc: u32,
+    pub offset: u32,
+    pub stride: u32,
+    /// MOD_INVALID: no modifier attributes (the implicit layout).
+    pub modifier: u64,
+}
+
+impl Headless {
+    fn has_extension(&self, name: &str) -> bool {
+        let list = self.egl.query_string(Some(self.display), egl::EXTENSIONS).ok();
+        has_token(list, name)
+    }
+
+    /// Whether EGL imports `fourcc` with `modifier` for sampling (MOD_INVALID: the format at all).
+    pub fn dmabuf_importable(&self, fourcc: u32, modifier: u64) -> bool {
+        if !self.has_extension("EGL_EXT_image_dma_buf_import") {
+            return false;
+        }
+        let dpy = self.display.as_ptr();
+        if let Some(formats) = proc::<QueryDmaBufFormats>("eglQueryDmaBufFormatsEXT") {
+            let mut n = 0;
+            // SAFETY: a size query (max 0, null list) on our initialised display.
+            if unsafe { formats(dpy, 0, std::ptr::null_mut(), &mut n) } == 0 || n <= 0 {
+                return false;
+            }
+            let mut list = vec![0i32; n as usize];
+            // SAFETY: list holds n entries.
+            if unsafe { formats(dpy, n, list.as_mut_ptr(), &mut n) } == 0
+                || !list[..n.max(0) as usize].contains(&(fourcc as i32))
+            {
+                return false;
+            }
+        }
+        if modifier == MOD_INVALID {
+            return true;
+        }
+        let Some(modifiers) = proc::<QueryDmaBufModifiers>("eglQueryDmaBufModifiersEXT")
+            .filter(|_| self.has_extension("EGL_EXT_image_dma_buf_import_modifiers"))
+        else {
+            return modifier == 0; // linear needs no modifier support
+        };
+        let mut n = 0;
+        // SAFETY: a size query on our display.
+        if unsafe { modifiers(dpy, fourcc as i32, 0, std::ptr::null_mut(), std::ptr::null_mut(), &mut n) } == 0 || n <= 0 {
+            return false;
+        }
+        let (mut mods, mut external) = (vec![0u64; n as usize], vec![0u32; n as usize]);
+        // SAFETY: both lists hold n entries.
+        if unsafe { modifiers(dpy, fourcc as i32, n, mods.as_mut_ptr(), external.as_mut_ptr(), &mut n) } == 0 {
+            return false;
+        }
+        let n = n.max(0) as usize;
+        mods[..n].iter().zip(&external[..n]).any(|(&m, &ext)| m == modifier && ext == 0)
+    }
+
+    /// An EGLImage over the dmabuf (EGL dups the descriptor; the caller keeps its own). None if EGL refuses it.
+    pub fn import_dmabuf(&self, d: &DmabufPlane) -> Option<egl::Image> {
+        let mut attribs: Vec<egl::Attrib> = vec![
+            egl::WIDTH as egl::Attrib,
+            d.width as egl::Attrib,
+            egl::HEIGHT as egl::Attrib,
+            d.height as egl::Attrib,
+            LINUX_DRM_FOURCC_EXT,
+            d.fourcc as egl::Attrib,
+            DMA_BUF_PLANE0_FD_EXT,
+            d.fd as egl::Attrib,
+            DMA_BUF_PLANE0_OFFSET_EXT,
+            d.offset as egl::Attrib,
+            DMA_BUF_PLANE0_PITCH_EXT,
+            d.stride as egl::Attrib,
+        ];
+        if d.modifier != MOD_INVALID {
+            attribs.extend([
+                DMA_BUF_PLANE0_MODIFIER_LO_EXT,
+                (d.modifier & 0xffff_ffff) as egl::Attrib,
+                DMA_BUF_PLANE0_MODIFIER_HI_EXT,
+                (d.modifier >> 32) as egl::Attrib,
+            ]);
+        }
+        attribs.push(egl::NONE as egl::Attrib);
+        // SAFETY: EGL_NO_CONTEXT and a null client buffer are what EGL_LINUX_DMA_BUF_EXT requires.
+        let (ctx, buffer) = unsafe {
+            (
+                egl::Context::from_ptr(egl::NO_CONTEXT),
+                egl::ClientBuffer::from_ptr(std::ptr::null_mut()),
+            )
+        };
+        self.egl
+            .create_image(self.display, ctx, LINUX_DMA_BUF_EXT, buffer, &attribs)
+            .ok()
+    }
+
+    pub fn destroy_image(&self, image: egl::Image) {
+        let _ = self.egl.destroy_image(self.display, image);
+    }
+}
+
 impl Drop for Headless {
     fn drop(&mut self) {
         let _ = self.egl.make_current(self.display, None, None, None);
