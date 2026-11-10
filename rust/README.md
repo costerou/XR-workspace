@@ -318,3 +318,16 @@ cargo test --locked -p xr-workspace -- --ignored adoption_after_restart --nocapt
 ```
 
 It starts and removes one short-lived `viture-xr-rstest…` unit and touches no XR session.
+
+### D12: eventfd wake
+
+The C++ bridge's owner thread sleeps 2 ms whenever the ring is empty. The Rust one does not: the
+SDK callback pushes into the ring and bumps an eventfd, and the owner `poll`s that eventfd and the
+display pipe. It still wakes every 20 ms with nothing to do, so the identity and stop checks run
+while no pose comes. The signal handlers bump the same eventfd, so a stop does not wait out a poll.
+The synthetic build prints `wake_us n=.. p50=.. p99=.. max=..` to stderr at the end of a run:
+callback to publish, per sample. Gate: `test_callback_to_publish_p99_under_200_us` runs 240 Hz for
+5 s and needs p99 < 200 us. On a 16-core desk machine at load average 15, three runs gave p99 63,
+74 and 82 us (p50 about 30 us). No real-time policy is applied. At load average 19 one run had a
+3.7 ms p99, which is the scheduler; the short EEVDF slice the Luma driver uses is the fix if that
+matters live.

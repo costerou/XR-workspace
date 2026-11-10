@@ -1,7 +1,8 @@
 //! Pro 2 bounded supervised-test owner: the Rust port of `tools/pro2_runtime/bridge.cpp`, with the
 //! same arguments, checks, status lines and exit codes, so `tools/pro2_runtime/launch.py` runs
 //! either. SDK calls and Publisher writes happen on the main thread only; the SDK's callback
-//! thread only fills a 256-entry ring.
+//! thread only fills a 256-entry ring and signals an eventfd, which the main thread waits on
+//! (with the display pipe) instead of sleeping between polls.
 //!
 //! Order, all fail-closed: arguments (any fault: exit 2, nothing written); network namespace
 //! with only `lo`; exactly one `35ca:1301` "VITURE PRO 2 XR Glasses" under sysfs; SHA-256 of the
@@ -12,7 +13,8 @@
 //!
 //! Built with the `synthetic` feature it also takes `--fixture-root` (a fake sysfs) and
 //! `--fixture-hash` (the fixture library's hash), for the QA suites. Without it those are
-//! unknown arguments.
+//! unknown arguments, and the run ends with one stderr line, `wake_us n=.. p50=.. p99=.. max=..`:
+//! callback to published, per sample.
 
 mod sdk;
 
@@ -21,8 +23,8 @@ use std::ffi::{CStr, c_int};
 use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::time::Instant;
 use xr_pose::feed::WriterOptions;
 use xr_pose::publish::{Pose, Publisher, PublisherOptions, Quat, history_step_for};
 
@@ -57,6 +59,49 @@ fn rate_code(hz: i32) -> Option<u8> {
 static STOPPED: AtomicBool = AtomicBool::new(false);
 static ACCEPTING: AtomicBool = AtomicBool::new(false);
 static OVERFLOW: AtomicBool = AtomicBool::new(false);
+/// The eventfd the callback and the signal handlers bump when there is something to look at; -1
+/// until `run` makes it.
+static WAKE: AtomicI32 = AtomicI32::new(-1);
+/// Longest wait without a wake: the identity, overflow and stop checks run at least this often.
+const IDLE_CHECK_NS: u64 = 20_000_000;
+
+/// Adds one to the wake counter. Async-signal-safe; the fd is non-blocking, and a counter at its
+/// maximum (never, in practice) is already a pending wake.
+fn wake() {
+    let fd = WAKE.load(Ordering::SeqCst);
+    if fd >= 0 {
+        let one: u64 = 1;
+        // SAFETY: an 8-byte write from a live value to our own eventfd.
+        unsafe { libc::write(fd, (&raw const one).cast(), 8) };
+    }
+}
+
+/// Blocks until the callback or a signal wakes it, the display pipe has a byte or EOF, or
+/// `timeout_ns` passes, then clears the counter. A sample pushed between the last empty pop and
+/// this call has already bumped the counter, so it returns at once: no wake is lost.
+fn wait(timeout_ns: u64, display_fd: i32) {
+    let fd = WAKE.load(Ordering::SeqCst);
+    let mut fds = [
+        libc::pollfd {
+            fd,
+            events: libc::POLLIN,
+            revents: 0,
+        },
+        libc::pollfd {
+            fd: display_fd,
+            events: libc::POLLIN,
+            revents: 0,
+        },
+    ];
+    let count = if display_fd == -1 { 1 } else { 2 };
+    let ms = timeout_ns.div_ceil(1_000_000).min(i32::MAX as u64) as c_int;
+    // SAFETY: poll over a live array of `count` entries; a read into a live u64 from our eventfd.
+    unsafe {
+        libc::poll(fds.as_mut_ptr(), count, ms);
+        let mut counter = 0u64;
+        libc::read(fd, (&raw mut counter).cast(), 8);
+    }
+}
 
 #[derive(Clone, Copy)]
 struct Sample {
@@ -117,6 +162,8 @@ extern "C" fn on_pose(v: *mut f32, ts: u64) {
     let tail = (ring.head + ring.count) % RING;
     ring.items[tail] = s;
     ring.count += 1;
+    drop(ring);
+    wake();
 }
 
 fn pop() -> Option<Sample> {
@@ -132,6 +179,7 @@ fn pop() -> Option<Sample> {
 
 extern "C" fn on_signal(_: c_int) {
     STOPPED.store(true, Ordering::SeqCst);
+    wake();
 }
 
 /// Device-time gaps between samples, counted: under 7, 7..9.5, 9.5..13, 13..18, 18..25, 25 ms and
@@ -362,6 +410,9 @@ struct Run {
     handle: Option<*mut std::ffi::c_void>,
     open_attempt: bool,
     publisher: Option<Publisher>,
+    /// Callback to published, per sample, for the synthetic build's stderr report.
+    #[cfg(feature = "synthetic")]
+    wake_ns: Vec<u64>,
 }
 
 fn run(
@@ -374,6 +425,12 @@ fn run(
     if hash_fd(args.sdk_fd)? != args.expected {
         return Err("sdk-hash");
     }
+    // SAFETY: plain eventfd creation; the fd lives until the process exits.
+    let efd = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
+    if efd < 0 {
+        return Err("eventfd");
+    }
+    WAKE.store(efd, Ordering::SeqCst);
     let library = sdk::load(args.sdk_fd)?;
     let sdk = &*sdk_slot.insert(sdk::Sdk::resolve(library, args.display_fd != -1)?);
     let code = rate_code(args.pose_hz).ok_or("arguments")?;
@@ -479,10 +536,18 @@ fn run(
                 } else {
                     3_000_000_000
                 };
-                if monotonic_ns().saturating_sub(last_ns) > limit {
+                let idle = monotonic_ns().saturating_sub(last_ns);
+                if idle > limit {
                     return Err(if out.ready { "stale" } else { "no-pose" });
                 }
-                std::thread::sleep(Duration::from_millis(2));
+                // Wake just past the stale limit or the run's end, whichever is first, and at
+                // least every IDLE_CHECK_NS so the identity check still runs while no pose comes.
+                let left = (args.seconds - start.elapsed().as_secs_f64()).max(0.0);
+                let until_end = (left * 1e9) as u64;
+                wait(
+                    (limit - idle + 1).min(until_end).min(IDLE_CHECK_NS),
+                    args.display_fd,
+                );
                 continue;
             };
             last_ns = s.host_ns;
@@ -526,6 +591,8 @@ fn run(
                 continue;
             }
             out.samples += 1;
+            #[cfg(feature = "synthetic")]
+            out.wake_ns.push(monotonic_ns().saturating_sub(s.host_ns));
             if !out.ready {
                 out.ready = true;
                 status(
@@ -605,6 +672,22 @@ fn main() {
             error
         ),
     );
+    #[cfg(feature = "synthetic")]
+    {
+        let w = &mut out.wake_ns;
+        w.sort_unstable();
+        let at = |p: usize| {
+            w.get((w.len().saturating_sub(1)) * p / 100)
+                .map_or(0.0, |&n| n as f64 / 1e3)
+        };
+        eprintln!(
+            "wake_us n={} p50={:.1} p99={:.1} max={:.1}",
+            w.len(),
+            at(50),
+            at(99),
+            at(100)
+        );
+    }
     std::process::exit(if error.is_empty() && cleanup_errors == 0 {
         0
     } else {

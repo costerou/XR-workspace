@@ -63,12 +63,13 @@ class RustBridgeParity(unittest.TestCase):
             subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True)
         cls.digest = hashlib.sha256(cls.sdk.read_bytes()).hexdigest()
 
-    def run_bridge(self, binary, case='normal', extra=(), display=None, interrupt=False, mutate=False, sysfs=None, probe=False):
+    def run_bridge(self, binary, case='normal', extra=(), display=None, interrupt=False, mutate=False, sysfs=None, probe=False,
+                   seconds='.25', env_extra=None):
         with tempfile.TemporaryDirectory(dir=self.build) as tmp:
             folder = Path(tmp); usb = folder / 'sysfs'
             device = sysfs(usb) if sysfs else sysfs_from_snapshot(usb)
             prefix = str(folder / 'pose_')
-            env = dict(os.environ, PRO2_QA_CASE=case, PRO2_QA_TRACE=str(folder / 'trace'))
+            env = dict(os.environ, PRO2_QA_CASE=case, PRO2_QA_TRACE=str(folder / 'trace'), **(env_extra or {}))
             sdk_fd = os.open(self.sdk, os.O_RDONLY | os.O_CLOEXEC)
             status_fd = os.open(folder / 'status', os.O_WRONLY | os.O_CREAT, 0o600)
             fds = [sdk_fd, status_fd]; args = []
@@ -79,7 +80,7 @@ class RustBridgeParity(unittest.TestCase):
             timer = None
             try:
                 process = subprocess.Popen([str(binary), '--supervised-pro2-test', '--sdk-fd', str(sdk_fd), '--status-fd', str(status_fd),
-                                            '--prefix', prefix, '--projection', '44.5', '--seconds', '.25', '--fixture-root', str(usb),
+                                            '--prefix', prefix, '--projection', '44.5', '--seconds', seconds, '--fixture-root', str(usb),
                                             '--fixture-hash', self.digest, *args, *extra], pass_fds=fds, env=env,
                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if interrupt or mutate:
@@ -87,7 +88,7 @@ class RustBridgeParity(unittest.TestCase):
                         if interrupt: process.send_signal(signal.SIGTERM)
                         else: (device / 'devnum').write_text('14\n')
                     timer = threading.Timer(.1, action); timer.start()
-                stdout, _ = process.communicate(timeout=8)
+                stdout, stderr = process.communicate(timeout=8 + float(seconds))
             finally:
                 if timer: timer.cancel(); timer.join()
                 for fd in fds: os.close(fd)
@@ -99,7 +100,7 @@ class RustBridgeParity(unittest.TestCase):
             records = [json.loads(line) for line in (folder / 'status').read_text().splitlines()]
             if case != 'stdout_spoof': self.assertEqual(stdout, b'', 'status goes to its own descriptor')
             self.assertFalse(list(folder.glob('pose_*')), 'private feed files left behind')
-            return dict(code=process.returncode, records=records, trace=trace, observed=observed, stdout=stdout)
+            return dict(code=process.returncode, records=records, trace=trace, observed=observed, stdout=stdout, stderr=stderr)
 
     def assertSame(self, cpp, rust, label):
         """Everything but the timing: samples and seconds vary run to run; gap buckets are compared as which ones are used."""
@@ -112,7 +113,7 @@ class RustBridgeParity(unittest.TestCase):
                     r['seconds'] = None
                     r['gap_ms_counts'] = [n > 0 for n in r['gap_ms_counts']]
                 records.append(r)
-            return dict(result, records=records)
+            return dict(result, records=records, stderr=None)  # the Rust synthetic build reports wake_us there
         self.assertEqual(shape(cpp), shape(rust), label)
 
     def test_fixture_replay_matches_cpp_case_by_case(self):
@@ -134,6 +135,18 @@ class RustBridgeParity(unittest.TestCase):
         self.assertEqual(rust['observed'], dict(seen=True, disabled_after=True, explicit_fov=True))
         # 16 ms fixture samples: every gap in the 13..18 ms bucket.
         self.assertEqual([n > 0 for n in done['gap_ms_counts']], [False, False, False, True, False, False])
+
+    def test_callback_to_publish_p99_under_200_us(self):
+        """D12: the callback wakes the owner through an eventfd, no 2 ms sleep. 240 Hz for 5 s, every sample timed
+        from the callback to its publish (the synthetic build's wake_us stderr line)."""
+        rust = self.run_bridge(self.rust, extra=('--pose-rate', '240'), seconds='5',
+                               env_extra=dict(PRO2_QA_RATE='3', PRO2_QA_PERIOD_NS='4166667'))
+        self.assertEqual(rust['code'], 0, rust)
+        line = next(l for l in rust['stderr'].decode().splitlines() if l.startswith('wake_us '))
+        print('\n' + line)
+        wake = {k: float(v) for k, v in (field.split('=') for field in line.split()[1:])}
+        self.assertGreater(wake['n'], 1000, line)
+        self.assertLess(wake['p99'], 200, line)
 
     def test_fail_before_sdk_matches(self):
         def other_product(usb):

@@ -24,9 +24,11 @@ static void trace(const char *name) {
 __attribute__((constructor)) static void fixture_loaded(void) { trace("load"); }
 static int result(const char *name) { trace(name); return is(name)?-37:0; }
 static uint64_t now_ns(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (uint64_t)ts.tv_sec*1000000000ULL+(uint64_t)ts.tv_nsec; }
+/* PRO2_QA_PERIOD_NS: the report period, 16 ms unless set (the wake latency test runs 240 Hz). */
+static uint64_t period_ns(void) { const char *p=getenv("PRO2_QA_PERIOD_NS"); return p?strtoull(p,NULL,10):16000000ULL; }
 static void emit(unsigned i, uint64_t origin) {
-    float v[7]={0,0,0,0.9950041653f,0,0.0998334166f,0}; uint64_t stamp=origin+(uint64_t)i*16000000ULL;
-    if(i>=4 && is("duplicate"))stamp=origin+3*16000000ULL;
+    float v[7]={0,0,0,0.9950041653f,0,0.0998334166f,0}; uint64_t stamp=origin+(uint64_t)i*period_ns();
+    if(i>=4 && is("duplicate"))stamp=origin+3*period_ns();
     if(i>=4 && is("clock_reverse"))stamp=origin;
     if((i>=4 && is("nonfinite")) || (i==3 && is("ready_then_bad")))v[3]=NAN;
     if(i>=4 && is("bad_norm"))v[3]=2;
@@ -36,7 +38,7 @@ static void *produce(void *arg) {
     (void)arg; uint64_t origin=now_ns(); unsigned i=0;
     while(atomic_load(&running)) {
         if(!is("no_pose") && !is("stdout_spoof") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2))emit(i++,origin);
-        struct timespec wait={0,16000000}; nanosleep(&wait,NULL);
+        struct timespec wait={0,(long)period_ns()}; nanosleep(&wait,NULL);
     }
     return NULL;
 }
