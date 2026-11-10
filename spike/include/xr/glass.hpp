@@ -287,8 +287,14 @@ constexpr float kContentFrom = 0.75f;  // the panel's content fades in over the 
 
 // What the compositor draws this frame (GlassPills::frame and wayland.cpp fill it; overview only).
 struct GlassFrame {
+    // The options panel opens from its gear the way a placement pill opens into its panel: the gear's glass grows into
+    // the panel (rect, radius, colour, elevation), the grabber fades in, then the content. `options_expand` is the eased
+    // CardFade progress (0: the gear, 1: the panel), `options_desktop` the desktop it opens on. The gear under the dot
+    // (`gear_hover`, -1: none) takes the pill's hover level.
     bool options = false;
-    float options_alpha = 1;                 // fixed options geometry: fade its chrome with its content
+    float options_expand = 0;
+    int options_desktop = -1; const HudImage* options_image = nullptr; std::uint64_t options_generation = 0;
+    int gear_hover = -1; float gear_level = kGlassIdle;
     float restore_alpha = 0;                  // the Step-Back Band's Restore pill on the focused desktop, 0: not drawn
     bool pills = false;                       // collapsed pills under every desktop
     int hover = -1; float hover_level = kGlassIdle;  // the desktop whose pill is hovered or dragged

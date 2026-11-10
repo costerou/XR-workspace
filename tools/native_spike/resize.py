@@ -90,16 +90,16 @@ def remove_resize_binds_lua():
 def pill_frame(run_id, session, request_id, pill):
     """Renderer `move_handle` frame: the overview's glass pills. visible = shown under every desktop (an open placement
     panel is drawn either way); desktop + hover = the one under the pointer or held (brighter); active = that one is
-    being dragged (brightest)."""
-    if (not isinstance(pill, dict) or set(pill) != {'visible', 'desktop', 'hover', 'active'}
-            or any(type(pill[k]) is not bool for k in ('visible', 'hover', 'active'))
+    being dragged (brightest); desktop + gear = the pointer is on that desktop's options gear (the gear's hover glass)."""
+    if (not isinstance(pill, dict) or set(pill) != {'visible', 'desktop', 'hover', 'active', 'gear'}
+            or any(type(pill[k]) is not bool for k in ('visible', 'hover', 'active', 'gear'))
             or type(pill['desktop']) is not int or not 0 <= pill['desktop'] < MAX_DESKTOPS):
         raise ValueError('invalid move handle')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'move_handle',
                         'payload': dict(pill)}, separators=(',', ':')) + '\n').encode()
 
 
-PILLS_HIDDEN = {'visible': False, 'desktop': 0, 'hover': False, 'active': False}
+PILLS_HIDDEN = {'visible': False, 'desktop': 0, 'hover': False, 'active': False, 'gear': False}
 
 
 def handle_frame(run_id, session, request_id, handle):

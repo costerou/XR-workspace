@@ -154,7 +154,7 @@ public:
     // frosted capsule under every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging).
     // Overview only, never moving on its own. GPU composition only.
     void set_restore_band(bool open);  // the Step-Back Band (options_geometry.hpp): the supervisor's handoff, display only
-    void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
+    void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active, bool gear);
     // Level bars and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about its
     // line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement; a maximized desktop's fades out with the zoom);
     // `bars` the desktops whose level bar and corner caps show, drawn with the pills (overview only); `hover` / `side` the

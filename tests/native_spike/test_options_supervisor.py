@@ -98,7 +98,8 @@ class KeyboardTests(unittest.TestCase):
         self.assertEqual(values,[ -5 ])
 
 class OcclusionTests(unittest.TestCase):
-    def test_gear_behind_another_desktop_never_steals_its_click(self):
+    def test_gear_over_another_desktop_takes_the_click(self):
+        # The gear is glass like the placement pills: drawn over every desktop picture, so it is hit over them too.
         from tools.native_spike import view, free_pointer as fp, options_geometry as geo
         c=view.ViewControl(view.ViewState(['XR-1','XR-2']),'run','session',None,None,None)
         p=fp.OverviewPointer(c)
@@ -106,4 +107,15 @@ class OcclusionTests(unittest.TestCase):
         p.geometry=g
         r=geo.gear_rect(fp.pill_rect(g['tiles'][0]))
         p.pointer=fp.project(g,g['tiles'][0],c.state.placements[0],r[0]+r[2]/2,r[1]+r[3]/2)
-        self.assertIsNone(p._options_hit())
+        self.assertEqual(p._options_hit(),('options_gear',0))
+
+    def test_the_gear_under_the_dot_lights_like_a_hovered_pill(self):
+        from tools.native_spike import view, free_pointer as fp
+        c=view.ViewControl(view.ViewState(['XR-1','XR-2']),'run','session',None,None,None)
+        p=fp.OverviewPointer(c)
+        sent=[]; p._send=lambda frame,want: sent.append(dict(want)) or b'x'; p._handles_on=lambda: True
+        p.mode,p.drag,p.hover='free',None,('options_gear',1)
+        p._pills(False)
+        self.assertEqual(sent[-1],{'visible':True,'desktop':1,'hover':False,'active':False,'gear':True})
+        p.hover=None; p._pills(False)
+        self.assertFalse(sent[-1]['gear'])

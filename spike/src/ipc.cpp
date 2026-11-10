@@ -368,11 +368,11 @@ bool restore_band(const Json& p, RestoreBandPayload& out) {
     return true;
 }
 bool move_handle(const Json& p, MoveHandlePayload& out) {
-    if (!p.is_object() || p.size() != 4) return false;
-    for (const char* key : {"visible", "hover", "active"})
+    if (!p.is_object() || p.size() != 5) return false;
+    for (const char* key : {"visible", "hover", "active", "gear"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kMaxDesktops) return false;
-    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
+    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>(), p["gear"].get<bool>()};
     return true;
 }
 // binds_panel.hpp BindPanelState: printable ASCII text of `lo`..`hi` characters.

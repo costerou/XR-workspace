@@ -80,15 +80,19 @@ int main() {
         return R"({"schema":1,"request_id":8,"run_id":"run","session":"session","op":"move_handle","payload":)" + payload + "}\n";
     };
     {
-        auto d = decode_control(pill(R"({"visible":true,"desktop":1,"hover":true,"active":false})"));
+        auto d = decode_control(pill(R"({"visible":true,"desktop":1,"hover":true,"active":false,"gear":false})"));
         CHECK(std::holds_alternative<ControlMessage>(d) && std::get<ControlMessage>(d).op == ControlOp::move_handle);
         const auto* p = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(d).payload);
-        CHECK(p && p->visible && p->desktop == 1 && p->hover && !p->active);
-        for (const char* bad : {R"({})", R"({"visible":true,"desktop":4,"hover":false,"active":false})",
-                                R"({"visible":true,"desktop":-1,"hover":false,"active":false})",
-                                R"({"visible":"yes","desktop":0,"hover":false,"active":false})",
-                                R"({"visible":true,"desktop":0,"hover":false})",
-                                R"({"visible":true,"desktop":0,"hover":false,"active":false,"x":5})"}) {
+        CHECK(p && p->visible && p->desktop == 1 && p->hover && !p->active && !p->gear);
+        auto g = decode_control(pill(R"({"visible":true,"desktop":2,"hover":false,"active":false,"gear":true})"));
+        const auto* q = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(g).payload);
+        CHECK(q && q->desktop == 2 && q->gear && !q->hover);
+        for (const char* bad : {R"({})", R"({"visible":true,"desktop":4,"hover":false,"active":false,"gear":false})",
+                                R"({"visible":true,"desktop":-1,"hover":false,"active":false,"gear":false})",
+                                R"({"visible":"yes","desktop":0,"hover":false,"active":false,"gear":false})",
+                                R"({"visible":true,"desktop":0,"hover":false,"active":false})",
+                                R"({"visible":true,"desktop":0,"hover":false,"active":false,"gear":1})",
+                                R"({"visible":true,"desktop":0,"hover":false,"active":false,"gear":false,"x":5})"}) {
             auto e = decode_control(pill(bad));
             CHECK(std::holds_alternative<Error>(e) && ignorable_control_error(std::get<Error>(e)));
             CHECK(std::get<Error>(e).code == std::string(kInvalidMoveHandleCode));

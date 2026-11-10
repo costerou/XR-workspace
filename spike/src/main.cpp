@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
         }
         else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
             if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
-                presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
+                presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active, g->gear);
         }
         else if (m->op == xr::ControlOp::environment) {  // the background; malformed ones were dropped above
             if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->background, e->brightness);

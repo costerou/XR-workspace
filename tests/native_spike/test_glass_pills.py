@@ -412,10 +412,10 @@ class PillClickTests(Base):
         self.free()
         out = self.to(*pill_centre(T0))
         self.assertEqual(self.p.hover, ('pill', 0))
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False, 'gear': False})
         out = self.press()
         self.assertEqual(self.p.drag['kind'], 'pill'); self.assertFalse(self.p.drag['moved'])
-        self.assertEqual(self.p.pills, {'visible': True, 'desktop': 0, 'hover': True, 'active': False})  # held, not active
+        self.assertEqual(self.p.pills, {'visible': True, 'desktop': 0, 'hover': True, 'active': False, 'gear': False})  # held, not active
         self.assertTrue(last(out, 'overview_pointer')['held'])
         self.assertNotIn('placement_menu', ops_of(out))  # nothing opens on the press
         out = self.by(fp.CLICK_PX * 0.6, -fp.CLICK_PX * 0.6)  # a shaky hand: under CLICK_PX
@@ -536,7 +536,7 @@ class PillDragTests(Base):
         self.assertFalse(self.p.drag['moved']); self.assertNotIn('placement', ops_of(out))
         out = self.by(0, -1.5)
         self.assertTrue(self.p.drag['moved']); self.assertEqual(self.p.moves, 1)
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': True})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': True, 'gear': False})
         self.assertEqual(self.state.placements[0], DEFAULT_PLACEMENT)  # 1.7 % of the height: snapped back to the slot
         self.by(0, -T0[3] * 1.3)  # lifted clear of the row (no desktop may overlap another)...
         out = self.by(T0[2] * 0.2, 0)  # ...then to the right
@@ -1276,11 +1276,13 @@ class WireTests(unittest.TestCase):
         self.assertEqual((frame['payload']['open'], frame['payload']['desktop']), (True, 2))
 
     def test_move_handle_drives_the_pills(self):
-        frame = json.loads(resize.pill_frame('run', 's', 4, {'visible': True, 'desktop': 1, 'hover': True, 'active': False}))
+        frame = json.loads(resize.pill_frame('run', 's', 4, {'visible': True, 'desktop': 1, 'hover': True, 'active': False, 'gear': False}))
         self.assertEqual(frame['op'], 'move_handle')
-        for bad in ({'visible': True, 'desktop': 4, 'hover': False, 'active': False},
-                    {'visible': True, 'desktop': -1, 'hover': False, 'active': False},
-                    {'visible': 1, 'desktop': 0, 'hover': False, 'active': False},
+        for bad in ({'visible': True, 'desktop': 4, 'hover': False, 'active': False, 'gear': False},
+                    {'visible': True, 'desktop': -1, 'hover': False, 'active': False, 'gear': False},
+                    {'visible': 1, 'desktop': 0, 'hover': False, 'active': False, 'gear': False},
+                    {'visible': True, 'desktop': 0, 'hover': False, 'active': False},
+                    {'visible': True, 'desktop': 0, 'hover': False, 'active': False, 'gear': 1},
                     {'visible': True, 'desktop': 0, 'hover': False}):
             with self.subTest(bad), self.assertRaises(ValueError): resize.pill_frame('run', 's', 4, bad)
 
@@ -1293,7 +1295,7 @@ class WireTests(unittest.TestCase):
         for corner in resize.CORNERS:
             frame = json.loads(resize.handle_frame('run', 's', 5, {'visible': True, 'desktop': last, 'corner': corner, 'active': True}))
             self.assertEqual((frame['op'], frame['payload']['desktop'], frame['payload']['corner']), ('resize_handle', last, corner))
-        frame = json.loads(resize.pill_frame('run', 's', 6, {'visible': True, 'desktop': last, 'hover': True, 'active': True}))
+        frame = json.loads(resize.pill_frame('run', 's', 6, {'visible': True, 'desktop': last, 'hover': True, 'active': True, 'gear': False}))
         self.assertEqual((frame['op'], frame['payload']['desktop']), ('move_handle', last))
         for bad in (MAX_DESKTOPS, -1, True):
             with self.subTest(bad), self.assertRaises(ValueError):

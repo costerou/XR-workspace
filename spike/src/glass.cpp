@@ -307,12 +307,13 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
       md_stroke_rounded(im,gx-10,cy-19,gx+20,cy+10,2,4,ink,1);md_stroke_rounded(im,gx-20,cy-10,gx+10,cy+19,2,4,ink,1);
       text(im,font,"Restore",font?54u:0u,true,x+108,cy,ink);
     }
-    const float gx=360,gy=float(kAtlasOldH)+2;  // the options button (28x14 at 3x): a sliders mark, legible where a gear is not
-    md_fill_rounded(im,gx,gy,gx+84,gy+42,21,m.primary_container,1);
+    // The options button's mark (28x14 at 3x): a sliders glyph, legible where a gear is not. Only the glyph: the renderer
+    // draws the button itself as a glass pill (gl.cpp), so it looks, hovers and opens like a placement pill.
+    const float gx=360,gy=float(kAtlasOldH)+2;
     md_fill_rounded(im,gx+20,gy+13,gx+64,gy+17,2,m.on_primary_container,1);
     md_fill_rounded(im,gx+20,gy+25,gx+64,gy+29,2,m.on_primary_container,1);
-    md_disc(im,gx+50,gy+15,6,m.on_primary_container,1);md_disc(im,gx+50,gy+15,3,m.primary_container,1);
-    md_disc(im,gx+34,gy+27,6,m.on_primary_container,1);md_disc(im,gx+34,gy+27,3,m.primary_container,1);
+    md_disc(im,gx+50,gy+15,6,m.on_primary_container,1);
+    md_disc(im,gx+34,gy+27,6,m.on_primary_container,1);
     return im;
 }
 AtlasBox options_gear_box(){return box_of({360,kAtlasOldH+2,84,42});}

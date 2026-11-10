@@ -110,10 +110,10 @@ struct VideoPayload {
     std::uint32_t selected = 0;
 };
 // Overview glass pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..kMaxDesktops-1,"hover":bool,
-// "active":bool}. visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer, with
-// active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
+// "active":bool,"gear":bool}. visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer,
+// with active = being dragged, with gear = the pointer is on that desktop's options gear (lit like a hovered pill). Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
 constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
-struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
+struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false, gear = false; };
 // Overview free pointer (tools/native_spike/free_pointer.py), display only: {"visible":bool,"x":int,"y":int,"held":bool}, x and
 // y in canvas px, each -kMaxPointerPx..kMaxPointerPx (the pointer can go past the view's edge, beyond the desktops). held =
 // a pill, corner or panel-slider press/drag is in progress. Optionally also "az":int,"el":int (both or neither): the dot's

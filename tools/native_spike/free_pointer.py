@@ -1424,9 +1424,7 @@ class OverviewPointer:
                 if og.inside(r, q): return ('options_panel', i, q[0]-r[0], q[1]-r[1])
         order=front_order(g,placements)
         qs={i:unproject(g,g['tiles'][i],placements[i],self.pointer) for i in order}
-        picture=next((i for i in order if qs[i] is not None and inside_by(g['tiles'][i],qs[i])>=ENTER_PX),None)
-        if picture is not None: return None  # gear atlas is drawn before captured desktop pictures
-        for i in order:
+        for i in order:  # the gear is glass, drawn over every desktop picture like the pills (on_drawn_pill)
             tile = g['tiles'][i]
             q = desktop_to_glass(tile, placements[i], qs[i])
             if og.gear_hit(pill_rect(tile), q): return ('options_gear', i)
@@ -2025,13 +2023,16 @@ class OverviewPointer:
     def _pills(self, idle):
         """`move_handle`: the glass pills show under every desktop in the overview while the pointer moved in the last
         30 s (OLED idle close; an open panel is drawn regardless). hover: the pointer is on that pill or the open panel's
-        header (or holds it); active: that pill is being dragged (moved past CLICK_PX)."""
+        header (or holds it); active: that pill is being dragged (moved past CLICK_PX); gear: the pointer is on that
+        desktop's options gear, which lights like a hovered pill."""
         visible = self._handles_on() and not idle
         d, h = self.drag, self.hover
+        gear = False
         if d is not None and d['kind'] == 'pill': target, hover, active = d['index'], True, d['moved']
         elif d is None and self.mode == 'free' and h is not None and h[0] == 'pill': target, hover, active = h[1], True, False
+        elif d is None and self.mode == 'free' and h is not None and h[0] == 'options_gear': target, hover, active, gear = h[1], False, False, True
         else: target, hover, active = self.pills['desktop'], False, False
-        want = {'visible': visible, 'desktop': target, 'hover': hover and visible, 'active': active and visible}
+        want = {'visible': visible, 'desktop': target, 'hover': hover and visible, 'active': active and visible, 'gear': gear and visible}
         if want == self.pills: return b''
         self.pills = want
         return self._send(resize.pill_frame, want)

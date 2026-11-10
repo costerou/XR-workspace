@@ -522,7 +522,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint16_t environment_brightness = kBrightnessDefault;
     bool environment_drawn = false;      // last frame drew it: draw once more after it has faded out
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
-    struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
+    struct MoveHandle { bool visible = false, hover = false, active = false, gear = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     struct FreePointer {
         bool visible = false, held = false, directed = false; std::int32_t x = 0, y = 0, az = 0, el = 0; std::uint64_t shown = 0;
         std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // window drag (0: none)
@@ -1394,11 +1394,11 @@ void Presentation::set_restore_band(bool open) {
     ++impl_->restore_updates;
     impl_->cadence.invalidate();
 }
-void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active) {
+void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active, bool gear) {
     if (!impl_) return;
     auto& p = impl_->pills;
     if (visible && !p.visible) ++p.shown;
-    p.visible = visible; p.desktop = desktop; p.hover = hover; p.active = active;
+    p.visible = visible; p.desktop = desktop; p.hover = hover; p.active = active; p.gear = gear;
     impl_->cadence.invalidate();
 }
 void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed, std::int32_t az,
@@ -1744,15 +1744,16 @@ Status Presentation::draw_test_pattern() {
             glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
+            // The gear under the dot lights like a hovered pill (the supervisor's move_handle gear flag).
+            if (s.pills.gear && overview) { glass.gear_hover = int(s.pills.desktop); glass.gear_level = kGlassHover; }
             const float options_alpha = s.options_overlay.frame(overview, help_now);
             if(options_alpha > 0.f) {
                 for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options_overlay.state().monitor){
                   if(s.options.open && s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
                   if(!s.free_pointer.held)s.options_surface.reset();
                   glass.surface=s.options_surface;glass.surface_desktop=int(i);
-                  s.options_in_frame=true;glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
-                  glass.options_alpha=options_alpha;glass.image=&s.options_overlay.image();
-                  glass.generation=s.options_overlay.generation();glass.content_alpha=options_alpha;
+                  s.options_in_frame=true;glass.options=true;glass.top=glass.options_desktop=int(i);glass.options_expand=options_alpha;
+                  glass.options_image=&s.options_overlay.image();glass.options_generation=s.options_overlay.generation();
                 }
             }
             s.gl->set_glass(glass);

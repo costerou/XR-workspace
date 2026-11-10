@@ -83,7 +83,10 @@ struct GlCompositor::Impl {
     GLint tile_stereo = -1, color_stereo = -1, glow_stereo = -1;  // this eye's offset: only ever set in 3D (XR_PROJECT)
     struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, style = -1, opacity = -1, stereo = -1; } glass_loc;
     struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1, stereo = -1; } panel_loc;
-    GLuint panel_texture = 0; std::uint64_t panel_uploaded = 0;
+    // A texture fed from a HudImage that only uploads what changed: the placement panel and the options panel each own
+    // one, since both can be on screen in the same frame.
+    struct PanelTexture { GLuint id = 0; std::uint64_t uploaded = 0; std::vector<std::uint8_t> pixels; std::uint32_t w = 0, h = 0; };
+    PanelTexture panel_tex, options_tex;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     // Zero-copy: per source, per capture slot, an EGLImage-backed texture; `current` = slot to draw (-1 = SHM).
@@ -153,6 +156,7 @@ struct GlCompositor::Impl {
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 21> key{}; };
     Mesh glow_mesh, border_mesh, disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
     std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, bar_meshes, cap_meshes, button_meshes;  // per desktop (caps: and corner)
+    std::vector<Mesh> gear_meshes, gear_grab_meshes, gear_glyph_meshes, options_meshes;  // per desktop: the options gear and its panel
     // The level bars' and corner caps' pixels (glass.hpp render_handle_atlas): one image per theme colour.
     GLuint handle_texture = 0; std::array<float, 3> handle_accent{-1, -1, -1};
     std::unique_ptr<HudFont> handle_font; bool handle_font_tried = false;  // the 3D button's label; its own instance, as each user has
@@ -171,7 +175,8 @@ struct GlCompositor::Impl {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
         drop(glow_mesh); drop(border_mesh); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
         drop(ghost_mesh); for (auto& m : drop_mesh) drop(m);
-        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &bar_meshes, &cap_meshes, &button_meshes}) {
+        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &bar_meshes, &cap_meshes, &button_meshes,
+                        &gear_meshes, &gear_grab_meshes, &gear_glyph_meshes, &options_meshes}) {
             for (auto& m : *v) drop(m);
             v->clear();
         }
@@ -184,8 +189,7 @@ struct GlCompositor::Impl {
     Projection tile_projection, color_projection, glow_projection, glass_projection, panel_projection, warp_projection;
     // The panel texture's pixels as last uploaded. A slider drag re-renders the panel up to once per frame but changes one
     // row of it: only the rows that differ from this copy are uploaded (none if a re-render left the pixels as they were).
-    std::vector<std::uint8_t> panel_pixels; std::uint32_t panel_w = 0, panel_h = 0;
-    void upload_panel(const HudImage& im, std::uint64_t generation);  // binds the panel texture on unit 0; uploads if new
+    void upload_panel(PanelTexture& t, const HudImage& im, std::uint64_t generation);  // binds `t` on unit 0; uploads if new
     bool swap() { if (surface == EGL_NO_SURFACE) { glFlush(); return true; } return eglSwapBuffers(display, surface); }
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
@@ -196,7 +200,7 @@ struct GlCompositor::Impl {
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) { drop(i); drop_held(i); }
             hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset(); stereo.reset();
-            if (panel_texture) glDeleteTextures(1, &panel_texture);
+            for (auto* t : {&panel_tex, &options_tex}) if (t->id) glDeleteTextures(1, &t->id);
             if (handle_texture) glDeleteTextures(1, &handle_texture);
             if (glass_program) glDeleteProgram(glass_program);
             if (panel_program) glDeleteProgram(panel_program);
@@ -330,9 +334,11 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
         g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
         g.tex = glGetUniformLocation(p, "tex"); g.alpha = glGetUniformLocation(p, "alpha");
         g.stereo = glGetUniformLocation(p, "stereo");
-        glGenTextures(1, &s.panel_texture); glBindTexture(GL_TEXTURE_2D, s.panel_texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        for (auto* t : {&s.panel_tex, &s.options_tex}) {
+            glGenTextures(1, &t->id); glBindTexture(GL_TEXTURE_2D, t->id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        }
         glGenTextures(1, &s.handle_texture); glBindTexture(GL_TEXTURE_2D, s.handle_texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -705,24 +711,24 @@ void GlCompositor::Impl::upload_handles(const std::array<float, 3>& colour) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(atlas.width), GLsizei(atlas.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, atlas.rgba.data());
 }
 
-void GlCompositor::Impl::upload_panel(const HudImage& im, std::uint64_t generation) {
-    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, panel_texture);  // sampler `tex` = unit 0 (link-time value)
-    if (generation == panel_uploaded) return;
+void GlCompositor::Impl::upload_panel(PanelTexture& t, const HudImage& im, std::uint64_t generation) {
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, t.id);  // sampler `tex` = unit 0 (link-time value)
+    if (generation == t.uploaded) return;
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     const std::size_t row = std::size_t(im.width) * 4;
-    if (im.width == panel_w && im.height == panel_h && panel_pixels.size() == im.rgba.size()) {
+    if (im.width == t.w && im.height == t.h && t.pixels.size() == im.rgba.size()) {
         std::uint32_t top = 0, bottom = im.height;  // the changed rows: [top, bottom)
-        while (top < bottom && !std::memcmp(&im.rgba[top * row], &panel_pixels[top * row], row)) ++top;
-        while (bottom > top && !std::memcmp(&im.rgba[(bottom - 1) * row], &panel_pixels[(bottom - 1) * row], row)) --bottom;
+        while (top < bottom && !std::memcmp(&im.rgba[top * row], &t.pixels[top * row], row)) ++top;
+        while (bottom > top && !std::memcmp(&im.rgba[(bottom - 1) * row], &t.pixels[(bottom - 1) * row], row)) --bottom;
         if (top < bottom) {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, GLint(top), GLsizei(im.width), GLsizei(bottom - top), GL_RGBA, GL_UNSIGNED_BYTE, &im.rgba[top * row]);
-            std::memcpy(&panel_pixels[top * row], &im.rgba[top * row], (bottom - top) * row);
+            std::memcpy(&t.pixels[top * row], &im.rgba[top * row], (bottom - top) * row);
         }
     } else {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(im.width), GLsizei(im.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, im.rgba.data());
-        panel_pixels = im.rgba; panel_w = im.width; panel_h = im.height;
+        t.pixels = im.rgba; t.w = im.width; t.h = im.height;
     }
-    panel_uploaded = generation;
+    t.uploaded = generation;
 }
 
 bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
@@ -772,7 +778,8 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         eye_offset = stereo_side(eye->eye) * s.stereo_b;
         s.env_eye = stereo_side(eye->eye) * stereo_infinity_shift(s.stereo_b, stereo_limits(s.stereo_set.params, eye_w, half_w), eye_w, half_w);
     }
-    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes})
+    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes, &s.gear_meshes, &s.gear_grab_meshes,
+                     &s.gear_glyph_meshes, &s.options_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
     if (s.bar_meshes.size() < tiles.size()) s.bar_meshes.resize(tiles.size());
     if (s.button_meshes.size() < 2 * tiles.size()) s.button_meshes.resize(2 * tiles.size());
@@ -785,7 +792,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
     };
     if (eye) glViewport(GLint(eye->x), GLint(eye->y), GLsizei(eye->width), GLsizei(eye->height));
     else glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
-    if (s.glass_program && s.panel_program && s.glass.content >= 0 && s.glass.image && s.glass.generation != s.panel_uploaded) {
+    if (s.glass_program && s.panel_program && s.glass.content >= 0 && s.glass.image && s.glass.generation != s.panel_tex.uploaded) {
         // A new panel image is uploaded before anything is drawn (the driver flushes queued work before a large upload
         // from client memory), under exactly the conditions on which the glass loop below draws it.
         const auto& g = s.glass;
@@ -793,7 +800,15 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         const auto& im = *g.image;
         if (c < tiles.size() && c < s.textures.size() && c < g.expand.size() && !(std::clamp(g.expand[c], 0.f, 1.f) <= 0.f) &&
             !(g.content_alpha <= 0.f) && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
-            s.upload_panel(im, g.generation);
+            s.upload_panel(s.panel_tex, im, g.generation);
+    }
+    if (s.glass_program && s.panel_program && s.glass.options && s.glass.options_image && s.glass.options_generation != s.options_tex.uploaded) {
+        // The options panel's image, uploaded early for the same reason, under the conditions on which the gear morph draws it.
+        const auto& g = s.glass;
+        const auto& im = *g.options_image;
+        if (g.options_desktop >= 0 && std::size_t(g.options_desktop) < tiles.size() && std::size_t(g.options_desktop) < s.textures.size() &&
+            g.options_expand > 0.f && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
+            s.upload_panel(s.options_tex, im, g.options_generation);
     }
     const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
     const bool handles = (s.glass.pills || highlight_alpha < .5f) && s.panel_program && s.handle_texture;
@@ -874,7 +889,6 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
                 const bool hot = int(i) == g.cap_hover && corner == g.cap_corner;
                 image(s.cap_meshes[4 * i + corner], i, corner_cap_rect(tiles[i], corner), corner_cap_box(corner, hot, hot && g.cap_active));
             }
-            image(s.bar_meshes[i],i,options_gear(tiles[i]),options_gear_box(),true);
             const bool hot = int(i) == g.bar_hover;
             image(s.bar_meshes[i], i, level_bar_rect(tiles[i]), level_bar_box(hot ? g.bar_segment : LevelSegment::none, hot && g.bar_active));
             const FRect main = immersive_main_rect(tiles[i]), tail = immersive_tail_rect(tiles[i]);  // the 3D button, joined to the bar
@@ -944,30 +958,76 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
-        for (const std::size_t i : glass_draw_order(std::move(order), g.top)) {  // the tiles are drawn: hand their order over
-            if (i >= s.textures.size() || i >= g.expand.size()) continue;
+        // A placement pill and, when it opens, its morph into the placement panel with the content fading in over it.
+        auto pill = [&](std::size_t i) {
+            if (i >= s.textures.size() || i >= g.expand.size()) return;
             const float e = std::clamp(g.expand[i], 0.f, 1.f);
-            if (!g.pills && e <= 0.f) continue;
+            if (!g.pills && e <= 0.f) return;
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
-            const FRect r = g.options && int(i)==g.content ? options_panel(tiles[i]) : glass_morph(tiles[i], e);
-            const float opacity = g.options && int(i)==g.content ? g.options_alpha : 1.f;
-            shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), opacity, kGlassShadowMargin);
-            if (e <= 0.f) continue;
+            const FRect r = glass_morph(tiles[i], e);
+            shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
+            if (e <= 0.f) return;
             // The grabber where the pill was, fading in with the panel.
             const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};
-            shape(s.grab_meshes[i], i, grab, kGrabberH / 2, grabber_look(level), opacity * std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
-            if (int(i) != g.content || !g.image || g.content_alpha <= 0.f || !s.panel_program) continue;
+            shape(s.grab_meshes[i], i, grab, kGrabberH / 2, grabber_look(level), std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
+            if (int(i) != g.content || !g.image || g.content_alpha <= 0.f || !s.panel_program) return;
             const auto& im = *g.image;
-            if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) continue;
+            if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) return;
             glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
             program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
-            s.upload_panel(im, g.generation);  // already uploaded before the first draw: binds it
+            s.upload_panel(s.panel_tex, im, g.generation);  // already uploaded before the first draw: binds it
             glUniform1f(s.panel_loc.alpha, std::min(g.content_alpha, 1.f));
             // The content rides on the morphing shape (it only shows over the last quarter, when the shape is near full size).
             const GLsizei n = s.build(s.panel_meshes[i], canvas, tiles[i], glass_on(i), r, Impl::Attr::rect_uv, true);
             attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
             glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
+        };
+        // The options gear: the same glass capsule as a placement pill, with the same hover levels, morphing the same way
+        // (rect, radius, colour, elevation, then the grabber and the content) from the gear into the options panel. The
+        // gear glyph fades out as the capsule starts to grow.
+        auto gear = [&](std::size_t i) {
+            if (i >= s.textures.size()) return;
+            const bool open = g.options && int(i) == g.options_desktop;
+            const float e = open ? std::clamp(g.options_expand, 0.f, 1.f) : 0.f;
+            if (e <= 0.f && !(g.pills && i < g.bars.size() && g.bars[i])) return;
+            const FRect a = options_gear(tiles[i]), b = options_panel(tiles[i]);
+            auto mix = [e](float x, float y) { return x + (y - x) * e; };
+            const FRect r{mix(a.x, b.x), mix(a.y, b.y), mix(a.width, b.width), mix(a.height, b.height)};
+            const float radius = std::min(mix(a.height / 2, kPanelRadius), std::min(r.width, r.height) / 2);
+            const float level = int(i) == g.gear_hover ? g.gear_level : kGlassIdle;
+            shape(s.gear_meshes[i], i, r, radius, glass_look(accent, level, e), 1.f, kGlassShadowMargin);
+            if (e > 0.f) {
+                const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};
+                shape(s.gear_grab_meshes[i], i, grab, kGrabberH / 2, grabber_look(level), std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
+            }
+            if (!s.panel_program) return;
+            auto image = [&](Impl::Mesh& mesh, const FRect& rect, const AtlasBox* box, float alpha) {
+                glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
+                program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
+                glUniform1f(s.panel_loc.alpha, alpha);
+                const GLsizei n = s.build(mesh, canvas, tiles[i], glass_on(i), rect, Impl::Attr::rect_uv, true, box);
+                attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+                glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
+            };
+            const float glyph = 1.f - std::clamp(e * 4.f, 0.f, 1.f);
+            if (glyph > 0.f && s.handle_texture) {
+                const AtlasBox box = options_gear_box();
+                glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.handle_texture);
+                image(s.gear_glyph_meshes[i], a, &box, glyph);
+            }
+            if (!open || !g.options_image) return;
+            const auto& im = *g.options_image;
+            if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) return;
+            const float t = std::clamp((e - kContentFrom) / (1.f - kContentFrom), 0.f, 1.f);  // smoothstep(kContentFrom, 1, e)
+            if (t <= 0.f) return;
+            s.upload_panel(s.options_tex, im, g.options_generation);  // already uploaded before the first draw: binds it
+            image(s.options_meshes[i], r, nullptr, t * t * (3 - 2 * t));
+        };
+        for (const std::size_t i : glass_draw_order(std::move(order), g.top)) {  // the tiles are drawn: hand their order over
+            pill(i);
+            gear(i);
         }
         glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
         glDisable(GL_BLEND);
