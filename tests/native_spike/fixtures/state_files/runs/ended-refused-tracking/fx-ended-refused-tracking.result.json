@@ -1,0 +1,1 @@
+{"complete": false, "error": "head tracking never reported a pose", "faults": [{"count": 1, "traceback": ["ValueError: head tracking never reported a pose"], "where": "the run"}], "phase": "tracking", "remaining": null, "renderer_returncode": null, "run_id": "fx-ended-refused-tracking"}

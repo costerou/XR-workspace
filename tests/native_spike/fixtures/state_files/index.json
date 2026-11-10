@@ -1,0 +1,502 @@
+{
+ "command_reasons": [
+  "no-reason",
+  "journal-missing",
+  "scope-mismatch",
+  "not-canonical",
+  "plugin-pin",
+  "plugin-unavailable"
+ ],
+ "consents": {
+  "beast-no-tracking.json": "no head tracking, no mode switch, one desktop",
+  "luma-ultra-3dof.json": "the 3DoF test driver: `tracking_driver` beside `tracking` \"xrlinuxdriver\"",
+  "luma-ultra-luma-driver.json": "our own Luma driver: `tracking` \"luma\" and its pinned binary under `luma_driver`",
+  "luma-ultra-sbs.json": "3D mode: `sbs_mode` scope on a Luma Ultra with its mode switch",
+  "luma-ultra-xrlinuxdriver.json": "the default start: Luma Ultra, XRLinuxDriver tracking, 1920x1200@120 mode switch",
+  "pro2-route.json": "the VITURE Pro 2 route: its pinned bundle and settings under `pro2_route`"
+ },
+ "runs": {
+  "ended-clean": {
+   "about": "a clean Stop: result done, every output record done",
+   "files": [
+    "fx-ended-clean.json",
+    "fx-ended-clean.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "done"
+   ]
+  },
+  "ended-compositor-gone": {
+   "about": "Hyprland exited mid-run; Recover closed every record (Journal.compositor_ended)",
+   "files": [
+    "fx-ended-compositor-gone.json",
+    "fx-ended-compositor-gone.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "done"
+   ]
+  },
+  "ended-invalid-consent": {
+   "about": "a consent that named no valid run: the result is `invalid.result.json` with `run_id` null",
+   "files": [
+    "fx-ended-invalid-consent.json",
+    "invalid.result.json"
+   ]
+  },
+  "ended-pro2": {
+   "about": "a Pro 2 run, ended by its own route (runner.execute_pro2)",
+   "files": [
+    "fx-ended-pro2.json",
+    "fx-ended-pro2.result.json"
+   ]
+  },
+  "ended-refused-tracking": {
+   "about": "refused at tracking, with the fault the runner records for it",
+   "files": [
+    "fx-ended-refused-tracking.json",
+    "fx-ended-refused-tracking.result.json"
+   ]
+  },
+  "ended-refused-verify": {
+   "about": "refused before anything moved: no journal, the reason in `error`",
+   "files": [
+    "fx-ended-refused-verify.json",
+    "fx-ended-refused-verify.result.json"
+   ]
+  },
+  "ended-usb-hold": {
+   "about": "a clean run that waited out a USB drop and a renderer stop reason",
+   "files": [
+    "fx-ended-usb-hold.json",
+    "fx-ended-usb-hold.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "done"
+   ]
+  },
+  "in-flight-desktop-removed": {
+   "about": "a run in flight after a pill removed its second desktop: that record is done",
+   "files": [
+    "fx-in-flight-desktop-removed.json",
+    "fx-in-flight-desktop-removed.progress.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed",
+    "done"
+   ]
+  },
+  "in-flight-intent-only": {
+   "about": "half-finished: the journal holds its first output as intent only (pending), never read back",
+   "files": [
+    "fx-in-flight-intent-only.json",
+    "fx-in-flight-intent-only.progress.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "pending"
+   ]
+  },
+  "in-flight-mid-create": {
+   "about": "half-finished: one output confirmed, the next prepared but not confirmed",
+   "files": [
+    "fx-in-flight-mid-create.json",
+    "fx-in-flight-mid-create.progress.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed",
+    "pending"
+   ]
+  },
+  "in-flight-plugin": {
+   "about": "a run in flight at phase \"plugin\": consent and progress only, no journal yet",
+   "files": [
+    "fx-in-flight-plugin.json",
+    "fx-in-flight-plugin.progress.json"
+   ]
+  },
+  "in-flight-running": {
+   "about": "a run in flight with every desktop up: three confirmed outputs",
+   "files": [
+    "fx-in-flight-running.json",
+    "fx-in-flight-running.progress.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ]
+  },
+  "in-flight-tracking": {
+   "about": "a run in flight at phase \"tracking\": consent and progress only, no journal yet",
+   "files": [
+    "fx-in-flight-tracking.json",
+    "fx-in-flight-tracking.progress.json"
+   ]
+  },
+  "in-flight-unbound": {
+   "about": "half-finished before the broker was bound: a journal with no `broker` and no records",
+   "files": [
+    "fx-in-flight-unbound.json",
+    "fx-in-flight-unbound.progress.json",
+    "journal.json"
+   ],
+   "journal_states": []
+  },
+  "in-flight-verify": {
+   "about": "a run in flight at phase \"verify\": consent and progress only, no journal yet",
+   "files": [
+    "fx-in-flight-verify.json",
+    "fx-in-flight-verify.progress.json"
+   ]
+  },
+  "recover-broker-blocked": {
+   "about": "the broker proved the output is not ours; a second, pending output stayed with it too",
+   "files": [
+    "fx-recover-broker-blocked.json",
+    "fx-recover-broker-blocked.recovery.json",
+    "fx-recover-broker-blocked.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed",
+    "pending"
+   ],
+   "reasons": [
+    "XR-2: output name/UUID mismatch",
+    "XR-1: output name/UUID mismatch"
+   ]
+  },
+  "recover-broker-destroy": {
+   "about": "the ownership plugin refused the removal at step \"destroy\"",
+   "files": [
+    "fx-recover-broker-destroy.json",
+    "fx-recover-broker-destroy.recovery.json",
+    "fx-recover-broker-destroy.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: the output did not go away when it was destroyed"
+   ]
+  },
+  "recover-broker-evacuate": {
+   "about": "the ownership plugin refused the removal at step \"evacuate\"",
+   "files": [
+    "fx-recover-broker-evacuate.json",
+    "fx-recover-broker-evacuate.recovery.json",
+    "fx-recover-broker-evacuate.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: its windows and workspaces could not be moved off it (a pinned window, a special workspace, or a monitor gone)"
+   ]
+  },
+  "recover-broker-fallback-unusable": {
+   "about": "refused, and the fallback monitor cannot take the windows",
+   "files": [
+    "fx-recover-broker-fallback-unusable.json",
+    "fx-recover-broker-fallback-unusable.recovery.json",
+    "fx-recover-broker-fallback-unusable.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: its windows and workspaces could not be moved off it (a pinned window, a special workspace, or a monitor gone); DP-1 cannot take its windows: it is disabled, mirrored or unplugged"
+   ]
+  },
+  "recover-broker-refused": {
+   "about": "the ownership plugin refused without naming a step",
+   "files": [
+    "fx-recover-broker-refused.json",
+    "fx-recover-broker-refused.recovery.json",
+    "fx-recover-broker-refused.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: the ownership plugin refused to remove it (state live)"
+   ]
+  },
+  "recover-broker-rule": {
+   "about": "the ownership plugin refused the removal at step \"rule\"",
+   "files": [
+    "fx-recover-broker-rule.json",
+    "fx-recover-broker-rule.recovery.json",
+    "fx-recover-broker-rule.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: its monitor rule could not be cleaned up"
+   ]
+  },
+  "recover-broker-unavailable": {
+   "about": "the ownership plugin refused the removal at step \"unavailable\"",
+   "files": [
+    "fx-recover-broker-unavailable.json",
+    "fx-recover-broker-unavailable.recovery.json",
+    "fx-recover-broker-unavailable.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: the ownership plugin no longer holds a live output for it, or the fallback monitor is not usable"
+   ]
+  },
+  "recover-broker-unreachable": {
+   "about": "the ownership plugin refused the removal at step \"unreachable\"",
+   "files": [
+    "fx-recover-broker-unreachable.json",
+    "fx-recover-broker-unreachable.recovery.json",
+    "fx-recover-broker-unreachable.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: after the move, a window was still not reachable on a usable monitor"
+   ]
+  },
+  "recover-disconnected": {
+   "about": "the compositor socket refused the connection",
+   "files": [
+    "fx-recover-disconnected.json",
+    "fx-recover-disconnected.recovery.json",
+    "fx-recover-disconnected.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: [Errno 111] Connection refused"
+   ]
+  },
+  "recover-journal-missing": {
+   "about": "a Recover refused before the journal: recovery journal missing",
+   "files": [
+    "fx-recover-journal-missing.json",
+    "fx-recover-journal-missing.recovery.json",
+    "fx-recover-journal-missing.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "recovery journal missing"
+   ]
+  },
+  "recover-mutation-failed": {
+   "about": "legacy supervisor journal: a setting undo the compositor refused",
+   "files": [
+    "fx-recover-mutation-failed.json",
+    "fx-recover-mutation-failed.recovery.json",
+    "fx-recover-mutation-failed.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "input:follow_mouse: mutation failed"
+   ]
+  },
+  "recover-no-reason": {
+   "about": "a Recover refused before the journal: it said nothing",
+   "files": [
+    "fx-recover-no-reason.json",
+    "fx-recover-no-reason.recovery.json",
+    "fx-recover-no-reason.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "recovery did not finish, and nothing said why"
+   ]
+  },
+  "recover-not-canonical": {
+   "about": "a Recover refused before the journal: managed recovery requires the canonical runtime journal",
+   "files": [
+    "fx-recover-not-canonical.json",
+    "fx-recover-not-canonical.recovery.json",
+    "fx-recover-not-canonical.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "managed recovery requires the canonical runtime journal"
+   ]
+  },
+  "recover-not-confirmed": {
+   "about": "legacy supervisor journal: the workspace's first monitor is gone, so it is not moved back",
+   "files": [
+    "fx-recover-not-confirmed.json",
+    "fx-recover-not-confirmed.recovery.json",
+    "fx-recover-not-confirmed.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "workspace 3: the compositor did not confirm it"
+   ]
+  },
+  "recover-plugin-pin": {
+   "about": "a Recover refused before the journal: recovery plugin pin unavailable: {path} hash mismatch",
+   "files": [
+    "fx-recover-plugin-pin.json",
+    "fx-recover-plugin-pin.recovery.json",
+    "fx-recover-plugin-pin.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "recovery plugin pin unavailable: /home/user/.local/share/xr-workspace/plugin/abababababababababababababababababababababababababababababababab/libxr-ownership.so hash mismatch"
+   ]
+  },
+  "recover-plugin-unavailable": {
+   "about": "a Recover refused before the journal: consented ownership plugin unavailable for recovery",
+   "files": [
+    "fx-recover-plugin-unavailable.json",
+    "fx-recover-plugin-unavailable.recovery.json",
+    "fx-recover-plugin-unavailable.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "consented ownership plugin unavailable for recovery"
+   ]
+  },
+  "recover-readback-missing": {
+   "about": "legacy supervisor journal: the setting is absent from readback",
+   "files": [
+    "fx-recover-readback-missing.json",
+    "fx-recover-readback-missing.recovery.json",
+    "fx-recover-readback-missing.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "input:follow_mouse: 'input:follow_mouse'"
+   ]
+  },
+  "recover-scope-mismatch": {
+   "about": "a Recover refused before the journal: consent does not match saved broker scope",
+   "files": [
+    "fx-recover-scope-mismatch.json",
+    "fx-recover-scope-mismatch.recovery.json",
+    "fx-recover-scope-mismatch.result.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "consent does not match saved broker scope"
+   ]
+  },
+  "recover-session-changed": {
+   "about": "the broker cannot prove the compositor is the one the journal names",
+   "files": [
+    "fx-recover-session-changed.json",
+    "fx-recover-session-changed.recovery.json",
+    "fx-recover-session-changed.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "XR-1: compositor session changed"
+   ]
+  },
+  "recover-session-mismatch": {
+   "about": "legacy supervisor journal: the connected compositor is another session",
+   "files": [
+    "fx-recover-session-mismatch.json",
+    "fx-recover-session-mismatch.recovery.json",
+    "fx-recover-session-mismatch.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "confirmed"
+   ],
+   "reasons": [
+    "input:follow_mouse: session disconnected or changed"
+   ]
+  },
+  "recovered": {
+   "about": "a stopped run with outputs left (one pending, one confirmed), then a Recover that finished",
+   "files": [
+    "fx-recovered.json",
+    "fx-recovered.result.json",
+    "journal.before.json",
+    "journal.json"
+   ],
+   "journal_states": [
+    "done"
+   ]
+  }
+ },
+ "step_reasons": [
+  "session-changed",
+  "session-mismatch",
+  "disconnected",
+  "mutation-failed",
+  "readback-missing",
+  "not-confirmed",
+  "broker-refused",
+  "broker-fallback-unusable",
+  "broker-blocked",
+  "broker-unavailable",
+  "broker-evacuate",
+  "broker-unreachable",
+  "broker-rule",
+  "broker-destroy"
+ ]
+}

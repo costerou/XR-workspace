@@ -1,0 +1,1 @@
+{"schema": 1, "run_id": "fx-recover-session-mismatch", "session": "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e", "operations": [{"id": "00000000-0000-4000-a000-000000000002", "operation": {"kind": "setting", "key": "input:follow_mouse", "before": 1, "applied": 0}, "state": "confirmed"}]}

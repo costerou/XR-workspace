@@ -1,0 +1,1 @@
+{"complete": true, "error": null, "phase": "done", "remaining": [], "renderer_returncode": 0, "run_id": "fx-ended-usb-hold", "stop_reason": "interrupted", "usb_holds": [{"resumed": true, "seconds": 4.2}]}
