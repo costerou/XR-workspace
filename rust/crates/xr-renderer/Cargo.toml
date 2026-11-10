@@ -44,3 +44,7 @@ harness = false
 [[test]]
 name = "pill_border_render"
 harness = false
+
+[[test]]
+name = "stereo_render"
+harness = false
