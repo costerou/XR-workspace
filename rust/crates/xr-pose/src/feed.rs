@@ -10,6 +10,10 @@
 //! | `disabled`               | bool: true = readers get no sample                              |
 //! | `display_fov`            | float, degrees                                                  |
 //! | `look_ahead_cfg`         | 4 floats: constant ms, frametime multiplier, scanline ms, cap ms |
+//! | `pose_prediction`        | [`PredictionWire`]: the newest pose with its body-frame motion  |
+//!
+//! `pose_prediction` is the Luma driver's side channel; XRLinuxDriver has none, and its readers
+//! never look for it.
 //!
 //! The mutex stays the glibc one because XRLinuxDriver-compatible readers share it (plan, section
 //! 2). What goes into the 16 floats (history, timestamps, mount pitch) is the driver's business;
@@ -35,6 +39,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
+use crate::prediction::{MotionState, PREDICTION_IPC_NAME, PredictionWire};
 
 /// The live feed's prefix, shared with XRLinuxDriver and the C++ stack.
 pub const DEFAULT_PREFIX: &str = "/tmp/shader_runtime_";
@@ -189,6 +194,8 @@ pub struct FeedWriter {
     pose: *mut f32,
     mutex: *mut libc::pthread_mutex_t,
     disabled: *mut u8,
+    /// `<prefix>pose_prediction`: the motion side channel, invalid until a motion is written.
+    prediction: *const PredictionWire,
     segments: Vec<Segment>,
     /// private_segments: the files this writer created, removed on drop.
     files: Vec<PathBuf>,
@@ -274,6 +281,7 @@ impl FeedWriter {
             pose: ptr::null_mut(),
             mutex: ptr::null_mut(),
             disabled: ptr::null_mut(),
+            prediction: ptr::null(),
             segments: Vec::new(),
             files: Vec::new(),
             _writer_lock: writer_lock,
@@ -286,6 +294,12 @@ impl FeedWriter {
         writer.mutex = writer.attach(options, MUTEX, size_of::<libc::pthread_mutex_t>())?.cast();
         let fov: *mut f32 = writer.attach(options, FOV, size_of::<f32>())?.cast();
         let look_ahead: *mut f32 = writer.attach(options, LOOK_AHEAD, LOOK_AHEAD_BYTES)?.cast();
+        // As the C++ publisher: one writer (the claim above), and a reader retries on any change
+        // of seq, so the line is written over whatever a killed writer left.
+        writer.prediction = writer
+            .attach(options, PREDICTION_IPC_NAME, size_of::<PredictionWire>())?
+            .cast();
+        writer.write_motion(&MotionState::default());
         if !init_mutex(writer.mutex) {
             return fail("cannot initialise the pose mutex".into());
         }
@@ -383,6 +397,13 @@ impl FeedWriter {
         true
     }
 
+    /// The motion side channel. An invalid state reads as no motion.
+    pub fn write_motion(&self, state: &MotionState) {
+        // SAFETY: prediction points at a page-aligned segment of PredictionWire's size, whose
+        // fields are atomics only; this is its one writer.
+        unsafe { &*self.prediction }.write(state);
+    }
+
     /// true: readers get no sample until it is cleared.
     pub fn set_disabled(&self, value: bool) {
         // SAFETY: disabled is a byte in an attached, writable segment; the C++ writer also stores
@@ -395,6 +416,9 @@ impl Drop for FeedWriter {
     fn drop(&mut self) {
         if !self.disabled.is_null() {
             self.set_disabled(true);
+        }
+        if !self.prediction.is_null() {
+            self.write_motion(&MotionState::default());
         }
         self.segments.clear();
         for path in &self.files {
@@ -426,6 +450,7 @@ pub struct FeedReader {
     disabled: *mut u8,
     fov: Option<*const f32>,
     look_ahead: Option<*const f32>,
+    prediction: Option<*const PredictionWire>,
     _segments: Vec<Segment>,
     /// Newest valid sample read: served again while the writer holds the lock.
     last: Option<FeedSample>,
@@ -460,7 +485,8 @@ fn attach_existing(path: &str, min_size: usize, writable: bool, segments: &mut V
 }
 
 impl FeedReader {
-    /// Attaches to the feed at `prefix` (see [`DEFAULT_PREFIX`]). FOV and look-ahead are optional.
+    /// Attaches to the feed at `prefix` (see [`DEFAULT_PREFIX`]). FOV, look-ahead and the motion
+    /// channel are optional.
     pub fn open(prefix: &str) -> Result<Self, FeedError> {
         let mut segments = Vec::new();
         let pose = attach_existing(&format!("{prefix}{POSE}"), POSE_BYTES, false, &mut segments)?;
@@ -469,12 +495,15 @@ impl FeedReader {
         let disabled = attach_existing(&format!("{prefix}{DISABLED}"), size_of::<bool>(), false, &mut segments)?;
         let fov = attach_existing(&format!("{prefix}{FOV}"), size_of::<f32>(), false, &mut segments).ok();
         let look_ahead = attach_existing(&format!("{prefix}{LOOK_AHEAD}"), LOOK_AHEAD_BYTES, false, &mut segments).ok();
+        let prediction =
+            attach_existing(&format!("{prefix}{PREDICTION_IPC_NAME}"), size_of::<PredictionWire>(), false, &mut segments).ok();
         Ok(FeedReader {
             pose: pose.cast(),
             mutex: mutex.cast(),
             disabled: disabled.cast(),
             fov: fov.map(|p| p.cast_const().cast()),
             look_ahead: look_ahead.map(|p| p.cast_const().cast()),
+            prediction: prediction.map(|p| p.cast_const().cast()),
             _segments: segments,
             last: None,
             retry_ns: 0,
@@ -488,6 +517,14 @@ impl FeedReader {
         // SAFETY: a float in an attached segment.
         let v = unsafe { self.fov?.read_volatile() };
         (v.is_finite() && (10.0..=120.0).contains(&v)).then_some(v)
+    }
+
+    /// The newest motion state, as `xr::MotionFeed::read` sees it before its own checks. `None`:
+    /// no channel (XRLinuxDriver) or nothing valid on it.
+    pub fn motion(&self) -> Option<MotionState> {
+        // SAFETY: a read-only, page-aligned segment of PredictionWire's size; its reads are atomic
+        // loads only.
+        unsafe { &*self.prediction? }.read()
     }
 
     /// The published look-ahead config, raw.

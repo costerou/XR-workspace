@@ -23,8 +23,12 @@ fn pose_test() -> &'static PathBuf {
             .arg(spike.join("include"))
             .arg("-I")
             .arg(spike.join("tests"))
+            .arg("-I")
+            .arg(spike.join("driver/include"))
             .arg(spike.join("tests/pose_test.cpp"))
             .arg(spike.join("src/pose.cpp"))
+            .arg(spike.join("src/motion_feed.cpp"))
+            .arg(spike.join("driver/src/predict.cpp"))
             .arg("-o")
             .arg(&out)
             .status()
@@ -170,4 +174,45 @@ fn rust_reads_the_cpp_feed() {
     cpp.write(&x);
     assert_eq!(cpp.send("probe"), "rc 0");
     assert_same_pose(&as_floats(&reader.read().unwrap()), &x);
+}
+
+#[test]
+fn cpp_renderer_reads_the_rust_motion() {
+    use xr_pose::MotionState;
+    use xr_pose::publish::{Publisher, PublisherOptions, Quat};
+    let bin = pose_test();
+    let scratch = Scratch::new();
+    let prefix = scratch.prefix();
+    let motion = || {
+        let out = Command::new(bin).args(["--motion-read", &prefix]).output().unwrap();
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    assert_eq!(motion(), "absent", "no publisher yet");
+    let options = PublisherOptions { feed: private(&prefix), history_step: 4, mount_pitch_deg: 0.0, ..Default::default() };
+    let mut publisher = Publisher::open(&options).unwrap();
+    assert_eq!(motion(), "none", "invalid at open");
+    let h = 15f32.to_radians();
+    let state = MotionState {
+        q: [h.cos(), 0.0, 0.0, h.sin()],
+        host_ns: 0x1_2345_6789,
+        seq: 3,
+        omega_rad_s: [0.25, -0.5, 1.75],
+        alpha_rad_s2: [0.0; 3],
+        valid: true,
+        calibrated: true,
+    };
+    publisher.publish(&xr_pose::publish::Pose { q: Quat { w: h.cos(), x: 0.0, y: 0.0, z: h.sin() }, t_ns: 0, calibrated: true });
+    publisher.publish_motion(&state);
+    let got = floats(&motion(), "motion");
+    let want = [0.0, 0.0, h.sin(), h.cos(), 0.25, -0.5, 1.75, 0.0, 0.0, 0.0, 0x1_2345_6789u64 as f32];
+    assert_eq!(got.len(), 11, "{got:?}");
+    for (i, (a, b)) in got.iter().zip(want).enumerate().take(10) {
+        assert!((a - b).abs() <= 1e-6, "[{i}] {a} vs {b}");
+    }
+    assert!(motion().ends_with(" 4886718345"), "host_ns exact");
+    publisher.pause();
+    assert_eq!(motion(), "none");
+    drop(publisher);
+    assert_eq!(motion(), "absent", "the private segment is gone");
 }

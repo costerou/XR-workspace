@@ -229,6 +229,7 @@ fn fake_process(scratch: &Scratch, stat: &str) {
 
 #[test]
 fn second_writer_is_refused_until_the_first_is_gone() {
+    let _forks = forks();
     let scratch = Scratch::new();
     let _segments = Precreated::new(&scratch.prefix());
     let options = shared(&scratch);
@@ -258,6 +259,7 @@ fn second_writer_is_refused_until_the_first_is_gone() {
 
 #[test]
 fn running_xrdriver_is_refused_and_a_dead_one_is_not() {
+    let _forks = forks();
     let scratch = Scratch::new();
     let _segments = Precreated::new(&scratch.prefix());
     let options = shared(&scratch);

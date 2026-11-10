@@ -1,4 +1,5 @@
 #include "fake_feed.hpp"
+#include "xr/motion_feed.hpp"
 #include "xr/pose.hpp"
 #include <algorithm>
 #include <atomic>
@@ -138,6 +139,8 @@ void run() {
 //   pose_test --feed-read <prefix> <n>  PoseFeed::open, then n reads. Prints "fov <v|none>", "look_ahead <4 floats|none>",
 //                                        then per read "sample <16 floats as read: q0 xyzw normalised, q1, q2, t0 t1 t2 0>"
 //                                        or "none". "open-failed <why>" if the feed cannot be opened.
+//   pose_test --motion-read <prefix>    MotionFeed::open and one read: "motion <q xyzw> <omega xyz> <alpha xyz> <host_ns>",
+//                                        "none", or "absent" when there is no PredictionWire.
 //   pose_test --feed-write <prefix>     A FakeFeed (the driver's layout and locking) at prefix, "ready" once it exists, then
 //                                        one command per stdin line, each answered with one line:
 //                                          write <16 floats>  the driver's publish                   -> ok
@@ -166,6 +169,18 @@ int read(const std::string& prefix, int n) {
                              s->device_ms, s->older_ms[0], s->older_ms[1], 0};
         print_floats("sample", v, 16);
     }
+    return 0;
+}
+int read_motion(const std::string& prefix) {
+    const auto feed = MotionFeed::open(prefix);
+    if (!feed) { std::printf("absent\n"); return 0; }
+    const auto m = feed->read();
+    if (!m) { std::printf("none\n"); return 0; }
+    std::printf("motion");
+    for (float f : {m->q.x, m->q.y, m->q.z, m->q.w, m->omega_rad_s[0], m->omega_rad_s[1], m->omega_rad_s[2],
+                    m->alpha_rad_s2[0], m->alpha_rad_s2[1], m->alpha_rad_s2[2]})
+        std::printf(" %.9g", double(f));
+    std::printf(" %llu\n", static_cast<unsigned long long>(m->host_ns));
     return 0;
 }
 int write(const std::string& prefix) {
@@ -211,7 +226,8 @@ int run(int argc, char** argv) {
     const std::string mode = argv[1];
     if (mode == "--feed-read" && argc == 4) return read(argv[2], std::atoi(argv[3]));
     if (mode == "--feed-write" && argc == 3) return write(argv[2]);
-    std::fprintf(stderr, "usage: pose_test [--feed-read <prefix> <n> | --feed-write <prefix>]\n");
+    if (mode == "--motion-read" && argc == 3) return read_motion(argv[2]);
+    std::fprintf(stderr, "usage: pose_test [--feed-read <prefix> <n> | --feed-write <prefix> | --motion-read <prefix>]\n");
     return 2;
 }
 }  // namespace interop

@@ -16,6 +16,7 @@
 //! For one thread. `publish` does not allocate.
 
 use crate::feed::{FeedError, FeedWriter, WriterOptions};
+use crate::prediction::MotionState;
 
 const MAX_HISTORY_STEP: u32 = 1024;
 const NS_PER_MS: u64 = 1_000_000;
@@ -81,6 +82,8 @@ pub struct PublisherStats {
     pub invalid: u64,
     /// Writes skipped on a held lock, their samples kept.
     pub busy: u64,
+    /// Motion states written to `pose_prediction`.
+    pub motion: u64,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -109,6 +112,16 @@ pub struct Publisher {
 fn usable(q: &Quat) -> bool {
     let n = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
     n.is_finite() && n >= 1e-6
+}
+
+fn conjugate(q: &Quat) -> Quat {
+    Quat { w: q.w, x: -q.x, y: -q.y, z: -q.z }
+}
+
+/// A body-frame vector of the pose, seen from the frame `q * m` puts it in.
+fn seen_from(m: &Quat, v: [f32; 3]) -> [f32; 3] {
+    let r = multiply(&multiply(&conjugate(m), &Quat { w: 0.0, x: v[0], y: v[1], z: v[2] }), m);
+    [r.x, r.y, r.z]
 }
 
 fn multiply(a: &Quat, b: &Quat) -> Quat {
@@ -237,10 +250,34 @@ impl Publisher {
         true
     }
 
+    /// The newest pose's motion, for `pose_prediction`: `state.q` is the pose as given to
+    /// [`publish`](Self::publish), and omega and alpha are in its body frame. The mount is turned
+    /// out of all three, as the 16 floats have it. An invalid, uncalibrated or unusable state
+    /// clears the channel. `host_ns` is CLOCK_MONOTONIC when the sample arrived: readers time
+    /// their prediction from it.
+    pub fn publish_motion(&mut self, state: &MotionState) {
+        let [w, x, y, z] = state.q;
+        let q = Quat { w, x, y, z };
+        if !state.valid || !state.calibrated || !usable(&q) {
+            self.writer.write_motion(&MotionState::default());
+            return;
+        }
+        let mut out = *state;
+        if let Some(m) = &self.mount {
+            let r = multiply(&q, m);
+            out.q = [r.w, r.x, r.y, r.z];
+            out.omega_rad_s = seen_from(m, state.omega_rad_s);
+            out.alpha_rad_s2 = seen_from(m, state.alpha_rad_s2);
+        }
+        self.writer.write_motion(&out);
+        self.stats.motion += 1;
+    }
+
     /// Stale or gone: readers get no sample until the next publish that writes. The history
-    /// starts over; the clock of t is kept.
+    /// starts over; the clock of t is kept. The motion channel is cleared.
     pub fn pause(&mut self) {
         self.writer.set_disabled(true);
+        self.writer.write_motion(&MotionState::default());
         self.live = false;
         self.head = 0;
         self.count = 0;

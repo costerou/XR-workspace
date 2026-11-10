@@ -62,8 +62,17 @@ pub fn mutex_of(prefix: &str) -> *mut libc::pthread_mutex_t {
     attach_raw(&format!("{prefix}pose_orientation_mutex")).cast()
 }
 
+/// Held by every test that forks or claims a shared feed. A writer.lock is a flock, which a fork
+/// shares: while any test's child lives, another test's released lock still reads as held.
+static FORKS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub fn forks() -> std::sync::MutexGuard<'static, ()> {
+    FORKS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// A child process locks the mutex and exits holding it: the next locker gets EOWNERDEAD.
 pub fn die_holding(mutex: *mut libc::pthread_mutex_t) {
+    let _forks = forks();
     unsafe {
         let child = libc::fork();
         assert!(child >= 0);
@@ -99,6 +108,7 @@ impl Precreated {
             ("pose_orientation_mutex", size_of::<libc::pthread_mutex_t>()),
             ("display_fov", 4),
             ("look_ahead_cfg", 16),
+            ("pose_prediction", 64),
         ] {
             let path = format!("{prefix}{name}");
             let mut made = false;
