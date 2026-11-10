@@ -3,11 +3,7 @@ ControllerClient 1.0 ControllerClient.qml
 Panel 1.0 Panel.qml
 BarWidget 1.0 BarWidget.qml
 DesktopEditor 1.0 DesktopEditor.qml
-RunningEditor 1.0 RunningEditor.qml
-PlacementEditor 1.0 PlacementEditor.qml
-VideoControls 1.0 VideoControls.qml
 Logo 1.0 Logo.qml
-StabilizationControls 1.0 StabilizationControls.qml
 singleton Motion 1.0 Motion.qml
 MenuTransition 1.0 MenuTransition.qml
 HomePage 1.0 HomePage.qml
@@ -15,6 +11,7 @@ SetupPage 1.0 SetupPage.qml
 ConfirmPage 1.0 ConfirmPage.qml
 ProgressPage 1.0 ProgressPage.qml
 RecoveryPage 1.0 RecoveryPage.qml
+RunningPage 1.0 RunningPage.qml
 PanelHeader 1.0 PanelHeader.qml
 PageFrame 1.0 PageFrame.qml
 PageHeading 1.0 PageHeading.qml

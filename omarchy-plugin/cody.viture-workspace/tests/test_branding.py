@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
 class TrackingInUse(unittest.TestCase):
     """Panel.qml needs the shell's imports, so the QML tests cannot load it: this keeps the line wired."""
-    def test_the_panel_shows_which_driver_is_in_use_on_every_page(self):
-        text = (PLUGIN / 'Panel.qml').read_text()
-        self.assertIn('objectName:"trackingInUse"', text)
-        self.assertIn('Model.trackingInUseLine(root.snapshot.tracking_in_use)', text)
+    def test_the_running_page_names_the_driver_in_use(self):
+        # Before a session Home's session rows name it; during one, the running page's health line does (Model.healthLine).
+        self.assertIn('Model.healthLine(root.snapshot)', (PLUGIN / 'RunningPage.qml').read_text())
+        self.assertIn('RunningPage {', (PLUGIN / 'Panel.qml').read_text())

@@ -185,7 +185,7 @@ Why they differ: a desktop is read for hours and has little real depth, so most 
 Video can afford the most depth because the eye is not reading and motion hides fill. Games get less than video because a player's eye
 goes to edges and small targets and lag matters, so its smoothing is the shortest.
 
-Depth levels for the panel, using VITURE's names since users of these glasses know them: **Soft** 0.5, **Standard** 1, **Enhanced**
+Depth levels for the options menu's 3D tab, using VITURE's names since users of these glasses know them: **Soft** 0.5, **Standard** 1, **Enhanced**
 1.5 times the preset's strength, never past the limits above.
 
 ### In `xr/stereo.hpp` terms

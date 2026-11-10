@@ -227,9 +227,11 @@ class PanelSourceTests(unittest.TestCase):
         note = (self.PANEL / 'Note.qml').read_text()
         self.assertEqual(note.count('PanelText {'), 2, 'the note title and text')
 
-    def test_the_measured_values_have_names(self):
-        text = (self.PANEL / 'RunningEditor.qml').read_text()
-        for key in ('tracking:', 'capture_failure_run:'): self.assertIn(key, text)
+    def test_the_running_page_shows_the_incident_and_the_measured_values(self):
+        # The running page keeps the last problem and one health line (Model.healthLine reads tracking and capture_failure_run).
+        self.assertIn('Model.incidentNote(snapshot)', (self.PANEL / 'RunningPage.qml').read_text())
+        model = (self.PANEL / 'Model.js').read_text()
+        for key in ('status.tracking', 'status.capture_failure_run'): self.assertIn(key, model)
 
 
 if __name__ == '__main__': unittest.main()

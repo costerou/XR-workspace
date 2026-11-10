@@ -29,9 +29,9 @@ Start an XR session from the panel as usual. Then open a video in one of four wa
 1. **Ctrl+Alt+O** in the glasses opens a file picker (zenity) on the desktop you are looking at. Pick a file and it
    plays. It is listed on the help card (Ctrl+Alt+H). Pressed during a video, it first returns to the desktops so the
    picker is visible.
-2. **Panel → VR video → Browse…** shows the same picker. Or type a path and press **Play**.
-3. A video on the web: copy a stream link or a video page link, then **Ctrl+Alt+U** (or the panel's *Paste from
-   browser*); see [web-video.md](web-video.md).
+2. **Options menu → Video → Browse…** (the gear beside a desktop's pill) shows the same picker. Or type a path and
+   press **Play**.
+3. A video on the web: copy a stream link or a video page link, then **Ctrl+Alt+U** (or the options menu's Video tab, *Paste*); see [web-video.md](web-video.md).
 4. Any client of the controller socket can send `{"op":"video_open","path":"/abs/path.mp4"}`, optionally with
    `"format":{"projection":"180","stereo":"sbs","fov":180}` to skip detection.
 
@@ -54,8 +54,7 @@ While a video plays, these keys exist (bare keys, like an open placement pill's;
 
 The desktop keys (zoom, switch, spacing, viewing mode, placement pill) do nothing while a video plays.
 Opening a video closes an open placement pill and turns the overview free pointer, its dot and the pills off until you
-return to the desktops. The panel shows the title, the detected format and how it was detected, the state, any
-warnings, and buttons for the same actions.
+return to the desktops. The controls card shows the title, the detected format, the state and any warnings.
 
 The **controls card** appears head-locked near the bottom of the view when a video opens and on any video key. It shows
 the title, playing/paused/ended, the position and length, a progress bar, the format and the key hints. It follows the
@@ -67,7 +66,7 @@ like any paused video, so don't leave a bright frame paused for long.
 At the end of the file the last frame stays and the card says *Ended*. Left/Right seek back into it, Esc leaves. A file
 that cannot be played shows *Cannot play this video* with the reason for 4 s, then the desktops come back. Files refused
 before playing (missing, not a regular file, empty, not a video, too large, unsupported projection) send nothing to the
-glasses; the panel shows why.
+glasses; a toast says why.
 
 ### Quality menu
 
@@ -125,7 +124,7 @@ renderer is unchanged. Design, limits and evidence: [web-video.md](web-video.md)
 
 ```
 xr_control.py (Ctrl+Alt+O: zenity picker) ─┐
-panel VideoControls.qml (Browse / Play) ───┼─> controller ─> run control socket ─> video.VideoControl (supervisor)
+options menu Video tab (Browse / Play) ────┼─> controller ─> run control socket ─> video.VideoControl (supervisor)
                                            │                                          │ open + fstat + ffprobe the fd
 modal keys (Space, arrows, Tab, Esc) ──────┘                                          │ detect format, check limits
                                                                                       v
@@ -315,7 +314,7 @@ In order, the first that answers wins, separately for projection and stereo layo
    1:1, so 180°.
 4. Otherwise 360° mono.
 
-The panel shows the result and its source. Tab cycles the format live if detection was wrong. Ambiguous cases do
+The controls card shows the result. Tab cycles the format live if detection was wrong. Ambiguous cases do
 exist: a 2:1 file with no hints may be 360° mono or 180° side-by-side; detection picks 360° mono and Tab fixes it.
 **Refused:** cubemap and EAC (YouTube's equi-angular cubemap), and Google's VR180 *mesh* projection; ffmpeg exposes no
 usable mapping for these.
@@ -326,11 +325,11 @@ usable mapping for these.
   to fit 8192 before projection; above 16384 they are refused. The GPU's texture limit is 16384, and VCN 4 decodes at
   most 8192 wide anyway.
 - **Hardware decode on this machine** (AMD VCN 4: RX 7800 XT, also the Ryzen iGPU): HEVC, VP9 and AV1 up to 8192 wide;
-  H.264 up to 4096 wide. Anything wider or in another codec (ProRes, …) decodes in software, and the panel warns that
+  H.264 up to 4096 wide. Anything wider or in another codec (ProRes, …) decodes in software, and a warning says that
   it may stutter. Measured offline (decode only, not end to end, synthetic noise content at ~108 Mbit/s, 8192×4096
   HEVC): **78 fps** on the RX 7800 XT's VCN with frames left on the GPU, 56 fps with a copy back to system memory,
   40 fps on the iGPU's VCN, and 56 fps in software on the Ryzen 7 9700X. 8K30 HEVC therefore has about 2.5× headroom on
-  the RX 7800 XT. 8K60 is close to the limit; the panel warns above 4K at more than 60 fps. 8K H.264 (7680×3840, synthetic) decoded in
+  the RX 7800 XT. 8K60 is close to the limit; a warning shows above 4K at more than 60 fps. 8K H.264 (7680×3840, synthetic) decoded in
   software at real time in the tests, but real 8K H.264 at high bitrate will likely not keep up.
 - **Sharpness:** the Luma Ultra shows about 48 px per degree at the centre (1920 px over ~40° horizontal, from the 46°
   diagonal fallback). An 8K 360° video has 7680 / 360 ≈ 21 px per degree, a 4K 360° one only ≈ 11. Most of the view
@@ -448,4 +447,3 @@ Offline only (no display, glasses or compositor):
   (open closes the help card and an open placement pill, key handling, ignored desktop keys, idle close, error and no-support exits, request-id
   order, bind install/removal, config reload), descriptor passing over a socketpair, and the bind helper and picker.
 - `tests/xr_controller/test_video.py`: the controller forwards opens and keys only while running and writes no new consent.
-- `omarchy-plugin/.../tests/test_video_controls.py`: the panel component in offscreen Quickshell with a stand-in picker.

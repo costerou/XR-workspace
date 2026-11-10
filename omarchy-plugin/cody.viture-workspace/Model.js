@@ -1,19 +1,5 @@
 .pragma library
 
-// Release authority is a reviewed build artifact, never a field from runtime status.
-// Lead may populate {qa_commit, lead_commit, inventory_rows:116} only after both
-// reviews accept functional equivalence for every inventory row. Null keeps fallback.
-const OPTIONS_EQUIVALENCE = {"qa_commit": "db625354321fc03568f6cd86731094fdd04c61a5", "lead_commit": "00fe4f73f2ba808ba48d855a6db2ba7c90d46faa", "inventory_rows": 116};
-function validOptionsEquivalence(evidence) {
-    return !!evidence && typeof evidence === "object" && evidence.inventory_rows === 116
-        && typeof evidence.qa_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.qa_commit)
-        && typeof evidence.lead_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.lead_commit);
-}
-function optionsRuntimeComplete(snapshot) {
-    return validOptionsEquivalence(OPTIONS_EQUIVALENCE)
-        && ((snapshot || {}).capabilities || []).indexOf("options_runtime_complete") >= 0;
-}
-
 // Most desktops a session can have: a glass pill's Add button stops there (tools/native_spike/geometry.py MAX_DESKTOPS;
 // tests/native_spike/test_desktops.py compares them).
 const MAX_DESKTOPS = 4;
@@ -49,28 +35,6 @@ function shapeOf(w, h) {
             return shape;
     }
     return "custom";
-}
-
-// Pixel aspect determines apparent size; desktop scale does not change it.
-function previewRects(desktops, width, height, spacing) {
-    if (!desktops.length || !Number.isFinite(width) || !Number.isFinite(height)
-            || !Number.isFinite(spacing) || width <= 0 || height <= 0 || spacing < 0)
-        return [];
-    if (desktops.some(function(d) { return !d || !Number.isFinite(d.width)
-            || !Number.isFinite(d.height) || d.width <= 0 || d.height <= 0; }))
-        return [];
-    const available = width - spacing * (desktops.length - 1);
-    if (available <= 0) return [];
-    const aspects = desktops.map(function(d) { return d.width / d.height; });
-    const totalAspect = aspects.reduce(function(a, b) { return a + b; }, 0);
-    const tileHeight = Math.min(height, available / totalAspect);
-    let x = (width - tileHeight * totalAspect - spacing * (desktops.length - 1)) / 2;
-    return aspects.map(function(aspect) {
-        const rect = {x: x, y: (height - tileHeight) / 2,
-                      width: tileHeight * aspect, height: tileHeight};
-        x += rect.width + spacing;
-        return rect;
-    });
 }
 
 function largeLayoutWarning(desktops) {
@@ -339,175 +303,43 @@ function confirmFooter(scope, action) {
     return optional ? "Switches can only reduce what this session does." : "Nothing here is optional for this session.";
 }
 
-// The running session's view for the panel (maximize-follow, 2026-11-03): the overview is always anchored; a maximized
-// desktop follows you or is locked to your view. `view` is the supervisor's view payload ({} before the first status).
-function viewLabel(view) {
-    if (!view || view.mode === undefined) return "awaiting measured state";
-    return view.zoomed ? "Maximized · " + view.mode : "Overview · anchor";
-}
-
-// Panel button text for a run capability (an operation the supervisor advertises); unknown ones show their name.
-const OPERATION_LABELS = {prev:"◀ Prev", next:"Next ▶", zoom_in:"Maximize", zoom_out:"Overview", recenter:"Recenter",
-                          mode_next:"Maximized: follow / locked", spacing_up:"Spacing +", spacing_down:"Spacing −",
-                          prediction:"Pose prediction"};
-function operationLabel(op) { return OPERATION_LABELS[op] || op; }
-
-// Immersive 3D (tools/native_spike/immersive.py, the same rules): {global, desktops, preset, strength, convergence}, `desktops` the exceptions by XR-n name.
-// The panel sends the whole setting; the supervisor applies and saves it, and the next status shows it.
-function immersiveOn(setting, name) {
-    if (!setting) return false;
-    const exceptions = setting.desktops || {};
-    return exceptions[name] !== undefined ? exceptions[name] : !!setting.global;
-}
-// All desktops: anything 3D goes flat, all of it; nothing 3D, everything goes 3D.
-function immersiveAll(setting, names) {
-    return Object.assign({}, setting, {global:!names.some(n => immersiveOn(setting, n)), desktops:{}});
-}
-// One desktop the other way, the rest as they are. An exception that says what `global` says is dropped.
-function immersiveDesktop(setting, name) {
-    const every = !!(setting && setting.global), exceptions = Object.assign({}, (setting && setting.desktops) || {});
-    if (immersiveOn(setting, name) === every) exceptions[name] = !every;
-    else delete exceptions[name];
-    return Object.assign({}, setting, {global:every, desktops:exceptions});
-}
-// The panel's look controls; a preset brings its own screen plane (immersive.with_preset). Soft, Standard, Enhanced are VITURE's names.
-const IMMERSIVE_PRESETS = [{key:"desktop", label:"Desktop", convergence:92}, {key:"video", label:"Video", convergence:70}, {key:"games", label:"Games", convergence:75}];
-const IMMERSIVE_STRENGTHS = [{value:50, label:"Soft"}, {value:100, label:"Standard"}, {value:150, label:"Enhanced"}];
-function immersivePreset(setting, key) {
-    const preset = IMMERSIVE_PRESETS.find(p => p.key === key);
-    return preset ? Object.assign({}, setting, {preset:key, convergence:preset.convergence}) : setting;
-}
-function immersiveStrength(setting, value) { return Object.assign({}, setting, {strength:Math.round(value)}); }
-function immersiveConvergence(setting, value) { return Object.assign({}, setting, {convergence:Math.round(value)}); }
-// The line beside the 3D buttons, from the run's `immersive` status.
-function immersiveLabel(status) {
-    if (!status) return "";
-    if (status.failed) return "Fell back to 2D: press again to retry";
-    if (status.stereo) return "3D on";
-    if (!(status.names || []).length) return "Off";
-    if (status.installed === false) return "Depth engine not installed";
-    if (status.phase === "engine") return "Loading the depth model…";
-    if (status.phase === "glasses") return "Hold " + (status.button === "L1" ? "L1" : "R1") + " on the glasses";
-    return "Starting…";
-}
-
-// Translate a preview click into the existing relative operations. The caller
-// serializes replies, stops on refusal/disconnect, and never changes view locally.
-function selectOperations(selected, target, capabilities) {
-    if (!Number.isInteger(selected) || !Number.isInteger(target)
-            || selected < 0 || selected >= MAX_DESKTOPS || target < 0 || target >= MAX_DESKTOPS) return [];
-    const operation = target > selected ? "next" : "prev";
-    if (capabilities.indexOf(operation) < 0) return [];
-    return Array(Math.abs(target-selected)).fill(operation);
-}
-
-// Per-desktop placement: integer fields, mirrored from tools/native_spike/geometry.py PLACEMENT_BOUNDS
-// (tests/native_spike/test_placement.py compares the tables). Presentation only; editable while running.
-// x / y turn the desktop round you in tenths of a degree (tools/native_spike/orbit.py): x to the right (+-1800 is behind
-// you), y up (900 straight overhead). Distance is whole percent, curvature whole degrees. Every desktop always faces
-// you, upright, so there is no facing setting (the turning angles were removed on 2026-11-02: a placement that still
-// carries them is refused here; older saved profiles load without them, tools/native_spike/profiles.py).
-const PLACEMENT_BOUNDS = {x: [-1800, 1800], y: [-900, 900], distance: [10, 200], curvature: [0, 120]};
-const PLACEMENT_KEYS = ["x", "y", "distance", "curvature"];
-const PLACEMENT_UNITS = {x: "°", y: "°", distance: "%", curvature: "°"};
-
-// Slider labels, shared by the editor.
-const PLACEMENT_LABELS = {x: "Left / right", y: "Down / up", distance: "Distance", curvature: "Curvature"};
-
-function placementLabel(key) { return PLACEMENT_LABELS[key] || ""; }
-
-function placementBounds(key) { return (PLACEMENT_BOUNDS[key] || [0, 0]).slice(); }
-
-// A field's value as the editor shows it: "12.5°" / "-3°" for the orbit's tenths, "100%", "20°". "" for a value that
-// is not an integer or a key that is not a placement field. -0 shows as "0°" (String(-0) is "0"; v < 0 is false).
-function placementValueText(key, v) {
-    if (!Number.isInteger(v) || !Object.prototype.hasOwnProperty.call(PLACEMENT_UNITS, key)) return "";
-    if (key !== "x" && key !== "y") return v + PLACEMENT_UNITS[key];
-    const a = Math.abs(v);
-    return (v < 0 ? "-" : "") + Math.floor(a / 10) + (a % 10 ? "." + (a % 10) : "") + "°";
-}
-
-function defaultPlacement() { return {x:0, y:0, distance:100, curvature:0}; }
-
-// A fresh, exact-key placement if every field is an in-range integer, else null.
-function placementEdit(p) {
-    if (!p || typeof p !== "object" || Object.keys(p).length !== PLACEMENT_KEYS.length) return null;
-    const out = {};
-    for (const key of PLACEMENT_KEYS) {
-        const v = p[key], b = PLACEMENT_BOUNDS[key];
-        if (!Number.isInteger(v) || v < b[0] || v > b[1]) return null;
-        out[key] = v;
-    }
-    return out;
-}
-
-function isFlat(p) {
-    const d = defaultPlacement();
-    return !!p && PLACEMENT_KEYS.every(function(k) { return p[k] === d[k]; });
-}
-
-// One placement per desktop (`count`, default: as many as given, else 3) with entry `index` replaced; missing/invalid
-// entries become flat.
-function withPlacement(placements, index, placement, count) {
-    const n = Number.isInteger(count) && count >= 1 && count <= MAX_DESKTOPS ? count
-            : Math.min(Math.max((placements || []).length, 3), MAX_DESKTOPS);
-    const out = [];
-    for (let i = 0; i < n; ++i) out.push(placementEdit((placements || [])[i]) || defaultPlacement());
-    if (Number.isInteger(index) && index >= 0 && index < n && placementEdit(placement)) out[index] = placementEdit(placement);
-    return out;
-}
-
-// A desktop's tile label: its XR-n name (`names` from a running session, where a removed desktop leaves a gap), else
-// XR-(index+1).
-function desktopName(names, index) {
-    return (names && typeof names[index] === "string") ? names[index] : "XR-" + (index + 1);
-}
-
-function placementSummary(p) {
-    if (!placementEdit(p) || isFlat(p)) return "flat, in line";
-    const parts = [];
-    if (p.x || p.y) {
-        const moved = [];
-        if (p.x) moved.push(placementValueText("x", Math.abs(p.x)) + (p.x > 0 ? " right" : " left"));
-        if (p.y) moved.push(placementValueText("y", Math.abs(p.y)) + (p.y > 0 ? " up" : " down"));
-        parts.push("moved " + moved.join(", "));
-    }
-    if (p.distance !== 100) parts.push("distance " + p.distance + "%");
-    if (p.curvature) parts.push("curved " + p.curvature + "°");
-    return parts.join(" · ");
-}
-
-// Approximate front view of placed tiles: the turn round you as an offset (a desktop is about PREVIEW_HEIGHT_DEG tall
-// in the overview; the centre is kept inside the row, so a desktop beside or behind you shows at the row's edge),
-// apparent size 100/distance. Every desktop faces you, so a tile is never foreshortened or rotated. Curvature is
-// listed, not drawn. Flat placements return rects unchanged.
-const PREVIEW_HEIGHT_DEG = 7;
-function placedRects(rects, placements) {
-    if (!rects || !rects.length) return [];  // previewRects gives [] when nothing fits; Math.min() of nothing is Infinity
-    const left = Math.min.apply(null, rects.map(function(r) { return r.x; }));
-    const right = Math.max.apply(null, rects.map(function(r) { return r.x + r.width; }));
-    return rects.map(function(r, i) {
-        const p = placementEdit((placements || [])[i]) || defaultPlacement();
-        const k = 100 / p.distance;
-        const w = r.width * k, h = r.height * k;
-        const perDeg = r.height / PREVIEW_HEIGHT_DEG;  // the orbit turns the desktop: its apparent size stays
-        const cx = Math.min(Math.max(r.x + r.width / 2 + p.x / 10 * perDeg, left), right);
-        const cy = Math.min(Math.max(r.y + r.height / 2 - p.y / 10 * perDeg, r.y), r.y + r.height);
-        return {x: cx - w / 2, y: cy - h / 2, width: w, height: h};
-    });
-}
-
-// Which head tracking driver these glasses run (Controller._driver_in_use): a fact, not a choice. Empty with no glasses, an older
-// controller, or a running session without head tracking.
-function trackingInUseLine(inUse) {
-    if (!inUse) return "";
-    return "Head tracking: " + inUse.label + (inUse.note ? ". " + inUse.note : "");
-}
-// Worth a second look: not installed, or the recovery setting still on. The automatic XRLinuxDriver of other models is neither.
+// Worth a second look: the driver in use (Controller._driver_in_use) is not installed, or the recovery setting is still on.
+// The automatic XRLinuxDriver of other models is neither.
 function trackingInUseWarns(inUse) { return !!inUse && (!inUse.available || /Recovery/.test(inUse.note || "")); }
 
-function immersiveDesktopStrength(setting, name, value) {
-    const strengths = Object.assign({}, setting.strengths || {});
-    strengths[name] = Math.round(value);
-    return Object.assign({}, setting, {strengths:strengths});
+// The running page (docs/mockups/plugin-poststart). Everything a session can change is in the glasses; the panel keeps what
+// the glasses cannot give you when their picture is unusable: the state, Stop, Recenter and what is wrong.
+// Something to look at: the controller's reason, a driver that warns, or head tracking the renderer reports lost.
+function runningProblem(snapshot) {
+    const s = snapshot || {};
+    return !!s.reason || trackingInUseWarns(s.tracking_in_use) || (s.status || {}).tracking === false;
+}
+// The device card while running: where, which mode, for how long.
+function runningCard(snapshot) {
+    const s = snapshot || {};
+    const parts = [s.output ? "On " + s.output : "Connected"];
+    if (s.display_mode) parts.push(s.display_mode);
+    if (Number.isFinite(s.uptime)) parts.push(s.uptime < 60 ? "under a minute" : Math.floor(s.uptime / 60) + " min");
+    const problem = runningProblem(s);
+    return {title: glassesName(s.model), sub: parts.join(" · "), status: problem ? "Needs a look" : "Running", tone: problem ? "warn" : "accent", dim: false};
+}
+// One health line from the session's measurements (the glasses' Session tab has them all): head tracking, rate, missed frames.
+function healthLine(snapshot) {
+    const s = snapshot || {}, status = s.status || {}, inUse = s.tracking_in_use;
+    const tracking = status.tracking === false ? "lost"
+                   : inUse ? inUse.label + (inUse.note ? " (" + inUse.note + ")" : "") : "off";
+    const parts = ["Head tracking: " + tracking];
+    if (Number.isFinite(status.presented_hz)) parts.push(status.presented_hz + " Hz");
+    if (Number.isFinite(status.missed)) parts.push(status.missed + (status.missed === 1 ? " missed frame" : " missed frames"));
+    if (Number.isFinite(status.capture_failure_run) && status.capture_failure_run > 0)
+        parts.push(status.capture_failure_run + " capture failures in a row");
+    if (!Number.isFinite(status.presented_hz)) parts.push("waiting for the first measurement");
+    return parts.join(" · ");
+}
+// The footer: where everything else is, or the way out when the glasses' picture may be unusable.
+function runningFooter(snapshot) {
+    const s = snapshot || {};
+    if (!runningProblem(s)) return "Everything else is in the glasses: the gear beside a desktop's pill. Ctrl+Alt+H lists the keys.";
+    const fallback = s.fallback && s.fallback !== "choose" ? s.fallback : "your other monitor";
+    return "If the glasses show nothing usable, Stop XR ends the session and puts your windows back on " + fallback + ".";
 }

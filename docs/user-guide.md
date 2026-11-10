@@ -65,7 +65,10 @@ All keys work only while a session runs, and you can change them all (see [Chang
 
 ## The options menu in the glasses
 
-During a session the desktop panel only shows **Stop** and a few live numbers. Everything else is set in the glasses.
+During a session the desktop panel has only what you need when the glasses' picture is unusable: **Stop XR**,
+**Recenter**, the session's state with one health line (head tracking, refresh rate, missed frames), and what is wrong if
+something is. It no longer has stabilization, desktop tiles, view buttons, 3D, placement or VR video: those are set in
+the glasses, as below. The full measured numbers are on the options menu's Session tab.
 In the overview, click the small **gear** to the right of a desktop's pill. The options menu opens under that
 desktop, with tabs for 3D, stabilization, layout, view, video, input, key binds, windows, privacy, help and the
 session. Placement, resolution, scale and background stay in the desktop's own
@@ -189,7 +192,8 @@ seems stuck holding the keyboard, press **Esc three times**. Keys are stored in
   choice: **Grid** or **Smoke**, with a brightness slider, in your theme's colour. **Ctrl+Alt+E** switches it off and
   back on. It is saved per pair of glasses.
 - **Privacy.** **Ctrl+Alt+D** turns your normal monitor off so only the glasses show anything. Press it again, or stop
-  the session, to turn it back on.
+  the session, to turn it back on. While it is off you cannot see the desktop panel either: only Ctrl+Alt+D, or stopping
+  the session (Stop on the options menu's Session tab), brings the monitor back.
 - **Stabilization** steadies small head movements but lets deliberate turns through. Set its strength (0–100%) on the
   options menu's Stabilization tab. See [stabilization.md](stabilization.md).
 
@@ -228,6 +232,9 @@ saved."** It never stops or restarts anything by itself.
 
 If the glasses' USB drops but the picture stays, the view holds still and shows **Reconnecting tracking…**. After 60
 seconds without tracking the session stops normally and your windows come back.
+
+The desktop panel shows the same problem during the session, with **Stop XR** under it. If the glasses show nothing
+usable, Stop XR there ends the session and puts your windows back on your normal monitor.
 
 Reports are saved in `~/.local/state/viture-workspace/incidents/` as a readable `.md` and a detailed `.json`. They
 contain logs and timings only: no screen content, window titles, clipboard text or video links, and anything that looks

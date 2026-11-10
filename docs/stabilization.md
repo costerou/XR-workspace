@@ -1,7 +1,7 @@
 # Head stabilization
 
-The panel’s **Display → Stabilization** setting steadies tiny head movements. It appears both before starting (in Session
-setup) and during a session. Off is 0, Light is 25 (the default), Medium is 60 and Strong is 100. The slider accepts
+The **Stabilization** setting steadies tiny head movements. Set it before starting in the panel's Session setup, and
+during a session on the options menu's Stability tab. Off is 0, Light is 25 (the default), Medium is 60 and Strong is 100. The slider accepts
 every whole value between 0 and 100. Changes apply live and persist through the existing view/profile store. Dragging
 coalesces pending changes while the controller acknowledges the previous value, so the final value is retained.
 

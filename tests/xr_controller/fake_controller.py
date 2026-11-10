@@ -20,7 +20,7 @@ from tools.native_spike.profiles import DEFAULT_PROFILE
 
 STATES = ('no-glasses', 'idle', 'confirming', 'starting', 'running', 'stopping',
           'recovery-needed', 'recover-confirming', 'cli-recovery', 'external-run', 'failed',
-          'idle-editor', 'beast-confirming', 'running-unmeasured', 'disconnected',
+          'idle-editor', 'beast-confirming', 'running-unmeasured', 'running-problem', 'disconnected',
           # The pre-start pages (docs/mockups/plugin-prestart): Home's blockers, Setup per model, Confirm, Progress.
           'pro2-ready', 'choose-fallback', 'no-fallback', 'pro2-no-bridge', 'multiple-glasses', 'connector',
           'driver-missing', 'refused', 'service-failed', 'setup-pro2', 'setup-beast', 'pro2-confirming',
@@ -35,7 +35,7 @@ PANEL_SETUP = {'refused': 'panel.error="busy";', 'setup-beast': 'panel.setupOpen
 def fixture(state):
     original=state
     state=state.removeprefix('bar-')
-    state={'idle-editor':'idle','beast-confirming':'confirming','running-unmeasured':'running',
+    state={'idle-editor':'idle','beast-confirming':'confirming','running-unmeasured':'running','running-problem':'running',
            'pro2-ready':'idle','choose-fallback':'idle','no-fallback':'idle','pro2-no-bridge':'idle','multiple-glasses':'idle',
            'connector':'idle','driver-missing':'idle','refused':'idle','service-failed':'disconnected','setup-pro2':'idle',
            'setup-beast':'idle','pro2-confirming':'confirming','confirm-expired':'confirming',
@@ -68,6 +68,10 @@ def fixture(state):
     if original=='beast-confirming':
         snap['model']='beast'; scope.update(model='beast',mode_switch=False)
     if original=='running-unmeasured': snap['status']={}
+    if original=='running-problem':  # the glasses' picture may be unusable: the panel is the way out
+        snap.update(reason='head tracking lost; the session stops by itself after 60 s without it',
+                    status=dict(presented_hz=0,missed=212,tracking=False),
+                    incident=dict(summary='head tracking stopped; XR stopped and your windows came back', at='2026-11-09T14:02:00'))
     if state == 'starting': snap.update(run_id='offline', start_steps=['verify','tracking','plugin','desktops'], start_phase='tracking')
     if state == 'failed':
         snap.update(run_id='offline', reason='head tracking did not calibrate in 30 seconds; XR was not started and your windows stayed where they are')

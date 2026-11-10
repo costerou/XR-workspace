@@ -1,7 +1,6 @@
 import QtQuick
 import QtTest
 import "../Model.js" as Model
-import ".." as Workspace
 
 TestCase {
     id: testCase
@@ -9,24 +8,6 @@ TestCase {
     when: windowShown
     visible:true
     width:700; height:860
-    Component { id:placementComponent; Workspace.PlacementEditor {} }
-    SignalSpy { id:placementSpy; signalName:"save" }
-    function test_release_attestation_validation() {
-        const valid = {qa_commit:"a".repeat(40),lead_commit:"b".repeat(40),inventory_rows:116};
-        verify(Model.validOptionsEquivalence(valid));
-        for (const record of [null, undefined, false, "approved", {},
-                Object.assign({}, valid, {inventory_rows:115}),
-                Object.assign({}, valid, {inventory_rows:"116"}),
-                Object.assign({}, valid, {qa_commit:"not-a-review"}),
-                Object.assign({}, valid, {lead_commit:""}),
-                Object.assign({}, valid, {qa_commit:123})])
-            verify(!Model.validOptionsEquivalence(record));
-        // The build's static record is the only approval source, never runtime data.
-        compare(Model.optionsRuntimeComplete({capabilities:["options_runtime_complete"], options_equivalence:valid}),
-                Model.validOptionsEquivalence(Model.OPTIONS_EQUIVALENCE));
-        verify(!Model.optionsRuntimeComplete({capabilities:[]}));
-        verify(!Model.optionsRuntimeComplete(null));
-    }
     function test_scales() {
         compare(Model.validScales(1920, 1080), [1, 1.25, 1.5, 2, 2.5, 3])
         compare(Model.validScales(2560, 1440), [1, 1.25, 2, 2.5])
@@ -52,23 +33,6 @@ TestCase {
         compare(Model.shapeOf(3840, 1080), "32:9")
         compare(Model.shapeOf(2560, 1440), "16:9")
         compare(Model.shapeOf(1000, 800), "custom")
-    }
-    function test_preview() {
-        const desktops = [{width:1920,height:1080}, {width:3840,height:1080}, {width:3440,height:1440}]
-        const rects = Model.previewRects(desktops, 800, 400, 20)
-        compare(rects.length, 3)
-        for (let i = 0; i < 3; ++i) {
-            fuzzyCompare(rects[i].height, rects[0].height, 0.001)
-            fuzzyCompare(rects[i].width / rects[i].height, desktops[i].width / desktops[i].height, 0.001)
-            verify(rects[i].x >= 0 && rects[i].y >= 0)
-            verify(rects[i].x + rects[i].width <= 800.001)
-            if (i) fuzzyCompare(rects[i].x - rects[i-1].x - rects[i-1].width, 20, 0.001)
-        }
-        const small = Model.previewRects([{width:1920,height:1080}], 800, 100, 20)[0]
-        compare(small.height, 100)
-        fuzzyCompare(small.x + small.width / 2, 400, 0.001)
-        compare(Model.previewRects([], 800, 400, 20), [])
-        compare(Model.previewRects(desktops, 10, 400, 20), [])
     }
     function test_colors() {
         for (const state of ["running", "starting", "stopping"]) compare(Model.barColorRole(state, "DP-2"), "accent");
@@ -189,17 +153,34 @@ TestCase {
         verify(luma.indexOf("XR Luma driver") >= 0); verify(luma.indexOf("does not start") >= 0); verify(luma.indexOf("XRLinuxDriver") < 0);
         verify(Model.trackingLine("pro2-sdk").indexOf("XRLinuxDriver") < 0);
     }
-    function test_trackingInUse() {
-        compare(Model.trackingInUseLine(undefined), "");  // an older controller
-        compare(Model.trackingInUseLine(null), "");       // no glasses, or a running session without tracking
-        const ours = {key:"luma", label:"XR Luma driver", available:true, note:null};
-        compare(Model.trackingInUseLine(ours), "Head tracking: XR Luma driver");
-        verify(!Model.trackingInUseWarns(ours));
-        const other = {key:"xrdriver", label:"XRLinuxDriver", available:true, note:"Automatic: our own drivers do not support these glasses."};
-        compare(Model.trackingInUseLine(other), "Head tracking: XRLinuxDriver. Automatic: our own drivers do not support these glasses.");
-        verify(!Model.trackingInUseWarns(other));
+    function test_trackingInUseWarns() {
+        verify(!Model.trackingInUseWarns(undefined));  // an older controller
+        verify(!Model.trackingInUseWarns({key:"luma", label:"XR Luma driver", available:true, note:null}));
+        verify(!Model.trackingInUseWarns({key:"xrdriver", label:"XRLinuxDriver", available:true, note:"Automatic: our own drivers do not support these glasses."}));
         verify(Model.trackingInUseWarns({key:"luma", label:"XR Luma driver", available:false, note:"Not installed"}));
         for (const key of ["xrdriver", "3dof"]) verify(Model.trackingInUseWarns({key:key, label:"x", available:true, note:"Recovery setting on."}));
+    }
+    // The running page (docs/mockups/plugin-poststart): state, one health line, and the way out when something is wrong.
+    function test_runningPage() {
+        const luma = {key:"luma", label:"XR Luma driver", available:true, note:null};
+        const ok = {state:"running", model:"luma-ultra", output:"DP-2", fallback:"DP-1", display_mode:"1920×1200@120", uptime:840,
+                    tracking_in_use:luma, status:{presented_hz:119.8, missed:3, capture_path:"dmabuf", pose_age_ms:4}};
+        verify(!Model.runningProblem(ok));
+        compare(Model.runningCard(ok), {title:"Luma Ultra", sub:"On DP-2 · 1920×1200@120 · 14 min", status:"Running", tone:"accent", dim:false});
+        compare(Model.healthLine(ok), "Head tracking: XR Luma driver · 119.8 Hz · 3 missed frames");
+        verify(Model.runningFooter(ok).indexOf("in the glasses") >= 0);
+        compare(Model.runningCard({model:"beast", uptime:12}).sub, "Connected · under a minute");
+        compare(Model.healthLine({status:{}}), "Head tracking: off · waiting for the first measurement");
+        compare(Model.healthLine({tracking_in_use:luma, status:{presented_hz:90, missed:1, capture_failure_run:2}}),
+                "Head tracking: XR Luma driver · 90 Hz · 1 missed frame · 2 capture failures in a row");
+        const lost = Object.assign({}, ok, {status:{presented_hz:0, missed:212, tracking:false}});
+        verify(Model.runningProblem(lost));
+        compare(Model.healthLine(lost), "Head tracking: lost · 0 Hz · 212 missed frames");
+        compare(Model.runningCard(lost).tone, "warn");
+        compare(Model.runningFooter(lost), "If the glasses show nothing usable, Stop XR ends the session and puts your windows back on DP-1.");
+        verify(Model.runningProblem(Object.assign({}, ok, {reason:"tracking reconnecting"})));
+        verify(Model.runningProblem(Object.assign({}, ok, {tracking_in_use:{key:"luma", label:"XR Luma driver", available:true, note:"Recovery setting on."}})));
+        verify(Model.runningFooter(Object.assign({}, lost, {fallback:"choose"})).indexOf("your other monitor") >= 0);
     }
     function test_pro2SettingsLine() {
         compare(Model.pro2SettingsLine(undefined), "");
@@ -236,304 +217,6 @@ TestCase {
         compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
         compare(Model.desktopEdit(1920,1080,3), {width:1920,height:1080,scale:3});
         compare(Model.desktopEdit(1920,1080,2.25), null);
-    }
-    // Maximize-follow (2026-11-03): the panel says Maximized / Overview, never "zoom"; the overview is always anchored.
-    function test_viewLabels() {
-        compare(Model.viewLabel({}), "awaiting measured state");
-        compare(Model.viewLabel(undefined), "awaiting measured state");
-        compare(Model.viewLabel({zoomed:false, mode:"anchor"}), "Overview · anchor");
-        compare(Model.viewLabel({zoomed:true, mode:"follow"}), "Maximized · follow");
-        compare(Model.viewLabel({zoomed:true, mode:"locked"}), "Maximized · locked");
-        compare(Model.operationLabel("zoom_in"), "Maximize");
-        compare(Model.operationLabel("zoom_out"), "Overview");
-        compare(Model.operationLabel("mode_next"), "Maximized: follow / locked");
-        compare(Model.operationLabel("something_new"), "something_new");
-        const off = {global:false, desktops:{}}, names = ["XR-1", "XR-2", "XR-3"];
-        compare(Model.immersiveOn(undefined, "XR-1"), false);
-        compare(Model.immersiveOn({global:true, desktops:{"XR-2":false}}, "XR-1"), true);
-        compare(Model.immersiveOn({global:true, desktops:{"XR-2":false}}, "XR-2"), false);
-        const one = Model.immersiveDesktop(off, "XR-2");
-        compare(one, {global:false, desktops:{"XR-2":true}});
-        compare(Model.immersiveDesktop(one, "XR-2"), off);
-        compare(Model.immersiveDesktop({global:true, desktops:{}}, "XR-1"), {global:true, desktops:{"XR-1":false}});
-        compare(Model.immersiveAll(off, names), {global:true, desktops:{}});
-        compare(Model.immersiveAll(one, names), off);
-        compare(Model.immersiveAll({global:true, desktops:{"XR-1":false}}, names), off);
-        compare(Model.immersiveLabel(undefined), "");
-        // The look travels with the setting, whichever button changes it.
-        const look = {global:false, desktops:{}, preset:"video", strength:150, convergence:70};
-        compare(Model.immersiveAll(look, names), {global:true, desktops:{}, preset:"video", strength:150, convergence:70});
-        compare(Model.immersiveDesktop(look, "XR-1"), {global:false, desktops:{"XR-1":true}, preset:"video", strength:150, convergence:70});
-        compare(Model.immersivePreset(look, "desktop"), {global:false, desktops:{}, preset:"desktop", strength:150, convergence:92});
-        compare(Model.immersivePreset(look, "cinema"), look);
-        compare(Model.immersiveStrength(look, 50).strength, 50);
-        compare(Model.immersiveConvergence(look, 33.4).convergence, 33);
-        compare(Model.IMMERSIVE_STRENGTHS.map(s => s.label), ["Soft", "Standard", "Enhanced"]);
-        // What the panel says while 3D comes up.
-        compare(Model.immersiveLabel({names:["XR-1"], phase:"engine", installed:true}), "Loading the depth model…");
-        compare(Model.immersiveLabel({names:["XR-1"], phase:"glasses", installed:true}), "Hold R1 on the glasses");
-        compare(Model.immersiveLabel({names:["XR-1"], phase:"glasses", installed:true, button:"L1"}), "Hold L1 on the glasses");
-        compare(Model.immersiveLabel({names:["XR-1"], phase:"off", installed:false}), "Depth engine not installed");
-        compare(Model.immersiveLabel({names:["XR-1"], stereo:true, phase:"on", installed:true}), "3D on");
-        compare(Model.immersiveLabel({names:[], stereo:false, failed:false}), "Off");
-        compare(Model.immersiveLabel({names:["XR-1"], stereo:false, failed:false}), "Starting…");
-        compare(Model.immersiveLabel({names:["XR-1"], stereo:true, failed:false}), "3D on");
-        compare(Model.immersiveLabel({names:[], stereo:false, failed:true}), "Fell back to 2D: press again to retry");
-        for (const op of ["prev","next","zoom_in","zoom_out","recenter","mode_next","spacing_up","spacing_down","prediction"])
-            verify(Model.operationLabel(op).toLowerCase().indexOf("zoom") < 0, op);
-    }
-    function test_selectOperations() {
-        compare(Model.selectOperations(0,3,["next","prev"]), ["next","next","next"]);  // a fourth desktop added in XR
-        compare(Model.selectOperations(0,Model.MAX_DESKTOPS,["next"]), []);
-        compare(Model.selectOperations(0,2,["next","prev"]), ["next","next"]);
-        compare(Model.selectOperations(2,0,["next","prev"]), ["prev","prev"]);
-        compare(Model.selectOperations(undefined,2,["next"]), []);
-        compare(Model.selectOperations(0,2,[]), []);
-        compare(Model.selectOperations(1,1,["next","prev"]), []);
-    }
-    function test_placementEdit() {
-        const flat = Model.defaultPlacement();
-        compare(Model.placementEdit(flat), flat);
-        verify(Model.isFlat(flat));
-        compare(flat, {x:0, y:0, distance:100, curvature:0});  // exactly the four fields of geometry.DEFAULT_PLACEMENT
-        const edge = {x:-100, y:100, distance:200, curvature:120};
-        compare(Model.placementEdit(edge), edge);
-        // x / y are the orbit in tenths of a degree: right round to behind you, up to straight overhead.
-        const behind = {x:1800, y:-900, distance:50, curvature:0};
-        compare(Model.placementEdit(behind), behind);
-        const otherWay = Object.assign({}, flat, {x:-1800, y:900});
-        compare(Model.placementEdit(otherWay), otherWay);
-        for (const bad of [{x:1801}, {x:-1801}, {y:901}, {y:-901}, {x:2.5}, {y:-0.5}])
-            compare(Model.placementEdit(Object.assign({}, flat, bad)), null, JSON.stringify(bad));
-        for (const key of ["x","y","distance","curvature"]) {
-            const b = Model.placementBounds(key);
-            compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[0]-1})), null);
-            compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[1]+1})), null);
-            compare(Model.placementEdit(Object.assign({}, flat, {[key]:0.5})), null);
-        }
-        compare(Model.placementEdit(Object.assign({}, flat, {z:0})), null);
-        // The facing settings are gone (every desktop faces you): a placement still carrying them is refused, even at 0.
-        compare(Model.placementEdit(Object.assign({}, flat, {yaw:0, pitch:0, roll:0})), null);
-        compare(Model.placementEdit(Object.assign({}, edge, {yaw:-60, pitch:45, roll:-45})), null);
-        for (const key of ["yaw", "pitch", "roll"]) {
-            compare(Model.placementEdit(Object.assign({}, flat, {[key]:0})), null, key);
-            compare(Model.placementBounds(key), [0, 0], key);  // not a field
-        }
-        compare(Model.placementEdit({x:0, y:0, distance:100}), null);
-        compare(Model.placementEdit(null), null);
-        compare(Model.placementBounds("x"), [-1800, 1800]);
-        compare(Model.placementBounds("y"), [-900, 900]);
-        compare(Model.placementBounds("distance"), [10, 200]);  // down to 10: ten times the size
-        compare(Model.placementBounds("curvature"), [0, 120]);
-        Model.placementBounds("x")[0] = 0;  // a copy: the table stays as it is
-        compare(Model.placementBounds("x"), [-1800, 1800]);
-    }
-    function test_placementValueText() {
-        compare(Model.placementValueText("x", 125), "12.5°");
-        compare(Model.placementValueText("x", -125), "-12.5°");
-        compare(Model.placementValueText("y", -30), "-3°");
-        compare(Model.placementValueText("y", 30), "3°");
-        compare(Model.placementValueText("y", -5), "-0.5°");
-        compare(Model.placementValueText("x", 1800), "180°");
-        compare(Model.placementValueText("x", -1800), "-180°");
-        compare(Model.placementValueText("x", -1799), "-179.9°");
-        compare(Model.placementValueText("y", 900), "90°");
-        compare(Model.placementValueText("y", -900), "-90°");
-        compare(Model.placementValueText("x", 0), "0°");
-        compare(Model.placementValueText("x", -0), "0°");
-        compare(Model.placementValueText("distance", 100), "100%");
-        compare(Model.placementValueText("distance", 50), "50%");
-        compare(Model.placementValueText("curvature", 120), "120°");
-        compare(Model.placementValueText("curvature", -0), "0°");
-        for (const key of ["yaw", "pitch", "roll"])  // removed: not placement fields
-            compare(Model.placementValueText(key, 20), "", key);
-        for (const bad of [12.5, -0.1, NaN, Infinity, -Infinity, "5", null, undefined, true, [5], {}])
-            for (const key of ["x", "y", "distance", "curvature"])
-                compare(Model.placementValueText(key, bad), "", key + " " + String(bad));
-        compare(Model.placementValueText("z", 5), "");
-        compare(Model.placementValueText("toString", 5), "");
-        compare(Model.placementValueText(undefined, 5), "");
-    }
-    function test_withPlacementKeepsTheDesktopCount() {
-        const tilt = {x:10, y:0, distance:100, curvature:30}, flat = Model.defaultPlacement();
-        compare(Model.withPlacement([flat, flat], 1, tilt, 2), [flat, tilt]);              // two desktops left in XR
-        compare(Model.withPlacement([flat, flat, flat, flat], 3, tilt, 4), [flat, flat, flat, tilt]);
-        compare(Model.withPlacement([flat, flat, flat, flat], 3, tilt), [flat, flat, flat, tilt]);
-        compare(Model.withPlacement([flat], 3, tilt, 1), [flat]);                            // index past the desktops
-        compare(Model.desktopName(["XR-1", "XR-3"], 1), "XR-3");
-        compare(Model.desktopName([], 1), "XR-2");
-        compare(Model.desktopName(undefined, 0), "XR-1");
-    }
-    function test_withPlacement() {
-        const tilt = {x:10, y:0, distance:100, curvature:30};
-        compare(Model.withPlacement(undefined, 1, tilt), [Model.defaultPlacement(), tilt, Model.defaultPlacement()]);
-        compare(Model.withPlacement([tilt, {bad:1}], 2, tilt), [tilt, Model.defaultPlacement(), tilt]);
-        compare(Model.withPlacement([tilt, tilt, tilt], 0, {x:999}), [tilt, tilt, tilt]);
-        compare(Model.withPlacement([tilt, tilt, tilt], 0, Object.assign({}, tilt, {x:1801})), [tilt, tilt, tilt]);
-        const behind = Object.assign(Model.defaultPlacement(), {x:-1800, y:900});
-        compare(Model.withPlacement([tilt, tilt, tilt], 1, behind), [tilt, behind, tilt]);
-        compare(Model.placementSummary(Model.defaultPlacement()), "flat, in line");
-        compare(Model.placementSummary(tilt), "moved 1° right · curved 30°");
-        compare(Model.placementSummary({x:-125, y:30, distance:150, curvature:20}),
-                "moved 12.5° left, 3° up · distance 150% · curved 20°");
-        // A placement still carrying the removed facing settings is invalid: it is not summarised, and not kept.
-        const legacy = Object.assign({}, tilt, {yaw:20, pitch:-5, roll:3});
-        compare(Model.placementSummary(legacy), "flat, in line");
-        compare(Model.withPlacement([legacy, tilt, tilt], 1, legacy), [Model.defaultPlacement(), tilt, tilt]);
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-125, y:-30})), "moved 12.5° left, 3° down");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:125, y:30})), "moved 12.5° right, 3° up");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {y:5})), "moved 0.5° up");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-1, y:-900})), "moved 0.1° left, 90° down");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:1800, distance:150})),
-                "moved 180° right · distance 150%");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-0, y:-0})), "flat, in line");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:1801})), "flat, in line");  // invalid
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:12.5})), "flat, in line");
-    }
-    function test_placedRects() {
-        const rects = [{x:0, y:0, width:100, height:50}];
-        compare(Model.placedRects(rects, []), [{x:0, y:0, width:100, height:50}]);
-        compare(Model.placedRects(rects, undefined), [{x:0, y:0, width:100, height:50}]);
-        verify(!("rotation" in Model.placedRects(rects, [])[0]), "every desktop faces you: a tile is never rotated");
-        compare(Model.placedRects([], []), []);
-        compare(Model.placedRects([], [Model.defaultPlacement()]), []);
-        compare(Model.placedRects(Model.previewRects([], 800, 400, 20), undefined), []);
-        const r = Model.placedRects(rects, [{x:50, y:20, distance:200, curvature:60}])[0];
-        fuzzyCompare(r.width, 50, 0.001);   // half size at 200%; it faces you, so it is never foreshortened
-        fuzzyCompare(r.height, 25, 0.001);
-        fuzzyCompare(r.x + r.width / 2, 50 + 5 * 50 / 7, 0.001);  // 5° right; a desktop is about 7° tall
-        fuzzyCompare(r.y + r.height / 2, 25 - 2 * 50 / 7, 0.001);  // 2° and +y is up
-        verify(!("rotation" in r));
-        // A placement still carrying the removed facing settings is invalid and draws flat.
-        compare(Model.placedRects(rects, [{x:50, y:20, distance:200, yaw:60, pitch:0, roll:10, curvature:0}]),
-                [{x:0, y:0, width:100, height:50}]);
-        const down = Model.placedRects(rects, [Object.assign(Model.defaultPlacement(), {x:-50, y:-20})])[0];
-        fuzzyCompare(down.x + down.width / 2, 50 - 5 * 50 / 7, 0.001);
-        fuzzyCompare(down.y + down.height / 2, 25 + 2 * 50 / 7, 0.001);
-        fuzzyCompare(down.width, 100, 0.001);  // the orbit turns the desktop round you: its apparent size stays
-        fuzzyCompare(down.height, 50, 0.001);
-        const huge = Model.placedRects(rects, [Object.assign(Model.defaultPlacement(), {distance:10})])[0];
-        compare(huge, {x:-450, y:-225, width:1000, height:500});  // ten times the size about its centre (the preview clips it)
-        compare(Model.placementEdit(Object.assign(Model.defaultPlacement(), {distance:10})).distance, 10);
-        compare(Model.placementEdit(Object.assign(Model.defaultPlacement(), {distance:9})), null);
-
-        // A row of three: a centre is kept inside the row, so a desktop beside, behind or above you shows at its edge.
-        const row = [{x:10, y:20, width:100, height:50}, {x:120, y:20, width:100, height:50}, {x:230, y:20, width:100, height:50}];
-        const flat = Model.defaultPlacement();
-        const placed = Model.placedRects(row, [Object.assign({}, flat, {x:-1800}), Object.assign({}, flat, {y:900}),
-                                               Object.assign({}, flat, {x:1800, y:-900})]);
-        compare(placed.length, 3);
-        fuzzyCompare(placed[0].x + placed[0].width / 2, 10, 0.001);   // the row's left edge
-        fuzzyCompare(placed[0].y + placed[0].height / 2, 45, 0.001);
-        fuzzyCompare(placed[1].x + placed[1].width / 2, 170, 0.001);
-        fuzzyCompare(placed[1].y + placed[1].height / 2, 20, 0.001);  // the row's top
-        fuzzyCompare(placed[2].x + placed[2].width / 2, 330, 0.001);  // the row's right edge
-        fuzzyCompare(placed[2].y + placed[2].height / 2, 70, 0.001);  // the row's bottom
-        for (const t of placed) { fuzzyCompare(t.width, 100, 0.001); fuzzyCompare(t.height, 50, 0.001); }
-        const middleRight = Model.placedRects(row, [flat, Object.assign({}, flat, {x:1800}), flat])[1];
-        fuzzyCompare(middleRight.x + middleRight.width / 2, 330, 0.001);
-        const middleLeft = Model.placedRects(row, [flat, Object.assign({}, flat, {x:-1800}), flat])[1];
-        fuzzyCompare(middleLeft.x + middleLeft.width / 2, 10, 0.001);
-        // Invalid placements (old units out of range, non-integers) draw flat.
-        const odd = Model.placedRects(row, [Object.assign({}, flat, {x:1801}), Object.assign({}, flat, {y:0.5}), null]);
-        for (let i = 0; i < 3; ++i) { fuzzyCompare(odd[i].x, row[i].x, 0.001); fuzzyCompare(odd[i].y, row[i].y, 0.001); }
-    }
-    function test_placementEditorIdle() {
-        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),index:1});
-        verify(editor !== null);
-        verify(waitForRendering(editor));
-        verify(!findChild(editor,"placementReset").enabled);
-        editor.setField("curvature", 45.4);
-        editor.setField("distance", 150);
-        compare(editor.draft.curvature, 45);
-        verify(findChild(editor,"placementReset").enabled);
-        placementSpy.target=editor; placementSpy.clear();
-        const slider=findChild(editor,"placement_x");
-        mousePress(slider); mouseRelease(slider);  // idle: a release does not save on its own
-        compare(placementSpy.count,0);
-        mouseClick(findChild(editor,"placementSave"));
-        compare(placementSpy.count,1);
-        compare(placementSpy.signalArguments[0][0].curvature,45);
-        compare(placementSpy.signalArguments[0][0], {x:0, y:0, distance:150, curvature:45});  // exactly the four fields
-        editor.busy=true;
-        verify(!findChild(editor,"placementSave").enabled);
-        verify(!slider.enabled);
-        editor.placement={x:5, y:0, distance:100, curvature:0};
-        compare(editor.draft.x,5);
-        compare(findChild(editor,"placementValue_x").text,"0.5°");
-        compare(findChild(editor,"placementValue_y").text,"0°");
-        compare(findChild(editor,"placementValue_distance").text,"100%");
-        placementSpy.target=null;
-    }
-    function test_placementValueLabels() {
-        // The orbit sliders span the new tenths of a degree, and the widest values fit their column at the panel's width.
-        const widest={x:-1799, y:-899, distance:200, curvature:120};
-        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:widest});
-        verify(waitForRendering(editor));
-        compare(findChild(editor,"placement_x").from,-1800);
-        compare(findChild(editor,"placement_x").to,1800);
-        compare(findChild(editor,"placement_y").from,-900);
-        compare(findChild(editor,"placement_y").to,900);
-        compare(findChild(editor,"placement_x").value,-1799);
-        const expected={x:"-179.9°", y:"-89.9°", distance:"200%", curvature:"120°"};
-        for (const key of Object.keys(expected)) {
-            const label=findChild(editor,"placementValue_" + key);
-            verify(label !== null, key);
-            compare(label.text, expected[key]);
-            verify(label.width >= label.implicitWidth, key + " value clipped: " + label.width + " < " + label.implicitWidth);
-        }
-        // The Omarchy shell's font is monospace (JetBrainsMono Nerd Font), wider than the test's default sans.
-        const xValue=findChild(editor,"placementValue_x");
-        xValue.font.family="monospace";
-        verify(xValue.width >= xValue.implicitWidth, "monospace -179.9° clipped: " + xValue.width + " < " + xValue.implicitWidth);
-        editor.setField("x", -1800.4);  // a slider value rounds to a whole tenth
-        compare(editor.draft.x,-1800);
-        compare(findChild(editor,"placementValue_x").text,"-180°");
-    }
-    function test_placementEditorLive() {
-        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),live:true});
-        verify(waitForRendering(editor));
-        placementSpy.target=editor; placementSpy.clear();
-        const slider=findChild(editor,"placement_distance");
-        mousePress(slider); mouseRelease(slider);  // live: release applies
-        compare(placementSpy.count,1);
-        verify(Model.placementEdit(placementSpy.signalArguments[0][0]) !== null);
-        editor.setField("curvature", 12);
-        mouseClick(findChild(editor,"placementReset"));  // live: Flat applies immediately
-        compare(placementSpy.count,2);
-        verify(Model.isFlat(placementSpy.signalArguments[1][0]));
-        verify(!findChild(editor,"placementReset").enabled);
-        placementSpy.target=null;
-    }
-    function test_placementLabels() {
-        compare(Model.placementLabel("x"), "Left / right");
-        compare(Model.placementLabel("y"), "Down / up");
-        compare(Model.placementLabel("distance"), "Distance");
-        compare(Model.placementLabel("curvature"), "Curvature");
-        // At the panel's editor width every label fits its column (no clipping or eliding).
-        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:Model.defaultPlacement()});
-        verify(waitForRendering(editor));
-        for (const key of ["x","y","distance","curvature"]) {
-            const label=findChild(editor,"placementLabel_" + key);
-            verify(label !== null, key);
-            compare(label.text, Model.placementLabel(key));
-            verify(label.width >= label.implicitWidth, key + " label clipped: " + label.width + " < " + label.implicitWidth);
-            verify(findChild(editor,"placement_" + key).width >= 200, key + " slider squeezed");
-        }
-    }
-    function test_placementEditorHasNoFacingSettings() {
-        // Every desktop always faces you: four slider rows (the glass panel's kPlacementMenuFields), no turning rows.
-        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:Model.defaultPlacement()});
-        verify(waitForRendering(editor));
-        compare(findChild(editor,"placementRows").count, 4);
-        for (const key of ["yaw", "pitch", "roll"]) {
-            compare(Model.placementLabel(key), "", key);
-            compare(findChild(editor,"placement_" + key), null, key);
-            compare(findChild(editor,"placementLabel_" + key), null, key);
-        }
-        const hint=findChild(editor,"placementHint").text;
-        verify(hint.indexOf("always faces you") >= 0, hint);
-        verify(!/\b(yaw|pitch|roll)\b/i.test(hint), hint);
     }
 
     function test_pro2StartNamesItsTrackingAndApproximateProjection() {

@@ -9,7 +9,7 @@ import "Model.js" as Model
 
 // The panel window: a fixed 520×660 page under a shared header. Before a session it is Home, Setup (a sub-page of Home),
 // the one-run confirmation, the start's progress or a recovery page (docs/mockups/plugin-prestart); during a session it
-// is the running editor.
+// is the running page (docs/mockups/plugin-poststart).
 Item {
     id: root
     property alias renderSurface: captureSurface
@@ -202,23 +202,5 @@ Item {
     Component { id: confirmation; ConfirmPage { pending: root.pending; busy: root.busy; onRequest: message => root.request(message) } }
     Component { id: progress; ProgressPage { snapshot: root.snapshot; busy: root.busy; onRequest: message => root.request(message) } }
     Component { id: recovery; RecoveryPage { snapshot: root.snapshot; busy: root.busy; onRequest: message => root.request(message) } }
-    // The running session's page is unchanged: the editor, under the driver in use and the controller's reason.
-    Component {
-        id: running
-        Flickable {
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            contentWidth: width
-            contentHeight: runningBody.implicitHeight + 36
-            ScrollBar.vertical: ScrollBar {}
-            ColumnLayout {
-                id: runningBody
-                x: 18; y: 18; width: parent.width - 36
-                spacing: 14
-                Label { text: root.snapshot.reason || ""; textFormat: Text.PlainText; visible: text !== ""; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Tone.warn }
-                Label { objectName:"trackingInUse"; text:Model.trackingInUseLine(root.snapshot.tracking_in_use); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; horizontalAlignment:Text.AlignHCenter; opacity:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? 1 : 0.65; color:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? Tone.warn : palette.windowText }
-                RunningEditor { Layout.fillWidth: true; snapshot: root.snapshot; settings: root.settings; busy: root.busy; onRequest: message => root.request(message) }
-            }
-        }
-    }
+    Component { id: running; RunningPage { snapshot: root.snapshot; busy: root.busy; onRequest: message => root.request(message) } }
 }

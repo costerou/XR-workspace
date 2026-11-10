@@ -1,4 +1,4 @@
-"""The pre-start pages (docs/mockups/plugin-prestart), one state at a time, in the real Quickshell with the Omarchy shell kit.
+"""The panel's pages (docs/mockups/plugin-prestart, and the running page of docs/mockups/plugin-poststart), one state at a time, in the real Quickshell with the Omarchy shell kit.
 
 Each page is created on its own with a snapshot from a fixture: what it shows, whether Start (or Recover, or Cancel) is offered,
 and what a click sends. qmltestrunner cannot load these pages (they use qs.Ui, which needs Quickshell), so this runs a small
@@ -49,6 +49,7 @@ ShellRoot {
     Component { id: confirm; Plugin.ConfirmPage {} }
     Component { id: progress; Plugin.ProgressPage {} }
     Component { id: recovery; Plugin.RecoveryPage {} }
+    Component { id: running; Plugin.RunningPage {} }
 
     function testHome() {
         let p = page(home, {snapshot: ready, settings: settings});
@@ -209,6 +210,29 @@ ShellRoot {
         check(!shown(p, "recoverButton") && !shown(p, "commandBox") && shown(p, "journalBox") && shown(p, "copyJournal"), "recovery: external run"); p.destroy();
     }
 
+    function testRunning() {
+        const live = at({state:"running", display_mode:"1920×1200@120", uptime:840, capabilities:["prev","next","recenter"],
+                         status:{presented_hz:119.8, missed:3}});
+        let p = page(running, {snapshot: live});
+        check(find(p, "deviceCard").info.status === "Running", "running: card");
+        check(!shown(p, "reasonNote") && !shown(p, "incidentNote"), "running: no notes");
+        check(find(p, "healthLine").text === "Head tracking: XR Luma driver · 119.8 Hz · 3 missed frames", "running: health " + find(p, "healthLine").text);
+        find(p, "stopButton").clicked();
+        find(p, "recenterButton").clicked();
+        check(JSON.stringify(sent) === JSON.stringify([{op:"stop"}, {op:"view_op", operation:"recenter"}]), "running: Stop, Recenter " + JSON.stringify(sent));
+        // Nothing else to press: every session option is in the glasses.
+        for (const gone of ["runtimeEditors", "measuredStatus", "immersiveRow", "livePlacement", "stabilizationSlider"])
+            check(!find(p, gone), "running: no " + gone);
+        p.busy = true; check(!find(p, "stopButton").enabled && !find(p, "recenterButton").enabled, "running: busy"); p.destroy();
+
+        p = page(running, {snapshot: at({state:"running", reason:"head tracking lost; reconnecting", status:{presented_hz:0, missed:212, tracking:false},
+                                         incident:{summary:"head tracking stopped", at:"2026-11-09T14:02:00"}})});
+        check(shown(p, "reasonNote") && shown(p, "incidentNote") && find(p, "deviceCard").info.tone === "warn", "running: problem notes");
+        check(!shown(p, "recenterButton"), "running: no Recenter without the capability");
+        check(find(p, "footerText").text.indexOf("windows back on DP-1") >= 0, "running: way out " + find(p, "footerText").text);
+        check(find(p, "stopButton").enabled, "running: Stop stays"); p.destroy();
+    }
+
     FloatingWindow {
         implicitWidth: 520; implicitHeight: 660
         Item { id: surface; anchors.fill: parent }
@@ -216,7 +240,7 @@ ShellRoot {
     Timer {
         interval: 300; running: true
         onTriggered: {
-            for (const test of [root.testHome, root.testSetup, root.testConfirm, root.testProgress, root.testRecovery]) {
+            for (const test of [root.testHome, root.testSetup, root.testConfirm, root.testProgress, root.testRecovery, root.testRunning]) {
                 try { test(); } catch (e) { root.fail(e + " " + e.stack); }
             }
             if (root.failures === 0) console.log("PASS prestart pages");
