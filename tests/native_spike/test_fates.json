@@ -36,6 +36,10 @@
    "fate": "keep",
    "reason": "Writes rust/corpus/placement/plans.json, the corpus the Rust window placement is held to."
   },
+  "pointer_trace_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/pointer/traces-*.json, the recorded overview pointer traces the Rust pointer is held to."
+  },
   "run_order_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/supervisor/run_order.json, the order of every managed run and recovery path and failure point that the Rust managed module is held to."
@@ -1937,6 +1941,16 @@
     }
    },
    "covers": "tools/native_spike/view.py"
+  },
+  "test_pointer_trace_corpus.py": {
+   "classes": {
+    "PointerTraceCorpusTests": {
+     "tests": 3,
+     "fate": "wire",
+     "via": "rust/corpus/pointer",
+     "how": "The pointer gate: the Rust overview pointer replays every recorded trace with the same control calls, frames and state. The Python test keeps the traces true to the Python."
+    }
+   }
   },
   "test_pointer_zones.py": {
    "classes": {
