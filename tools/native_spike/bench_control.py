@@ -1,7 +1,7 @@
 """Control-plane timing harness. Offline: fakes only, never the live compositor, renderer, glasses or controller service.
 
 usage: python3 -m tools.native_spike.bench_control [--quick] [--json PATH] [--only NAME,...]
-                                                    [--overview-seconds S] [--press-every S]
+                                                    [--overview-seconds S] [--press-every S] [--helper PATH]
 
 Benchmarks (one result block each; --json writes them all for a before / after comparison):
   hypr_query  HyprlandClient.query('cursorpos') against a fake Hyprland socket server in another process: client CPU
@@ -23,6 +23,9 @@ Benchmarks (one result block each; --json writes them all for a before / after c
               including children. Runs the real `systemctl --user is-active` on unit names that do not exist (read only)
               and reads the real USB / DRM sysfs (read only).
   startup     Interpreter start plus imports: the bind helper (per key press), the controller service, the panel runner.
+
+--helper PATH runs that bind helper binary (the Rust `xr-control`, rust/crates/xr-workspace) in place of xr_control.py in
+overview and control_op; it takes the same command line.
 """
 import argparse
 import json
@@ -41,6 +44,11 @@ import time
 
 REPO = Path(__file__).resolve().parents[2]
 HELPER = Path(__file__).with_name('xr_control.py')
+
+
+def helper_command(helper=None):
+    """The bind helper's command before its arguments: a helper binary given with --helper, else xr_control.py."""
+    return (str(helper),) if helper else (sys.executable, '-I', str(HELPER))
 INSTANCE = 'a' * 40 + '_1700000000_1'
 NAMES = ['XR-1', 'XR-2', 'XR-3']
 STALE_RUNS = 30
@@ -205,7 +213,7 @@ def bench_hypr_query(quick):
             'sampler_cpu_pct_at_250hz': round(cpu / n * 250 * 100, 2)}
 
 
-def bench_overview(quick, window=None, press_every=None):
+def bench_overview(quick, window=None, press_every=None, helper=None):
     """window: seconds measured (default 2 / 5). press_every: also press the recenter key through the real bind helper
     every this many seconds while the overview is open, and time spawn -> the renderer holding the recenter frame."""
     from . import view
@@ -237,7 +245,7 @@ def bench_overview(quick, window=None, press_every=None):
     control.wake = pointer.wake_reader
     control.set_overview_geometry(parse_overview_geometry(GEOMETRY))
     client = fake.client()
-    bind_args = (sys.executable, str(HELPER), str(server.path), run_id, session)
+    bind_args = (*helper_command(helper), str(server.path), run_id, session)
     sampler = UnifiedSampler(client, NAMES, pointer, bind_args).start()
     watchdog = Supervisor(proc, lambda: proc.poll(), control=control, status_socket=status_parent)
     marks = {}
@@ -391,7 +399,7 @@ def bench_guard(quick):
             'wall_us': summary(walls, 1e6), 'worker_first_verdict_ms': summary(firsts, 1e3)}
 
 
-def bench_control_op(quick):
+def bench_control_op(quick, helper=None):
     from .ipc import PrivateServer
     n = 10 if quick else 30
     tmp = Path(tempfile.mkdtemp(prefix='bench-cp-'))
@@ -403,7 +411,7 @@ def bench_control_op(quick):
             delivered, exits, received = [], [], []
             for i in range(n + 2):
                 t = time.perf_counter()
-                p = subprocess.Popen([sys.executable, '-I', str(HELPER), str(server.path), run_id, session,
+                p = subprocess.Popen([*helper_command(helper), str(server.path), run_id, session,
                                       'resize_press' if i % 2 else 'resize_release'], stdin=subprocess.DEVNULL)
                 conn, _ = server.socket.accept()
                 with conn:
@@ -528,11 +536,13 @@ def main(argv=None):
     ap.add_argument('--only', help='comma-separated benchmark names: ' + ', '.join(BENCHES))
     ap.add_argument('--overview-seconds', type=float, help='overview: measure this long (bench_baseline uses 600)')
     ap.add_argument('--press-every', type=float, help='overview: press the recenter key through the bind helper this often (s)')
+    ap.add_argument('--helper', type=Path, help='overview, control_op: this bind helper binary in place of xr_control.py')
     args = ap.parse_args(argv)
     names = args.only.split(',') if args.only else list(BENCHES)
     results = {}
     for name in names:
         extra = {'window': args.overview_seconds, 'press_every': args.press_every} if name == 'overview' else {}
+        if name in ('overview', 'control_op'): extra['helper'] = args.helper
         results[name] = BENCHES[name](args.quick, **extra)
         print(f'{name}: {json.dumps(results[name])}', flush=True)
     if args.json: args.json.write_text(json.dumps(results, indent=2) + '\n')

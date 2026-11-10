@@ -13,7 +13,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | `xr-luma-driver` | binary | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
 | `xr-renderer` | binary | The C++ renderer |
-| `xr-workspace` | binary + library | Controller, supervisor, key helper and installer; the supervisor's Lua generators are in `xr_workspace::lua` |
+| `xr-workspace` | binaries + library | Controller, supervisor and installer (`xr-workspace`) and the key helper (`xr-control`); the supervisor's Lua generators are in `xr_workspace::lua` |
 
 ## Gates
 
@@ -51,6 +51,30 @@ with ctest, the Python suites and the QML tests.
 interrupts, a foreign Wayland peer) against shell stand-ins and checks the timings and that no
 worker or renderer is left unreaped. The control socket, Hyprland events and the physical-pair
 guard check are later tasks.
+
+## Key helper (`xr-control`)
+
+`xr-control` is the Rust port of `tools/native_spike/xr_control.py`, the helper Hyprland runs once per bound key press. It
+takes the same command line and sends the same control frames, the same fixed Lua to Hyprland when no run is listening,
+and runs zenity, wl-paste and notify-send with the same arguments. Nothing binds it yet: the live binds still run the
+Python helper.
+
+`crates/xr-workspace/tests/control_parity.rs` is the parity gate. It runs both helpers on the same fakes for every op
+the Python accepts, the bad command lines, the dead-run cleanups, the picker and the clipboard, and compares exit
+status, frames byte for byte (request ids blanked after a range check), Lua evals and tool command lines. It needs
+`/usr/bin/python3` and never touches the live compositor or a run.
+
+Key press to frame, through the real Python supervisor and a fake renderer:
+
+```sh
+cargo build --locked --release -p xr-workspace
+TMPDIR=/tmp /usr/bin/python3 -m tools.native_spike.bench_control --only overview,control_op \
+  --overview-seconds 125 --press-every 0.4 --helper rust/target/release/xr-control
+```
+
+One knowing difference: Python's `isdigit` and `int` also take non-ASCII digits in `binds_key` and `options_scroll`
+arguments; the Rust helper takes ASCII digits only and treats anything else as a bad command line. Hyprland's binds only
+pass ASCII numbers.
 
 ## Corpus
 

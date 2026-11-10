@@ -6,10 +6,20 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "xr-workspace"
+path = "src/main.rs"
+
+# The bind helper: one process per bound key press, so it is its own small binary.
+[[bin]]
+name = "xr-control"
+path = "src/bin/xr-control.rs"
+
 [lints]
 workspace = true
 
 [dependencies]
+# Sockets with a timed connect, SO_PEERCRED, getuid and access(2) in the key helper: the calls std does not expose.
 libc = "0.2"
 serde = "1"
 serde_json = "1"
