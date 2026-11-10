@@ -13,7 +13,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | `xr-luma-driver` | binary | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
 | `xr-renderer` | binary | The C++ renderer |
-| `xr-workspace` | binary | Controller, supervisor, key helper and installer |
+| `xr-workspace` | binary + library | Controller, supervisor, key helper and installer |
 
 ## Gates
 
@@ -36,6 +36,21 @@ crates are `publish = false` and are skipped by the licence check.
 
 `tests/run_all.sh rust` runs these gates from the repository root, and a bare `tests/run_all.sh` runs them together
 with ctest, the Python suites and the QML tests.
+
+## Supervisor
+
+`xr-workspace::supervisor` ports the run loop of `tools/native_spike/supervisor.py`:
+
+- the 2 s heartbeat (only `H` bytes count)
+- the guard worker in its own process, failing closed 4.25 s after its last `V`
+- the 0.5 s grace from SIGTERM to SIGKILL, and recovery only after the renderer is reaped
+- the renderer launch, which passes exactly the supervised, Wayland, status and optional depth or
+  continuity descriptors and sends the Python's start frame byte for byte
+
+`tests/supervisor_faults.rs` drives each fault (slow, hung, failing and crashing guards, silence,
+interrupts, a foreign Wayland peer) against shell stand-ins and checks the timings and that no
+worker or renderer is left unreaped. The control socket, Hyprland events and the physical-pair
+guard check are later tasks.
 
 ## Corpus
 
