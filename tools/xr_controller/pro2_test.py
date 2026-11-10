@@ -7,7 +7,7 @@ import signal
 from pathlib import Path
 import time
 from tools.native_spike.ipc import read_private_json,token
-from tools.native_spike import monitor_rules
+from tools.native_spike import monitor_rules, startup
 from tools.native_spike.hyprland import HyprlandClient,ownership_plugin_count
 from tools.native_spike.profiles import ProfileStore,profiles_path
 from tools.native_spike.geometry import validate_desktops
@@ -79,12 +79,15 @@ def run_session(client,consent,root,runtime,state_dir,desktops,*,projection,seco
         if ownership_plugin_count(client.plugins_loaded()):raise ValueError('ownership plugin already present')
         options={**({'pose_rate_hz':pose_rate_hz} if pose_rate_hz!=60 else {}),**({'panel_route':True} if panel_route else {}),**({'mount_pitch_deg':mount_pitch_deg} if mount_pitch_deg else {})}
         provider=session_factory(root,state_dir/consent['run_id'],projection,seconds,True,**options)
+        startup.mark('tracking')  # the bridge, up to healthy
         provider.start()
         scope=TestScope(provider.prefix,provider.projection,str(provider.health_path),provider.nonce,fixed_desktops=not panel_route,level_gravity=level_gravity,
                       display=getattr(provider,'set_display',None));scope.healthy()
+        startup.mark('plugin')
         attempted=True  # before the call: a load that took effect and then raised still has to be unloaded
         client.plugin_load(plugin)
         if ownership_plugin_count(client.plugins_loaded())!=1:raise ValueError('test ownership plugin load unconfirmed')
+        startup.mark('desktops')
         client.park_presentation(consent['output'])
         started=True
         result=(run or run_pro2_test_managed)(client,consent,runtime,test_scope=scope,desktops=desktops,store=store,renderer=str(root/'bin/xr-native-spike'))

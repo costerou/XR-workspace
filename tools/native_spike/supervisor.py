@@ -7,6 +7,7 @@ import socket
 import sys
 import time
 
+from . import startup
 from .faults import Faults
 from .tracking import lost_timeout
 
@@ -197,6 +198,7 @@ class Supervisor:
                             else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
                             if not valid: raise ValueError('invalid measured value')
                         self.status = value
+                        if 'missed' in value: startup.mark('first_status')  # a frame presented or discarded (startup.py)
                         if 'tracking' in value: self._tracking_status(value['tracking'], time.monotonic() if now is None else now)
                 except (ValueError, TypeError): pass
             self._status_buffer = b''; self._status_discard = False
@@ -485,6 +487,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
         argv += capture_argv
         try:
+            startup.mark('renderer')
             # No renderer disk writes: GPU drivers would otherwise persist a shader cache.
             env = dict(os.environ, MESA_SHADER_CACHE_DISABLE='true')
             child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True, stdin=subprocess.DEVNULL, env=env,

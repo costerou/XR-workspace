@@ -223,6 +223,12 @@ class Run(Base):
         self.assertEqual(kwargs['renderer'],str(self.bundle/'bin/xr-native-spike'))
         client.plugin_unload.assert_called_once_with(str(self.bundle/'bin/libxr-ownership.so'))
         client.apply_session_mode.assert_not_called()
+    def test_a_session_marks_its_bridge_plugin_and_desktops_phases(self):
+        from tools.native_spike import startup
+        startup.reset(); self.addCleanup(startup.reset)
+        self.run_it()
+        marks = startup.marks()
+        self.assertEqual(sorted(marks, key=marks.get), ['tracking', 'plugin', 'desktops'])
     def test_a_session_stops_our_own_driver_left_from_the_other_glasses_first(self):
         with patch('tools.native_spike.tracking.stop') as stop:self.run_it()
         stop.assert_called_once_with(self.dir)

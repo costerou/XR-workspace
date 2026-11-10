@@ -255,7 +255,7 @@ Out of scope unless Cody decides otherwise: camera-based heading or 6DoF.
 | Memory | **not measured** | driver ≤ 8 MiB, supervisor ≤ 20 MiB, renderer no worse | `VmRSS` at 10 minutes |
 | Heading drift | 0.5°/min | ≤ 0.1°/min | D6 recordings |
 | Calibration | 1.5–2.6 s, plus 5 s settle | first pose < 100 ms, no settle | driver log, `.progress.json` phase times |
-| Start-up, confirm to first frame | **not measured** | ≤ 3 s on Luma | phase timestamps added to `.progress.json` |
+| Start-up, confirm to first frame | **not measured** | ≤ 3 s on Luma | phase marks in `.progress.json` and `.result.json` (`startup`); `python -m tools.native_spike.startup <run>.result.json --journal` adds the exact first frame from the renderer's timing report |
 | Reconnect | 0.9–4.2 s kernel, plus our timers | kernel time + ≤ 50 ms | soak log |
 
 Phase 0 fills in every "not measured" cell before any target is treated as binding.

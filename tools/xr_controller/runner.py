@@ -1,8 +1,12 @@
 """One consented panel run per transient unit: verify pins, load plugin, optional session mode, run, unload.
 
 Invoked as `python -I -m tools.xr_controller.runner --consent <path> --state-dir <dir>`.
-Writes `<state-dir>/<run_id>.result.json` (0600, atomic) on every exit path once arguments parse.
+Writes `<state-dir>/<run_id>.result.json` (0600, atomic) on every exit path once arguments parse. Both it and the
+`.progress.json` beside it carry the start-up timeline (`startup`: tools/native_spike/startup.py).
 """
+import time
+STARTED_NS = time.monotonic_ns()  # before the imports below: when this process reached Python (startup.py `runner`)
+
 import argparse
 import json
 import os
@@ -11,7 +15,7 @@ import secrets
 import subprocess
 import sys
 
-from tools.native_spike import faults as run_faults, monitor_rules
+from tools.native_spike import faults as run_faults, monitor_rules, startup
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
@@ -61,6 +65,7 @@ def execute_pro2(consent_path, raw, progress=None):
     from .pro2_route import execute as execute_route
     result = {'run_id': _run_id(raw), 'phase': 'run', 'complete': False, 'renderer_returncode': None, 'remaining': None, 'error': None}
     try:
+        startup.mark('verify')  # its bundle and ABI (pro2_route.execute); pro2_test.run_session marks the rest
         if progress and result['run_id']: progress(result['run_id'], 'tracking')
         result.update(execute_route(consent_path, Path(consent_path).parent))
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
@@ -80,6 +85,7 @@ def execute(consent_path, data_home, progress=None):
     faults = run_faults.Faults()
     managed_started, run = False, None
     runtime, consent, watch = None, None, None
+    startup.mark('verify')
     try:
         # The consent names its own scope; the second read re-checks it against the first.
         raw = read_private_json(consent_path)
@@ -102,6 +108,7 @@ def execute(consent_path, data_home, progress=None):
         if consent['tracking'] is not False:
             from tools.native_spike import tracking
             result['phase'] = 'tracking'
+            startup.mark('tracking')
             if progress: progress(result['run_id'], 'tracking')
             if consent['tracking'] == tracking.LUMA:
                 try: tracking.ensure_ready_luma(runtime, installed[LUMA_PIN]['path'])
@@ -115,6 +122,7 @@ def execute(consent_path, data_home, progress=None):
                 log(f'head tracking driver: {binary}')
                 tracking.ensure_ready(runtime, binary=binary)
         result['phase'] = 'plugin'
+        startup.mark('plugin')
         if progress: progress(result['run_id'], 'plugin')
         # Other plugins (e.g. Omarchy's hyprbars) may stay loaded; only a broker of ours already present blocks.
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('ownership plugin already loaded')
@@ -122,6 +130,7 @@ def execute(consent_path, data_home, progress=None):
         attempted = True
         client.plugin_load(plugin, data_home=data_home)
         if ownership_plugin_count(client.plugins_loaded()) != 1: raise ValueError('plugin load not confirmed by readback')
+        startup.mark('desktops')
         if progress: progress(result['run_id'], 'desktops')  # the mode, the layout and the run: the desktops and the picture
         if consent['mode_switch'] is not False:
             result['phase'] = 'mode'
@@ -173,9 +182,14 @@ def main(argv=None):
     ap.add_argument('--state-dir', required=True, type=Path)
     args = ap.parse_args(argv)
     data_home = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')
+    startup.reset()
+    confirmed = startup.written_ns(args.consent)  # the controller writes the consent as Start is confirmed
+    if confirmed is not None and confirmed <= STARTED_NS: startup.mark('confirmed', confirmed)
+    startup.mark('runner', STARTED_NS)
     def progress(run_id, phase):
-        _write_result(args.state_dir, run_id+'.progress.json', dict(run_id=run_id, phase=phase))
+        _write_result(args.state_dir, run_id+'.progress.json', dict(run_id=run_id, phase=phase, startup=startup.summary(startup.marks())))
     result = execute(args.consent, data_home, progress=progress)
+    result['startup'] = startup.summary(startup.marks())
     try:
         _write_result(args.state_dir, f"{result['run_id'] or 'invalid'}.result.json", result)
         if result['run_id']:

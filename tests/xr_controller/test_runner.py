@@ -21,7 +21,7 @@ HYPRBARS = 'hyprbars'  # Omarchy titlebars workspace mode
 INSTANCE = 'a' * 40 + '_123_456'
 DESKTOPS = [{'width': 1920, 'height': 1080, 'scale': 1.0}, {'width': 2560, 'height': 1440, 'scale': 1.25},
             {'width': 3840, 'height': 1080, 'scale': 2.0}]
-RESULT_KEYS = {'run_id', 'phase', 'complete', 'renderer_returncode', 'remaining', 'error'}
+RESULT_KEYS = {'run_id', 'phase', 'complete', 'renderer_returncode', 'remaining', 'error', 'startup'}
 
 
 class FakeClient:
@@ -156,8 +156,12 @@ class RunnerTests(unittest.TestCase):
         self.consent(tracking='xrlinuxdriver')
         def waiting(runtime, binary):
             progress=json.loads((self.state/'run1.progress.json').read_text())
-            self.assertEqual(progress, dict(run_id='run1',phase='tracking'))
-        with mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):
+            self.assertEqual({k: progress[k] for k in ('run_id', 'phase')}, dict(run_id='run1',phase='tracking'))
+            self.assertEqual(set(progress), {'run_id', 'phase', 'startup'})
+            marks=progress['startup']['marks_ns']
+            self.assertEqual(sorted(marks, key=marks.get), ['confirmed', 'runner', 'verify', 'tracking'])
+        with mock.patch.object(runner, 'STARTED_NS', __import__('time').monotonic_ns()), \
+                mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):
             self.assertEqual(self.main(),0)
 
     def test_progress_reaches_the_desktops_step_before_the_run(self):
@@ -168,6 +172,32 @@ class RunnerTests(unittest.TestCase):
         self.fake_run=run
         with mock.patch('tools.native_spike.tracking.ensure_ready'): self.assertEqual(self.main(), 0)
         self.assertEqual(seen, ['desktops'])
+
+    def test_the_result_times_each_start_phase_from_confirm_to_the_first_frame(self):
+        from tools.native_spike import startup
+        self.consent(tracking='xrlinuxdriver')
+        def run(*args, **kwargs):  # what supervisor._launch and the renderer's first status mark (startup.py)
+            startup.mark('renderer'); startup.mark('first_status'); return self.run_result
+        self.fake_run = run
+        with mock.patch.object(runner, 'STARTED_NS', __import__('time').monotonic_ns()), \
+                mock.patch('tools.native_spike.tracking.ensure_ready'):
+            self.assertEqual(self.main(), 0)
+        record = self.result()['startup']
+        self.assertEqual(record['clock'], 'CLOCK_MONOTONIC')
+        names = ['confirmed', 'runner', 'verify', 'tracking', 'plugin', 'desktops', 'renderer', 'first_status']
+        self.assertEqual(sorted(record['marks_ns'], key=record['marks_ns'].get), names)
+        self.assertEqual(set(record['phases_ms']), set(names[:-1]))
+        self.assertTrue(all(ms >= 0 for ms in record['phases_ms'].values()))
+        self.assertEqual(record['first_frame_from'], 'first_status')
+        self.assertAlmostEqual(record['confirm_to_first_frame_ms'], sum(record['phases_ms'].values()), delta=0.01)
+        self.assertFalse((self.state / 'run1.progress.json').exists())
+
+    def test_a_consent_written_after_the_runner_started_is_not_its_confirm(self):
+        self.consent()  # written after this module's STARTED_NS: not the controller's confirm, so no such mark
+        self.assertEqual(self.main(), 0)
+        record = self.result()['startup']
+        self.assertNotIn('confirmed', record['marks_ns'])
+        self.assertNotIn('confirm_to_first_frame_ms', record)
 
     def luma_consent(self):
         build = Path(self.tmp.name) / 'build'
@@ -255,8 +285,8 @@ class RunnerTests(unittest.TestCase):
         self.assertIsInstance(self.run_args['store'], ProfileStore)
         self.assertEqual(self.run_args['store'].model, 'luma-ultra')
         self.assertEqual(self.run_args['store'].path, self.config / 'viture-workspace' / 'profiles.json')
-        self.assertEqual(self.result(), {'run_id': 'run1', 'phase': 'done', 'complete': True, 'renderer_returncode': 0,
-                                         'remaining': [], 'error': None})
+        self.assertEqual({k: v for k, v in self.result().items() if k != 'startup'},
+                         {'run_id': 'run1', 'phase': 'done', 'complete': True, 'renderer_returncode': 0, 'remaining': [], 'error': None})
 
     def test_refuses_when_plugin_already_loaded(self):
         self.consent(); self.client.loaded = ['xr-ownership']

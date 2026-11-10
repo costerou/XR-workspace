@@ -321,6 +321,18 @@ class StatusTests(unittest.TestCase):
         w.status_bytes(b'x'*17000+b'\n{"missed":4}\n')
         self.assertEqual(w.status, {'missed':4})
 
+    def test_the_first_status_with_a_frame_marks_the_start_up_timeline(self):
+        from tools.native_spike import startup
+        from tools.native_spike.supervisor import Supervisor
+        startup.reset(); self.addCleanup(startup.reset)
+        w = Supervisor(None, None, now=0)
+        w.status_bytes(b'{"presented_hz":NaN}\n{"tracking":true}\n')  # refused, then no frame yet
+        self.assertNotIn('first_status', startup.marks())
+        w.status_bytes(b'{"missed":0}\n')
+        first = startup.marks()['first_status']
+        w.status_bytes(b'{"missed":0,"presented_hz":120}\n')
+        self.assertEqual(startup.marks()['first_status'], first)  # the first one only
+
     def test_tracking_and_capture_failures_are_measured_values(self):
         w = Supervisor(None, None, now=0)
         w.status_bytes(b'{"presented_hz":120,"tracking":false,"capture_failure_run":2}\n')
