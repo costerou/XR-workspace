@@ -50,17 +50,17 @@ pub const MAX_SPACING: u32 = 400;
 const MAX_INDEX: u32 = MAX_DESKTOPS as u32 - 1;
 
 /// `std::min(a, b)`: `b < a ? b : a`.
-fn cmin(a: f32, b: f32) -> f32 {
+pub(crate) fn cmin(a: f32, b: f32) -> f32 {
     if b < a { b } else { a }
 }
 
 /// `std::max(a, b)`: `a < b ? b : a`.
-fn cmax(a: f32, b: f32) -> f32 {
+pub(crate) fn cmax(a: f32, b: f32) -> f32 {
     if a < b { b } else { a }
 }
 
 /// `std::clamp(v, lo, hi)`: `v < lo ? lo : hi < v ? hi : v`.
-fn cclamp(v: f32, lo: f32, hi: f32) -> f32 {
+pub(crate) fn cclamp(v: f32, lo: f32, hi: f32) -> f32 {
     if v < lo {
         lo
     } else if hi < v {
