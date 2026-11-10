@@ -25,6 +25,16 @@ pub mod bind_check;
 pub mod environment;
 pub mod keybinds;
 pub mod options_text;
+// The video, web video, quality and immersive (depth engine) pieces, ported from video.py, web_video.py, quality.py and
+// immersive.py. VideoControl and ViewControl, which drive them in a run, are not ported yet. External programs run
+// through `process::Runner`, so tests replace them.
+pub mod error;
+pub mod immersive;
+mod json;
+pub mod process;
+pub mod quality;
+pub mod video;
+pub mod web_video;
 mod parity;
 #[cfg(test)]
 use parity::corpus;
@@ -942,4 +952,11 @@ pub fn launch<R>(
         result: outcome?,
         stop_reason,
     })
+}
+
+/// The shared JSON fixtures in tests/native_spike/fixtures.
+#[cfg(test)]
+pub(crate) fn fixture(name: &str) -> serde_json::Value {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tests/native_spike/fixtures").join(name);
+    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap()
 }
