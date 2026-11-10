@@ -2,6 +2,7 @@
 
 use crate::lua::{Refused, Result};
 use crate::py;
+use serde::Serialize;
 use serde_json::{Value, json};
 
 /// Hyprland output scales a desktop may use.
@@ -11,13 +12,17 @@ pub const WIDTH_BOUNDS: (i64, i64) = (640, 7680);
 pub const HEIGHT_BOUNDS: (i64, i64) = (480, 4320);
 pub const MAX_DESKTOPS: usize = 4;
 pub const MAX_ROLL: i64 = 9000;
+/// `X_LIMIT` and `TURN` in orbit.py: x is tenths of a degree round you.
+pub const X_LIMIT: i64 = 1800;
+pub const TURN: i64 = 3600;
 
 /// The Ultrawide button's widths for the common heights, then the 16:9 ones it goes back to.
 const ULTRAWIDE_WIDTHS: [(i64, i64); 3] = [(1080, 2560), (1440, 3440), (2160, 5120)];
 const STANDARD_WIDTHS: [(i64, i64); 3] = [(1080, 1920), (1440, 2560), (2160, 3840)];
 
 /// A valid desktop: pixel size and Hyprland output scale (validate_desktop's result).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(test, derive(serde::Deserialize), serde(deny_unknown_fields))]
 pub struct Desktop {
     pub width: i64,
     pub height: i64,
@@ -167,7 +172,8 @@ impl Desktop {
 
 /// A desktop's place round you (geometry.PLACEMENT_BOUNDS): orbit x, y in tenths of a degree, distance in percent,
 /// curvature in degrees.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(serde::Deserialize), serde(deny_unknown_fields))]
 pub struct Placement {
     pub x: i64,
     pub y: i64,
@@ -197,16 +203,7 @@ impl Placement {
             let (lo, hi) = PLACEMENT_BOUNDS[i];
             match py::int(p.get(*key)) {
                 Some(n) if (lo..=hi).contains(&n) => v[i] = n,
-                _ => {
-                    return Err(Refused(
-                        [
-                            "placement x must be an integer -1800..1800",
-                            "placement y must be an integer -900..900",
-                            "placement distance must be an integer 10..200",
-                            "placement curvature must be an integer 0..120",
-                        ][i],
-                    ));
-                }
+                _ => return Err(Refused(PLACEMENT_ERRORS[i])),
             }
         }
         Ok(Placement {
@@ -219,6 +216,64 @@ impl Placement {
 
     pub fn to_value(self) -> Value {
         json!({"x": self.x, "y": self.y, "distance": self.distance, "curvature": self.curvature})
+    }
+
+    /// The values in PLACEMENT_KEYS order.
+    pub fn values(self) -> [i64; 4] {
+        [self.x, self.y, self.distance, self.curvature]
+    }
+
+    /// The value under a PLACEMENT_KEYS key.
+    pub fn get(self, key: &str) -> Option<i64> {
+        let i = PLACEMENT_KEYS.iter().position(|k| *k == key)?;
+        Some(self.values()[i])
+    }
+
+    /// The placement with one PLACEMENT_KEYS key set; panics on any other key.
+    pub fn with(mut self, key: &str, value: i64) -> Placement {
+        match key {
+            "x" => self.x = value,
+            "y" => self.y = value,
+            "distance" => self.distance = value,
+            "curvature" => self.curvature = value,
+            _ => panic!("not a placement key: {key}"),
+        }
+        self
+    }
+
+    /// validate_placement on a placement already of the right types: every value in bounds, checked in key order.
+    pub fn validate(self) -> Result<Placement> {
+        for (i, v) in self.values().into_iter().enumerate() {
+            let (lo, hi) = PLACEMENT_BOUNDS[i];
+            if !(lo..=hi).contains(&v) {
+                return Err(Refused(PLACEMENT_ERRORS[i]));
+            }
+        }
+        Ok(self)
+    }
+}
+
+const PLACEMENT_ERRORS: [&str; 4] = [
+    "placement x must be an integer -1800..1800",
+    "placement y must be an integer -900..900",
+    "placement distance must be an integer 10..200",
+    "placement curvature must be an integer 0..120",
+];
+
+/// validate_placements(value) with no count, on placements already of the right types: 1 to 4, each valid.
+pub fn validate_placements(value: &[Placement]) -> Result<Vec<Placement>> {
+    if !(1..=MAX_DESKTOPS).contains(&value.len()) {
+        return Err(Refused("1 to 4 placements required"));
+    }
+    value.iter().map(|p| p.validate()).collect()
+}
+
+/// `orbit.wrap`: an x past either side of the circle comes back round from the other.
+pub fn wrap(x: i64) -> i64 {
+    if (-X_LIMIT..=X_LIMIT).contains(&x) {
+        x
+    } else {
+        (x + X_LIMIT).rem_euclid(TURN) - X_LIMIT
     }
 }
 
@@ -246,5 +301,61 @@ mod tests {
         assert_eq!(d.toggle_ultrawide().toggle_ultrawide(), d);
         assert_eq!(nearest_scale(2560, 1440, 1.75), 2.0);
         assert_eq!(d.logical_width(), 1280);
+    }
+
+    #[test]
+    fn placements_are_checked_in_key_order() {
+        let bad = Placement {
+            x: 1801,
+            y: 901,
+            distance: 100,
+            curvature: 0,
+        };
+        assert_eq!(
+            bad.validate().unwrap_err().0,
+            "placement x must be an integer -1800..1800"
+        );
+        assert_eq!(
+            validate_placements(&[]).unwrap_err().0,
+            "1 to 4 placements required"
+        );
+        assert_eq!(
+            validate_placements(&[DEFAULT_PLACEMENT; 5]).unwrap_err().0,
+            "1 to 4 placements required"
+        );
+        assert_eq!(DEFAULT_PLACEMENT.with("y", 5).get("y"), Some(5));
+        assert_eq!(DEFAULT_PLACEMENT.get("roll"), None);
+    }
+
+    #[test]
+    fn desktop_messages() {
+        assert_eq!(
+            valid_scales(1920, 1080),
+            vec![1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
+        );
+        assert_eq!(
+            Desktop::new(1921, 1080, 1.0).unwrap_err().0,
+            "width out of bounds or odd"
+        );
+        assert_eq!(
+            Desktop::new(1920, 4322, 1.0).unwrap_err().0,
+            "height out of bounds or odd"
+        );
+        assert_eq!(
+            Desktop::new(1920, 1080, 1.1).unwrap_err().0,
+            "unsupported scale"
+        );
+        assert_eq!(
+            Desktop::new(1922, 1080, 1.75).unwrap_err().0,
+            "scale does not divide resolution exactly"
+        );
+    }
+
+    #[test]
+    fn wrap_turns_round() {
+        assert_eq!(
+            [wrap(1800), wrap(-1800), wrap(1801), wrap(-1801), wrap(5500)],
+            [1800, -1800, -1799, 1799, -1700]
+        );
     }
 }

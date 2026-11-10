@@ -2,6 +2,7 @@
 //! `tools/native_spike/environment.py`, whose module docstring explains the setting, where it is set and its wire
 //! frame. The setting is read from saved JSON, so every reader takes a `serde_json::Value` and cleans it.
 
+use serde::Serialize;
 use serde_json::{Value, json};
 
 use super::{json_int, json_str};
@@ -22,8 +23,9 @@ pub const TOGGLE_BIND: (&str, &str) = ("CTRL + ALT + E", TOGGLE_OP);
 pub const MENU_LABEL: &str = "Background";
 const KEYS: [&str; 3] = ["background", "last", "brightness"];
 
-/// The setting, always valid: `last` is never "none", and `background` is "none" or `last`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The setting, always valid: `last` is never "none", and `background` is "none" or `last`. Serialized in
+/// `layout.json`'s key order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Environment {
     pub background: &'static str,
     /// The last background that was not "none" (what Ctrl+Alt+E comes back to).

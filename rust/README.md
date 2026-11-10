@@ -294,6 +294,16 @@ makes them and `test_keybinds_corpus.py` fails when they go stale. Regenerate wi
 TMPDIR=/tmp /usr/bin/python3 tests/native_spike/keybinds_corpus.py --write
 ```
 
+- `corpus/view/view.json` holds the supervisor's view frames (`view.py`): each encoder's exact
+  line for its inputs, scripted `ViewState` key sequences with the view, panel, settings and
+  placements after every step, and the `layout.json` that `load_settings` reads and `save_settings`
+  writes. Each refusal says whether the Rust types already rule the input out (`"by": "type"`) or
+  the port must refuse it with the same message (`"by": "value"`). `src/supervisor/corpus_tests.rs`
+  replays it, along with the frames in `tests/native_spike/fixtures/control_frames.json`.
+
+`tests/native_spike/view_corpus.py --write` makes the view file, and `test_view_corpus.py` fails
+when it is stale.
+
 ## Controller runs
 
 `xr-workspace` holds the controller's run half of the host probe (`src/host.rs`) and its run units

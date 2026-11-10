@@ -13,6 +13,18 @@
 //!
 //! Not here yet (later phase 6 tasks): the run control socket, Hyprland events, the overview pointer's `poll`, the status
 //! dict's parsing (each status line goes to a caller's handler), the journal recovery and the start-up marks.
+//!
+//! The pure parts sit in submodules, each mirroring one Python module (`immersive`, `quality`, `view` and the rest;
+//! `geometry` is the crate's). Inputs are typed, so what the Python refuses by type (a bool for an int, a float for an
+//! int, a missing key) cannot be built there; what it refuses by value is refused with the same message ([`Invalid`]).
+//! `rust/corpus/view/view.json` holds the Python's answers and the tests replay it.
+
+// The view side: `view.py`'s state and its frame encoders (it reads `environment`, `immersive` and `quality`).
+pub mod view;
+mod python;
+pub use python::Invalid;
+#[cfg(test)]
+mod corpus_tests;
 
 // The tracking side: the driver wrappers, the Luma crash watch and the USB-drop hold.
 pub mod luma_watch;
@@ -64,8 +76,8 @@ pub const POLL_INTERVAL: Duration = Duration::from_millis(50);
 pub const SEND_TIMEOUT: Duration = Duration::from_millis(250);
 /// One status line from the renderer, newline included; a longer one is dropped whole.
 pub const STATUS_LINE_LIMIT: usize = 16384;
-/// The run's managed outputs are `XR-1` to `XR-<MAX_DESKTOPS>` (`geometry.MAX_DESKTOPS`).
-pub const MAX_DESKTOPS: usize = 4;
+/// The run's managed outputs are `XR-1` to `XR-<MAX_DESKTOPS>`.
+pub use crate::geometry::MAX_DESKTOPS;
 
 /// Why the supervisor ended the renderer, for the run's result (`stop_reason`; `incident_detect` reads these names).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

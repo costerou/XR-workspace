@@ -19,6 +19,7 @@ pub mod lua;
 pub mod managed;
 pub mod private_file;
 mod py;
+pub mod pyjson;
 pub mod recovery;
 pub mod resize;
 pub mod send;

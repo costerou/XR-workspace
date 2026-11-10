@@ -16,6 +16,7 @@
 //! Differences from the Python module, all deliberate:
 //! - `is_valid` compares JSON values exactly, so `"global": 0` or `"strength": 100.0` are not valid settings (Python's
 //!   `0 == False` and `100.0 == 100` let them through).
+//! - `strengths` is held, and saved, in desktop name order (Python keeps the saved file's order). Same dict either way.
 //! - An adapter that panics is a failure with the reason "an internal error" (Python names the exception's class).
 //! - The glasses' own adapter (sbs.ButtonSbs, `make_sbs`) is not here: the `Sbs` trait is what it plugs into.
 
@@ -153,6 +154,23 @@ pub fn clean(value: &Value) -> Setting {
         strength: percent(data.get("strength"), STRENGTH_MAX, 100),
         convergence: percent(data.get("convergence"), 100, preset.convergence),
         strengths,
+    }
+}
+
+/// As saved, in the Python dict's key order (`strengths` first when there): layout.json is written with serde.
+impl serde::Serialize for Setting {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = s.serialize_map(None)?;
+        if let Some(strengths) = &self.strengths {
+            map.serialize_entry("strengths", strengths)?;
+        }
+        map.serialize_entry("global", &self.global)?;
+        map.serialize_entry("desktops", &self.desktops)?;
+        map.serialize_entry("preset", self.preset.name)?;
+        map.serialize_entry("strength", &self.strength)?;
+        map.serialize_entry("convergence", &self.convergence)?;
+        map.end()
     }
 }
 

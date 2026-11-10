@@ -25,6 +25,17 @@ pub struct Quality {
     pub deband: bool,
 }
 
+/// As saved (`to_value`), in the Python dict's key order: layout.json is written with serde.
+impl serde::Serialize for Quality {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = s.serialize_map(Some(2))?;
+        map.serialize_entry("filter", self.filter_name())?;
+        map.serialize_entry("deband", &self.deband)?;
+        map.end()
+    }
+}
+
 impl Quality {
     pub fn filter_name(&self) -> &'static str {
         FILTERS[self.filter].0
