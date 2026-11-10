@@ -16,6 +16,10 @@
    "fate": "keep",
    "reason": "Checks frames with the C++ renderer's own decoder. The renderer stays C++ through phase 6."
   },
+  "keybinds_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/supervisor/ (keybinds, bind_check, options_text, environment), the parity corpus the Rust supervisor modules are held to."
+  },
   "lua_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/hyprland/, the parity corpus the Rust generators are held to."
@@ -1172,6 +1176,16 @@
      "fate": "port",
      "target": "xr-workspace supervisor::keybinds",
      "rust_test": null
+    }
+   }
+  },
+  "test_keybinds_corpus.py": {
+   "classes": {
+    "CorpusTests": {
+     "tests": 3,
+     "fate": "wire",
+     "via": "rust/corpus/supervisor/keybinds.json",
+     "how": "The phase 6 parity gate: the Rust key bind panel, bind check, options text and environment modules give these results. The Python test keeps the corpus true to the Python."
     }
    }
   },
