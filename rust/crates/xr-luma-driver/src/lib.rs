@@ -7,6 +7,7 @@ pub mod fusion;
 pub mod instance;
 pub mod latency;
 pub mod options;
+pub mod protocol;
 pub mod rt;
 pub mod transport;
 pub mod types;
