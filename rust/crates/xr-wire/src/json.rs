@@ -11,9 +11,9 @@
 //! C++ does. `rust/corpus/json/strict_json.json` (`tests/native_spike/strict_json_corpus.py`)
 //! records the three verdicts for each of its cases.
 //!
-//! Encoding takes a [`Style`] that names the `json.dumps` arguments a writer uses. Strings are always
-//! escaped as `ensure_ascii=True` does, and floats are written as Python's `repr` writes them, so a
-//! file read here and written again is the same bytes the Python writer produced.
+//! Encoding takes a [`Style`] that names the `json.dumps` arguments a writer uses, `ensure_ascii`
+//! among them, and floats are written as Python's `repr` writes them, so a file or frame read here
+//! and written again is the same bytes the Python writer produced.
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -208,7 +208,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
-/// The `json.dumps` arguments a writer uses. `ensure_ascii` is always on, as in every writer.
+/// The `json.dumps` arguments a writer uses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style {
     /// `sort_keys=True`.
@@ -217,19 +217,25 @@ pub struct Style {
     pub compact: bool,
     /// `indent=N`.
     pub indent: Option<usize>,
+    /// `ensure_ascii=True`, Python's default: everything outside printable ASCII escaped. Off, other
+    /// characters are written as they are and only `"`, `\\` and control characters are escaped,
+    /// which is also what JavaScript's `JSON.stringify` writes.
+    pub ensure_ascii: bool,
 }
 
 impl Style {
     /// `json.dumps(value)`.
-    pub const DEFAULT: Style = Style { sort_keys: false, compact: false, indent: None };
+    pub const DEFAULT: Style = Style { sort_keys: false, compact: false, indent: None, ensure_ascii: true };
     /// `json.dumps(value, sort_keys=True)`.
-    pub const SORTED: Style = Style { sort_keys: true, compact: false, indent: None };
+    pub const SORTED: Style = Style { sort_keys: true, compact: false, indent: None, ensure_ascii: true };
     /// `json.dumps(value, separators=(',', ':'))`.
-    pub const COMPACT: Style = Style { sort_keys: false, compact: true, indent: None };
+    pub const COMPACT: Style = Style { sort_keys: false, compact: true, indent: None, ensure_ascii: true };
+    /// `json.dumps(value, separators=(',', ':'), ensure_ascii=False)`, and `JSON.stringify(value)`.
+    pub const COMPACT_UNICODE: Style = Style { sort_keys: false, compact: true, indent: None, ensure_ascii: false };
     /// `json.dumps(value, separators=(',', ':'), sort_keys=True)`.
-    pub const COMPACT_SORTED: Style = Style { sort_keys: true, compact: true, indent: None };
+    pub const COMPACT_SORTED: Style = Style { sort_keys: true, compact: true, indent: None, ensure_ascii: true };
     /// `json.dumps(value, indent=2)`.
-    pub const INDENT2: Style = Style { sort_keys: false, compact: false, indent: Some(2) };
+    pub const INDENT2: Style = Style { sort_keys: false, compact: false, indent: Some(2), ensure_ascii: true };
 }
 
 /// `value` as `json.dumps` with `style` writes it.
@@ -245,7 +251,7 @@ fn write_value(out: &mut String, value: &Value, style: Style, level: usize) {
         Value::Bool(true) => out.push_str("true"),
         Value::Bool(false) => out.push_str("false"),
         Value::Number(n) => write_number(out, n),
-        Value::String(s) => write_string(out, s),
+        Value::String(s) => write_string(out, s, style.ensure_ascii),
         Value::Array(items) => {
             if items.is_empty() {
                 return out.push_str("[]");
@@ -270,7 +276,7 @@ fn write_value(out: &mut String, value: &Value, style: Style, level: usize) {
             out.push('{');
             for (i, (key, item)) in order.into_iter().enumerate() {
                 separator(out, style, level + 1, i == 0);
-                write_string(out, key);
+                write_string(out, key, style.ensure_ascii);
                 out.push_str(if style.compact { ":" } else { ": " });
                 write_value(out, item, style, level + 1);
             }
@@ -301,8 +307,9 @@ fn close(out: &mut String, style: Style, level: usize) {
     }
 }
 
-/// `json.dumps(s, ensure_ascii=True)`: printable ASCII as is, everything else escaped.
-fn write_string(out: &mut String, s: &str) {
+/// `json.dumps(s, ensure_ascii=...)`: printable ASCII as is, `"`, `\\` and control characters escaped,
+/// and anything else escaped only with `ensure_ascii`.
+fn write_string(out: &mut String, s: &str, ensure_ascii: bool) {
     out.push('"');
     for c in s.chars() {
         match c {
@@ -314,6 +321,7 @@ fn write_string(out: &mut String, s: &str) {
             '\u{8}' => out.push_str("\\b"),
             '\u{c}' => out.push_str("\\f"),
             ' '..='~' => out.push(c),
+            _ if !ensure_ascii && c >= ' ' => out.push(c),
             _ => {
                 let mut units = [0u16; 2];
                 for unit in c.encode_utf16(&mut units) {

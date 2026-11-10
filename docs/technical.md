@@ -1018,6 +1018,16 @@ the renderer's verdict (accepted, or the refusal's code and detail): the corpus 
 and C++ `decode_control`'s verdict. They disagree in four places: Python takes values nested past 32, lone surrogate escapes and
 numbers past the f64 range (as inf), and C++ takes a leading byte order mark. `xr_wire::json::parse` refuses all four, and
 checks the size and depth limits before it parses.
+`rust/corpus/sockets/frames.json` (`tests/xr_controller/socket_corpus.py`, checked by `test_socket_corpus.py` and by
+`cargo test -p xr-wire`) does the same for the two sockets around a run. It drives the real controller server and a real run
+control socket through a whole session (idle requests, start, every view op, stop, recovery) and records each panel request,
+each controller reply and state event, each run frame from the controller and the key helper, and each supervisor status reply,
+byte for byte. It also records the shipped verdicts on frames that are wrong on purpose. `xr_wire::controller` and
+`xr_wire::run_control` re-encode every recorded frame to the same bytes. For the wrong frames they give the same verdicts, with
+two kinds of exception. The run socket checks only the payloads that the wire alone defines: `select`, `binds_key`, and the empty
+payload of every other plain op. The payloads of `options_*`, `video_*`, `environment`, `immersive`, `placement` and
+`stabilization` pass through unread, for the module that applies them to check; the corpus marks those cases with `owner`. On the
+controller socket, the Rust decoder refuses a line nested past 32 levels and a leading byte order mark, both of which Python takes.
 
 `ignorable_control_error` still lists only the display-only payloads it always did.
 
