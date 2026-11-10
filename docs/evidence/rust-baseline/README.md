@@ -69,3 +69,26 @@ Other figures from the same window:
 
 An earlier 600 s run, under heavy load (load average 19–27), gave: supervisor 5.1 %, key press p50 7.9 ms and p95
 19.7 ms, and 14 driver bench samples lost. Load moves the tail a lot, so compare runs only at similar load.
+
+## Key helper in Rust (`xr-control`, phase 5)
+
+Recorded 2026-11-10 after the Rust port of the bind helper. Raw result:
+[`key-helper-rust-2026-11-10.json`](key-helper-rust-2026-11-10.json).
+
+```sh
+cargo build --manifest-path rust/Cargo.toml --locked --release -p xr-workspace
+TMPDIR=/tmp /usr/bin/python3 -m tools.native_spike.bench_control --only overview,control_op \
+  --overview-seconds 125 --press-every 0.4 --helper rust/target/release/xr-control
+```
+
+Same overview workload as above (real Python supervisor, fake compositor and renderer), with the recenter key pressed
+through the Rust helper. The machine was much busier than for the baseline: load average 15 to 54 across the runs.
+
+| Key press to renderer frame | p50 | p90 | p95 | p99 | n |
+|---|---|---|---|---|---|
+| Rust `xr-control` (load 16 to 38) | **0.98 ms** | 3.22 ms | **4.44 ms** | 24.81 ms | 310 |
+| Python `xr_control.py`, same session (load 8 to 54) | 9.10 ms | 28.39 ms | 44.60 ms | 133.75 ms | 297 |
+
+The helper alone (`control_op`, spawn to the run's server holding the frame): Rust p50 0.9 ms, p95 4.6 ms; Python p50
+8.8 ms, p95 11.2 ms. Two other Rust overview runs at load 8 to 54 gave p50 1.0 and 1.1 ms, with p95 10.4 and 13.7 ms:
+under heavy load the tail is the scheduler and the Python supervisor's relay, not the helper. Compare at similar load.
