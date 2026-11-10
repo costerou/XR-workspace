@@ -17,7 +17,11 @@ Layout, one folder per scenario under `runs/` (the state directory and the run's
   <run_id>.recovery.json   why the last Recover did not finish (state dir; removed by one that finishes)
   journal.json             the write-ahead journal (runtime/xr-workspace-spike/<run_id>/journal.json)
   journal.before.json      not a live file: the journal as the Recover in this scenario found it
-`consents/` holds one consent per supported scope. `index.json` names what each scenario covers.
+`consents/` holds one consent per supported scope. `pins/` holds the installer's pin files, one folder per install
+(the data directory's viture-workspace/ folder): `installed.json` and `quiet-driver.pin.json` by `install.install` from a stand-in
+build folder, `pro2-bundle.pin.json` by `pro2_route.write_pin`. The install runs in a temporary data directory, and its path in
+the pins is then replaced by `/home/user/.local/share`, so the bytes are the same on every machine. `index.json` names what
+each scenario covers.
 """
 from contextlib import ExitStack, contextmanager
 import json
@@ -35,7 +39,7 @@ from tools.native_spike.hyprland import OwnershipBlocked
 from tools.native_spike.journal import Journal, recover
 from tools.native_spike.ownership import REMOVAL_STEPS, OwnershipBrokerClient
 from tools.native_spike.panel_consent import build_consent, write_consent
-from tools.xr_controller import __main__ as controller
+from tools.xr_controller import __main__ as controller, install, pro2_route
 from tools.xr_controller.runner import _write_result
 
 ROOT = Path(__file__).resolve().parent / 'fixtures' / 'state_files'
@@ -352,6 +356,33 @@ def build(base):
     return runs, consent_dir, index
 
 
+DATA_HOME = '/home/user/.local/share'
+PINS = {
+    # folder: (build outputs, what it covers)
+    'luma-shim': (('xr-native-spike', 'libxr-ownership.so', 'xr-luma-driver', 'libxr-quiet-driver.so'),
+                  'a full install: renderer, plugin and our Luma driver in installed.json, the quiet driver in its own pin'),
+    'plain': (('xr-native-spike', 'libxr-ownership.so'), 'an older build: renderer and plugin only, no quiet driver pin'),
+}
+
+
+def build_pins(base):
+    """Each install's pin files, written by the installer into a temporary data directory. Returns {folder: [paths]}."""
+    pins = {}
+    for name, (outputs, _) in PINS.items():
+        build_dir, data_home = base / 'pins-build' / name, base / 'pins-data' / name
+        build_dir.mkdir(parents=True)
+        for output in outputs: (build_dir / output).write_bytes(output.encode() + b' stand-in build output\n')
+        with mock.patch.object(install, '_write_engine'): install.install(build_dir, data_home)
+        pins[name] = (data_home, sorted(p for p in (data_home / 'viture-workspace').glob('*.json')))
+    data_home = base / 'pins-data' / 'pro2'
+    with (mock.patch('tools.pro2_runtime.launch.verify_manifest', return_value=(Path(PRO2_BUNDLE), None)),
+          mock.patch.object(pro2_route, 'manifest_sha', return_value=SHA),
+          mock.patch.object(pro2_route, 'load_route', return_value=None)):
+        pro2_route.write_pin(Path(PRO2_BUNDLE), data_home)
+    pins['pro2'] = (data_home, [data_home / 'viture-workspace' / pro2_route.PIN_FILE])
+    return pins
+
+
 def generate(out):
     """The corpus written to `out` (replaced). Returns the index."""
     out = Path(out)
@@ -365,6 +396,13 @@ def generate(out):
             (out / 'runs' / r.name).mkdir()
             for p in r.files(): shutil.copyfile(p, out / 'runs' / r.name / p.name)
         shutil.copytree(consent_dir, out / 'consents')
+        index['pins'] = {}
+        for name, (data_home, paths) in build_pins(base).items():
+            (out / 'pins' / name).mkdir(parents=True)
+            for p in paths:
+                (out / 'pins' / name / p.name).write_bytes(p.read_bytes().replace(str(data_home).encode(), DATA_HOME.encode()))
+            index['pins'][name] = {'about': PINS[name][1] if name in PINS else 'the Pro 2 route: the bundle a Pro 2 start runs',
+                                   'files': [p.name for p in paths]}
         (out / 'index.json').write_text(json.dumps(index, indent=1, sort_keys=True) + '\n')
     return index
 

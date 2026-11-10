@@ -15,6 +15,27 @@
   "luma-ultra-xrlinuxdriver.json": "the default start: Luma Ultra, XRLinuxDriver tracking, 1920x1200@120 mode switch",
   "pro2-route.json": "the VITURE Pro 2 route: its pinned bundle and settings under `pro2_route`"
  },
+ "pins": {
+  "luma-shim": {
+   "about": "a full install: renderer, plugin and our Luma driver in installed.json, the quiet driver in its own pin",
+   "files": [
+    "installed.json",
+    "quiet-driver.pin.json"
+   ]
+  },
+  "plain": {
+   "about": "an older build: renderer and plugin only, no quiet driver pin",
+   "files": [
+    "installed.json"
+   ]
+  },
+  "pro2": {
+   "about": "the Pro 2 route: the bundle a Pro 2 start runs",
+   "files": [
+    "pro2-bundle.pin.json"
+   ]
+  }
+ },
  "runs": {
   "ended-clean": {
    "about": "a clean Stop: result done, every output record done",

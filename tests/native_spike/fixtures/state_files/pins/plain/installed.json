@@ -1,0 +1,10 @@
+{
+  "renderer": {
+    "path": "/home/user/.local/share/viture-workspace/bin/3680794fc6c8/xr-native-spike",
+    "sha256": "8ccd98916f653c2f344062e1e17a5c4602fd8123b643ee5873925f4e2518633c"
+  },
+  "plugin": {
+    "path": "/home/user/.local/share/viture-workspace/bin/3680794fc6c8/libxr-ownership.so",
+    "sha256": "0d83db29b2aa87a3143697731d9ccdc015055a2fc31ffff42cc9692369fcc78b"
+  }
+}

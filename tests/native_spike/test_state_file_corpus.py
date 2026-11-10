@@ -11,6 +11,7 @@ from tests.native_spike import state_file_corpus as corpus
 from tools.native_spike.ipc import read_private_json
 from tools.native_spike.journal import Journal
 from tools.native_spike.panel_consent import load_panel_consent
+from tools.xr_controller import install, pro2_route
 
 RESULT_KEYS = {'run_id', 'phase', 'complete', 'renderer_returncode', 'remaining', 'error'}
 RESULT_EXTRA = {'stop_reason', 'usb_holds', 'recovery', 'faults'}
@@ -111,6 +112,23 @@ class StateFileCorpusTests(unittest.TestCase):
         for path in sorted((corpus.ROOT / 'consents').glob('*.json')):
             self.assertEqual(load_panel_consent(self.private_copy(path), corpus.INSTANCE, corpus.TARGET)['run_id'], path.stem)
         self.assertEqual(sorted(p.name for p in (corpus.ROOT / 'consents').glob('*.json')), sorted(self.index['consents']))
+
+    def test_pins_are_what_the_installer_reads(self):
+        root = corpus.ROOT / 'pins'
+        self.assertEqual(sorted(p.name for p in root.iterdir()), sorted(self.index['pins']))
+        bin_dir = Path(corpus.DATA_HOME) / 'viture-workspace' / 'bin'
+        for name, entry in self.index['pins'].items():
+            self.assertEqual(sorted(p.name for p in (root / name).iterdir()), entry['files'])
+            for path in (root / name).iterdir():
+                data = json.loads(path.read_text())
+                if path.name == 'installed.json':
+                    self.assertIn(set(data), ({'plugin', 'renderer'}, {'plugin', 'renderer', install.LUMA_KEY}))
+                    for value in data.values(): install._check_entry(value, bin_dir)
+                elif path.name == install.SHIM_PIN:
+                    install._check_entry(data, bin_dir)
+                else:
+                    self.assertEqual(path.name, pro2_route.PIN_FILE)
+                    self.assertEqual(set(data), pro2_route.PIN_KEYS)
 
 
 if __name__ == '__main__':
