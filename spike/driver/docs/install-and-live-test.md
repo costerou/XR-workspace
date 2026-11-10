@@ -157,6 +157,38 @@ runs normally. Then stop XR and remove the file, or restore the flags from stage
 rm "$HOME/.config/viture-workspace/luma-driver-flags"
 ```
 
+### Event-driven reopen (D8), when Cody wants to try it
+
+Off by default. With it, the driver watches `/dev/bus/usb` while the glasses are gone and, after a healthy connection, reopens
+them as soon as their node is back, keeping the calibration. Add the flag, then stop the driver as below so it rereads its flags:
+
+```sh
+printf -- '--event-reopen\n' >> "$HOME/.config/viture-workspace/luma-driver-flags"
+python3 -m tools.native_spike tracking stop
+```
+
+**R1. A drop by hand.** In XR, after at least 10 s of tracking, pull the USB-A plug for 2 s and put it back, looking straight ahead
+and holding still. Then:
+
+```sh
+grep -E 'luma: (disconnected|reconnected|calibrat)' ~/.local/state/viture-workspace/luma-driver.log | tail -4
+journalctl -k --since -2min -o short-iso-precise | grep -E 'New USB device found, idVendor=35ca|USB disconnect'
+```
+
+Pass: `reconnected gap_ms=N calibration=kept`, then `calibrated restored=1`, with no `calibrating` between them. The
+`reconnected` line's `at=` is no more than 0.1 s after the kernel's `New USB device found` line for `35ca` (kernel time plus
+50 ms is the gate; udev's ACL also falls inside that). The picture is back where it was, with no jump.
+
+**R2. Turned while gone.** As R1, but turn the head about 30 degrees while unplugged. Pass: no snap on return. Pitch and roll
+slide level within about a second; the heading carries on from where it was, so the desktops sit offset by the turn, which
+recentring fixes.
+
+**R3. Soak.** `tools/luma_soak/cpp_baseline.sh` for the usual length with the flag, against the same length without it. Pass:
+drops per hour not higher with the flag, and `driver_events.reconnect_gap_ms` well under the run without it. Only then can the
+default flip.
+
+To undo: remove the line from the flags file and stop the driver.
+
 ### The seqlock pose channel (D2), when Cody wants to try it
 
 Off by default. With it, the driver also publishes each pose on `/dev/shm/xr-luma-pose`, and the renderer reads that instead of

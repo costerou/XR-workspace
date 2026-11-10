@@ -13,6 +13,7 @@
 #include "luma/wiring.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <atomic>
 #include <cerrno>
 #include <csignal>
@@ -1192,6 +1193,234 @@ void test_whole_driver_on_a_fake_kernel() {
     CHECK(said("luma: reply endpoint=0x85 bytes=6 head=fa5595000000"));
     CHECK(said("luma: calibrated restored=0"));
     CHECK(!said("disconnected"));
+}
+
+// D8: a real drop and return on the fake kernel, through the whole live driver. The glasses stream long enough for the link
+// to count as healthy, drop off the bus, and come back; the clock starts as the node reappears and stops at the first pose
+// published after it.
+struct TimingSink final : luma::Sink {
+    std::mutex lock;
+    std::vector<std::pair<Clock::time_point, luma::Quatf>> poses;  // receipt time, orientation
+    std::atomic<std::uint64_t> published{0};
+    TimingSink() { poses.reserve(8192); }
+    void publish(const luma::PoseOut& pose, const luma::PoseSource&) override {
+        std::lock_guard guard(lock);
+        poses.emplace_back(Clock::now(), pose.q);
+        ++published;
+    }
+    void set_stale(bool) override {}
+};
+
+float degrees_between(const luma::Quatf& a, const luma::Quatf& b) {
+    const float dot = std::fabs(a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z);
+    return 2 * std::acos(std::min(dot, 1.0f)) * 180.0f / 3.14159265f;
+}
+
+enum class Return { node_and_sysfs, node_before_sysfs, acl_after_node };
+
+struct DropRun {
+    long resume_ms = -1;          // node back to first pose
+    long reopen_ms = -1;          // node back to the start command
+    float step_deg = -1;          // last pose before the drop to first pose after it
+    float max_step_deg = 0;       // largest pose-to-pose change after the return
+    float moved_deg = 0;          // first pose after the return to the last one
+    std::vector<std::string> lines;
+    bool said(const char* text) const {
+        return std::any_of(lines.begin(), lines.end(), [&](const std::string& l) { return l.find(text) != std::string::npos; });
+    }
+};
+
+// tilted: the wearer's head pitched 5 degrees while the glasses were gone, so gravity has moved when they return.
+DropRun run_drop(bool event_reopen, Return how, std::chrono::milliseconds rescan, std::chrono::milliseconds budget = 1000ms,
+                 bool tilted = false) {
+    FakeTree tree;
+    luma::Options options;
+    options.config.event_reopen = event_reopen;
+    auto config = luma::wiring::live_config(options);
+    config.rescan_interval = rescan;
+    config.sysfs_root = tree.sysfs();
+    config.dev_root = tree.dev();
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    fake->arrive(101);
+
+    DropRun run;
+    std::mutex lines_lock;
+    const luma::Logger log = [&](std::string_view line) {
+        std::lock_guard lock(lines_lock);
+        run.lines.emplace_back(line);
+    };
+    const auto link = luma::wiring::link_with(config, fake, log);
+    const auto decoder = luma::wiring::decoder();
+    TimingSink sink;
+    luma::DaemonConfig daemon_config;
+    daemon_config.event_reopen = event_reopen;
+    luma::DaemonParts parts{*link, *decoder, &luma::wiring::estimator, sink,
+                            [] { return std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count()); },
+                            log, luma::wiring::start_command(), luma::wiring::stop_command()};
+    luma::Daemon daemon(std::move(parts), daemon_config);
+    std::atomic<bool> stop{false};
+    const auto epoch = Clock::now();
+    std::uint32_t seq = 0;
+    std::array<float, 3> gravity{0.1f, 0.2f, 9.8f};
+    // Still glasses at 1 kHz: the gyro reads only its bias, so the true orientation never moves and any step is the driver's.
+    const auto stream = [&](std::chrono::milliseconds length) {
+        const auto end = Clock::now() + length;
+        for (auto next = Clock::now(); Clock::now() < end; next += 1ms) {
+            std::this_thread::sleep_until(next);
+            const auto device_ns = std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - epoch).count());
+            luma::ImuSample sample{device_ns, {0.006f, 0.001f, 0.005f}, gravity, std::nullopt, ++seq & 0xffff};
+            const auto packet = luma::encode_luma_imu(sample);
+            fake->deliver(0x81, std::vector<std::uint8_t>(packet.begin(), packet.end()));
+        }
+    };
+    const auto wait_for_start = [&](std::size_t count, Clock::time_point give_up) {
+        while (fake->sent().size() < count && Clock::now() < give_up) std::this_thread::sleep_for(100us);
+        return fake->sent().size() >= count;
+    };
+    Clock::time_point back{};
+    std::size_t before_drop = 0;
+    std::thread glasses([&] {
+        if (wait_for_start(1, Clock::now() + 5s)) {
+            fake->deliver(0x85, {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00});
+            stream(2600ms);  // past healthy_after (2 s) on both the transport and the daemon
+            {
+                std::lock_guard guard(sink.lock);
+                before_drop = sink.poses.size();
+            }
+            fake->yank();
+            if (tilted) gravity = {0.1f, 0.2f * std::cos(0.0873f) - 9.8f * std::sin(0.0873f), 0.2f * std::sin(0.0873f) + 9.8f * std::cos(0.0873f)};
+            std::this_thread::sleep_for(300ms);
+            const char* node = "bus/usb/005/102";
+            back = Clock::now();
+            if (how == Return::node_before_sysfs) {  // device_add makes the node before the interfaces exist
+                std::ofstream(tree.dev() / node).flush();
+                std::this_thread::sleep_for(5ms);
+                fake->arrive(102);
+            } else if (how == Return::acl_after_node) {  // the node is there, udev's ACL is not yet
+                fake->fail_opens(1000, EACCES);
+                fake->arrive(102);
+                std::this_thread::sleep_for(30ms);
+                fake->fail_opens(0, 0);
+                back = Clock::now();
+                fs::permissions(tree.dev() / node, fs::perms::owner_all);  // setfacl raises IN_ATTRIB like this
+            } else {
+                fake->arrive(102);
+            }
+            if (wait_for_start(2, back + budget)) {
+                run.reopen_ms = ms_since(back);
+                fake->deliver(0x85, {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00});
+                stream(300ms);
+            }
+        }
+        stop = true;
+    });
+    daemon.run(stop);
+    glasses.join();
+
+    std::lock_guard guard(sink.lock);
+    for (std::size_t i = before_drop; i < sink.poses.size(); ++i) {
+        if (sink.poses[i].first < back) continue;
+        run.resume_ms = std::chrono::duration_cast<std::chrono::milliseconds>(sink.poses[i].first - back).count();
+        if (before_drop > 0) run.step_deg = degrees_between(sink.poses[before_drop - 1].second, sink.poses[i].second);
+        for (std::size_t j = i + 1; j < sink.poses.size(); ++j)
+            run.max_step_deg = std::max(run.max_step_deg, degrees_between(sink.poses[j - 1].second, sink.poses[j].second));
+        run.moved_deg = degrees_between(sink.poses[i].second, sink.poses.back().second);
+        break;
+    }
+    return run;
+}
+
+void check_warm_resume(const DropRun& run, const char* name, float max_step = 0.05f) {
+    std::printf("  d8 %s: start %ld ms, first pose %ld ms after the node returned; step %.4f deg, worst after %.4f deg, moved %.2f deg\n",
+                name, run.reopen_ms, run.resume_ms, run.step_deg, run.max_step_deg, run.moved_deg);
+    CHECK(run.resume_ms >= 0);
+    CHECK(run.resume_ms <= 50);  // the D8 gate
+    CHECK(run.said("luma: reconnected"));
+    CHECK(run.said("calibration=kept"));
+    CHECK(run.said("luma: calibrated restored=1"));  // same estimator: orientation and gyro bias carried over
+    const auto back = std::find_if(run.lines.begin(), run.lines.end(), [](const std::string& l) { return l.find("luma: reconnected") != std::string::npos; });
+    CHECK(std::none_of(back, run.lines.end(), [](const std::string& l) { return l.find("luma: calibrating") != std::string::npos; }));  // no new hold-still
+    CHECK(run.step_deg >= 0 && run.step_deg < max_step);  // no visible jump
+    CHECK(run.max_step_deg < max_step);
+}
+
+// The gate. The timed rescan is 10 s here, so only the inotify watch can find the device in time.
+void test_event_reopen_resumes_warm_within_50ms() {
+    check_warm_resume(run_drop(true, Return::node_and_sysfs, 10s), "node and sysfs together");
+}
+
+// The real kernel's order: the node first, the interfaces a few ms later. The watch fires on the node, the quick rescans catch sysfs.
+void test_event_reopen_waits_out_sysfs_after_the_node() {
+    check_warm_resume(run_drop(true, Return::node_before_sysfs, 10s), "node 5 ms before sysfs");
+}
+
+// EACCES until udev sets the ACL, which the watch sees as IN_ATTRIB on the node. Timed from the ACL.
+void test_event_reopen_opens_as_the_acl_lands() {
+    check_warm_resume(run_drop(true, Return::acl_after_node, 10s), "ACL 30 ms after the node");
+}
+
+// The head pitched 5 degrees while the glasses were gone. The pose comes back where it was, not snapped to the new
+// gravity, then slides there at kp_recover: no single frame moves more than a tenth of a degree.
+void test_event_reopen_rejoins_a_moved_head_smoothly() {
+    const auto run = run_drop(true, Return::node_and_sysfs, 10s, 1000ms, true);
+    check_warm_resume(run, "head pitched 5 deg while gone", 0.1f);
+    CHECK(run.moved_deg > 3.0f);  // and it does get there
+}
+
+// Without the flag nothing changes: arrival_settle (2 s) and settle_first (200 ms) still hold a return after a drop.
+void test_without_event_reopen_a_return_is_still_held() {
+    const auto run = run_drop(false, Return::node_and_sysfs, 25ms, 4000ms);
+    std::printf("  d8 baseline (flag off): start %ld ms, first pose %ld ms after the node returned\n", run.reopen_ms, run.resume_ms);
+    CHECK(run.reopen_ms >= 2200);
+    CHECK(run.said("calibration=kept"));
+}
+
+// A link that dies before sustained traffic still gets the hold with the flag on: the flapping guard is not part of D8.
+void test_event_reopen_still_holds_after_a_young_link() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.arrival_settle = 2000ms;
+    config.event_reopen = true;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->yank();
+    read_until(*t, buffer, IoStatus::Disconnected, 500ms);
+    const int opens = fake->opens();
+    fake->arrive(102);
+    t->read(buffer, 300ms);
+    CHECK(fake->opens() == opens);  // back, and left alone: the link before lasted 100 ms
+}
+
+// The watch exists only while the link is down, and close() lets it go.
+void test_event_reopen_watch_lives_only_while_down() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.event_reopen = true;
+    const int before = open_fd_count();
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    Buffer buffer;
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Connected);
+    const int up = open_fd_count();
+    fake->yank();
+    read_until(*t, buffer, IoStatus::Disconnected, 500ms);
+    t->read(buffer, 20ms);
+    CHECK(open_fd_count() == up);  // device fd gone, watch fd in its place
+    fake->arrive(102);
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    CHECK(open_fd_count() == up);  // watch gone, device fd back
+    fake->yank();
+    read_until(*t, buffer, IoStatus::Disconnected, 500ms);
+    t->read(buffer, 20ms);
+    t->close();
+    t.reset();
+    CHECK(open_fd_count() <= before);
 }
 
 // voluntary + involuntary context switches of one thread, from /proc (what D10 counts), and its CPU time.
@@ -2468,6 +2697,13 @@ int main() {
         T(test_write_to_reaches_only_configured_endpoints),
         T(test_drain_endpoint_reads_and_throws_away),
         T(test_whole_driver_on_a_fake_kernel),
+        T(test_event_reopen_resumes_warm_within_50ms),
+        T(test_event_reopen_waits_out_sysfs_after_the_node),
+        T(test_event_reopen_opens_as_the_acl_lands),
+        T(test_event_reopen_rejoins_a_moved_head_smoothly),
+        T(test_without_event_reopen_a_return_is_still_held),
+        T(test_event_reopen_still_holds_after_a_young_link),
+        T(test_event_reopen_watch_lives_only_while_down),
         T(test_one_packet_costs_one_poll_two_reaps_one_submit),
         T(test_one_wake_per_host_completion_batch),
         T(test_live_config_follows_the_flags),

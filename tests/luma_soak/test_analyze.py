@@ -327,6 +327,15 @@ class CppDriverTests(unittest.TestCase):
         self.assertEqual(events, {'disconnects': 1, 'retries': 1, 'stale': 1, 'reconnected': 2,
                                   'reconnect_gap_ms': {'count': 2, 'avg': 2600.0, 'max': 4200.0}})
 
+    def test_an_event_reopen_reconnect_reads_as_its_own_short_gap(self):
+        # D8 (--event-reopen) writes no new line or field: the same reconnected line, with a gap of kernel time plus ~25 ms.
+        lines = [driver(self.t + 0.1, 'luma: disconnected reason=gone at=0'),
+                 driver(self.t + 1.0, 'luma: reconnected gap_ms=941 calibration=kept at=0'),
+                 driver(self.t + 1.0, 'luma: calibrated restored=1 at=0')]
+        events = analyze([*self.records, *lines, stop()])['driver_events']
+        self.assertEqual((events['disconnects'], events['reconnected'], events['retries']), (1, 1, 0))
+        self.assertEqual(events['reconnect_gap_ms'], {'count': 1, 'avg': 941.0, 'max': 941.0})
+
     def test_no_driver_lines_means_no_driver_events(self):
         self.assertIsNone(analyze([*self.records, stop()])['driver_events'])
 

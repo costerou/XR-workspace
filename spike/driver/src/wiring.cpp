@@ -299,6 +299,7 @@ TransportConfig live_config(const Options& options) {
     config.out_endpoint = kMcuEndpointOut;
     config.allow_mcu_channel = true;
     config.urbs_per_endpoint = kImuBurst;
+    config.event_reopen = options.config.event_reopen;
     if (options.read_events) config.in_endpoints.push_back(kLumaEventEndpoint);
     if (options.drain_camera) config.drain_endpoints.push_back(kLumaCameraEndpoint);
     if (options.start == Options::Start::full) {

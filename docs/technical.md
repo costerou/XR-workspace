@@ -648,7 +648,7 @@ checks as the standard driver. `ensure_ready` restarts a driver that is not the 
 ### Flags for the new driver
 
 `~/.config/viture-workspace/luma-driver-flags`, if it exists, holds flags for `xr-luma-driver`: `--start stream|prepared|full`,
-`--read-events`, `--drain-camera` and `--pose-seqlock`, nothing else. The first three are what stage G of
+`--read-events`, `--drain-camera`, `--pose-seqlock` and `--event-reopen`, nothing else. The first three are what stage G of
 `spike/driver/docs/live-test-plan.md` finds the glasses need. A file with anything else fails the start with a reason, which the
 notification shows. The file changes what the driver reads, how it starts the stream and where it publishes; none of these flags
 can send a frame `Transport` would not pass.
@@ -660,6 +660,13 @@ segment. The renderer then adds `vsync_error_ms` and `sensor_to_vsync_ms` to its
 `--pose-seqlock` also publishes every pose on the seqlock channel `/dev/shm/xr-luma-pose` (`luma::rt::kPoseShmName`), next to the
 mutex feed, which is still written exactly as before for XRLinuxDriver-era readers. It is off by default and refused with a
 private `--prefix` or `--replay`, so only the live driver can write that name.
+
+`--event-reopen` (D8) makes a drop cost kernel time plus about 25 ms instead of about 2.2 s. While the glasses are gone the
+transport watches `/dev/bus/usb` with inotify, which reaches the driver's namespace where uevents do not, and opens the node as
+soon as it and its sysfs entry exist. A device back after a healthy connection skips both holds (`arrival_settle`, `--settle-ms`),
+and the kept calibration resumes the pose where it was: orientation and gyro bias carry over, and tilt re-acquires at
+`kp_recover`. A connection that died young keeps the full holds. Off by default until a soak shows no more repeat drops than
+without it; see [usb-drops.md](usb-drops.md).
 
 ### How the renderer reads the pose
 

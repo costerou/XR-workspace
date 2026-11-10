@@ -22,7 +22,9 @@
 // reached the first and none the second. Instead:
 //   removal  : the open file itself: POLLHUP/POLLERR, ENODEV, EIO. Immediate, works in any namespace.
 //   re-arrival: rescan sysfs every rescan_interval while down. Reads attributes the kernel caches,
-//              so it puts nothing on the USB bus.
+//              so it puts nothing on the USB bus. With event_reopen, an inotify watch on /dev/bus/usb
+//              also wakes the scan the moment a node appears, goes or changes its ACL. inotify works
+//              in that sandbox: it is a filesystem event, not a uevent.
 //
 // Open errors do not end anything: read() keeps retrying, with a doubling interval, because EACCES is
 // normal for a moment after arrival. It can also last: a device present since boot may have no user ACL
@@ -117,6 +119,13 @@ struct TransportConfig {
     // Sysfs rescan period while disconnected. One scan takes about 0.3 ms on this machine, so 25 ms is
     // about 1% of a core, only while the glasses are gone.
     std::chrono::milliseconds rescan_interval{25};
+
+    // D8 (--event-reopen). While down, watch dev_root/bus/usb with inotify and scan as soon as a node
+    // appears, vanishes or gets its ACL, then every 5 ms for 500 ms, since the node exists before sysfs
+    // lists its interfaces. The timed rescan stays as the fallback. A device back after a link with
+    // sustained traffic (healthy_after) skips arrival_settle; after a link that died young the hold
+    // applies exactly as without the flag.
+    bool event_reopen = false;
 
     std::filesystem::path sysfs_root = "/sys";
     std::filesystem::path dev_root = "/dev";

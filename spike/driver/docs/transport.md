@@ -56,12 +56,24 @@ this machine and sends nothing over USB. There is no libudev or netlink monitor 
 do not reach the driver: side by side, a listener in a normal session got 73 events and one in
 `tracking.py`'s sandbox got none.
 
+**With `--event-reopen` (D8, off by default).** inotify is a filesystem event, not a uevent, so it does
+reach that sandbox. While down, an inotify watch on `/dev/bus/usb` and each bus directory under it
+(`IN_CREATE`, `IN_DELETE`, `IN_ATTRIB`) wakes `read()` the moment a node appears, goes or gets its ACL.
+The kernel makes the node in `device_add`, before the configuration is set and sysfs lists the
+interfaces, so one event starts a burst of scans every 5 ms for 500 ms. The 25 ms timed rescan stays
+as the fallback, and a failed `inotify_init1` leaves only it. The watch fd exists only while down and
+never goes through `Sys`: it touches nothing on USB, so the shared ioctl trace is unchanged.
+
 **Settling before touching it.** Once the device is back, `arrival_settle` (2 s) passes with no
 open, no claim and no queued reads, and the wait restarts if it vanishes again. Queued reads start
 the host polling, and 12 of 20 reconnects right after a drop were followed by another drop, against
 0 of 160 fresh starts. Causation is unproven, so a soak should tune this. The result is that a
 reconnect takes the kernel's re-enumeration plus 2 s, not the ~1 s first asked for, because zero
-drops comes first. A first open never waits.
+drops comes first. A first open never waits. With `--event-reopen`, a device back after a link
+that had sustained traffic (`healthy_after`) skips this hold, and the daemon skips its own 200 ms
+`--settle-ms` too, listening 20 ms before the start instead. A link that died young keeps both holds
+exactly as before, so the flapping guard is unchanged. On the fake kernel the first pose comes 21 to
+27 ms after the node returns, against about 2.2 s without the flag (`luma_transport_test`, `d8` lines).
 
 **Limits on retrying (experimental mitigation, November 4).** Reopening does not clear a
 halted endpoint: nothing on the close or claim path sends `CLEAR_FEATURE(HALT)`, and we refuse to.

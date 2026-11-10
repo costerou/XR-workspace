@@ -137,6 +137,10 @@ struct DaemonConfig {
     milliseconds stats_every{60000};
     bool keep_heading = true;                // a new calibration carries on from the last published heading
     bool vsync = false;                      // the link also brings display events: time the panel's scan-out (vsync.hpp)
+    // D8 (--event-reopen): Transport watches /dev/bus/usb and reopens at once, and a device back after a healthy connection
+    // gets listen_first instead of settle_first, so the pose resumes within kernel time + 50 ms. Only a connection that died
+    // soon after its start waits, at the doubling settle; the flapping guard is unchanged.
+    bool event_reopen = false;
 };
 
 struct Stats {
@@ -177,6 +181,7 @@ public:
 private:
     void connect(std::uint64_t now);
     void send_start(std::uint64_t now);
+    milliseconds settle_for_open() const;  // how long a new connection listens before its first command
     void on_packet(std::span<const std::uint8_t> packet, std::uint64_t now, std::uint64_t host_ns);
     void reset_vsync();
     void on_sample(ImuSample sample, std::uint64_t now, std::uint64_t host_ns);

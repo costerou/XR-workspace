@@ -23,6 +23,7 @@
 #include <linux/usbdevice_fs.h>
 #include <sstream>
 #include <sys/eventfd.h>
+#include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -32,6 +33,11 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using std::chrono::milliseconds;
+
+// event_reopen: after a watch event, scan this often for this long. The node appears in device_add, before
+// the configuration is set and sysfs lists the interfaces; udev's ACL comes later still (as IN_ATTRIB).
+constexpr milliseconds kBurstScan{5};
+constexpr milliseconds kBurstLength{500};
 
 std::uint64_t now_ns(Clock::time_point t = Clock::now()) {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(t.time_since_epoch()).count());
@@ -224,8 +230,14 @@ struct Transport::Impl {
     int open_attempts = 0;                        // Failures in a row on a device that is there.
     int failed_sessions = 0;                      // Links that ended before sustained traffic, capped at the maximum hold.
     bool session_healthy = false;
+    bool lost_healthy = false;  // The link that went down last had sustained traffic (event_reopen skips the hold).
     std::optional<Clock::time_point> healthy_since;
     std::optional<Clock::time_point> down_since;
+    // event_reopen: an inotify fd that exists only while down. Not through Sys: it never touches the
+    // device, and the fake kernel's tree is a real directory, so the real watch sees its changes.
+    int watch_fd = -1;
+    bool watch_broken = false;  // inotify unavailable: the timed rescan alone does the work.
+    Clock::time_point burst_until{};
     std::string last_error;
     std::deque<TransportEvent> events;
     TransportStats stats;
@@ -253,8 +265,56 @@ struct Transport::Impl {
         wake_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     }
     ~Impl() {
+        unwatch();
         if (wake_fd >= 0) ::close(wake_fd);
     }
+
+    // ------------------------------------------------------------- device watch (event_reopen)
+
+    // Watches the deepest of dev_root/bus/usb, dev_root/bus, dev_root that exists, and every bus directory
+    // under bus/usb. Called again after any event, so a directory created meanwhile gets its own watch.
+    void arm_watch() {
+        const fs::path usb = config.dev_root / "bus" / "usb";
+        std::error_code ec;
+        if (fs::is_directory(usb, ec)) {
+            inotify_add_watch(watch_fd, usb.c_str(), IN_CREATE | IN_DELETE | IN_ONLYDIR);
+            for (const fs::path& bus : sorted_entries(usb))
+                inotify_add_watch(watch_fd, bus.c_str(), IN_CREATE | IN_DELETE | IN_ATTRIB | IN_ONLYDIR);
+        } else if (fs::is_directory(config.dev_root / "bus", ec)) {
+            inotify_add_watch(watch_fd, (config.dev_root / "bus").c_str(), IN_CREATE | IN_ONLYDIR);
+        } else {
+            inotify_add_watch(watch_fd, config.dev_root.c_str(), IN_CREATE | IN_ONLYDIR);
+        }
+    }
+
+    void watch() {
+        if (watch_fd >= 0 || watch_broken) return;
+        watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (watch_fd < 0) {
+            watch_broken = true;
+            return;
+        }
+        arm_watch();
+        // Whatever happened before the watch existed is invisible to it: look once now.
+        next_scan = Clock::now();
+        burst_until = next_scan + kBurstLength;
+    }
+
+    void unwatch() {
+        if (watch_fd >= 0) ::close(watch_fd);
+        watch_fd = -1;
+    }
+
+    // Drains the watch. Any event at all means look now and keep looking quickly for a while.
+    void watch_fired() {
+        alignas(inotify_event) char buffer[4096];
+        while (::read(watch_fd, buffer, sizeof buffer) > 0) {}
+        arm_watch();
+        next_scan = Clock::now();
+        burst_until = next_scan + kBurstLength;
+    }
+
+    bool bursting() const { return watch_fd >= 0 && Clock::now() < burst_until; }
 
     int guarded_ioctl(unsigned long request, void* argument) {
         if (!is_allowed_ioctl(request)) {
@@ -380,6 +440,7 @@ struct Transport::Impl {
     bool retry_later() {
         auto delay = config.rescan_interval * (1 << std::min(++open_attempts, 10));
         next_scan = Clock::now() + std::max(config.rescan_interval, std::min<milliseconds>(delay, config.open_retry_max));
+        if (bursting()) next_scan = std::min(next_scan, Clock::now() + kBurstScan);
         return false;
     }
 
@@ -387,6 +448,7 @@ struct Transport::Impl {
     // cycle: each such session doubles the hold. The device leaving and returning clears it.
     bool settling() {
         if (!down_since) return false;
+        if (config.event_reopen && lost_healthy) return false;  // D8: back after a healthy session, at once.
         auto hold = config.arrival_settle * (1 << std::min(failed_sessions, 4));
         if (failed_sessions > 0) hold = std::max(hold, config.open_retry_max);
         if (hold <= milliseconds{0}) return false;
@@ -440,6 +502,7 @@ struct Transport::Impl {
             down_since.reset();
         }
         push_event(std::move(event));
+        unwatch();
         ++stats.connects;
         current = std::move(found);
         pending = IoStatus::Connected;
@@ -486,6 +549,7 @@ struct Transport::Impl {
         ++stats.disconnects;
         down_since = now;
         first_seen.reset();
+        lost_healthy = session_healthy;
         if (!session_healthy) failed_sessions = std::min(failed_sessions + 1, 4);
         next_scan = now + config.rescan_interval;
         pending = IoStatus::Disconnected;
@@ -587,18 +651,20 @@ struct Transport::Impl {
 
     // One step of waiting for the device. Empty means look again; try_open() leaves Connected in pending.
     std::optional<TransportRead> wait_while_down(Clock::time_point deadline) {
+        if (config.event_reopen) watch();
         auto now = Clock::now();
         if (now >= next_scan) {
-            next_scan = now + config.rescan_interval;
+            next_scan = now + (bursting() ? kBurstScan : config.rescan_interval);
             if (try_open()) return std::nullopt;
             now = Clock::now();
         }
         if (now >= deadline) return TransportRead{IoStatus::Timeout};
         auto wait = std::min(deadline, next_scan) - now;
-        pollfd p{wake_fd, POLLIN, 0};
-        int ready = sys->poll(&p, 1, poll_ms(wait));
+        pollfd p[2] = {{wake_fd, POLLIN, 0}, {watch_fd, POLLIN, 0}};
+        int ready = sys->poll(p, watch_fd >= 0 ? 2 : 1, poll_ms(wait));
         if (ready < 0 && errno == EINTR) return TransportRead{IoStatus::Interrupted};
         if (ready > 0 && drain_wake()) return TransportRead{IoStatus::Interrupted};
+        if (ready > 0 && watch_fd >= 0 && (p[1].revents & POLLIN)) watch_fired();
         return std::nullopt;
     }
 
@@ -807,6 +873,7 @@ IoStatus Transport::write_to(std::uint8_t endpoint, std::span<const std::uint8_t
 void Transport::close() {
     Impl& i = *impl_;
     i.teardown();
+    i.unwatch();
     i.opened = false;
     i.current.reset();
     i.pending.reset();

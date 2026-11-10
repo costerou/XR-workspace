@@ -419,15 +419,15 @@ class LumaFlags(unittest.TestCase):
         self.assertEqual(tracking._luma_flags(), [])
 
     def test_every_allowed_form(self):
-        self.path.write_text('--start full --read-events\n  --drain-camera --pose-seqlock\n')
-        self.assertEqual(tracking._luma_flags(), ['--start', 'full', '--read-events', '--drain-camera', '--pose-seqlock'])
+        self.path.write_text('--start full --read-events\n  --drain-camera --pose-seqlock --event-reopen\n')
+        self.assertEqual(tracking._luma_flags(), ['--start', 'full', '--read-events', '--drain-camera', '--pose-seqlock', '--event-reopen'])
 
     def test_empty_file(self):
         self.path.write_text('\n')
         self.assertEqual(tracking._luma_flags(), [])
 
     def test_anything_else_is_refused(self):
-        for text in ('--start', '--start guess', '--start listen', '--replay x', '--ipc-prefix /tmp/x', '--state-dir /x', '--pose-seqlock x', 'x'):
+        for text in ('--start', '--start guess', '--start listen', '--replay x', '--ipc-prefix /tmp/x', '--state-dir /x', '--pose-seqlock x', '--event-reopen 1', 'x'):
             with self.subTest(text):
                 self.path.write_text(text)
                 with self.assertRaises(ValueError): tracking._luma_flags()

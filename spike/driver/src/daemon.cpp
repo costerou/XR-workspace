@@ -153,12 +153,19 @@ void Daemon::connect(std::uint64_t now) {
     ++stats_.connections;
     connection_has_sample_ = false;
     watch_from_ = now;
-    start_at_ = now + ns(device_left_ ? doubled(config_.settle_first, settle_level_, config_.settle_max) : config_.listen_first);
+    start_at_ = now + ns(settle_for_open());
     device_left_ = false;
     parts_.decoder.new_connection();
     reset_vsync();  // the device clock may start again
     if (!ever_connected_) { ever_connected_ = true; logf("luma: connected"); }
     if (parts_.on_link) parts_.on_link(true, now);
+}
+
+milliseconds Daemon::settle_for_open() const {
+    if (!device_left_) return config_.listen_first;
+    if (!config_.event_reopen) return doubled(config_.settle_first, settle_level_, config_.settle_max);
+    // D8: settle_level_ is 0 only after a healthy connection (or none yet), so the doubling begins one step later.
+    return settle_level_ == 0 ? config_.listen_first : doubled(config_.settle_first, settle_level_ - 1, config_.settle_max);
 }
 
 void Daemon::send_start(std::uint64_t now) {
@@ -441,6 +448,8 @@ const char* const kUsage =
     "  --reopen-ms N            no samples this long: close and reopen the device (default 1000)\n"
     "  --keep-calibration-ms N  back within this long after a drop: keep the calibration (default 300000)\n"
     "  --settle-ms N            leave a device that just came back alone this long before any command (default 200)\n"
+    "  --event-reopen           watch /dev/bus/usb and reopen at once; a device back after a healthy connection skips\n"
+    "                           the settle, so the pose resumes warm within ~50 ms (D8, off by default)\n"
     "  --no-keep-heading        after a new calibration, start from its own heading instead of the last one\n"
     "  --no-stop-command        leave the stream on at exit (the Ultra has no known stop, so this changes nothing there yet)\n"
     "  --start MODE             listen: send nothing. stream: the start alone (default). prepared: 0x97 then the start.\n"
@@ -488,6 +497,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--no-stop-command") o.stop_command = false;
         else if (arg == "--read-events") o.read_events = o.config.vsync = true;
         else if (arg == "--drain-camera") o.drain_camera = true;
+        else if (arg == "--event-reopen") o.config.event_reopen = true;
         else if (arg == "--no-rt") o.no_rt = true;
         else if (arg == "--pose-seqlock") o.pose_seqlock = true;
         else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }
