@@ -202,7 +202,7 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     gl.set_help(s.help ? &r.help : nullptr, 1, 1.f, 0.f);
     GlassFrame glass;
     glass.pills = s.pills;
-    if (s.hover >= 0) { glass.hover = s.hover; glass.hover_level = kGlassHover; }
+    if (s.hover >= 0) glass.pill_levels[std::size_t(s.hover)] = kGlassHover;
     glass.expand[1] = s.expand;
     if (s.expand > 0) glass.top = 1;
     if (s.panel) { glass.content = 1; glass.image = &panel_image(r, s, frame, glass.generation); glass.content_alpha = 1.f; }

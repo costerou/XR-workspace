@@ -963,7 +963,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             if (i >= s.textures.size() || i >= g.expand.size()) return;
             const float e = std::clamp(g.expand[i], 0.f, 1.f);
             if (!g.pills && e <= 0.f) return;
-            const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
+            const float level = i < g.pill_levels.size() ? g.pill_levels[i] : kGlassIdle;
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
             if (e <= 0.f) return;
@@ -995,7 +995,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             auto mix = [e](float x, float y) { return x + (y - x) * e; };
             const FRect r{mix(a.x, b.x), mix(a.y, b.y), mix(a.width, b.width), mix(a.height, b.height)};
             const float radius = std::min(mix(a.height / 2, kPanelRadius), std::min(r.width, r.height) / 2);
-            const float level = int(i) == g.gear_hover ? g.gear_level : kGlassIdle;
+            const float level = i < g.gear_levels.size() ? g.gear_levels[i] : kGlassIdle;
             shape(s.gear_meshes[i], i, r, radius, glass_look(accent, level, e), 1.f, kGlassShadowMargin);
             if (e > 0.f) {
                 const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};

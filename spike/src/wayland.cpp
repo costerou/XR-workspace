@@ -512,6 +512,7 @@ struct Presentation::Impl : SurfaceRequests {
     OptionsEvidence options_evidence;bool options_in_frame=false;
     OptionsMenuState options; std::optional<Placement> options_surface; OptionsOverlay options_overlay;
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
+    GlassLevels pill_levels, gear_levels;  // each pill's and gear's hover state, eased (kGlassHoverMs)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     RestoreStep restore_step;  // the Step-Back Band (options_geometry.hpp); the supervisor's `restore_band`
     std::uint64_t restore_updates = 0, restore_full_frames = 0;
@@ -970,7 +971,7 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
+            (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || ((s.glass.animating(now) || s.pill_levels.animating(now) || s.gear_levels.animating(now)) && s.view.zoom() < 0.01f) ||  // glass: overview only
             (s.glass_drawn && !s.glass.any_expanded(now)) || s.options_overlay.needs_frame(s.view.zoom() < 0.01f && !s.view.switching(), s.options_in_frame, now) ||
             s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.restore_step.animating(now) ||
             (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
@@ -1735,7 +1736,15 @@ Status Presentation::draw_test_pattern() {
             glass.restore_alpha=s.view.zoom()>=.99f && !s.view.switching()?s.restore_step.value(double(monotonic_ms())):0.f;
             if(glass.restore_alpha>=1.f)++s.restore_full_frames;
             glass.pills = s.pills.visible && overview;
-            if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
+            // The pill under the dot or dragged, and the gear under the dot (the supervisor's move_handle gear flag),
+            // ease to their state; every other one eases back to idle.
+            for (std::size_t i = 0; i < glass.pill_levels.size(); ++i) {
+                const bool mine = overview && s.pills.visible && s.pills.desktop == i;
+                s.pill_levels.set(i, mine && s.pills.active ? kGlassActive : mine && s.pills.hover ? kGlassHover : kGlassIdle, help_now);
+                s.gear_levels.set(i, mine && s.pills.gear ? kGlassHover : kGlassIdle, help_now);
+                glass.pill_levels[i] = s.pill_levels.level(i, help_now);
+                glass.gear_levels[i] = s.gear_levels.level(i, help_now);
+            }
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
                 glass.surface->roll = s.target_placement(std::size_t(glass.surface_desktop)).roll;
             for (std::size_t i = 0; i < glass.bars.size() && i < s.roll.bars.size(); ++i) glass.bars[i] = s.roll.bars[i];
@@ -1744,8 +1753,6 @@ Status Presentation::draw_test_pattern() {
             glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
-            // The gear under the dot lights like a hovered pill (the supervisor's move_handle gear flag).
-            if (s.pills.gear && overview) { glass.gear_hover = int(s.pills.desktop); glass.gear_level = kGlassHover; }
             const float options_alpha = s.options_overlay.frame(overview, help_now);
             if(options_alpha > 0.f) {
                 for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options_overlay.state().monitor){

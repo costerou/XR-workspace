@@ -50,6 +50,14 @@ Rgb unpremultiplied(const HudImage& im, std::uint32_t x, std::uint32_t y) {
     const float a = float(p[3]);
     return a > 0 ? Rgb{float(p[0]) / a, float(p[1]) / a, float(p[2]) / a} : Rgb{};
 }
+// The selected slider row's band at (x, y), unpremultiplied: lit glass on the secondary container (glass.cpp's lit_band).
+Rgb band_colour(Rgb accent, std::size_t row, float x, float y) {
+    const auto& m = glass_theme_scheme(accent);
+    const float h = kPanelRowH - 4;
+    const auto look = glass_lit_look(m.secondary_container, md_layer(m.secondary_container, m.on_secondary_container, 0.55f), kGlassHover, h);
+    const auto px = glass_shade(look, {10, kPanelRowsTop + float(row) * kPanelRowH + 2, kPanelW - 20, h}, h / 2, x + 0.5f, y + 0.5f, 1.f);
+    return {px[0] / px[3], px[1] / px[3], px[2] / px[3]};
+}
 std::uint8_t brightest(const HudImage& im) {
     std::uint8_t m = 0;
     for (std::size_t i = 0; i < im.rgba.size(); i += 4) for (int c = 0; c < 3; ++c) m = std::max(m, im.rgba[i + std::size_t(c)]);
@@ -82,10 +90,13 @@ int main() {
                         const auto c = glass_shade(look, r, radius, x + 0.5f, y + 0.5f, 1.f);
                         for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(c[i] <= kGlassCap + 1e-5f && c[i] <= c[3] + 1e-5f, th.name);
                     }
-                // The state layer: the header's (the pill's whole) colour moves toward the content colour by M3's
-                // opacity for the state; the cap's per-channel clamp never touches it.
-                const Rgb head = colour(glass_shade(look, r, radius, cx, r.y + std::min(r.height / 2, 6.f), 1.f));
-                const Rgb want = md_layer(look.container, look.state, glass_state_opacity(level));
+                // The state layer: the open panel's header moves toward the content colour by M3's opacity for the
+                // state; the pill's sheen fades down its top over state_soft. The cap's per-channel clamp never touches it.
+                const float head_y = std::min(r.height / 2, 6.f);
+                const Rgb head = colour(glass_shade(look, r, radius, cx, r.y + head_y, 1.f));
+                const float sheen = look.state_alpha * std::clamp((look.state_px - head_y) / std::max(look.state_soft, 1.f) + 0.5f, 0.f, 1.f);
+                if (t == 1.f) CHECK_THEME(near(sheen, glass_state_opacity(level), 1e-6f), th.name);
+                const Rgb want = md_layer(look.container, look.state, sheen);
                 for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(near(head[i], want[i] * look.fill, 1e-5f), th.name);
                 if (level == kGlassIdle) idle = head;
                 else if (t != 0.4f) CHECK_THEME(!near3(head, idle, 1e-3f), th.name);  // hover and drag show (mid-morph the on-colours cross)
@@ -181,8 +192,9 @@ int main() {
             const HudImage im = render_glass_panel(st, f, a);
             CHECK_THEME(premultiplied(im) && brightest(im) <= kCardMaxLevel && brightest(im) >= 140, th.name);
             const Rgb band = unpremultiplied(im, band_x, band_y), fill = unpremultiplied(im, fill_x, band_y), handle = unpremultiplied(im, handle_x, band_y);
+            const Rgb want_band = band_colour(a, 3, float(band_x), float(band_y));
             for (std::size_t i = 0; i < 3; ++i) {
-                CHECK_THEME(near(band[i], m.secondary_container[i], 0.012f), th.name);
+                CHECK_THEME(near(band[i], want_band[i], 0.012f), th.name);
                 CHECK_THEME(near(fill[i], m.primary[i], 0.012f) && near(handle[i], m.primary[i], 0.012f), th.name);
             }
             // The unselected rows' tracks: the primary at 24% on the transparent panel.
@@ -200,7 +212,7 @@ int main() {
         const Rgb tokyo = rgb(0x7aa2f7), matte = rgb(0xe68e0d), nord = rgb(0x81a1c1);
         const float cy = kPanelRowsTop + kPanelRowH / 2;  // the first row (selected by default)
         auto band = [&](const GlassPills& g) { return unpremultiplied(g.image(), 14, std::uint32_t(cy)); };
-        auto matches = [](Rgb got, Rgb accent) { return near3(got, glass_theme_scheme(accent).secondary_container, 0.012f); };
+        auto matches = [&](Rgb got, Rgb accent) { return near3(got, band_colour(accent, 0, 14, std::floor(cy)), 0.012f); };
         GlassPills g;
         CHECK(!g.set_accent(tokyo) && g.generation() == 0 && g.renders() == 0 && g.content_desktop() == -1);  // nothing to redo
         PlacementMenuState st; st.open = true; st.desktop = 2;

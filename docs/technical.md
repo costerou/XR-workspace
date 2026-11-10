@@ -2097,11 +2097,15 @@ roles take M3's dark-scheme tones (primary 80, on primary 20, secondary containe
 the brightest possible role lands exactly on the OLED cap and nothing drawn from the scheme passes it.
 
 The collapsed pill is a flat tonal capsule in the primary container at elevation 1, 14 px tall and 24% of the desktop's
-width (64–160 px). Hovering it lays M3's state layer over it (its on-colour at 8%) and lifts it to elevation 2; dragging
-it, 16% and elevation 4. The open panel is a surface container (high) with a 1 px outline-variant edge at elevation 3 and
+width (64–160 px). Hovering it turns it to lit glass: a 2 px rim of the bright primary (tone 98) at 55%, a sheen of the
+same colour at 34% fading out down the top 60% of it, and the container lifted 10% toward that light, at elevation 2.
+Dragging it brightens the rim to 70%, drops the sheen, dims the container by 12% and lifts it to elevation 4. Every state
+change eases over 140 ms (ease-out; `GlassLevels`). The gear, Maximize and Restore use the same lit glass when hovered,
+and so do the options panel's focused row and the placement panel's selected slider band (in the secondary container,
+without a bold jump on the focused row). Placement-panel buttons have no hover yet: the menu state carries no hover. The open panel is a surface container (high) with a 1 px outline-variant edge at elevation 3 and
 M3's drag handle (on-surface-variant at 40%); hovering or dragging its header puts the state layer on the header strip
 only. Its rows are an M3 list of sliders: labels on-surface, values on-surface-variant, the selected row on a fully
-rounded secondary-container band, each slider a primary track (24% where inactive), fill and handle, the selected
+rounded lit secondary-container band, each slider a primary track (24% where inactive), fill and handle, the selected
 handle with a 10% focus halo. The desktop row's buttons are fully rounded filled tonal buttons with a Material icon
 before the label (width, add, remove): the primary while Ultrawide is on, the error container while Remove asks for its
 second click, M3's disabled look (on-surface at 12% / 38%) when they do nothing now; with the pixel font they have

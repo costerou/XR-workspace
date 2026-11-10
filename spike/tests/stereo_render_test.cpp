@@ -342,7 +342,7 @@ void whole_view() {
         gl->upload(std::size_t(i), pictures.back().data(), 420 + std::uint32_t(i) * 8, 262, (420 + std::uint32_t(i) * 8) * 4);
     }
     gl->set_accent(0x80, 0xa0, 0xc0);
-    GlassFrame glass; glass.pills = true; glass.bars.fill(true); glass.hover = 1; glass.hover_level = 0.6f;
+    GlassFrame glass; glass.pills = true; glass.bars.fill(true); glass.pill_levels[1] = 0.6f;
     gl->set_glass(glass);
     gl->set_free_pointer(true, 670, 330, 0.7f);
     HudImage card; card.width = 200; card.height = 60; card.rgba.assign(200 * 60 * 4, 0);

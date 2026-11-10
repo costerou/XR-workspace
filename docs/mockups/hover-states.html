@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass Hover States</title>
+<style>
+/* M3 roles of the glass scheme, seeded with a blue Omarchy accent and scaled by 191/255 (the OLED cap), as material.cpp does.
+   primary container = P(container tone ~64), on-colours picked by contrast, primary = P80, primary bright = P98. */
+:root {
+  --u: 1.4px;                 /* 1 canvas px of the desktop surface */
+  --pc: #5370ac;              /* primary container (the pill) */
+  --opc: #0b1a3a;             /* on primary container (dark ink wins on this mid tone) */
+  --p: #8494bf;               /* primary */
+  --op: #002250;              /* on primary */
+  --pb: #babac0;              /* primary bright (tone 98, capped) */
+  --sch: #1c1e24;             /* surface container high (panel) */
+  --sc: #2e3543;              /* secondary container */
+  --osc: #a3a9ba;             /* on secondary container */
+  --os: #a9a9ae;              /* on surface */
+  --osv: #93949c;             /* on surface variant */
+  --ov: #333539;              /* outline variant */
+  --page: #050608;
+  --text: #c9cbd2;
+  --muted: #8a8d96;
+  --rule: #23262d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--page); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+main { max-width: 1440px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 8px; color: #e4e5ea; letter-spacing: -.01em; }
+h2 { font-size: 20px; margin: 0; color: #e4e5ea; }
+p { margin: 6px 0; max-width: 1000px; }
+.lede { color: var(--muted); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 10px; border-radius: 999px; background: #1b1e25; color: #aeb3c2; margin-right: 10px; vertical-align: 3px; }
+.tag.rec { background: #23324f; color: #c4d3f5; }
+section { margin-top: 40px; }
+.what { color: var(--text); }
+.map { color: var(--muted); font-size: 14px; }
+.map b { color: #b5b9c4; font-weight: 600; }
+.scroll { overflow-x: auto; margin-top: 14px; border-radius: 18px; }
+
+/* --- The scene: the real world seen through the glasses, two desktop monitors floating in it --------------------- */
+.stage { position: relative; min-width: 1240px; border-radius: 18px; overflow: hidden; padding: 18px 20px 22px;
+  background:
+    radial-gradient(60% 80% at 15% 110%, #2a2118 0%, transparent 60%),
+    radial-gradient(50% 70% at 90% -10%, #14202c 0%, transparent 65%),
+    radial-gradient(40% 50% at 55% 60%, #181a1f 0%, transparent 70%),
+    #08090c; }
+.monitor { position: absolute; z-index: 0; border-radius: 6px; overflow: hidden; filter: brightness(.78);
+  box-shadow: 0 0 0 3px #2c3550; }
+.monitor .wall { position: absolute; inset: 0; }
+.monitor .win { position: absolute; border-radius: 6px; background: #d8dbe2; overflow: hidden; }
+.monitor .win::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 14px; background: #b9bec9; }
+.monitor .win i { position: absolute; left: 10px; right: 30%; height: 6px; border-radius: 3px; background: #9aa1ae; }
+.monitor .win.dark { background: #1f2430; }
+.monitor .win.dark::before { background: #2b3242; }
+.monitor .win.dark i { background: #56607a; }
+.m1 { left: 150px; top: 54px; width: 520px; height: 290px; }
+.m1 .wall { background: linear-gradient(135deg, #3b5d8f, #8a6aa6 55%, #e0a96d); }
+.m2 { right: 30px; top: 150px; width: 560px; height: 300px; }
+.m2 .wall { background: linear-gradient(160deg, #e9e2cf, #b7c7b0 50%, #4d6b5a); }
+
+.grid { position: relative; z-index: 1; display: grid; grid-template-columns: 150px repeat(4, minmax(260px, 1fr));
+  align-items: center; row-gap: 8px; }
+.colhead { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9aa0ad;
+  padding: 0 0 6px; text-shadow: 0 1px 3px #000; }
+.colhead.live { color: #c4d3f5; }
+.rowhead { font-size: 13px; font-weight: 600; color: #b9bdc8; line-height: 1.3; padding-right: 8px;
+  text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+.rowhead small { display: block; font-weight: 400; color: #8a8f9b; }
+.cell { height: 96px; display: flex; align-items: center; justify-content: center; }
+
+/* --- Shared control skeleton. Each section sets the --*0 (rest), --*1 (hover), --*2 (pressed) variables. ----------- */
+.ctl { position: relative; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; outline: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg0); color: var(--ink0); transform: var(--t0, none); box-shadow: var(--s0, none);
+  transition: var(--tr, none); -webkit-tap-highlight-color: transparent; }
+.ctl:hover, .ctl.h { background: var(--bg1); color: var(--ink1); transform: var(--t1, none); box-shadow: var(--s1, none); }
+.ctl:active, .ctl.p { background: var(--bg2); color: var(--ink2); transform: var(--t2, none); box-shadow: var(--s2, none); }
+/* Overlay layer inside a control: grip, indicator, sheen. Opacity per state. */
+.ctl::after { content: ""; position: absolute; pointer-events: none; opacity: var(--o0, 0); transition: var(--tr, none);
+  background: var(--fx-bg, none); inset: var(--fx-inset, 0); border-radius: var(--fx-r, inherit);
+  box-shadow: var(--fx-sh, none); transform: var(--fx-t0, none); }
+.ctl:hover::after, .ctl.h::after { opacity: var(--o1, 0); transform: var(--fx-t1, none); }
+.ctl:active::after, .ctl.p::after { opacity: var(--o2, 0); transform: var(--fx-t2, none); }
+
+.pill { width: calc(160 * var(--u)); height: calc(14 * var(--u)); border-radius: 999px; }
+.gear { width: calc(28 * var(--u)); height: calc(14 * var(--u)); border-radius: 999px; }
+.gear svg { width: 100%; height: 100%; display: block; position: relative; z-index: 1; }
+.maxwrap { position: relative; display: inline-block; }
+.max { width: calc(26 * var(--u)); height: calc(26 * var(--u)); border-radius: 50%; }
+.max svg { width: 100%; height: 100%; display: block; position: relative; z-index: 1; }
+/* The "Maximize" hint the renderer draws above a hot Maximize button (options_hint_box). */
+.tip { position: absolute; left: 0; bottom: calc(100% + 4 * var(--u)); width: calc(84 * var(--u)); height: calc(20 * var(--u));
+  border-radius: 999px; background: var(--sch); color: var(--os); font-weight: 700; font-size: calc(13 * var(--u));
+  display: flex; align-items: center; padding-left: calc(8 * var(--u)); pointer-events: none;
+  opacity: 0; transition: var(--tip-tr, none); transform: var(--tip-t0, none); white-space: nowrap; }
+.maxwrap:hover .tip, .maxwrap.h .tip, .maxwrap.p .tip { opacity: 1; transform: none; }
+.maxwrap.p .max { background: var(--bg2); color: var(--ink2); transform: var(--t2, none); box-shadow: var(--s2, none); }
+.maxwrap.p .max::after { opacity: var(--o2, 0); transform: var(--fx-t2, none); }
+.maxwrap.h .max { background: var(--bg1); color: var(--ink1); transform: var(--t1, none); box-shadow: var(--s1, none); }
+.maxwrap.h .max::after { opacity: var(--o1, 0); transform: var(--fx-t1, none); }
+
+/* A chunk of an open panel (surface container high at 94%, 18 px corners) holding a row or a button. */
+.panel { background: color-mix(in srgb, var(--sch) 94%, transparent); border-radius: calc(14 * var(--u));
+  box-shadow: inset 0 0 0 1px var(--ov); padding: calc(6 * var(--u)) calc(8 * var(--u)); }
+.row { width: calc(196 * var(--u)); height: calc(36 * var(--u)); border-radius: calc(10 * var(--u));
+  justify-content: space-between; padding: 0 calc(10 * var(--u)); font-size: calc(14 * var(--u)); }
+.row .lab { font-weight: var(--wt0, 400); position: relative; z-index: 1; }
+.row .val { color: var(--osv); position: relative; z-index: 1; }
+.row:hover .lab, .row.h .lab, .row:active .lab, .row.p .lab { font-weight: var(--wt1, 400); }
+.btn { width: calc(110 * var(--u)); height: calc(30 * var(--u)); border-radius: 999px; gap: calc(6 * var(--u));
+  font-weight: 700; font-size: calc(12 * var(--u)); }
+.btn svg, .btn span { position: relative; z-index: 1; }
+.btn svg { width: calc(16 * var(--u)); height: calc(16 * var(--u)); }
+
+/* ============================ Current: what glass.cpp / gl.cpp draw today ============================ */
+.cur .pill, .cur .gear {
+  --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 92%, var(--opc)); --bg2: color-mix(in srgb, var(--pc) 84%, var(--opc));
+  --ink0: var(--opc); --ink1: var(--opc); --ink2: var(--opc);
+  --s0: 0 0.7px 5px rgba(0,0,0,.42); --s1: 0 2.1px 9px rgba(0,0,0,.46); --s2: 0 5.6px 20px rgba(0,0,0,.56); }
+.cur .max { --bg0: var(--pc); --bg1: var(--p); --bg2: var(--p); --ink0: var(--opc); --ink1: var(--op); --ink2: var(--op); }
+.cur .row { --bg0: transparent; --bg1: var(--sc); --bg2: var(--sc); --ink0: var(--os); --ink1: var(--osc); --ink2: var(--osc);
+  --s1: inset 0 0 0 2px var(--p); --s2: inset 0 0 0 2px var(--p); --wt1: 700; }
+.cur .btn { --bg0: var(--sc); --bg1: var(--sc); --bg2: var(--sc); --ink0: var(--osc); --ink1: var(--osc); --ink2: var(--osc); }
+
+/* ============================ A: Brighten (one tonal rule for everything) ============================ */
+.pa { --tr: background-color 120ms ease-out, color 120ms ease-out; --tip-tr: opacity 160ms ease-out 250ms; }
+.pa .pill, .pa .gear, .pa .max {
+  --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 76%, var(--pb)); --bg2: color-mix(in srgb, var(--pc) 64%, var(--pb));
+  --ink0: var(--opc); --ink1: var(--opc); --ink2: var(--opc); }
+.pa .row { --bg0: transparent; --bg1: color-mix(in srgb, var(--sch) 88%, var(--os)); --bg2: color-mix(in srgb, var(--sch) 80%, var(--os));
+  --ink0: var(--os); --ink1: var(--os); --ink2: var(--os); }
+.pa .btn { --bg0: var(--sc); --bg1: color-mix(in srgb, var(--sc) 86%, var(--osc)); --bg2: color-mix(in srgb, var(--sc) 76%, var(--osc));
+  --ink0: var(--osc); --ink1: var(--osc); --ink2: var(--osc); }
+
+/* ============================ B: Glass rim + sheen (visionOS-style lit edge) ============================ */
+.pb- { --tr: background-color 140ms ease-out, opacity 140ms ease-out, box-shadow 140ms ease-out; --tip-tr: opacity 160ms ease-out 250ms; }
+.pb- .pill, .pb- .gear, .pb- .max {
+  --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 90%, var(--pb)); --bg2: color-mix(in srgb, var(--pc) 88%, #000);
+  --ink0: var(--opc); --ink1: var(--opc); --ink2: var(--opc);
+  --s1: inset 0 0 0 2.8px color-mix(in srgb, var(--pb) 55%, transparent);
+  --s2: inset 0 0 0 2.8px color-mix(in srgb, var(--pb) 70%, transparent);
+  --fx-bg: linear-gradient(to bottom, color-mix(in srgb, var(--pb) 34%, transparent), transparent 62%);
+  --o1: 1; --o2: 0; }
+.pb- .row { --bg0: transparent; --bg1: color-mix(in srgb, var(--sch) 92%, var(--os)); --bg2: color-mix(in srgb, var(--sch) 86%, #000);
+  --ink0: var(--os); --ink1: var(--os); --ink2: var(--os);
+  --s1: inset 0 0 0 2.8px color-mix(in srgb, var(--os) 30%, transparent); --s2: inset 0 0 0 2.8px color-mix(in srgb, var(--os) 42%, transparent);
+  --fx-bg: linear-gradient(to bottom, color-mix(in srgb, var(--os) 12%, transparent), transparent 70%); --o1: 1; --o2: 0; }
+.pb- .btn { --bg0: var(--sc); --bg1: color-mix(in srgb, var(--sc) 90%, var(--osc)); --bg2: color-mix(in srgb, var(--sc) 85%, #000);
+  --ink0: var(--osc); --ink1: var(--osc); --ink2: var(--osc);
+  --s1: inset 0 0 0 2.8px color-mix(in srgb, var(--osc) 40%, transparent); --s2: inset 0 0 0 2.8px color-mix(in srgb, var(--osc) 55%, transparent);
+  --fx-bg: linear-gradient(to bottom, color-mix(in srgb, var(--osc) 22%, transparent), transparent 62%); --o1: 1; --o2: 0; }
+
+/* ============================ C: Lift (brighten + grow, press sinks) ============================ */
+.pc- { --tr: background-color 140ms ease-out, transform 160ms cubic-bezier(.2,.8,.2,1); --tip-tr: opacity 160ms ease-out 250ms, transform 160ms ease-out 250ms;
+  --tip-t0: translateY(3px); }
+.pc- .pill { --t1: scale(1.07, 1.14); --t2: scale(.97, .94); }
+.pc- .gear, .pc- .max { --t1: scale(1.12); --t2: scale(.94); }
+.pc- .pill, .pc- .gear, .pc- .max {
+  --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 82%, var(--pb)); --bg2: color-mix(in srgb, var(--pc) 72%, var(--pb));
+  --ink0: var(--opc); --ink1: var(--opc); --ink2: var(--opc); }
+.pc- .row { --bg0: transparent; --bg1: color-mix(in srgb, var(--sch) 88%, var(--os)); --bg2: color-mix(in srgb, var(--sch) 82%, var(--os));
+  --ink0: var(--os); --ink1: var(--os); --ink2: var(--os); --t1: scale(1.02); --t2: scale(.985); }
+.pc- .btn { --bg0: var(--sc); --bg1: color-mix(in srgb, var(--sc) 84%, var(--osc)); --bg2: color-mix(in srgb, var(--sc) 76%, var(--osc));
+  --ink0: var(--osc); --ink1: var(--osc); --ink2: var(--osc); --t1: scale(1.06); --t2: scale(.96); }
+
+/* ============================ D: Ink + affordance (grip, indicator, brighter ink) ============================ */
+.pd- { --tr: background-color 120ms ease-out, color 120ms ease-out, opacity 140ms ease-out, transform 160ms cubic-bezier(.2,.8,.2,1);
+  --tip-tr: opacity 160ms ease-out 250ms; }
+.pd- .pill { --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 90%, var(--pb)); --bg2: color-mix(in srgb, var(--pc) 84%, var(--pb));
+  --fx-bg: var(--opc); --fx-r: 999px; --fx-inset: calc(5 * var(--u)) calc(64 * var(--u));
+  --fx-t0: scaleX(.6); --fx-t1: none; --fx-t2: scaleX(1.35); --o1: .9; --o2: 1; }
+.pd- .gear, .pd- .max { --bg0: var(--pc); --bg1: color-mix(in srgb, var(--pc) 90%, var(--pb)); --bg2: color-mix(in srgb, var(--pc) 84%, var(--pb));
+  --ink0: color-mix(in srgb, var(--opc) 75%, var(--pc)); --ink1: var(--opc); --ink2: var(--opc); }
+.pd- .max svg { transition: transform 160ms cubic-bezier(.2,.8,.2,1); }
+.pd- .max:hover svg, .pd- .maxwrap.h svg { transform: scale(1.14); }
+.pd- .max:active svg, .pd- .maxwrap.p svg { transform: scale(.92); }
+.pd- .row { --bg0: transparent; --bg1: color-mix(in srgb, var(--sch) 93%, var(--os)); --bg2: color-mix(in srgb, var(--sch) 86%, var(--os));
+  --ink0: var(--os); --ink1: var(--os); --ink2: var(--os);
+  --fx-bg: var(--p); --fx-r: 999px; --fx-inset: calc(9 * var(--u)) auto calc(9 * var(--u)) 0; --fx-t0: scaleY(.3); --fx-t1: none; --fx-t2: none;
+  --o1: 1; --o2: 1; }
+.pd- .row::after { width: calc(4 * var(--u)); }
+.pd- .btn { --bg0: var(--sc); --bg1: color-mix(in srgb, var(--sc) 90%, var(--osc)); --bg2: color-mix(in srgb, var(--sc) 82%, var(--osc));
+  --ink0: color-mix(in srgb, var(--osc) 80%, var(--sc)); --ink1: var(--pb); --ink2: var(--pb); }
+
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) { h1 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Glass hover states</h1>
+  <p class="lede">Overview controls and panel buttons at 1.4× their canvas size, over a see-through scene with two desktops.
+    Each section shows rest, hover and pressed, then a live copy to try with the mouse. Colours are the M3 glass scheme
+    for a blue Omarchy accent, capped at 191/255 like the renderer.</p>
+  <p class="lede"><b>Today:</b> the placement pill and the gear get an 8% state layer in their on-colour (16% while dragged)
+    and a bigger black drop shadow. The Maximize button snaps from primary container to bright primary, its icon flips
+    colour, and a “Maximize” label pops up. Options rows on hover or focus get a secondary-container band, a 2 px primary
+    outline and a bold label. Placement-panel buttons don’t react at all. Every change is a hard step with no fade.</p>
+
+  <!-- ============================== CURRENT ============================== -->
+  <section class="cur">
+    <h2><span class="tag">Current</span>What the renderer draws today</h2>
+    <p class="what">Three different hover styles. The pill and gear barely change: the 8% layer is dark ink, so they dim, and the black shadow is invisible on OLED. Maximize flashes bright. Rows get a thin outline and their text jumps to bold.</p>
+    <div class="scroll"><div class="stage" data-stage></div></div>
+  </section>
+
+  <!-- ============================== A ============================== -->
+  <section class="pa">
+    <h2><span class="tag">A</span>Brighten</h2>
+    <p class="what">One rule everywhere: hover mixes the fill 24% toward primary-bright, press 36%. Every control lightens, nothing dims. No outline, no bold swap, no shadow. 120 ms fade. Maximize follows the same rule instead of swapping to primary.</p>
+    <p class="map"><b>Maps to:</b> <code>glass_look</code> state colour = <code>primary_bright</code> (not the on-colour); <code>glass_state_opacity</code> 0 / .24 / .36; shadow left at elevation 1 for all states. Maximize hot atlas cell = <code>md_layer(primary_container, primary_bright, .24)</code>. Rows and panel buttons: <code>md_fill_rounded</code> with <code>md_layer</code>, outline stroke removed. Ease <code>hover_level</code> instead of stepping it (wayland.cpp).</p>
+    <div class="scroll"><div class="stage" data-stage></div></div>
+  </section>
+
+  <!-- ============================== B ============================== -->
+  <section class="pb-">
+    <h2><span class="tag">B</span>Glass rim + sheen</h2>
+    <p class="what">Hover lights the glass from above: a 2 px light rim inside the edge and a soft sheen on the top half. Press drops the sheen and darkens the fill a little, so the control looks pushed in. Looks the most like visionOS, but the rim is the finest detail of the four.</p>
+    <p class="map"><b>Maps to:</b> <code>outline</code> = <code>primary_bright</code>, <code>outline_alpha</code> by state 0 / .55 / .7 (the open panel already uses this slot). The rim needs a width uniform instead of the hard-coded 1 px. Sheen = state layer with <code>state_px</code> = half the height, plus a soft ramp instead of the ½ px edge (one shader line). Atlas buttons get the same rim drawn with <code>md_stroke_rounded</code>, 2 px.</p>
+    <div class="scroll"><div class="stage" data-stage></div></div>
+  </section>
+
+  <!-- ============================== C ============================== -->
+  <section class="pc-">
+    <h2><span class="tag">C</span>Lift <span class="tag rec">Recommended</span></h2>
+    <p class="what">Hover grows the control about 7% (pill +11 px wide, +2 px tall on the canvas) and brightens it 18%. Press shrinks it below rest and brightens it 28%. You can tell a hover from size alone, even out of the corner of your eye. Every control uses the same motion.</p>
+    <p class="map"><b>Maps to:</b> brighten = A’s state-layer change (opacity .18 / .28). Grow = inflate the rect passed to <code>shape()</code> / <code>image()</code> in gl.cpp by <code>by_state(level, 0, +5.5 / +1, −2.5 / −0.5 px)</code>. Radius stays h/2. Hit boxes keep the rest rect, so nothing jitters at the edge. Needs <code>hover_level</code> eased over ~150 ms (like CardFade) instead of stepped. Panel rows and buttons: scale the band rect the same way in <code>render_*_panel</code>.</p>
+    <div class="scroll"><div class="stage" data-stage></div></div>
+  </section>
+
+  <!-- ============================== D ============================== -->
+  <section class="pd-">
+    <h2><span class="tag">D</span>Ink + affordance</h2>
+    <p class="what">The fill barely changes (10%). Instead, the content shows what will happen. A grip bar appears in the pill and stretches when pressed. The gear and Maximize icons sharpen and grow. A menu row gets an M3 accent bar on its left. Button labels turn primary-bright.</p>
+    <p class="map"><b>Maps to:</b> the pill grip reuses <code>grabber_look</code> (already drawn for the open panel), placed inside the pill and fading by level. Icons: hot atlas cells drawn at 1.14× with full-strength ink. Row indicator: one <code>md_fill_rounded</code> 4 px bar in <code>primary</code>. State layer .10 / .16 toward <code>primary_bright</code>.</p>
+    <div class="scroll"><div class="stage" data-stage></div></div>
+  </section>
+
+  <footer>Mockup only. Sizes are canvas px × 1.4. Options rows are shortened to 196 canvas px (568 in the renderer) so four fit side by side. The live column uses real CSS <code>:hover</code> / <code>:active</code>.</footer>
+</main>
+
+<template id="stage">
+  <div class="monitor m1"><div class="wall"></div>
+    <div class="win" style="left:40px;top:40px;width:250px;height:170px"><i style="top:30px"></i><i style="top:46px;right:45%"></i><i style="top:62px"></i></div>
+    <div class="win dark" style="left:250px;top:110px;width:230px;height:150px"><i style="top:30px"></i><i style="top:46px"></i></div>
+  </div>
+  <div class="monitor m2"><div class="wall"></div>
+    <div class="win" style="left:60px;top:30px;width:300px;height:210px"><i style="top:30px"></i><i style="top:46px"></i><i style="top:62px;right:50%"></i><i style="top:78px"></i></div>
+    <div class="win dark" style="left:330px;top:70px;width:200px;height:190px"><i style="top:30px"></i></div>
+  </div>
+  <div class="grid">
+    <div></div><div class="colhead">Rest</div><div class="colhead">Hover</div><div class="colhead">Pressed / dragged</div><div class="colhead live">Try it (live)</div>
+    <div class="rowhead">Placement pill<small>160 × 14</small></div>
+    <div class="cell" data-ctl="pill" data-s=""></div><div class="cell" data-ctl="pill" data-s="h"></div><div class="cell" data-ctl="pill" data-s="p"></div><div class="cell" data-ctl="pill" data-s="live"></div>
+    <div class="rowhead">Maximize<small>26 round</small></div>
+    <div class="cell" data-ctl="max" data-s=""></div><div class="cell" data-ctl="max" data-s="h"></div><div class="cell" data-ctl="max" data-s="p"></div><div class="cell" data-ctl="max" data-s="live"></div>
+    <div class="rowhead">Options gear<small>28 × 14</small></div>
+    <div class="cell" data-ctl="gear" data-s=""></div><div class="cell" data-ctl="gear" data-s="h"></div><div class="cell" data-ctl="gear" data-s="p"></div><div class="cell" data-ctl="gear" data-s="live"></div>
+    <div class="rowhead">Menu row<small>options panel</small></div>
+    <div class="cell" data-ctl="row" data-s=""></div><div class="cell" data-ctl="row" data-s="h"></div><div class="cell" data-ctl="row" data-s="p"></div><div class="cell" data-ctl="row" data-s="live"></div>
+    <div class="rowhead">Panel button<small>placement panel</small></div>
+    <div class="cell" data-ctl="btn" data-s=""></div><div class="cell" data-ctl="btn" data-s="h"></div><div class="cell" data-ctl="btn" data-s="p"></div><div class="cell" data-ctl="btn" data-s="live"></div>
+  </div>
+</template>
+
+<script>
+// The control markup, shared by every section; the section's class picks the look.
+const GEAR = '<svg viewBox="0 0 84 42" aria-hidden="true"><g fill="currentColor"><rect x="20" y="13" width="44" height="4" rx="2"/><rect x="20" y="25" width="44" height="4" rx="2"/><circle cx="50" cy="15" r="6"/><circle cx="34" cy="27" r="6"/></g></svg>';
+// The Maximize glyph: four corner brackets of a 34 px square centred in the 78 px cell (legs 12, stroke 5), as the atlas draws it.
+const MAX = '<svg viewBox="0 0 78 78" aria-hidden="true"><g fill="currentColor">' +
+  [[22,22,12,5],[44,22,12,5],[22,51,12,5],[44,51,12,5],[22,22,5,12],[51,22,5,12],[22,44,5,12],[51,44,5,12]]
+    .map(([x,y,w,h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.5"/>`).join('') + '</g></svg>';
+const WIDTH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 12l4-4v3h12V8l4 4-4 4v-3H6v3z"/></svg>';
+const make = {
+  pill: s => `<button class="ctl pill ${s}" aria-label="Placement pill"></button>`,
+  gear: s => `<button class="ctl gear ${s}" aria-label="Options">${GEAR}</button>`,
+  max: s => `<span class="maxwrap ${s}"><span class="tip">Maximize</span><button class="ctl max" aria-label="Maximize">${MAX}</button></span>`,
+  row: s => `<div class="panel"><button class="ctl row ${s}"><span class="lab">Comfort mode</span><span class="val">Auto</span></button></div>`,
+  btn: s => `<div class="panel"><button class="ctl btn ${s}">${WIDTH}<span>Ultrawide</span></button></div>`,
+};
+const tpl = document.getElementById('stage');
+for (const stage of document.querySelectorAll('[data-stage]')) {
+  stage.appendChild(tpl.content.cloneNode(true));
+  for (const cell of stage.querySelectorAll('[data-ctl]')) {
+    const s = cell.dataset.s === 'live' ? '' : cell.dataset.s;
+    cell.innerHTML = make[cell.dataset.ctl](s);
+    if (cell.dataset.s !== 'live') cell.querySelectorAll('button').forEach(b => { b.tabIndex = -1; b.style.pointerEvents = 'none'; });
+  }
+}
+</script>
+</body>
+</html>

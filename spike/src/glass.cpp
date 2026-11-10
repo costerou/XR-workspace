@@ -15,6 +15,11 @@ namespace {
 float lerp(float a, float b, float t) { return a * (1 - t) + b * t; }  // exactly a at 0, b at 1
 float clamp01(float v) { return std::isnan(v) ? 0.f : std::clamp(v, 0.f, 1.f); }
 float smooth(float e0, float e1, float x) { const float t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); }  // GLSL smoothstep
+// A panel's focused or selected row band: lit glass (glass_lit_look, hovered) on `container`, its rim and sheen in `on`
+// toned down to kBandLight toward it, so they stay quieter than a pill's against the dark panel.
+constexpr float kBandLight = 0.55f;
+GlassLook lit_band(const MdRgb& container, const MdRgb& on, float height);
+
 // A value per pill state (kGlassIdle / kGlassHover / kGlassActive), linear in between, held outside.
 float by_state(float level, float idle, float hover, float active) {
     if (!(level > kGlassIdle)) return idle;
@@ -291,19 +296,20 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
         }
     for(int state=0;state<4;state+=2) {
       float x=2+state*84,y=float(kAtlasOldH)+2;
-      // Maximize: a round button in the pill family, primary under the dot, with four corner brackets that point outward.
-      const bool hot=state>=2;const auto& ink=hot?m.on_primary:m.on_primary_container;
-      md_fill_rounded(im,x,y,x+78,y+78,39,hot?m.primary:m.primary_container,1);
+      // Maximize: a round button in the pill family, lit glass under the dot (glass_lit_look, the pill's hover), with four
+      // corner brackets that point outward.
+      const bool hot=state>=2;const auto& ink=m.on_primary_container;
+      glass_draw(im,glass_lit_look(m.primary_container,m.primary_bright,hot?kGlassHover:kGlassIdle,78,kGlassRimPx*kHandleAtlasScale),{x,y,78,78},39);
       const float a=x+22,b=x+56,c=y+22,d=y+56,t=5,l=12;  // the 34 px square, centred in the 78 px cell
       for(float cx:{a,b-l})for(float cy:{c,d-t})md_fill_rounded(im,cx,cy,cx+l,cy+t,t/2,ink,1);
       for(float cx:{a,b-t})for(float cy:{c,d-l})md_fill_rounded(im,cx,cy,cx+t,cy+l,t/2,ink,1);
     }
     {float x=2,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,30,m.surface_container_high,1);text(im,font,"Maximize",40,true,x+24,y+30,m.on_surface);}
-    // The band's Restore pill: two windows and the word, in the bar's colours, the primary under the dot.
+    // The band's Restore pill: two windows and the word, in the bar's colours, lit glass under the dot.
     for(int state=0;state<2;++state){
       const float x=2+float(state)*(kAtlasPillW+4),y=kAtlasPillY,cy=y+39,gx=x+60;
-      md_fill_rounded(im,x,y,x+kAtlasPillW,y+78,39,state?m.primary:m.primary_container,1);
-      const MdRgb ink=state?m.on_primary:m.on_primary_container;
+      glass_draw(im,glass_lit_look(m.primary_container,m.primary_bright,state?kGlassHover:kGlassIdle,78,kGlassRimPx*kHandleAtlasScale),{x,y,kAtlasPillW,78},39);
+      const MdRgb ink=m.on_primary_container;
       md_stroke_rounded(im,gx-10,cy-19,gx+20,cy+10,2,4,ink,1);md_stroke_rounded(im,gx-20,cy-10,gx+10,cy+19,2,4,ink,1);
       text(im,font,"Restore",font?54u:0u,true,x+108,cy,ink);
     }
@@ -408,20 +414,42 @@ float glass_radius(const FRect& t, float k) {
 }
 
 float glass_state_opacity(float level) { return by_state(level, 0.f, kMdStateHover, kMdStateDragged); }
+float glass_rim_opacity(float level) { return by_state(level, 0.f, kGlassRimHover, kGlassRimActive); }
+float glass_sheen_opacity(float level) { return by_state(level, 0.f, kGlassSheenHover, 0.f); }
+
+GlassLook glass_lit_look(std::array<float, 3> container, std::array<float, 3> light, float level, float height, float rim_px) {
+    GlassLook k;
+    for (std::size_t i = 0; i < 3; ++i)  // lifted toward the light while hovered, pushed in (darker) while pressed
+        k.container[i] = by_state(level, container[i], lerp(container[i], light[i], kGlassLift), container[i] * (1 - kGlassPressDim));
+    k.fill = 1.f;
+    k.outline = light; k.outline_alpha = glass_rim_opacity(level); k.rim_px = rim_px;
+    k.state = light; k.state_alpha = glass_sheen_opacity(level);
+    k.state_px = kGlassSheenEnd * height / 2; k.state_soft = kGlassSheenEnd * height;  // full at the top, gone by kGlassSheenEnd
+    return k;
+}
+
+namespace {
+GlassLook lit_band(const MdRgb& container, const MdRgb& on, float height) {
+    return glass_lit_look(container, md_layer(container, on, kBandLight), kGlassHover, height);
+}
+}
 
 GlassLook glass_look(std::array<float, 3> accent, float level, float t) {
     t = clamp01(t);
     const auto& m = glass_theme_scheme(accent);  // the Omarchy theme's M3 scheme (glass_theme.hpp)
+    const GlassLook lit = glass_lit_look(m.primary_container, m.primary_bright, level, kGlassPillH);
     GlassLook k;
     for (std::size_t i = 0; i < 3; ++i) {
-        k.container[i] = lerp(m.primary_container[i], m.surface_container_high[i], t);  // a tonal pill, then a dialog surface
-        k.state[i] = lerp(m.on_primary_container[i], m.on_surface[i], t);              // each one's content colour
+        k.container[i] = lerp(lit.container[i], m.surface_container_high[i], t);  // lit glass, then a dialog surface
+        k.state[i] = lerp(lit.state[i], m.on_surface[i], t);                      // the sheen, then the header's state layer
+        k.outline[i] = lerp(lit.outline[i], m.outline_variant[i], t);             // the rim, then the panel's outlined edge
     }
-    k.outline = m.outline_variant;
-    k.outline_alpha = t;  // the open panel's outlined edge (the pill has none)
+    k.outline_alpha = lerp(lit.outline_alpha, 1.f, t);
+    k.rim_px = lerp(lit.rim_px, 1.f, t);
     k.fill = lerp(1.f, kPanelFill, t);
-    k.state_alpha = glass_state_opacity(level);
-    k.state_px = lerp(kGlassPillH, kPanelHeaderH, t);  // the whole pill, the open panel's header strip
+    k.state_alpha = lerp(lit.state_alpha, glass_state_opacity(level), t);
+    k.state_px = lerp(lit.state_px, kPanelHeaderH, t);  // the pill's sheen, the open panel's header strip
+    k.state_soft = lerp(lit.state_soft, 1.f, t);
     const float pill = by_state(level, kMdElevationPill, kMdElevationHover, kMdElevationDragged);
     const float panel = by_state(level, kMdElevationDialog, kMdElevationDialog, kMdElevationDragged);
     const MdShadow shadow = md_elevation(lerp(pill, panel, t));
@@ -446,11 +474,11 @@ std::array<float, 4> glass_shade(const GlassLook& k, const FRect& rect, float ra
     const float d = box(px - cx, py - cy);
     const float inside = clamp01(0.5f - d);
     const float top = py - (cy - hh);
-    const float st = k.state_alpha * clamp01(k.state_px - top + 0.5f);  // the state layer over the top state_px
+    const float st = k.state_alpha * clamp01((k.state_px - top) / std::max(k.state_soft, 1.f) + 0.5f);  // over the top state_px
     float a = k.fill;
     std::array<float, 3> c{};
     for (std::size_t i = 0; i < 3; ++i) c[i] = (k.container[i] * (1 - st) + k.state[i] * st) * a;
-    const float b = clamp01(1.f - std::fabs(d + 0.5f)) * k.outline_alpha;  // 1 px just inside the edge
+    const float b = std::min(clamp01(0.5f - d), clamp01(d + k.rim_px + 0.5f)) * k.outline_alpha;  // rim_px just inside the edge
     for (std::size_t i = 0; i < 3; ++i) c[i] = c[i] * (1 - b) + k.outline[i] * b;
     a = a + b * (1 - a);
     for (auto& v : c) v *= inside;
@@ -464,13 +492,42 @@ std::array<float, 4> glass_shade(const GlassLook& k, const FRect& rect, float ra
 
 std::array<float, 4 * kGlassStyleVecs> glass_style(const GlassLook& k) {
     return {k.container[0], k.container[1], k.container[2], k.fill, k.outline[0], k.outline[1], k.outline[2], k.outline_alpha,
-            k.state[0],     k.state[1],     k.state[2],     k.state_alpha, k.state_px, k.shadow, k.shadow_sigma, k.shadow_dy};
+            k.state[0],     k.state[1],     k.state[2],     k.state_alpha, k.state_px, k.shadow, k.shadow_sigma, k.shadow_dy,
+            k.rim_px,       k.state_soft,   0.f,            0.f};
+}
+
+void glass_draw(HudImage& im, const GlassLook& look, const FRect& r, float radius) {
+    GlassLook k = look; k.shadow = 0;
+    const int x0 = std::max(0, int(std::floor(r.x))), y0 = std::max(0, int(std::floor(r.y)));
+    const int x1 = std::min(int(im.width), int(std::ceil(r.x + r.width))), y1 = std::min(int(im.height), int(std::ceil(r.y + r.height)));
+    for (int y = y0; y < y1; ++y)
+        for (int x = x0; x < x1; ++x) {
+            const auto c = glass_shade(k, r, radius, float(x) + 0.5f, float(y) + 0.5f, 1.f);
+            if (!(c[3] > 0)) continue;
+            auto* p = &im.rgba[(std::size_t(y) * im.width + std::size_t(x)) * 4];
+            for (int i = 0; i < 4; ++i)  // premultiplied source over premultiplied destination
+                p[i] = std::uint8_t(std::lround(std::clamp(c[std::size_t(i)] * 255 + p[i] * (1 - c[3]), 0.f, 255.f)));
+        }
+}
+
+void GlassLevels::set(std::size_t i, float target, double now) {
+    if (i >= eases_.size() || eases_[i].to == target) return;
+    eases_[i] = {level(i, now), target, now};
+}
+float GlassLevels::level(std::size_t i, double now) const {
+    if (i >= eases_.size()) return kGlassIdle;
+    const Ease& e = eases_[i];
+    const float u = clamp01(float((now - e.since_ms) / kGlassHoverMs)), eased = 1 - (1 - u) * (1 - u) * (1 - u);
+    return lerp(e.from, e.to, eased);
+}
+bool GlassLevels::animating(double now) const {
+    return std::any_of(eases_.begin(), eases_.end(), [&](const Ease& e) { return e.from != e.to && now - e.since_ms < kGlassHoverMs; });
 }
 
 // Mirrors glass_shade() line for line; style = glass_style().
 const char* glass_fragment_shader() {
     return "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
-           "varying vec2 p; uniform vec4 rect; uniform float radius; uniform vec4 style[4]; uniform float opacity;\n"
+           "varying vec2 p; uniform vec4 rect; uniform float radius; uniform vec4 style[5]; uniform float opacity;\n"
            "const float kCap = 0.74901961;\n"
            "float box(vec2 q) { vec2 d = abs(q) - (rect.zw - vec2(radius));\n"
            "  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius; }\n"
@@ -478,10 +535,10 @@ const char* glass_fragment_shader() {
            "  float d = box(p - rect.xy);\n"
            "  float inside = clamp(0.5 - d, 0.0, 1.0);\n"
            "  float top = p.y - (rect.y - rect.w);\n"
-           "  float st = style[2].a * clamp(style[3].x - top + 0.5, 0.0, 1.0);\n"
+           "  float st = style[2].a * clamp((style[3].x - top) / max(style[4].y, 1.0) + 0.5, 0.0, 1.0);\n"
            "  float a = style[0].a;\n"
            "  vec3 c = (style[0].rgb * (1.0 - st) + style[2].rgb * st) * a;\n"
-           "  float b = clamp(1.0 - abs(d + 0.5), 0.0, 1.0) * style[1].a;\n"
+           "  float b = min(clamp(0.5 - d, 0.0, 1.0), clamp(d + style[4].x + 0.5, 0.0, 1.0)) * style[1].a;\n"
            "  c = c * (1.0 - b) + style[1].rgb * b; a = a + b * (1.0 - a);\n"
            "  c *= inside; a *= inside;\n"
            "  float ds = max(box(p - rect.xy - vec2(0.0, style[3].w)), 0.0);\n"
@@ -656,10 +713,7 @@ HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font
   if (y + 38 <= 0 || y >= 304) continue;
   const bool focused = int(i) == state.focus;
   const float alpha = r.enabled ? 1.f : kMdDisabledContent, cy = y + 19;
-  if (focused) {
-   md_fill_rounded(body, 16, y + 1, 584, y + 37, 10, m.secondary_container, 1);
-   md_stroke_rounded(body, 16, y + 1, 584, y + 37, 10, 2, m.primary, 1);
-  }
+  if (focused) glass_draw(body, lit_band(m.secondary_container, m.on_secondary_container, 36), {16, y + 1, 568, 36}, 10);  // lit glass
   const bool danger = options_destructive(r.id), readonly = r.kind == "readonly";
   const MdRgb label_c = danger ? m.on_error_container : readonly ? m.on_surface_variant : focused ? m.on_secondary_container : m.on_surface;
   const std::string value = options_value_text(r, font);
@@ -686,11 +740,12 @@ HudImage render_options_panel(const OptionsMenuState& state, const HudFont* font
   }
   const float value_left = r.kind == "range" ? 462.f : r.kind == "toggle" ? 350.f : 310.f;
   const float label_room = (r.kind == "range" || r.kind == "toggle" ? 296.f : value.empty() ? 540.f : 300.f) - 26;
-  text(body, font, opt_fit(font, r.label, 14, focused, label_room), 14, focused, 26, cy, label_c, alpha);
+  // The same weight focused or not: the band shows the focus, the text does not jump.
+  text(body, font, opt_fit(font, r.label, 14, false, label_room), 14, false, 26, cy, label_c, alpha);
   if (!value.empty()) {
-   const std::string shown = opt_fit(font, value, 14, focused && !readonly, value_right - value_left);
+   const std::string shown = opt_fit(font, value, 14, false, value_right - value_left);
    const MdRgb c = readonly ? m.on_surface : focused ? m.on_secondary_container : m.on_surface_variant;
-   text(body, font, shown, 14, focused && !readonly, value_right - float(text_width(font, shown, 14, focused && !readonly)), cy, c, alpha);
+   text(body, font, shown, 14, false, value_right - float(text_width(font, shown, 14, false)), cy, c, alpha);
   }
  }
  const float content = float(state.rows.size()) * 38;
@@ -744,8 +799,9 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     auto slider_row = [&](float top, const std::string& label, std::int32_t lo, std::int32_t hi, std::int32_t flat, std::int32_t value,
                           const std::string& shown, bool selected, float alpha) {
         const float cy = top + kPanelRowH / 2;
-        if (selected)
-            md_fill_rounded(im, kBandInset, top + 2, W - kBandInset, top + kPanelRowH - 2, (kPanelRowH - 4) / 2, m.secondary_container, 1.f);
+        if (selected)  // lit glass, fully rounded
+            glass_draw(im, lit_band(m.secondary_container, m.on_secondary_container, kPanelRowH - 4),
+                       {kBandInset, top + 2, W - 2 * kBandInset, kPanelRowH - 4}, (kPanelRowH - 4) / 2);
         text(im, font, label, kPanelTextPx, selected, kPanelPad, cy, selected ? m.on_secondary_container : m.on_surface, alpha);
         // The slider: inactive track (primary at 24%), active track from the flat value to the value, handle (primary).
         auto at = [&](std::int32_t v) { return kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * float(std::clamp(v, lo, hi) - lo) / float(hi - lo); };

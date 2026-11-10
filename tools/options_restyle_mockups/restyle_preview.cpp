@@ -464,7 +464,7 @@ int render(const std::string& path) {
         glass.pills = frame.value("pills", true);
         glass.restore_alpha = frame.value("restore_step", 0.f);
         for (std::size_t i = 0; i < desktops.size(); ++i) glass.bars[i] = frame.value("real_handles", false);
-        if (frame.contains("hover_pill")) { glass.hover = frame["hover_pill"]; glass.hover_level = kGlassHover; }
+        if (frame.contains("hover_pill")) glass.pill_levels[std::size_t(int(frame["hover_pill"]))] = kGlassHover;
         std::vector<json> desktop_list(desktops.begin(), desktops.end());
         HudImage content;
         int panel = -1;

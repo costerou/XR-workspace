@@ -201,28 +201,39 @@ int main() {
         CHECK(g.shadow == 0.f && g.outline_alpha == 0.f && g.state_alpha == 0.f && near(g.fill, 0.4f, 1e-6f));
         CHECK(grabber_look(kGlassHover).fill > g.fill && grabber_look(kGlassActive).fill > grabber_look(kGlassHover).fill);
     }
-    {  // the collapsed pill: the primary container, opaque and flat, its on-colour as the state layer over all of it
+    {  // the collapsed pill: the primary container, opaque; hover lights a 2 px rim and a top sheen, pressing dims it
         const std::array<float, 3> accent{0.48f, 0.64f, 0.97f};
         const auto& m = glass_theme_scheme(accent);
         const FRect r = glass_morph(tile, 0);
         const float radius = glass_radius(tile, 0), cx = r.x + r.width / 2;
+        auto lum = [](const std::array<float, 4>& p) { return p[0] + p[1] + p[2]; };
         float sigma = 0;
-        for (const auto [level, opacity] : {std::pair{kGlassIdle, 0.f}, std::pair{kGlassHover, kMdStateHover}, std::pair{kGlassActive, kMdStateDragged}}) {
+        std::array<std::array<float, 4>, 3> mids{}, tops{}, rims{};
+        std::size_t n = 0;
+        for (const float level : {kGlassIdle, kGlassHover, kGlassActive}) {
             const auto look = glass_look(accent, level, 0.f);
-            CHECK(look.fill == 1.f && look.outline_alpha == 0.f && near(glass_state_opacity(level), opacity, 1e-6f));
-            const auto want = md_layer(m.primary_container, m.on_primary_container, opacity);
-            for (const float y : {r.y + 1.5f, r.y + r.height / 2, r.y + r.height - 1.5f}) {
-                const auto px = glass_shade(look, r, radius, cx, y, 1.f);
-                for (int c = 0; c < 3; ++c) CHECK(near(px[std::size_t(c)], want[std::size_t(c)], 1e-5f));
-                CHECK(near(px[3], 1.f, 1e-6f));
-            }
+            CHECK(look.fill == 1.f && near(look.rim_px, kGlassRimPx, 1e-6f) && look.outline == m.primary_bright && look.state == m.primary_bright);
+            CHECK(near(look.outline_alpha, glass_rim_opacity(level), 1e-6f) && near(look.state_alpha, glass_sheen_opacity(level), 1e-6f));
+            mids[n] = glass_shade(look, r, radius, cx, r.y + r.height - 4.f, 1.f);  // below the sheen, inside the rim
+            tops[n] = glass_shade(look, r, radius, cx, r.y + 3.f, 1.f);             // under the sheen, inside the rim
+            rims[n] = glass_shade(look, r, radius, cx, r.y + 1.f, 1.f);             // on the rim
+            CHECK(near(mids[n][3], 1.f, 1e-6f));
             CHECK(look.shadow_sigma > sigma);  // elevation 1, then 2 hovered, 4 dragged
             sigma = look.shadow_sigma;
+            ++n;
         }
+        for (int c = 0; c < 3; ++c) {  // idle: the plain container, edge to edge
+            CHECK(near(mids[0][std::size_t(c)], m.primary_container[std::size_t(c)], 1e-5f));
+            CHECK(near(tops[0][std::size_t(c)], m.primary_container[std::size_t(c)], 1e-5f));
+            CHECK(near(rims[0][std::size_t(c)], m.primary_container[std::size_t(c)], 1e-5f));
+        }
+        CHECK(lum(mids[1]) > lum(mids[0]) && lum(tops[1]) > lum(mids[1]) && lum(rims[1]) > lum(tops[1]));  // hover: lifted, sheen, rim
+        CHECK(lum(mids[2]) < lum(mids[0]) && near(lum(tops[2]), lum(mids[2]), 1e-5f) && lum(rims[2]) > lum(mids[2]));  // pressed: no sheen
+        CHECK(glass_rim_opacity(kGlassActive) > glass_rim_opacity(kGlassHover) && glass_sheen_opacity(kGlassActive) == 0.f);
         CHECK(glass_state_opacity(kGlassIdle) == 0.f && glass_state_opacity(0.f) == 0.f && glass_state_opacity(9.f) == kMdStateDragged);
         // Midway through the morph the container, its on-colour and the state strip are between the pill's and the panel's.
         const auto half = glass_look(accent, kGlassIdle, 0.5f);
-        CHECK(near(half.state_px, (kGlassPillH + kPanelHeaderH) / 2, 1e-4f) && near(half.outline_alpha, 0.5f, 1e-6f));
+        CHECK(near(half.state_px, (kGlassSheenEnd * kGlassPillH / 2 + kPanelHeaderH) / 2, 1e-4f) && near(half.outline_alpha, 0.5f, 1e-6f));
         for (int c = 0; c < 3; ++c)
             CHECK(near(half.container[std::size_t(c)], (m.primary_container[std::size_t(c)] + m.surface_container_high[std::size_t(c)]) / 2, 1e-6f));
     }
@@ -230,11 +241,26 @@ int main() {
         GlassLook k;
         k.container = {0.1f, 0.2f, 0.3f}; k.fill = 0.4f; k.outline = {0.5f, 0.6f, 0.7f}; k.outline_alpha = 0.8f;
         k.state = {0.9f, 0.11f, 0.12f}; k.state_alpha = 0.13f; k.state_px = 14; k.shadow = 0.15f; k.shadow_sigma = 16; k.shadow_dy = 17;
-        CHECK((glass_style(k) == std::array<float, 16>{0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 0.11f, 0.12f, 0.13f, 14, 0.15f, 16, 17}));
+        k.rim_px = 2; k.state_soft = 18;
+        CHECK((glass_style(k) == std::array<float, 20>{0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 0.11f, 0.12f, 0.13f, 14, 0.15f, 16, 17, 2, 18, 0, 0}));
+    }
+    {  // GlassLevels: each desktop's pill eases to its target over kGlassHoverMs, ease-out, and retargets from where it is
+        GlassLevels l;
+        CHECK(l.level(0, 0) == kGlassIdle && !l.animating(0) && l.level(99, 0) == kGlassIdle);
+        l.set(1, kGlassHover, 1000);
+        CHECK(l.animating(1000) && l.level(1, 1000) == kGlassIdle && l.level(0, 1050) == kGlassIdle);
+        const float mid = l.level(1, 1000 + kGlassHoverMs / 2);
+        CHECK(mid > (kGlassIdle + kGlassHover) / 2 && mid < kGlassHover);  // ease-out: past halfway at half time
+        l.set(1, kGlassHover, 1000 + kGlassHoverMs / 2);  // the same target: no restart
+        CHECK(l.level(1, 1000 + kGlassHoverMs) == kGlassHover && !l.animating(1000 + kGlassHoverMs));
+        l.set(1, kGlassIdle, 2000);
+        l.set(1, kGlassActive, 2000 + kGlassHoverMs / 4);  // retargeted mid-ease: continuous, no jump back to idle
+        CHECK(l.level(1, 2000 + kGlassHoverMs / 4) < kGlassHover && l.level(1, 2000 + kGlassHoverMs / 4) > kGlassIdle);
+        CHECK(l.level(1, 3000) == kGlassActive);
     }
     const std::string shader = glass_fragment_shader();
     CHECK(shader.find("0.74901961") != std::string::npos && shader.find("gl_FragColor") != std::string::npos);
-    CHECK(shader.find("uniform vec4 style[4]") != std::string::npos && kGlassStyleVecs == 4);
+    CHECK(shader.find("uniform vec4 style[5]") != std::string::npos && kGlassStyleVecs == 5);
 
     // Panel content: kPanelW x kPanelH, premultiplied, transparent between its parts, under the cap but readable; the
     // selected row has a band; a knob at a field's bounds sits on kPanelKnobLo / kPanelKnobHi.

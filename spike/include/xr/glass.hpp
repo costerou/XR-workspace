@@ -8,8 +8,9 @@
 // fragment shader source, which glass_shade() mirrors on the CPU.
 //
 // Look: Material Design 3 (material.hpp), in an M3 scheme seeded by the Omarchy theme colour (glass_theme.hpp). The pill
-// is a flat tonal capsule in the primary container at elevation 1; hover and drag lay M3's state layer over it (8%, 16%)
-// and lift it (elevation 2, 4). The open panel is a surface container (high) with an outline-variant edge at elevation 3,
+// is a flat tonal capsule in the primary container at elevation 1; hovered it is lit glass (a 2 px rim and a top sheen
+// in the light role, the container lifted toward it), dragged its rim brightens, the sheen goes and the container dims,
+// and it lifts (elevation 2, 4); the change eases over kGlassHoverMs. The open panel is a surface container (high) with an outline-variant edge at elevation 3,
 // the state layer on its header strip only; its content (render_glass_panel) is M3's slider, list and button parts. On the
 // glasses' micro-OLED panels black is see-through: every role sits under kCardMaxLevel (191/255), the panel is dark
 // behind its text, and nothing moves on its own.
@@ -224,24 +225,40 @@ AtlasBox immersive_main_box(bool lit, bool hot);
 AtlasBox immersive_tail_box(bool lit, bool hot);
 
 // --- Look ----------------------------------------------------------------------------------------------------------
-// Pill states (GlassFrame::hover_level). Hover = the pointer is on the pill (or the open panel's header); active = it is
-// being dragged. In M3 terms: enabled, hovered (state layer kMdStateHover, elevation 2) and dragged (kMdStateDragged,
-// elevation 4).
+// Pill states (GlassFrame::pill_levels). Hover = the pointer is on the pill (or the open panel's header); active = it is
+// being dragged (or pressed). A level eases between them over kGlassHoverMs (GlassLevels), so every look in between is
+// drawn too: by_state interpolates linearly from idle to hover to active.
 constexpr float kGlassIdle = 1.f, kGlassHover = 1.4f, kGlassActive = 1.7f;
+constexpr double kGlassHoverMs = 140;        // the ease from one state to the next
 constexpr float kGlassCap = 191.f / 255.f;   // = kCardMaxLevel: the brightest any glass pixel may be
 constexpr float kGlassShadowMargin = 32.f;   // canvas px drawn around the shape for its shadow
 constexpr float kPanelFill = 0.94f;          // the open panel's opacity (the pill is opaque): a hint of what is behind it
-// One glass shape in M3 terms: a container colour at `fill` opacity, a 1 px outline just inside its edge, a state layer
-// (the content colour at `state_alpha`) over its top `state_px`, and an elevation shadow below it.
+// Lit glass (the hover look of every pill-family control: pills, the gear, Maximize, Restore, and the focused or selected
+// row of a panel). Hover lights the glass from above: a kGlassRimPx rim of the light colour just inside the edge
+// (kGlassRimHover), a sheen of it over the top (kGlassSheenHover at the top, fading out by kGlassSheenEnd of the height)
+// and the container lifted kGlassLift toward it. Pressed: the rim stronger (kGlassRimActive), no sheen, and the
+// container kGlassPressDim darker, pushed in. No line is thinner than 2 px, nothing glows past the shape.
+constexpr float kGlassRimPx = 2.f, kGlassRimHover = 0.55f, kGlassRimActive = 0.70f;
+constexpr float kGlassSheenHover = 0.34f, kGlassSheenEnd = 0.6f, kGlassLift = 0.10f, kGlassPressDim = 0.12f;
+// One glass shape in M3 terms: a container colour at `fill` opacity, a `rim_px` outline just inside its edge, a state
+// layer (the content colour at `state_alpha`) over its top `state_px`, fading out over `state_soft` px centred there
+// (1: a hard edge), and an elevation shadow below it.
 struct GlassLook {
     std::array<float, 3> container{}, outline{}, state{};
     float fill = 0, outline_alpha = 0, state_alpha = 0, state_px = 0;
     float shadow = 0, shadow_sigma = 1, shadow_dy = 0;
+    float rim_px = 1, state_soft = 1;
 };
-// M3's state layer opacity for a pill state: 0 idle, kMdStateHover at kGlassHover, kMdStateDragged at kGlassActive.
+// M3's state layer opacity for the open panel's header: 0 idle, kMdStateHover at kGlassHover, kMdStateDragged at kGlassActive.
 float glass_state_opacity(float level);
+// Lit glass by state: the rim's opacity (0, kGlassRimHover, kGlassRimActive) and the sheen's (0, kGlassSheenHover, 0).
+float glass_rim_opacity(float level);
+float glass_sheen_opacity(float level);
+// Lit glass for a control `height` px tall: `container` (opaque) lifted, lit and pressed in `light` by `level`, its rim
+// `rim_px` wide (an atlas drawn at k px per canvas px passes k * kGlassRimPx). No shadow.
+GlassLook glass_lit_look(std::array<float, 3> container, std::array<float, 3> light, float level, float height, float rim_px = kGlassRimPx);
 // The look `t` (eased 0..1) of the way from pill to panel, `accent` the Omarchy theme colour (glass_theme_scheme): the
-// primary container with its on-colour as the state layer over the whole pill, then the surface container (high) with an
+// primary container as lit glass in the primary bright (glass_lit_look), then the surface container (high) with a 1 px
 // outline-variant edge and the on-surface state layer over its header strip (kPanelHeaderH), the elevation rising from
 // the pill's (1, or 2 hovered / 4 dragged) to the panel's (3, or 4 while its header is dragged).
 GlassLook glass_look(std::array<float, 3> accent, float level, float t);
@@ -250,9 +267,13 @@ GlassLook grabber_look(float level);
 // One pixel (canvas px centre px, py) of a glass shape `rect` with corner `radius` at `opacity`: premultiplied RGBA,
 // every colour channel at most kGlassCap. The GLSL fragment shader below computes exactly this.
 std::array<float, 4> glass_shade(const GlassLook& look, const FRect& rect, float radius, float px, float py, float opacity);
-// The shader's `style` uniform, four vec4s: container + fill, outline + its alpha, state layer + its alpha,
-// (state_px, shadow, shadow_sigma, shadow_dy). One glUniform4fv(style, kGlassStyleVecs, ...) sets every style input.
-constexpr int kGlassStyleVecs = 4;
+// Draw a glass shape into an image (premultiplied, over what is there) with glass_shade, so an atlas button or a panel
+// band looks exactly like a pill drawn by the shader. Its shadow is left out.
+void glass_draw(HudImage& im, const GlassLook& look, const FRect& rect, float radius);
+// The shader's `style` uniform, five vec4s: container + fill, outline + its alpha, state layer + its alpha,
+// (state_px, shadow, shadow_sigma, shadow_dy), (rim_px, state_soft, 0, 0). One glUniform4fv(style, kGlassStyleVecs, ...)
+// sets every style input.
+constexpr int kGlassStyleVecs = 5;
 std::array<float, 4 * kGlassStyleVecs> glass_style(const GlassLook& look);
 // GLSL ES 1.00 fragment shader. Varying `p` = canvas px; uniforms rect (centre x, y, half w, half h), radius,
 // style[kGlassStyleVecs] (glass_style), opacity. Premultiplied output: blend with GL_ONE, GL_ONE_MINUS_SRC_ALPHA.
@@ -290,14 +311,15 @@ struct GlassFrame {
     // The options panel opens from its gear the way a placement pill opens into its panel: the gear's glass grows into
     // the panel (rect, radius, colour, elevation), the grabber fades in, then the content. `options_expand` is the eased
     // CardFade progress (0: the gear, 1: the panel), `options_desktop` the desktop it opens on. The gear under the dot
-    // (`gear_hover`, -1: none) takes the pill's hover level.
+    // takes the pill's hover levels (`gear_levels`, eased like `pill_levels`).
     bool options = false;
     float options_expand = 0;
     int options_desktop = -1; const HudImage* options_image = nullptr; std::uint64_t options_generation = 0;
-    int gear_hover = -1; float gear_level = kGlassIdle;
+    std::array<float, kPlacementMenuDesktopCount> gear_levels{kGlassIdle, kGlassIdle, kGlassIdle, kGlassIdle};
     float restore_alpha = 0;                  // the Step-Back Band's Restore pill on the focused desktop, 0: not drawn
     bool pills = false;                       // collapsed pills under every desktop
-    int hover = -1; float hover_level = kGlassIdle;  // the desktop whose pill is hovered or dragged
+    // Each desktop's pill state (kGlassIdle .. kGlassActive), eased (GlassLevels): hovered or dragged, or on its way.
+    std::array<float, kPlacementMenuDesktopCount> pill_levels{kGlassIdle, kGlassIdle, kGlassIdle, kGlassIdle};
     std::array<float, kPlacementMenuDesktopCount> expand{};  // eased expansion per desktop
     int content = -1; const HudImage* image = nullptr; std::uint64_t generation = 0; float content_alpha = 0;
     // Drawn last, over every other pill: the open panel's desktop (or, while collapsing, the most expanded one). The
@@ -327,6 +349,18 @@ struct GlassFrame {
 Placement placement_from_wire(const MenuPlacement& wire);
 // The glass draw order: `back_to_front` (view.hpp draw_order) with desktop `top` moved last (drawn over the others).
 std::vector<std::size_t> glass_draw_order(std::vector<std::size_t> back_to_front, int top);
+
+// Pill states eased per desktop: set() a target state, level() is where it is now, kGlassHoverMs from the old level to
+// the new one (ease-out cubic), so the pill the pointer leaves dims while the next one lights.
+class GlassLevels {
+public:
+    void set(std::size_t desktop, float target, double now_ms);
+    float level(std::size_t desktop, double now_ms) const;
+    bool animating(double now_ms) const;
+private:
+    struct Ease { float from = kGlassIdle, to = kGlassIdle; double since_ms = -1e9; };
+    std::array<Ease, kPlacementMenuDesktopCount> eases_{};
+};
 
 class GlassPills {
 public:
