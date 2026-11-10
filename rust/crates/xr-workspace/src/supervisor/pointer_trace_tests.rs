@@ -369,7 +369,16 @@ impl Replay {
         self.check(&format!("before {name}"), entry.get("chk"), entry.get("chk_c"));
         let want = get(&entry, "a");
         let got = Json::Array(args);
-        if !same(want, &got) {
+        // a callback is recorded by its number, sent as {'$cb': None} (pointer_trace_corpus's replay)
+        let unnumbered = match want {
+            Json::Array(a) => Json::Array(
+                a.iter()
+                    .map(|a| if a.get("$cb").is_some() { obj(vec![("$cb", Json::Null)]) } else { a.clone() })
+                    .collect(),
+            ),
+            other => other.clone(),
+        };
+        if !same(&unnumbered, &got) {
             self.fail(format!("{name} args {got:?} != {want:?}"));
         }
         let k = entry.get("k").cloned().unwrap_or(Json::Object(Vec::new()));
@@ -894,9 +903,6 @@ fn class(case: &Json) -> &str {
     get(get(case, "init"), "class").as_str().unwrap_or("?")
 }
 
-/// The classes whose port has landed.
-const PORTED: &[&str] = &["OverviewPointer"];
-
 #[test]
 fn every_recorded_trace_replays() {
     let cases = corpus();
@@ -904,9 +910,6 @@ fn every_recorded_trace_replays() {
     let mut passed: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
     let mut failures = Vec::new();
     for (name, case) in &cases {
-        if !PORTED.contains(&class(case)) {
-            continue;
-        }
         let e = passed.entry(class(case)).or_default();
         e.1 += 1;
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| replay(case))) {
@@ -926,6 +929,7 @@ fn every_recorded_trace_replays() {
     }
     assert!(failures.is_empty(), "{} traces differ", failures.len());
     assert_eq!(passed.get("OverviewPointer"), Some(&(156, 156)));
+    assert_eq!(passed.get("UnifiedPointer"), Some(&(178, 178)));
 }
 
 #[test]

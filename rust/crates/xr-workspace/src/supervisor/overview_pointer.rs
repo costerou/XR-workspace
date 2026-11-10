@@ -635,7 +635,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_restore_frame()`: the dot while the band is open, and the band's own frame on any change.
-    fn restore_frame(&mut self) -> Vec<u8> {
+    pub(crate) fn restore_frame(&mut self) -> Vec<u8> {
         let mut out = Vec::new();
         let is_open = self.mode == Mode::Restore;
         if is_open != self.band_sent {
@@ -670,7 +670,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_band_blocked(now)`: what a rest does not count through: a held button (a lost release expires), and a hand's
     /// edge pan.
-    fn band_blocked(&mut self, now: f64) -> bool {
+    pub(crate) fn band_blocked(&mut self, now: f64) -> bool {
         if self.zoom_held.is_some_and(|t| now - t >= restore_band::HELD_MAX_S as f64) {
             self.zoom_held = None;
         }
@@ -679,7 +679,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_band_open(cursor, output, now)`: the rest is up: the dot takes over where the cursor was, on the picture's top
     /// edge as it ends up stepped back.
-    fn band_open(&mut self, cursor: (i64, i64), output: OutputRect, now: f64) {
+    pub(crate) fn band_open(&mut self, cursor: (i64, i64), output: OutputRect, now: f64) {
         let Some(g) = &self.maximize_geometry else { return };
         let [x0, y0, x1, _] = g.picture;
         self.band_gain = if output.width != 0.0 { (x1 - x0) / output.width } else { 1.0 };
@@ -691,7 +691,7 @@ impl<C: Control> OverviewPointer<C> {
         self.set_want(Mode::Free, Some(middle), true);
     }
 
-    fn poll_restore(&mut self, cursor: Option<(i64, i64)>, motion: [f64; 2], applied: i64, now: f64) -> Vec<u8> {
+    pub(crate) fn poll_restore(&mut self, cursor: Option<(i64, i64)>, motion: [f64; 2], applied: i64, now: f64) -> Vec<u8> {
         let Some(g) = self.maximize_geometry.clone() else { return Vec::new() };
         let names = &self.control.state().names;
         let output =
@@ -744,7 +744,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_restore_op(op)`: the left button with the band open, consumed by the grab. A press on Restore is Restore's; a
     /// press anywhere else shuts it.
-    fn restore_op(&mut self, op: &str) -> Option<Vec<u8>> {
+    pub(crate) fn restore_op(&mut self, op: &str) -> Option<Vec<u8>> {
         if op == "resize_press" {
             if self.mode == Mode::Restore && self.restore_sampling() {
                 if self.band_hot() {
@@ -789,7 +789,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_layout_ready()`: a renderer layout to hit-test with. After a desktop change the last one is kept, and used once
     /// it has one slot per desktop (until the renderer's next report, which replaces it).
-    fn layout_ready(&self) -> bool {
+    pub(crate) fn layout_ready(&self) -> bool {
         let Some(g) = &self.geometry else { return false };
         !self.layout_stale || g.tiles.len() == self.control.state().names.len()
     }
@@ -980,7 +980,7 @@ impl<C: Control> OverviewPointer<C> {
         self.wake.drain();
     }
 
-    fn take(&mut self) -> (bool, Option<(i64, i64)>, [f64; 2], i64) {
+    pub(crate) fn take(&mut self) -> (bool, Option<(i64, i64)>, [f64; 2], i64) {
         let (fresh, cursor, applied) = (self.fresh, self.abs, self.applied);
         let motion = std::mem::replace(&mut self.motion, [0.0, 0.0]);
         self.fresh = false;
@@ -1005,7 +1005,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_help()`: the help card's canvas geometry while the card is open (the renderer may still report a closing one).
-    fn help(&self) -> Option<&HelpGeometry> {
+    pub(crate) fn help(&self) -> Option<&HelpGeometry> {
         if self.control.help_visible() { self.help_geometry.as_ref() } else { None }
     }
 
@@ -1030,7 +1030,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_options_hit()`: the open options panel, then any desktop's gear.
-    fn options_hit(&mut self) -> Option<Hit> {
+    pub(crate) fn options_hit(&mut self) -> Option<Hit> {
         let (g, pointer) = (self.geometry.clone()?, self.pointer?);
         let d = if self.control.has_options() { self.control.options_snapshot() } else { Json::Null };
         let placements = self.rolled();
@@ -1101,13 +1101,13 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_icons()`: per desktop what it shows (the wire's icons): its level bar on every desktop, level or not, measured
     /// or not (a desktop can always be rolled either way; they only hide with the pills, roll_frame).
-    fn icons(&self) -> Vec<Option<&'static str>> {
+    pub(crate) fn icons(&self) -> Vec<Option<&'static str>> {
         vec![Some("bar"); self.control.state().placements.len()]
     }
 
     /// `_around()`: anchor mode: the dot's reach goes all the way round you (orbit.reach). A drag keeps the reach it
     /// started with.
-    fn around(&self) -> bool {
+    pub(crate) fn around(&self) -> bool {
         match &self.drag {
             Some(Drag::Pill { around, .. }) => *around,
             _ => self.control.state().mode() == view::Mode::Anchor,
@@ -1215,7 +1215,7 @@ impl<C: Control> OverviewPointer<C> {
     /// `_click_desktop(i, q)`: a dot click on desktop i at tile pixel q: select it and stay in the overview
     /// (view.ViewControl.select_desktop; anchor-no-click-maximize: a click never maximizes, Ctrl+Alt+Up does). The real
     /// cursor comes back there under the dot (enter), which gives that monitor Hyprland's focus.
-    fn click_desktop(&mut self, i: usize, q: [f64; 2]) -> Vec<u8> {
+    pub(crate) fn click_desktop(&mut self, i: usize, q: [f64; 2]) -> Vec<u8> {
         self.focus_clicks += 1;
         let mut out = self.control.select_desktop(i, None);
         if !self.active() || self.control.state().selected != i {
@@ -1736,7 +1736,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// The press on the open options panel at panel px (x, y).
-    fn options_press(&mut self, i: usize, x: f64, y: f64, pointer: [f64; 2], out: &mut Vec<u8>) {
+    pub(crate) fn options_press(&mut self, i: usize, x: f64, y: f64, pointer: [f64; 2], out: &mut Vec<u8>) {
         self.control.set_options_focused(true);
         let d = self.control.options_snapshot();
         let rows = json_get(&d, "rows");
@@ -1829,7 +1829,7 @@ impl<C: Control> OverviewPointer<C> {
     // --- window drag ------------------------------------------------------------------------------------------------
 
     /// `_hold(now)`: free mode, every tick: a press held HOLD_S lifts its window even if the dot never moved.
-    fn hold(&mut self, now: f64) -> Vec<u8> {
+    pub(crate) fn hold(&mut self, now: f64) -> Vec<u8> {
         let Some(Drag::Window { lifted: false, at, .. }) = &self.drag else { return Vec::new() };
         if !self.window_drag || now - at < HOLD_S {
             return Vec::new();
@@ -1880,7 +1880,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_drop_window(d)`: release of a lifted window: onto the desktop under the dot if that is another one, else
     /// nowhere.
-    fn drop_window(&mut self, d: &Drag) -> Vec<u8> {
+    pub(crate) fn drop_window(&mut self, d: &Drag) -> Vec<u8> {
         self.take_found();
         let Drag::Window { index, window, point, .. } = d else { return Vec::new() };
         let target = if self.pointer.is_some() {
@@ -1910,7 +1910,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_drag_display()`: the `overview_pointer` frame's `drag` while a lifted window is dragged, else None.
-    fn drag_display(&self) -> Option<Json> {
+    pub(crate) fn drag_display(&self) -> Option<Json> {
         let Some(Drag::Window { lifted: true, window, index, target, .. }) = &self.drag else { return None };
         if *window == Window::Gone {
             return None;
@@ -1941,7 +1941,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_immersive_hover(idle)`: the 3D segment or tail under the dot lights, as a bar's segment does.
-    fn immersive_hover(&mut self, idle: bool) -> Vec<u8> {
+    pub(crate) fn immersive_hover(&mut self, idle: bool) -> Vec<u8> {
         let lit = self.drag.is_none() && self.mode == Mode::Free && !idle && self.overview();
         match &self.hover {
             Some(Hit::Immersive(i, part)) if lit => {
@@ -1954,7 +1954,7 @@ impl<C: Control> OverviewPointer<C> {
 
     /// `_options_range_value(d)`: the value a held options slider stands at now, measured on the panel as it was at the
     /// press; None off its surface.
-    fn options_range_value(&self, d: &Drag, range: og::RangeRow) -> Option<Num> {
+    pub(crate) fn options_range_value(&self, d: &Drag, range: og::RangeRow) -> Option<Num> {
         let Drag::OptionsRange { tile, placement, .. } = d else { return None };
         let g = self.geometry.as_ref()?;
         let q = fp::desktop_to_glass(tile, placement, fp::unproject(g, tile, placement, self.pointer?))?;
@@ -1970,7 +1970,7 @@ impl<C: Control> OverviewPointer<C> {
         out
     }
 
-    fn apply(&mut self, d: &mut Drag, pointer: [f64; 2]) -> Vec<u8> {
+    pub(crate) fn apply(&mut self, d: &mut Drag, pointer: [f64; 2]) -> Vec<u8> {
         let start = match d {
             Drag::Maximize { .. } => return Vec::new(),
             Drag::OptionsRange { range, .. } => {
@@ -2095,7 +2095,7 @@ impl<C: Control> OverviewPointer<C> {
     /// contract: a corner; the edges too where they are handles) asking for `distance`: the desktop takes it, growing
     /// pushes the desktops it runs into out of its way and with no room left it stops growing (bump.py; one Pusher for
     /// the whole drag).
-    fn resize_to(&self, index: usize, bump: &mut Option<Pusher>, distance: i64) -> Vec<Placement> {
+    pub(crate) fn resize_to(&self, index: usize, bump: &mut Option<Pusher>, distance: i64) -> Vec<Placement> {
         let rolls = self.rolls.iter().map(|r| *r as f64).collect();
         let pusher = bump.get_or_insert_with(|| Pusher::new(self.geometry.clone(), index, Some(rolls)));
         pusher.move_to(&self.control.state().placements, &Patch { distance: Some(distance), ..Patch::default() }, None)
@@ -2125,7 +2125,7 @@ impl<C: Control> OverviewPointer<C> {
         frame.into_bytes()
     }
 
-    fn handle(&mut self) -> Vec<u8> {
+    pub(crate) fn handle(&mut self) -> Vec<u8> {
         // The resize_handle frame lights a corner's cap; an edge has the dot's resize look only (look).
         let target = match (&self.drag, &self.hover) {
             (Some(Drag::Resize { index, handle, .. }), _) if CORNERS.contains(handle) => Some((*index, *handle, true)),
@@ -2152,7 +2152,7 @@ impl<C: Control> OverviewPointer<C> {
     /// in the last 30 s (OLED idle close; an open panel is drawn regardless). hover: the pointer is on that pill or the
     /// open panel's header (or holds it); active: that pill is being dragged (moved past CLICK_PX); gear: the pointer is
     /// on that desktop's options gear, which lights like a hovered pill.
-    fn pills_frame(&mut self, idle: bool) -> Vec<u8> {
+    pub(crate) fn pills_frame(&mut self, idle: bool) -> Vec<u8> {
         let visible = self.handles_on() && !idle;
         let free = self.drag.is_none() && self.mode == Mode::Free;
         let (target, hover, active, gear) = match (&self.drag, &self.hover) {
@@ -2218,7 +2218,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_held()`: a button held on a window (unified_cursor: the non-consuming click binds); none here.
-    fn held(&self) -> bool {
+    pub(crate) fn held(&self) -> bool {
         if self.ext.is_some() {
             return self.u_held();
         }
@@ -2226,7 +2226,7 @@ impl<C: Control> OverviewPointer<C> {
     }
 
     /// `_carry(dx, dy, now)`: carry mode's motion (unified_cursor.UnifiedPointer); no such mode here.
-    fn carry(&mut self, dx: f64, dy: f64, now: f64) -> Vec<u8> {
+    pub(crate) fn carry(&mut self, dx: f64, dy: f64, now: f64) -> Vec<u8> {
         if self.ext.is_some() {
             return self.u_carry(dx, dy, now);
         }
@@ -2236,7 +2236,7 @@ impl<C: Control> OverviewPointer<C> {
     /// `_text_allowed()`: the beam's gate. The dot is the real cursor on a desktop's content (ZONES: an open panel over
     /// it or the sliver at its edge is not), the run holds nothing, and the handles are on: the overview, never
     /// maximized, in typing mode, during a video or with the key bind panel.
-    fn text_allowed(&mut self) -> bool {
+    pub(crate) fn text_allowed(&mut self) -> bool {
         if self.ext.as_ref().is_some_and(|u| u.super_drag.is_some()) {
             return false;
         }
@@ -2249,7 +2249,7 @@ impl<C: Control> OverviewPointer<C> {
     /// `_step_text(now)`: this tick's beam (TextHold). Off at once when the gate shuts: a handle wins with no wait, and a
     /// word from before counts for nothing, so back in the overview the dot waits for a fresh read (shape_gated: no push
     /// comes for a cursor that did not change).
-    fn step_text(&mut self, now: f64) {
+    pub(crate) fn step_text(&mut self, now: f64) {
         let text = self.shape_text;
         if !text && !self.text_hold.on && !self.shape_gated {
             return;
@@ -2267,7 +2267,7 @@ impl<C: Control> OverviewPointer<C> {
     /// `_look()`: the dot's look (POINTER_LOOKS; None: the plain dot), the zone contract on screen: what it holds, else
     /// what it is over in free mode. In desktop mode it is on a desktop's content, where it is the real cursor: the beam
     /// where the app asks for a text cursor (step_text), else plain.
-    fn look(&self) -> Option<&'static str> {
+    pub(crate) fn look(&self) -> Option<&'static str> {
         if self.ext.is_some() {
             return self.u_look();
         }
