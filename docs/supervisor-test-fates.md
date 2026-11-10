@@ -28,7 +28,7 @@ whatever its fate. The fates say what will cover the Rust supervisor.
 
 | port | wire | keep | drop | all |
 |---|---|---|---|---|
-| 2502 | 149 | 26 | 4 | 2681 |
+| 2502 | 155 | 26 | 4 | 2687 |
 
 The `port` count is large because almost every supervisor test imports a Python module and calls it
 directly. Few tests drive the supervisor through a socket or a process the Rust binary would also serve,
@@ -62,6 +62,13 @@ The biggest port targets: `free_pointer` 301, `view` 297, `unified_cursor` 192, 
 - **The journal corpus (5 tests).** `test_journal_corpus` keeps `rust/corpus/journal/cases.json` (journals,
   fault-injected recoveries and refusals) true to the Python. `xr-workspace`'s `cross_recovery` test holds the
   Rust journal to it in both directions.
+- **The run order corpus (3 tests).** `test_run_order_corpus` keeps `rust/corpus/supervisor/run_order.json`
+  (every managed run and recovery path, failed at each fallible step) true to `managed.py`, and checks the
+  recovery invariants: the fallback is woken first and the journal's outputs go last. `xr-workspace`'s
+  `managed` tests replay every case.
+- **The strict JSON corpus (3 tests).** `test_strict_json_corpus` keeps `rust/corpus/json/strict_json.json`
+  true to the Python `strict_json` and, under ctest `control_wire`, to the C++ `decode_control`. `xr-wire`'s
+  `strict_json_corpus` test holds `xr_wire::json` to each case's verdict.
 
 ## Dropped tests
 

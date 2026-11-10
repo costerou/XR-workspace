@@ -28,13 +28,25 @@
    "fate": "keep",
    "reason": "Writes rust/corpus/hyprland/, the parity corpus the Rust generators are held to."
   },
+  "monitor_rules_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/supervisor/monitor_rules.json, the corpus the Rust monitor_rules module is held to: only the confirmed one-line rule goes."
+  },
   "placement_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/placement/plans.json, the corpus the Rust window placement is held to."
   },
+  "run_order_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/supervisor/run_order.json, the order of every managed run and recovery path and failure point that the Rust managed module is held to."
+  },
   "state_file_corpus.py": {
    "fate": "keep",
    "reason": "Writes fixtures/state_files/, the run-file corpus for the cross-recovery gate."
+  },
+  "strict_json_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/json/strict_json.json, the Python strict_json and C++ decode_control verdicts that xr_wire::json is held to."
   },
   "view_corpus.py": {
    "fate": "keep",
@@ -2340,6 +2352,17 @@
    },
    "covers": "tools/native_spike/free_pointer.py"
   },
+  "test_run_order_corpus.py": {
+   "classes": {
+    "RunOrderCorpusTest": {
+     "fate": "wire",
+     "how": "The phase 6 run order gate: the Rust managed module (rust/crates/xr-workspace/src/managed/tests.rs) replays every case and gives the same steps and result. The Python test keeps the corpus true to managed.py and its recovery invariants.",
+     "tests": 3,
+     "via": "rust/corpus/supervisor/run_order.json"
+    }
+   },
+   "covers": "tools/native_spike/managed.py"
+  },
   "test_sbs.py": {
    "classes": {
     "EnterTests": {
@@ -2583,6 +2606,17 @@
      "via": "tests/native_spike/fixtures/state_files"
     }
    }
+  },
+  "test_strict_json_corpus.py": {
+   "classes": {
+    "StrictJsonCorpus": {
+     "fate": "wire",
+     "how": "The phase 1 strict JSON gate: xr_wire::json gives each case's rust verdict (rust/crates/xr-wire/tests/strict_json_corpus.rs). The Python test keeps the corpus true to strict_json and, under ctest control_wire, to the C++ decode_control.",
+     "tests": 3,
+     "via": "rust/corpus/json/strict_json.json"
+    }
+   },
+   "covers": "tools/native_spike/ipc.py"
   },
   "test_super_drag.py": {
    "classes": {
