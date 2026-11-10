@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from tests.pro2_bridge import build_bridge
 from tools.pro2_runtime import launch
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -21,9 +22,9 @@ class PredictionFeed(unittest.TestCase):
             sdk=root/'fixture.so';binary=root/'bin/pro2-sdk-bridge';probe=root/'probe'
             for cmd in (
                 ['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],
-                ['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)],
                 ['c++','-std=c++20','-pthread','-Ispike/include',source,*extra,'spike/src/pose.cpp','-o',str(probe)]):
                 subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
+            build_bridge(binary)
             digest=hashlib.sha256(sdk.read_bytes()).hexdigest()
             for name in ('xr-native-spike','libxr-ownership.so'):(root/'bin'/name).write_bytes(b'fixture')
             files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'bin').iterdir()}
@@ -69,7 +70,7 @@ class PoseRateFlag(unittest.TestCase):
             for name,value in dict(idVendor='35ca',idProduct='1301',product='VITURE PRO 2 XR Glasses',busnum='1',devnum='13').items():(usb/'1-1'/name).write_text(value+'\n')
             sdk=root/'fixture.so';binary=root/'bridge'
             subprocess.run(['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],cwd=ROOT,check=True,capture_output=True)
-            subprocess.run(['c++','-std=c++20','-DPRO2_SYNTHETIC','-pthread','-Ispike/driver/include','tools/pro2_runtime/bridge.cpp','spike/driver/src/publish.cpp','-lcrypto','-ldl','-o',str(binary)],cwd=ROOT,check=True,capture_output=True)
+            build_bridge(binary)
             digest=hashlib.sha256(sdk.read_bytes()).hexdigest();status=root/'status';trace=root/'trace'
             env=dict(os.environ,PRO2_QA_TRACE=str(trace),**({'PRO2_QA_RATE':sdk_rate} if sdk_rate else {}))
             sdk_fd=os.open(sdk,os.O_RDONLY);status_fd=os.open(status,os.O_CREAT|os.O_WRONLY,0o600)

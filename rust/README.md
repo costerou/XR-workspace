@@ -153,6 +153,27 @@ difference is within one or two buckets. Part of the inline gap is the fake sens
 pipeline. LLVM compiles the rig's table CRC about 17 ns slower than GCC, and it runs twice per
 sample: once in the sender, once in the parse.
 
+## Pro 2 bridge
+
+`xr-pro2-bridge` is a port of `tools/pro2_runtime/bridge.cpp`: the same arguments, checks, SDK
+call order, status lines and feed. It opens `/proc/self/fd/<sdk-fd>` with `libloading` only after
+the `sha2` hash of that fd matches, and never links the SDK at build time. The `synthetic` feature
+adds `--fixture-root` and `--fixture-hash`, as `-DPRO2_SYNTHETIC` does for the C++ one; a production
+build refuses them.
+
+The Pro 2 suites run in private namespaces where cargo cannot work, so build the bridge first and
+point them at it:
+
+```sh
+/usr/bin/python3 tests/pro2_bridge.py <dir>
+PRO2_BRIDGE_RUST_DIR=<dir> python3 tests/pro2_runtime_qa/run.py
+PRO2_BRIDGE_RUST_DIR=<dir> python3 tests/pro2_runtime/run.py
+PRO2_BRIDGE_RUST_DIR=<dir> /usr/bin/python3 tests/pro2_smooth_qa/run.py
+```
+
+With `PRO2_BRIDGE_RUST_DIR` set, `tests/pro2_runtime_qa/test_rust_bridge.py` also runs both bridges
+side by side and compares them; without it the suites use the C++ bridge as before.
+
 ## Corpus
 
 `corpus/` holds golden files taken from the shipped Python and C++ code. The phase 6 parity gate

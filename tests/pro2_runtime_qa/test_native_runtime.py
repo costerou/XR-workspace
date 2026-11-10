@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from tests.pro2_bridge import build_bridge
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -34,14 +35,12 @@ class NativeRuntimeQA(unittest.TestCase):
              str(HERE / 'sdk_fixture.c'), '-o', str(cls.sdk)],
             ['cc', '-std=c11', '-shared', '-fPIC', '-pthread',
              '-Dxr_device_provider_close_imu=fixture_missing_close', str(HERE / 'sdk_fixture.c'), '-o', str(cls.missing_sdk)],
-            ['c++', '-std=c++20', '-DPRO2_SYNTHETIC', '-pthread', '-Ispike/driver/include',
-             'tools/pro2_runtime/bridge.cpp', 'spike/driver/src/publish.cpp', '-lcrypto', '-ldl', '-o', str(cls.binary)],
-            ['c++', '-std=c++20', '-pthread', '-Ispike/driver/include',
-             'tools/pro2_runtime/bridge.cpp', 'spike/driver/src/publish.cpp', '-lcrypto', '-ldl', '-o', str(cls.production)],
             ['c++', '-std=c++20', '-pthread', '-Ispike/include', str(HERE / 'probe.cpp'),
              'spike/src/pose.cpp', '-o', str(cls.probe)],
         ):
             subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True)
+        build_bridge(cls.binary)
+        build_bridge(cls.production, synthetic=False)
         cls.digest = hashlib.sha256(cls.sdk.read_bytes()).hexdigest()
 
     def run_bridge(self, case='normal', identity=None, extra=(), probe=False, interrupt=False, mutate=False, sdk_file=None, binary=None):

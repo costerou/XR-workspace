@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from tests.pro2_bridge import build_bridge
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -21,7 +22,7 @@ class Bridge(unittest.TestCase):
         for name, value in dict(idVendor='35ca', idProduct='1301', product='VITURE PRO 2 XR Glasses', busnum='1', devnum='13').items(): (cls.usb / '1-1' / name).write_text(value + '\n')
         cls.sdk = root / 'fixture.so'; cls.binary = root / 'bridge'
         subprocess.run(['cc', '-shared', '-fPIC', '-pthread', 'tests/pro2_runtime_qa/sdk_fixture.c', '-o', str(cls.sdk)], cwd=ROOT, check=True, capture_output=True)
-        subprocess.run(['c++', '-std=c++20', '-DPRO2_SYNTHETIC', '-pthread', '-Ispike/driver/include', 'tools/pro2_runtime/bridge.cpp', 'spike/driver/src/publish.cpp', '-lcrypto', '-ldl', '-o', str(cls.binary)], cwd=ROOT, check=True, capture_output=True)
+        build_bridge(cls.binary)
         cls.digest = hashlib.sha256(cls.sdk.read_bytes()).hexdigest(); cls.n = 0
 
     @classmethod
