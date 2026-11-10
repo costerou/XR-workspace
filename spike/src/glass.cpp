@@ -291,10 +291,14 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
         }
     for(int state=0;state<4;state+=2) {
       float x=2+state*84,y=float(kAtlasOldH)+2;
-      md_fill_rounded(im,x,y,x+78,y+78,14,state>=2?m.secondary_container:m.surface_container_high,1);
-      md_stroke_rounded(im,x+22,y+22,x+56,y+56,2,4,m.primary,1);  // Maximize: one window, centred in the 78 px cell
+      // Maximize: a round button in the pill family, primary under the dot, with four corner brackets that point outward.
+      const bool hot=state>=2;const auto& ink=hot?m.on_primary:m.on_primary_container;
+      md_fill_rounded(im,x,y,x+78,y+78,39,hot?m.primary:m.primary_container,1);
+      const float a=x+22,b=x+56,c=y+22,d=y+56,t=5,l=12;  // the 34 px square, centred in the 78 px cell
+      for(float cx:{a,b-l})for(float cy:{c,d-t})md_fill_rounded(im,cx,cy,cx+l,cy+t,t/2,ink,1);
+      for(float cx:{a,b-t})for(float cy:{c,d-l})md_fill_rounded(im,cx,cy,cx+t,cy+l,t/2,ink,1);
     }
-    {float x=2,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,12,m.surface_container_high,1);text(im,font,"Maximize",40,true,x+12,y+30,m.on_surface);}
+    {float x=2,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,30,m.surface_container_high,1);text(im,font,"Maximize",40,true,x+24,y+30,m.on_surface);}
     // The band's Restore pill: two windows and the word, in the bar's colours, the primary under the dot.
     for(int state=0;state<2;++state){
       const float x=2+float(state)*(kAtlasPillW+4),y=kAtlasPillY,cy=y+39,gx=x+60;
