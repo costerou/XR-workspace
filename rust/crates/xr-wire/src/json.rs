@@ -224,6 +224,8 @@ impl Style {
     pub const DEFAULT: Style = Style { sort_keys: false, compact: false, indent: None };
     /// `json.dumps(value, sort_keys=True)`.
     pub const SORTED: Style = Style { sort_keys: true, compact: false, indent: None };
+    /// `json.dumps(value, separators=(',', ':'))`.
+    pub const COMPACT: Style = Style { sort_keys: false, compact: true, indent: None };
     /// `json.dumps(value, separators=(',', ':'), sort_keys=True)`.
     pub const COMPACT_SORTED: Style = Style { sort_keys: true, compact: true, indent: None };
     /// `json.dumps(value, indent=2)`.

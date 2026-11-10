@@ -8,7 +8,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 
 | Crate | Kind | Replaces |
 | --- | --- | --- |
-| `xr-wire` | library | Control and status envelopes, strict JSON (`strict_json`, `decode_control`), and the on-disk formats: journal, consent, progress, result, recovery and install pins, read and written byte-for-byte as the Python writers produce them through private atomic writes (0600, no-follow, fsync and rename) |
+| `xr-wire` | library | Control and status envelopes, the ownership plugin's `xrspike` requests and replies (`plugin`) and the renderer's status datagrams (`status`), strict JSON (`strict_json`, `decode_control`), and the on-disk formats: journal, consent, progress, result, recovery and install pins, read and written byte-for-byte as the Python writers produce them through private atomic writes (0600, no-follow, fsync and rename) |
 | `xr-pose` | library | Pose shared memory: SysV feed, seqlock channels, `PredictionWire` |
 | `xr-luma-driver` | binary | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
@@ -29,6 +29,10 @@ cargo deny check licenses bans sources
 `PoseRecord` seqlock object and `PredictionWire` against the C++ layout and code, both ways.
 `tests/feed_cpp_interop.rs` builds `spike/tests/pose_test.cpp` with the renderer's `pose.cpp` the
 same way and runs it against the Rust SysV feed, both ways, including a lock holder that died.
+`xr-wire`'s `tests/plugin_cpp_interop.rs` builds `ownership_test` from `spike/tests/ownership_test.cpp`
+and the plugin's `registry.cpp` (C++23, nlohmann_json headers) and feeds it every case of
+`spike/tests/ownership_pair_wire_test.py`, encoded by `xr_wire::plugin`, plus geometry and bounds
+sweeps: the plugin's `parse_request` and the Rust mirror must give the same verdict on each.
 
 `Cargo.lock` is committed. `deny.toml` allows permissive third-party licences only (MIT, Apache-2.0,
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own
