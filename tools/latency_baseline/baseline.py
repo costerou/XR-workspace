@@ -18,6 +18,11 @@ from tools.xr_controller.incident_detect import exit_report
 
 TIMING, CAPTURE = 'generated_pattern_presentation_timing', 'managed_output_capture'
 MIN_DURATION_S = 1800.0
+# The D4 late-latch gate (docs/rust-rebuild-plan.md): on a run of at least MIN_DURATION_S, read_to_present p50 and p95 at
+# or under these, no discarded frame and no missed latch. Until a live run passes it, late latch stays off by default.
+D4_P50_MS, D4_P95_MS = 9.0, 11.0
+LATE_LATCH = ('guard_ms', 'margin_ms', 'draw_max_ms', 'boost_ms', 'scheduled', 'waited', 'latched', 'missed', 'immediate',
+              'slack_p5_ms', 'slack_p50_ms', 'draw_p50_ms', 'draw_p99_ms', 'draw_worst_ms')
 STATS = ('count', 'p50_ms', 'p95_ms', 'mean_ms', 'max_ms')
 
 
@@ -49,7 +54,33 @@ def _measure(timing, capture):
                 clock_monotonic=latency.get('clock_monotonic') is True,
                 read_to_present_ms=_stats(latency.get('read_to_present'), ('dropped',)),
                 pose_age_ms=dict(basis='relative', **_stats(latency.get('pose_age_relative'))),
-                prediction_enabled=prediction.get('enabled'))
+                prediction_enabled=prediction.get('enabled'),
+                late_latch=_late_latch(latency.get('late_latch')))
+
+
+def _late_latch(raw):
+    """The renderer's late-latch summary (--late-latch-guard-ms), or None when the run had it off or predates it."""
+    if not isinstance(raw, dict) or raw.get('enabled') is not True: return None
+    return {k: raw.get(k) for k in LATE_LATCH}
+
+
+def d4_gate(record, min_duration_s=MIN_DURATION_S):
+    """The D4 late-latch gate on a measured record: (PASS or FAIL or INCONCLUSIVE, reasons). None without late latch."""
+    latch = record.get('late_latch')
+    if not latch: return None
+    rtp = record.get('read_to_present_ms') or {}
+    inconclusive, fail = [], []
+    if (record.get('duration_s') or 0) < min_duration_s:
+        inconclusive.append(f"the renderer ran {record.get('duration_s') or 0:.0f} s, under {min_duration_s:.0f} s")
+    if not record.get('clock_monotonic'): inconclusive.append('the compositor clock is not CLOCK_MONOTONIC')
+    if not rtp.get('count'): inconclusive.append('no read-to-present samples')
+    if not latch.get('scheduled'): inconclusive.append('no frame was drawn on the late-latch schedule')
+    if rtp.get('p50_ms') is not None and rtp['p50_ms'] > D4_P50_MS: fail.append(f"read_to_present p50 {rtp['p50_ms']} ms > {D4_P50_MS} ms")
+    if rtp.get('p95_ms') is not None and rtp['p95_ms'] > D4_P95_MS: fail.append(f"read_to_present p95 {rtp['p95_ms']} ms > {D4_P95_MS} ms")
+    if record.get('discarded'): fail.append(f"{record['discarded']} discarded frames")
+    if latch.get('missed'): fail.append(f"{latch['missed']} missed latches")
+    if fail: return 'FAIL', fail + inconclusive
+    return ('INCONCLUSIVE' if inconclusive else 'PASS'), inconclusive
 
 
 def baseline(lines, run_id, consent=None, result=None, min_duration_s=MIN_DURATION_S, require_tracking='luma'):
@@ -72,6 +103,8 @@ def baseline(lines, run_id, consent=None, result=None, min_duration_s=MIN_DURATI
     if not record['clock_monotonic']: reasons.append('the compositor clock is not CLOCK_MONOTONIC: read-to-present is not comparable')
     if not record['read_to_present_ms']['count']: reasons.append('no read-to-present samples')
     if not record['pose_age_ms']['count']: reasons.append('no pose age samples (no pose feed, or tracking never started)')
+    gate = d4_gate(record, min_duration_s)
+    if gate: record.update(d4_verdict=gate[0], d4_reasons=gate[1])
     return dict(record, verdict='INCONCLUSIVE' if reasons else 'PASS', reasons=reasons)
 
 

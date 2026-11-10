@@ -660,6 +660,26 @@ the feed is disabled. No reader uses it yet: the renderer still differences `q0`
 Checked by ctest `luma_prediction_wire`, which replays `luma_imu_real.bin` through the real daemon: 1,000 writes a second, and at
 17 ms ahead the wire predicts the recording to 0.011° rms while moving, against 0.073° for the renderer's difference.
 
+### Renderer trial flags
+
+`~/.config/viture-workspace/renderer-flags` (or under `$XDG_CONFIG_HOME`), if it exists, holds trial flags for the renderer of a
+head-tracked run. Only one is accepted so far: `--late-latch-guard-ms G`, G a decimal from 0 to 8. Anything else refuses the renderer launch
+with a reason. Without the file nothing changes, and the flags only reach a renderer that has a pose feed.
+
+`--late-latch-guard-ms` turns on late latch (D4, `spike/include/xr/late_latch.hpp`). The renderer normally draws a tracked frame
+as soon as the frame callback arrives, about one refresh before the compositor's next latch, so the pose it reads is that much
+older when the frame is shown (read_to_present about 16.6 ms at 120 Hz). With late latch it waits until
+
+    callback + refresh period - margin,    margin = slowest draw of the last 256 frames + guard + boost
+
+and then reads the pose and draws. A frame whose callback comes back half a period or more late missed its latch; each miss adds
+1 ms of boost (up to 4 ms), which drains at 0.1 ms/s after 10 s without a miss. The guard is what the compositor needs beyond our
+draw. The renderer's exit report carries `latency.late_latch` (margin, scheduled, waited, latched, missed, slack and draw
+percentiles), and `python3 -m tools.latency_baseline --latest` turns that into `d4_verdict`. Late latch stays off by default
+until a 30-minute live run passes the D4 gate: read_to_present p50 at most 9 ms, p95 at most 11 ms, no missed latch.
+
+Remove the file to turn it off again. The file is read at each renderer launch, so a change applies from the next run.
+
 ### Checks at start, for every driver
 
 A start refuses when the glasses' USB node (`35ca:1104`) cannot be opened, and says to replug them. After a boot with the

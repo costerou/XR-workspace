@@ -1,6 +1,7 @@
 #include <nlohmann/json.hpp>
 #include "xr/ipc.hpp"
 #include "xr/motion_smooth.hpp"
+#include "xr/late_latch.hpp"
 #include "xr/presentation.hpp"
 #include "xr/pose.hpp"
 #include <cmath>
@@ -16,6 +17,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <poll.h>
 #include <string>
 #include <vector>
@@ -50,11 +52,13 @@ int main(int argc, char** argv) {
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
                      "Or --capture XR-1[,XR-2[,XR-3[,XR-4]]]: show only the app's own managed outputs (managed-output capture consent),\n"
                      "  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n"
+                     "  With the feed, optional --late-latch-guard-ms 0..8: draw each head-tracked frame just before the compositor's\n"
+                     "  next latch (D4 trial, off by default; the status latency.late_latch object reports it).\n"
                      "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23 && argc != 25 && argc != 27 && argc != 29 && argc != 31) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc < 11 || argc > 33 || argc % 2 == 0) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -73,7 +77,7 @@ int main(int argc, char** argv) {
     if (args.contains("--depth-fd") && depth_fd < 0) return 2;
     if (args.contains("--control-errors") && args["--control-errors"] != "fatal") return 2;
     const bool control_errors_fatal = args.contains("--control-errors");
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd") - args.count("--pro2-test-pose-prefix") - args.count("--pro2-test-projection") - args.count("--pro2-test-smooth-ms") - args.count("--pro2-test-level-gravity");
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd") - args.count("--pro2-test-pose-prefix") - args.count("--pro2-test-projection") - args.count("--pro2-test-smooth-ms") - args.count("--pro2-test-level-gravity") - args.count("--late-latch-guard-ms");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -103,6 +107,12 @@ int main(int argc, char** argv) {
     }
     const bool test_level_gravity = args.contains("--pro2-test-level-gravity");
     if (test_level_gravity && (test_prefix.empty() || args["--pro2-test-level-gravity"] != "1")) return 2;
+    // D4 late latch (late_latch.hpp): head-tracked frames only, off unless given.
+    std::optional<double> late_latch_guard;
+    if (args.contains("--late-latch-guard-ms")) {
+        late_latch_guard = xr::LateLatch::parse_guard(args["--late-latch-guard-ms"].c_str());
+        if (!late_latch_guard || !pose_feed) return 2;
+    }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
     if (status_fd >= 0 && (status_fd == control || status_fd == wayland)) return 2;
@@ -136,6 +146,7 @@ int main(int argc, char** argv) {
     if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
     if (!result && pose_feed) presentation.enable_tracking(test_prefix.empty()?"/tmp/shader_runtime_":test_prefix,test_projection,test_smooth_ms,test_level_gravity);  // XRLinuxDriver IPC (fixed path)
+    if (!result && late_latch_guard) presentation.enable_late_latch(*late_latch_guard);
     if (!result && presentation.restore_continuity(continuity_fd)) std::cerr << "continuity: restored\n";
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame

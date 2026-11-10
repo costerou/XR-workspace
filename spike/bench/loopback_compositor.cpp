@@ -113,6 +113,17 @@ struct Options {
     // renderer's pictures were real (not black), maps were drawn, and frames kept coming to the end.
     bool immersive = false;
     double engine_dies = 0;
+    // --present-lag N: presentation feedback N refreshes after the latch, as a real display shows a frame (Hyprland: the
+    // frame taken at one vblank is scanned out from the next). 0: presented at the latch, as before. Frame callbacks stay
+    // at the latch either way.
+    int present_lag = 0;
+    // --late-latch-guard-ms G, with --tracking: passed to the renderer (D4, late_latch.hpp). --check then checks that the
+    // renderer drew on the late-latch schedule: frames waited for their target and made the latch they aimed at, and no
+    // feedback was discarded. Timing depends on how busy the machine is, so that much holds on a loaded test host.
+    std::string late_latch_guard;
+    // --d4-gate, with a guard: --check also holds the run to the D4 numbers, read_to_present p50 <= 9 ms and p95 <= 11 ms
+    // with no late-latch miss. For a quiet machine; the real gate is a 30-minute run on the glasses (tools.latency_baseline).
+    bool d4_gate = false;
 };
 constexpr double kChurnMs = 150;
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
@@ -320,6 +331,7 @@ struct Server {
     bool measuring = false;
     // measured window
     std::uint64_t commits = 0, latched = 0, presented_fb = 0, discarded_fb = 0, callbacks = 0, missed_ticks = 0;
+    std::vector<std::pair<wl_resource*, std::uint64_t>> lagged_fb;  // --present-lag: feedback and the vblank it is due at
     std::array<std::uint64_t, xr::kMaxDesktops> captured_frames{}, shown_frames{};
     Stamps last_shown{};
     // --pointer-look: the dot sits just right of the middle of the first desktop, so the disc covers that pixel and the Serif
@@ -711,8 +723,26 @@ void bind_dmabuf(wl_client* client, void*, std::uint32_t version, std::uint32_t 
 }
 
 // ---- simulated display + managed outputs ----
+void send_presented(wl_resource* fb, std::int64_t t) {
+    if (!g->live.contains(fb)) return;
+    wl_resource* sync = g->output_resource(0);
+    const std::uint64_t sec = std::uint64_t(t / 1'000'000'000), nsec = std::uint64_t(t % 1'000'000'000);
+    if (sync) wp_presentation_feedback_send_sync_output(fb, sync);
+    wp_presentation_feedback_send_presented(fb, std::uint32_t(sec >> 32), std::uint32_t(sec & 0xffffffffu), std::uint32_t(nsec),
+                                            std::uint32_t(1e9 / g->opt.hz), std::uint32_t(g->vblank_seq >> 32),
+                                            std::uint32_t(g->vblank_seq & 0xffffffffu),
+                                            WP_PRESENTATION_FEEDBACK_KIND_VSYNC | WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK |
+                                            WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION);
+    wl_resource_destroy(fb);
+    if (g->measuring) ++g->presented_fb;
+}
 void vblank(std::int64_t t) {
     ++g->vblank_seq;
+    std::erase_if(g->lagged_fb, [&](const auto& due) {  // --present-lag: the frames latched N refreshes ago are shown now
+        if (due.second > g->vblank_seq) return false;
+        send_presented(due.first, t);
+        return true;
+    });
     for (auto* s : std::vector<Surface*>(g->surfaces)) {
         if (!s->has_commit) continue;
         if (s->commit_has_buffer && s->commit_buf.r) {
@@ -734,17 +764,9 @@ void vblank(std::int64_t t) {
             else s->shown_unread = true;
         }
         s->commit_buf.reset(); s->commit_has_buffer = false; s->commit_stamps_valid = false;
-        wl_resource* sync = g->output_resource(0);
-        const std::uint64_t sec = std::uint64_t(t / 1'000'000'000), nsec = std::uint64_t(t % 1'000'000'000);
-        for (auto* fb : s->commit_fb) if (g->live.contains(fb)) {
-            if (sync) wp_presentation_feedback_send_sync_output(fb, sync);
-            wp_presentation_feedback_send_presented(fb, std::uint32_t(sec >> 32), std::uint32_t(sec & 0xffffffffu), std::uint32_t(nsec),
-                                                    std::uint32_t(1e9 / g->opt.hz), std::uint32_t(g->vblank_seq >> 32),
-                                                    std::uint32_t(g->vblank_seq & 0xffffffffu),
-                                                    WP_PRESENTATION_FEEDBACK_KIND_VSYNC | WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK |
-                                                    WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION);
-            wl_resource_destroy(fb);
-            if (g->measuring) ++g->presented_fb;
+        for (auto* fb : s->commit_fb) {
+            if (g->opt.present_lag > 0) g->lagged_fb.push_back({fb, g->vblank_seq + std::uint64_t(g->opt.present_lag)});
+            else send_presented(fb, t);
         }
         s->commit_fb.clear();
         const auto ms = std::uint32_t(t / 1'000'000);
@@ -883,7 +905,8 @@ void usage() {
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
-                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--restore-band] [--close-control] [--control-errors fatal|log]\n");
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--restore-band] [--close-control] [--control-errors fatal|log]\n"
+                         "                  [--present-lag 0..3] [--late-latch-guard-ms G (with --tracking)] [--d4-gate]\n");
 }
 }  // namespace
 
@@ -920,10 +943,15 @@ int main(int argc, char** argv) {
         else if (a == "--bad-control") opt.bad_control = true;
         else if (a == "--close-control") opt.close_control = true;
         else if (a == "--control-errors") opt.control_errors = next();
+        else if (a == "--present-lag") opt.present_lag = std::stoi(next());
+        else if (a == "--late-latch-guard-ms") opt.late_latch_guard = next();
+        else if (a == "--d4-gate") opt.d4_gate = true;
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
     if ((opt.feed_drop > 0) != !opt.feed_script.empty()) { usage(); return 2; }
+    if (opt.present_lag < 0 || opt.present_lag > 3 || (!opt.late_latch_guard.empty() && !opt.tracking) ||
+        (opt.d4_gate && opt.late_latch_guard.empty())) { usage(); return 2; }
     if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > int(xr::kMaxDesktops) || !(opt.hz > 1) || opt.capture_hz < 0 ||
         opt.maximize < 0 || opt.maximize > opt.outputs || (opt.maximize && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
@@ -1056,6 +1084,7 @@ int main(int argc, char** argv) {
             for (int i = 1; i <= opt.outputs; ++i) list += (i > 1 ? ",XR-" : "XR-") + std::to_string(i);
             args.insert(args.end(), {"--capture", list});
             if (opt.tracking) args.insert(args.end(), {"--pose-feed", "xrld"});
+            if (!opt.late_latch_guard.empty()) args.insert(args.end(), {"--late-latch-guard-ms", opt.late_latch_guard});
             if (opt.immersive) args.insert(args.end(), {"--depth-fd", "14"});
         } else args.insert(args.end(), {"--animate-pattern-ms", std::to_string(int(pattern_ms))});
         std::vector<char*> cargs; for (auto& a : args) cargs.push_back(a.data()); cargs.push_back(nullptr);
@@ -1339,6 +1368,7 @@ int main(int argc, char** argv) {
     out["latched_per_s"] = std::round(double(server.latched) / secs * 10) / 10;
     out["presented_feedback"] = server.presented_fb; out["discarded_feedback"] = server.discarded_fb;
     out["frame_callbacks"] = server.callbacks; out["harness_missed_vblanks"] = server.missed_ticks;
+    out["present_lag"] = opt.present_lag;
     out["callback_to_commit_us"] = server.callback_to_commit_us.json(1);
     out["commit_interval_ms"] = server.commit_interval_ms.json(3);
     if (capture) {
@@ -1395,6 +1425,7 @@ int main(int argc, char** argv) {
                 for (const char* k : {"upload", "draw_swap", "uploaded_mib", "imported_frames", "stereo"}) if (c.contains(k)) out["gl_" + std::string(k)] = c[k];
             }
             if (j.contains("depth")) out["depth_report"] = j["depth"];
+            if (j.contains("latency")) out["latency"] = j["latency"];  // read_to_present, prediction, late_latch
         }
     }
     if (!other.empty()) out["renderer_stderr"] = other;
@@ -1431,6 +1462,23 @@ int main(int argc, char** argv) {
             return status_rc;
         }
         if (rc != 0) fail("renderer exit status");
+        if (!opt.late_latch_guard.empty()) {  // late latch (D4, docs/rust-rebuild-plan.md), on this harness's display
+            const auto& lat = out.value("latency", nlohmann::json::object());
+            const auto r2p = lat.value("read_to_present", nlohmann::json::object());
+            const auto ll = lat.value("late_latch", nlohmann::json::object());
+            const auto scheduled = ll.value("scheduled", std::uint64_t(0));
+            if (!ll.value("enabled", false)) fail("late latch not enabled in the renderer");
+            if (r2p.value("count", 0) < 100) fail("too few read_to_present samples");
+            if (scheduled == 0) fail("no frame drawn on the late-latch schedule");
+            if (ll.value("waited", std::uint64_t(0)) * 2 < scheduled) fail("most late-latched frames did not wait for their target");
+            if (ll.value("latched", std::uint64_t(0)) * 2 < scheduled) fail("most late-latched frames missed their latch");
+            if (server.discarded_fb != 0) fail("discarded presentation feedback");
+            if (opt.d4_gate) {
+                if (r2p.value("p50_ms", 99.0) > 9.0) fail("D4: read_to_present p50 over 9 ms");
+                if (r2p.value("p95_ms", 99.0) > 11.0) fail("D4: read_to_present p95 over 11 ms");
+                if (ll.value("missed", 1) != 0) fail("D4: late-latched frames missed their latch");
+            }
+        }
         if (server.commits < std::uint64_t(opt.seconds * opt.hz * 0.25)) fail("too few commits");  // frames flow; not a speed check
         // Whatever else a run tests: the renderer took every frame it was sent. Even one it may ignore is a bug in the sender.
         if (!out.contains("control_stream")) fail("no control_stream report");

@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 from tools.native_spike.profiles import LayoutStore
-from tools.native_spike import tracking, view
+from tools.native_spike import supervisor, tracking, view
 from tools.native_spike.__main__ import load_consent
 from tools.native_spike.supervisor import _launch
 
@@ -58,7 +58,8 @@ class TrackingConsentTests(unittest.TestCase):
             def poll(self): return 0
         def spawn(argv, **kwargs):
             seen.append(argv); return Child()
-        _launch(Client, 'run', 'session', 'DP-2', wayland, None, popen=spawn, capture=['XR-1'], pose_feed=True)
+        with patch.object(supervisor, 'RENDERER_FLAGS', Path(self.tmp.name) / 'no-renderer-flags'):  # not the user's own file
+            _launch(Client, 'run', 'session', 'DP-2', wayland, None, popen=spawn, capture=['XR-1'], pose_feed=True)
         self.assertEqual(seen[0][-4:], ['--capture', 'XR-1', '--pose-feed', 'xrld'])
         _, wayland2 = socket.socketpair()
         with self.assertRaises(ValueError):

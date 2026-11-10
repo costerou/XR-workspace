@@ -94,6 +94,9 @@ public:
     void set_edge_pan(const EdgePan& pan);  // the hand's pan past a maximized desktop's edge (view.hpp); display only
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix, float supervised_projection = 0, float smooth_ms = 0, bool level_gravity = false);  // smooth_ms: motion_smooth.hpp, 0 = off
+    // D4 late latch (late_latch.hpp): after enable_tracking, head-tracked frames are drawn toward the compositor's next
+    // latch with this guard (ms, LateLatch::parse_guard). Off unless called.
+    void enable_late_latch(double guard_ms);
     void recenter();
     bool restore_continuity(int fd);
     void save_continuity(int fd);

@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include "xr/motion_smooth.hpp"
 #include "xr/predict.hpp"
+#include "xr/late_latch.hpp"
 #include "xr/stabilization.hpp"
 #include "xr/hud.hpp"
 #include "xr/environment.hpp"
@@ -43,6 +44,7 @@
 #include <regex>
 #include <span>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -50,6 +52,11 @@ namespace xr {
 namespace {
 std::uint64_t monotonic_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+std::uint64_t monotonic_ns() {  // CLOCK_MONOTONIC, the wp_presentation clock (late latch)
+    timespec t{};
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return std::uint64_t(t.tv_sec) * 1'000'000'000ull + std::uint64_t(t.tv_nsec);
 }
 }
 struct Presentation::Impl : SurfaceRequests {
@@ -493,6 +500,14 @@ struct Presentation::Impl : SurfaceRequests {
     // Software latency (pose read -> compositor presented, same CLOCK_MONOTONIC) and bounded
     // prediction (predict.hpp). Neither is motion-to-photon latency.
     LatencyTracker latency;
+    // D4 late latch (late_latch.hpp), only with --late-latch-guard-ms: a head-tracked frame waits until latch_wake_ns
+    // (pump wakes for it), then reads the pose and draws; latch_start_ns is when that draw started, for its cost.
+    LateLatch late_latch;
+    std::uint64_t latch_wake_ns = 0, latch_start_ns = 0;
+    void latch_committed() {
+        if (latch_start_ns) late_latch.committed(latch_start_ns, monotonic_ns());
+        latch_start_ns = 0;
+    }
     PoseAge pose_age;
     bool prediction = false;
     std::uint64_t predicted_frames = 0, unpredicted_frames = 0;  // while enabled and tracking
@@ -969,6 +984,7 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
+        if (s.late_latch.enabled()) s.late_latch.frame_done(monotonic_ns(), s.metrics.snapshot().last_refresh_prediction_ns);
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || ((s.glass.animating(now) || s.pill_levels.animating(now) || s.gear_levels.animating(now)) && s.view.zoom() < 0.01f) ||  // glass: overview only
@@ -1001,7 +1017,14 @@ struct Presentation::Impl : SurfaceRequests {
         auto& fd = fds[0];
         // A readable wake fd only ends the wait; the caller reads it. Its errors are the caller's to notice too.
         // Events another reader (Mesa) had queued were just dispatched and may allow a draw: look, do not wait.
-        int result = poll(fds, wake_fd >= 0 ? 2 : 1, dispatched > 0 ? 0 : timeout);
+        // A late-latched frame waiting to be drawn (latch_wake_ns) shortens the wait to its start, to the nanosecond.
+        std::int64_t wait_ns = dispatched > 0 ? 0 : std::int64_t(std::max(timeout, 0)) * 1'000'000;
+        if (latch_wake_ns && wait_ns > 0) {
+            const auto now = monotonic_ns();
+            wait_ns = latch_wake_ns <= now ? 0 : std::min<std::int64_t>(wait_ns, std::int64_t(latch_wake_ns - now));
+        }
+        const timespec wait{time_t(wait_ns / 1'000'000'000), long(wait_ns % 1'000'000'000)};
+        int result = ppoll(fds, wake_fd >= 0 ? 2 : 1, &wait, nullptr);
         if (result < 0 && errno == EINTR) { wl_display_cancel_read(display); return true; }
         if (result < 0 || (fd.revents & (POLLERR | POLLHUP | POLLNVAL))) { wl_display_cancel_read(display); return false; }
         if (wake_ready && wake_fd >= 0) *wake_ready = fds[1].revents != 0;
@@ -1162,7 +1185,21 @@ std::string Presentation::capture_report() const {
                                   ",\"turn_axis_forward_deg\":" + std::to_string(s.smoother.turn_axis_forward_deg()) + ",\"turn_axis_left_deg\":" + std::to_string(s.smoother.turn_axis_left_deg()) +
                                   ",\"turn_seconds\":" + std::to_string(s.smoother.turn_seconds()) +
                                   ",\"capped_frames\":" + std::to_string(s.smoother.capped_frames()) + ",\"peak_speed_dps\":" + std::to_string(s.smoother.peak_speed_dps()) +
-                                  ",\"last_correction_deg\":" + std::to_string(s.smoother.last_correction_deg()) + "}" : std::string()) + "}}";
+                                  ",\"last_correction_deg\":" + std::to_string(s.smoother.last_correction_deg()) + "}" : std::string()) + "}";
+        {  // D4 late latch (late_latch.hpp): {"enabled":false} unless --late-latch-guard-ms
+            const auto l = s.late_latch.summary(s.metrics.snapshot().last_refresh_prediction_ns);
+            out += ",\"late_latch\":{\"enabled\":" + std::string(l.enabled ? "true" : "false");
+            if (l.enabled)
+                out += ",\"guard_ms\":" + std::to_string(l.guard_ms) + ",\"margin_ms\":" + std::to_string(l.margin_ms) +
+                       ",\"draw_max_ms\":" + std::to_string(l.draw_max_ms) + ",\"boost_ms\":" + std::to_string(l.boost_ms) +
+                       ",\"scheduled\":" + std::to_string(l.scheduled) + ",\"waited\":" + std::to_string(l.waited) +
+                       ",\"latched\":" + std::to_string(l.latched) + ",\"missed\":" + std::to_string(l.missed) +
+                       ",\"immediate\":" + std::to_string(l.immediate) + ",\"slack_p5_ms\":" + std::to_string(l.slack_p5_ms) +
+                       ",\"slack_p50_ms\":" + std::to_string(l.slack_p50_ms) + ",\"draw_p50_ms\":" + std::to_string(l.draw_p50_ms) +
+                       ",\"draw_p99_ms\":" + std::to_string(l.draw_p99_ms) +
+                       ",\"draw_worst_ms\":" + std::to_string(l.draw_worst_ms);
+            out += "}}";
+        }
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + ",\"placement_updates\":" + std::to_string(impl_->placement_updates) +
@@ -1294,6 +1331,10 @@ void Presentation::enable_tracking(std::string prefix, float supervised_projecti
     impl_->supervised_projection = supervised_projection;
     if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
+}
+void Presentation::enable_late_latch(double guard_ms) {
+    if (!impl_ || !impl_->gl || !impl_->tracking_requested) return;  // head-tracked GPU frames only
+    impl_->late_latch = LateLatch(guard_ms);  // the wait is a ppoll (pump): the default 50 us timer slack is fine
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (!impl_ || !impl_->gl) return;
@@ -1591,6 +1632,15 @@ Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
     if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
+    if (s.gl && s.tracking_requested && s.late_latch.enabled()) {  // D4: start toward the compositor's next latch
+        const auto now = monotonic_ns();
+        if (const auto at = s.late_latch.schedule(now, s.metrics.snapshot().last_refresh_prediction_ns)) {
+            s.latch_wake_ns = *at;  // pump wakes for it; the main loop calls back in
+            return {};
+        }
+        s.latch_wake_ns = 0;
+        s.latch_start_ns = now;
+    }
     if (s.gl) {
         if (s.upload_failed) return Error{"gl", "texture upload failed"};  // an early upload (upload_early) failed
         for (std::size_t i = 0; i < s.captures.size(); ++i) {
@@ -1717,7 +1767,7 @@ Status Presentation::draw_test_pattern() {
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = s.binds_drawn = false;
             s.options_in_frame=false;
-            s.cadence.committed();
+            s.cadence.committed(); s.latch_committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
         }
@@ -1790,7 +1840,7 @@ Status Presentation::draw_test_pattern() {
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         if(s.options_in_frame)s.options_evidence.drawn(s.options_overlay.state());
-        s.cadence.committed();
+        s.cadence.committed(); s.latch_committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
         return {};
     }

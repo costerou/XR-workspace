@@ -102,6 +102,53 @@ class EdgeTests(unittest.TestCase):
         self.assertEqual(r['read_to_present_ms']['count'], None)
 
 
+def latched(p50=8.5, p95=10.5, missed=0, discarded=0, seconds=1800.5):
+    """A long run with late latch on: the capture report carries the renderer's late_latch summary."""
+    def edit(report):
+        long_run(report, seconds)
+        if report['kind'] == b.TIMING: report['discarded'] = discarded
+        if report['kind'] == b.CAPTURE:
+            report['latency']['read_to_present'].update(p50_ms=p50, p95_ms=p95)
+            report['latency']['late_latch'] = dict(enabled=True, guard_ms=1.0, margin_ms=1.9, draw_max_ms=0.9, boost_ms=0,
+                                                   scheduled=216000, waited=215990, latched=216000 - missed, missed=missed,
+                                                   immediate=3, slack_p5_ms=0.95, slack_p50_ms=1.25, draw_p50_ms=0.45,
+                                                   draw_p99_ms=0.85, draw_worst_ms=1.2)
+    return edited(edit)
+
+
+class LateLatchTests(unittest.TestCase):
+    def test_a_run_without_late_latch_has_no_d4_verdict(self):
+        r = b.baseline(edited(long_run), RUN, LUMA)
+        self.assertIsNone(r['late_latch'])
+        self.assertNotIn('d4_verdict', r)
+
+    def test_a_30_minute_run_inside_the_gate_passes_d4(self):
+        r = b.baseline(latched(), RUN, LUMA)
+        self.assertEqual((r['verdict'], r['d4_verdict'], r['d4_reasons']), ('PASS', 'PASS', []))
+        self.assertEqual((r['late_latch']['missed'], r['late_latch']['guard_ms'], r['late_latch']['scheduled']), (0, 1.0, 216000))
+        self.assertNotIn('enabled', r['late_latch'])
+
+    def test_the_gate_edges(self):
+        self.assertEqual(b.baseline(latched(p50=9.0, p95=11.0), RUN, LUMA)['d4_verdict'], 'PASS')
+        for kwargs, why in ((dict(p50=9.125), 'p50 9.125 ms > 9.0'), (dict(p95=11.125), 'p95 11.125 ms > 11.0'),
+                            (dict(missed=1), '1 missed latches'), (dict(discarded=2), '2 discarded frames')):
+            r = b.baseline(latched(**kwargs), RUN, LUMA)
+            self.assertEqual(r['d4_verdict'], 'FAIL', kwargs)
+            self.assertIn(why, ' '.join(r['d4_reasons']))
+
+    def test_a_short_run_is_inconclusive_unless_it_already_failed(self):
+        r = b.baseline(latched(seconds=600), RUN, LUMA)
+        self.assertEqual(r['d4_verdict'], 'INCONCLUSIVE')
+        self.assertIn('under 1800 s', r['d4_reasons'][0])
+        self.assertEqual(b.baseline(latched(seconds=600, missed=3), RUN, LUMA)['d4_verdict'], 'FAIL')
+
+    def test_a_disabled_summary_is_ignored(self):
+        def off(report):
+            long_run(report)
+            if report['kind'] == b.CAPTURE: report['latency']['late_latch'] = dict(enabled=False)
+        self.assertIsNone(b.baseline(edited(off), RUN, LUMA)['late_latch'])
+
+
 class CliTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()

@@ -4,6 +4,10 @@
     python3 -m tools.latency_baseline --run RUN_ID [--out FILE]
     python3 -m tools.latency_baseline --run RUN_ID --log saved.log    a saved `journalctl -o short-iso` log
 
+A run with late latch on (renderer-flags --late-latch-guard-ms) also gets `d4_verdict` (PASS, FAIL or INCONCLUSIVE) and
+`d4_reasons`: the D4 gate, read_to_present p50 <= 9 ms and p95 <= 11 ms with no discarded frame and no missed latch over
+at least --min-minutes. It does not change the exit code.
+
 Exit codes: 0 PASS (a Luma run of at least --min-minutes with both measurements), 2 INCONCLUSIVE (reasons printed), 1 error.
 """
 import argparse

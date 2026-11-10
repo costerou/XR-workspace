@@ -17,6 +17,35 @@ from .tracking import lost_timeout
 GUARD_DEADLINE = 4.25
 GUARD_PERIOD = 0.5
 
+# Renderer trials that are off by default (docs/technical.md, "Renderer trial flags"): a hidden file of flags for head-tracked
+# sessions only, like tracking.LUMA_FLAGS for the Luma driver. Only the flags here are accepted, each with a checked value.
+RENDERER_FLAGS = None  # resolved per call (XDG_CONFIG_HOME may change in tests); a Path here overrides it
+RENDERER_FLAG_CHOICES = {'--late-latch-guard-ms': 'decimal 0..8'}  # D4 late latch (spike/include/xr/late_latch.hpp)
+
+
+def _renderer_flags_path():
+    import os
+    from pathlib import Path
+    if RENDERER_FLAGS is not None: return Path(RENDERER_FLAGS)
+    return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/renderer-flags'
+
+
+def _renderer_flags():
+    """The saved renderer trial flags as argv, [] with no file. ValueError on anything but RENDERER_FLAG_CHOICES."""
+    import re
+    path = _renderer_flags_path()
+    try: words = path.read_text().split()
+    except FileNotFoundError: return []
+    out, at = [], 0
+    while at < len(words):
+        flag = words[at]
+        if flag not in RENDERER_FLAG_CHOICES or flag in out: raise ValueError(f'{path} has an unknown or repeated flag: {flag}')
+        value = words[at + 1] if at + 1 < len(words) else ''
+        if not re.fullmatch(r'\d{1,2}(\.\d{1,3})?', value) or float(value) > 8:
+            raise ValueError(f'{path}: {flag} needs a {RENDERER_FLAG_CHOICES[flag]}')
+        out += [flag, value]; at += 2
+    return out
+
 
 def _guard_worker(guard, sender):
     """Spawn-only worker: private deserialized client, no inherited renderer FDs."""
@@ -465,7 +494,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     capture_argv = capture_arguments(capture, output)
     if pose_feed:
         if not capture_argv: raise ValueError('head tracking requires managed-output capture')
-        capture_argv += ['--pose-feed', 'xrld']
+        capture_argv += ['--pose-feed', 'xrld', *_renderer_flags()]
         if pro2_scope is not None:
             pro2_scope.healthy()
             capture_argv += ['--pro2-test-pose-prefix',pro2_scope.prefix,'--pro2-test-projection',str(pro2_scope.projection),'--pro2-test-smooth-ms',str(pro2_scope.smooth_ms)]

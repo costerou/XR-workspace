@@ -318,7 +318,14 @@ the top acceptance priorities. The renderer is last because it is the largest an
   `replug_is_seen_inside_namespace` checks that with a real replug (not yet run). D8 keeps inotify as its wake
   source.
 - **Late latch (D4)** trades latency against missed frames. A late frame is worse than a slow one,
-  so the margin has to adapt.
+  so the margin has to adapt. The C++ trial (2026-11-10, off by default, `renderer-flags` in
+  [technical.md](technical.md)) adapts it from the slowest recent draw plus a guard, and boosts it on a miss.
+  On a display that shows a frame one refresh after the latch, read_to_present is about a period plus the
+  margin, so the p50 ≤ 9 ms target at 120 Hz needs a margin under about 0.7 ms: draws must stay near 0.3 ms
+  and nothing may miss. Loopback (`capture_e2e_bench --tracking --present-lag 1`, 20 s, gl-dmabuf, on a
+  build host at load 10–35) gave read_to_present p50/p95 15.6/16.6 ms without late latch and 11.4/12.6 ms
+  with a 1 ms guard (2 misses in 2504 frames). The descheduled draws of a loaded host (worst 17–47 ms) kept
+  the boost up, so the offline run did not reach the target. The verdict is a 30-minute run on the glasses.
 - **Plugin stays pinned** to one Hyprland commit. Rust changes nothing there.
 - **Uncommitted work (resolved 2026-11-10).** The privacy and pinned-window changes that
   `handoff.md` described landed on master in `a03b8ce`. The phase 0 corpus is taken from master at
