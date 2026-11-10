@@ -1,0 +1,4364 @@
+{
+ "comment": "tools/native_spike/environment.py, made by tests/native_spike/keybinds_corpus.py: the Rust port (rust/crates/xr-workspace/src/supervisor/environment.rs) must give the same results. Non-JSON slider inputs (NaN, infinity) are written as strings in bad_slides.",
+ "backgrounds": [
+  [
+   "none",
+   "None"
+  ],
+  [
+   "grid",
+   "Grid"
+  ],
+  [
+   "smoke",
+   "Smoke"
+  ]
+ ],
+ "defaults": {
+  "background": "none",
+  "last": "grid",
+  "brightness": 100
+ },
+ "bounds": [
+  10,
+  200
+ ],
+ "steps": [
+  5,
+  25
+ ],
+ "ops": [
+  "environment_toggle",
+  "environment"
+ ],
+ "toggle_bind": [
+  "CTRL + ALT + E",
+  "environment_toggle"
+ ],
+ "menu_label": "Background",
+ "slides": [
+  0,
+  1,
+  0.5,
+  -1,
+  2,
+  0.25,
+  0.0025,
+  0.002777,
+  0.0027777778,
+  0.997,
+  0.002631578947368421,
+  0.007894736842105263,
+  0.013157894736842105,
+  0.999999
+ ],
+ "cases": [
+  {
+   "value": null,
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": 3,
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": "grid",
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": [],
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {},
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": "grid"
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "smoke",
+    "last": "grid",
+    "brightness": 150
+   },
+   "clean": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 150
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 150
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 150
+   },
+   "stepped": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 150
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 150
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 150
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 150
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 150
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 150
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "smoke",
+      "brightness": 150
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 150
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 150
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 77
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 105
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 58
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 199
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 12
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 13
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "label": "Smoke",
+   "menu_row": {
+    "label": "Background",
+    "value": "Smoke"
+   }
+  },
+  {
+   "value": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "clean": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "is_valid": true,
+   "validate": {
+    "value": {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 100
+    }
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": "none",
+    "last": "none",
+    "brightness": 100
+   },
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": "fog",
+    "last": "grid",
+    "brightness": 100
+   },
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 9
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 201
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 200
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 200
+   },
+   "is_valid": true,
+   "validate": {
+    "value": {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 200
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 200
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 200
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 200
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 200
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 10
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 10
+   },
+   "is_valid": true,
+   "validate": {
+    "value": {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    }
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 10
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 10
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 10
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 10
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 10
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 10
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100.0
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": true
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "grid",
+    "last": "smoke",
+    "brightness": 50
+   },
+   "clean": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 50
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 50
+   },
+   "on": true,
+   "toggled": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 50
+   },
+   "stepped": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 50
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 50
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 50
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 50
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 50
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 50
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 50
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 50
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 50
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "Grid",
+   "menu_row": {
+    "label": "Background",
+    "value": "Grid"
+   }
+  },
+  {
+   "value": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100,
+    "extra": 1
+   },
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": "GRID",
+    "last": 7,
+    "brightness": "100"
+   },
+   "clean": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "grid",
+    "last": "grid",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "grid",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "background": null,
+    "last": "smoke"
+   },
+   "clean": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "on": false,
+   "toggled": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 100
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 100
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 100
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 100
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 100
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  },
+  {
+   "value": {
+    "last": "smoke",
+    "brightness": 42
+   },
+   "clean": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 42
+   },
+   "is_valid": false,
+   "validate": {
+    "error": "invalid environment"
+   },
+   "environment_dict": {
+    "background": "none",
+    "last": "smoke",
+    "brightness": 42
+   },
+   "on": false,
+   "toggled": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 42
+   },
+   "stepped": [
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 42
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 42
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 42
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 42
+    },
+    {
+     "background": "smoke",
+     "last": "smoke",
+     "brightness": 42
+    },
+    {
+     "background": "grid",
+     "last": "grid",
+     "brightness": 42
+    }
+   ],
+   "picked": [
+    {
+     "value": {
+      "background": "none",
+      "last": "smoke",
+      "brightness": 42
+     }
+    },
+    {
+     "value": {
+      "background": "grid",
+      "last": "grid",
+      "brightness": 42
+     }
+    },
+    {
+     "value": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 42
+     }
+    },
+    {
+     "error": "invalid background"
+    },
+    {
+     "error": "invalid background"
+    }
+   ],
+   "brightened": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 77
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "slid": [
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 105
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 58
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 10
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 199
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 11
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 12
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 13
+    },
+    {
+     "background": "none",
+     "last": "smoke",
+     "brightness": 200
+    }
+   ],
+   "label": "None",
+   "menu_row": {
+    "label": "Background",
+    "value": "None"
+   }
+  }
+ ],
+ "frames": [
+  {
+   "run_id": "run-1",
+   "session": "sess",
+   "request_id": 12,
+   "env": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 100
+   },
+   "value": "{\"schema\":1,\"request_id\":12,\"run_id\":\"run-1\",\"session\":\"sess\",\"op\":\"environment\",\"payload\":{\"background\":\"none\",\"brightness\":100}}\n"
+  },
+  {
+   "run_id": "run-1",
+   "session": "sess",
+   "request_id": 12,
+   "env": {
+    "background": "smoke",
+    "last": "smoke",
+    "brightness": 10
+   },
+   "value": "{\"schema\":1,\"request_id\":12,\"run_id\":\"run-1\",\"session\":\"sess\",\"op\":\"environment\",\"payload\":{\"background\":\"smoke\",\"brightness\":10}}\n"
+  },
+  {
+   "run_id": "run-1",
+   "session": "sess",
+   "request_id": 12,
+   "env": {
+    "background": "none",
+    "last": "grid",
+    "brightness": 200
+   },
+   "value": "{\"schema\":1,\"request_id\":12,\"run_id\":\"run-1\",\"session\":\"sess\",\"op\":\"environment\",\"payload\":{\"background\":\"none\",\"brightness\":200}}\n"
+  },
+  {
+   "run_id": "run-1",
+   "session": "sess",
+   "request_id": 12,
+   "env": {
+    "background": "grid"
+   },
+   "error": "invalid environment"
+  }
+ ],
+ "bad_slides": [
+  [
+   "nan",
+   {
+    "error": "invalid slider"
+   }
+  ],
+  [
+   "inf",
+   {
+    "error": "invalid slider"
+   }
+  ],
+  [
+   "0.5",
+   {
+    "error": "invalid slider"
+   }
+  ],
+  [
+   null,
+   {
+    "error": "invalid slider"
+   }
+  ],
+  [
+   true,
+   {
+    "error": "invalid slider"
+   }
+  ]
+ ]
+}
