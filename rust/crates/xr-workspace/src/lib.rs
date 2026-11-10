@@ -26,6 +26,7 @@ mod py;
 pub mod pyjson;
 pub mod recovery;
 pub mod resize;
+pub mod runner;
 pub mod send;
 pub mod supervisor;
 // Shared with the binary's tests, which use all of it.

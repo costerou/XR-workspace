@@ -80,7 +80,7 @@ mod pointer_math_corpus_tests;
 mod pointer_trace_tests;
 pub mod restore_band;
 pub mod unified_cursor;
-mod parity;
+pub(crate) mod parity;
 // Privacy mode (Ctrl+Alt+D): privacy.py's main display blank, its watcher and the recovery wake.
 pub mod privacy;
 #[cfg(test)]

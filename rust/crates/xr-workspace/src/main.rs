@@ -4,6 +4,8 @@
 //! controller uses. It only reads: files, `systemctl --user is-active`, and a connect to a run's control socket.
 //!
 //! `xr-workspace install --build DIR [--repo DIR]`: see [`xr_workspace::install`].
+//!
+//! `xr-workspace supervisor --consent PATH --state-dir DIR`: one run, as the run unit; see [`xr_workspace::runner`].
 
 mod host;
 // The incident monitor runs once the controller state machine is wired into `main`.
@@ -22,9 +24,15 @@ use std::process::{Command, ExitCode};
 
 use xr_workspace::install::{self, Options};
 
-const USAGE: &str = "usage: xr-workspace runs | xr-workspace install --build DIR [--repo DIR]";
+const USAGE: &str = "usage: xr-workspace runs | xr-workspace install --build DIR [--repo DIR] | xr-workspace supervisor --consent PATH --state-dir DIR";
 
 fn main() -> ExitCode {
+    // startup.py `runner`: when this process began, before anything else runs.
+    let started_ns = xr_workspace::runner::monotonic_ns();
+    let raw: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    if raw.first().is_some_and(|c| c == "supervisor") {
+        return ExitCode::from(supervisor(&raw[1..], started_ns));
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.as_slice() {
         [cmd] if cmd == "runs" => runs(),
@@ -42,6 +50,22 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+fn supervisor(args: &[std::ffi::OsString], started_ns: i64) -> u8 {
+    use xr_workspace::runner;
+    // The loopback backend exists only in debug builds, for the tests (runner/fake.rs).
+    #[cfg(debug_assertions)]
+    if let Some(fake) = runner::fake::Fake::from_env() {
+        return match fake {
+            Ok(mut fake) => runner::main(args, &mut fake, started_ns),
+            Err(e) => {
+                eprintln!("{e}");
+                2
+            }
+        };
+    }
+    runner::main(args, &mut runner::real::Real::default(), started_ns)
 }
 
 fn runs() -> ExitCode {

@@ -39,6 +39,20 @@ pub fn unit_name(run_id: &str) -> io::Result<String> {
     Ok(format!("viture-xr-{}", token(run_id)?))
 }
 
+/// The run unit's command for the Rust supervisor (`xr-workspace supervisor`, runner.rs): the same arguments as the
+/// Python runner's `isolated('tools.xr_controller.runner', '--consent', C, '--state-dir', S)`, for [`Units::spawn`].
+/// Not the default: the controller starts the Python runner until a run is switched to this one.
+pub fn supervisor_argv(exe: &Path, consent: &Path, state_dir: &Path) -> Vec<OsString> {
+    vec![
+        exe.into(),
+        "supervisor".into(),
+        "--consent".into(),
+        consent.into(),
+        "--state-dir".into(),
+        state_dir.into(),
+    ]
+}
+
 /// The user's systemd, through its two command-line tools.
 pub struct Units {
     pub systemctl: PathBuf,
@@ -314,6 +328,26 @@ mod tests {
             ["--user kill --kill-whom=main --signal=SIGINT viture-xr-r1"]
         );
         assert!(fake(&dir, "exit 1").stop("r1").is_err());
+    }
+
+    #[test]
+    fn spawn_runs_the_rust_supervisor_as_the_run_unit() {
+        let dir = TestDir::new("units");
+        let units = fake(&dir, "exit 0");
+        let argv = supervisor_argv(
+            Path::new("/data/xr-workspace"),
+            Path::new("/state/consents/r1.json"),
+            Path::new("/state"),
+        );
+        units
+            .spawn("r1", Path::new("/repo"), Path::new("/run/user/1"), Path::new("/data"), &argv)
+            .unwrap();
+        let line = &calls(&dir)[0];
+        assert!(line.starts_with("--user --unit=viture-xr-r1 --collect "), "{line}");
+        assert!(
+            line.ends_with(" /data/xr-workspace supervisor --consent /state/consents/r1.json --state-dir /state"),
+            "{line}"
+        );
     }
 
     #[test]
