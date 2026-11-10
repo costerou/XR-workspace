@@ -4,7 +4,8 @@
 // The wire holds the driver's newest pose with the gyro's filtered velocity and acceleration, body frame, in the feed's frame,
 // and that sample's arrival on CLOCK_MONOTONIC: under a ms old, against about 8 ms for the difference. XRLinuxDriver has no
 // such segment, so a renderer on it keeps predicting.hpp's finite difference.
-// Kept apart from pose.cpp and predict.cpp, which other tools compile on their own with spike/include alone.
+// Kept apart from pose.cpp and predict.cpp, which other tools compile on their own (pose.cpp with spike/driver/src/rt.cpp
+// and -Ispike/driver/include besides spike/include, for the seqlock channel).
 #include "xr/pose.hpp"
 #include <array>
 #include <cstdint>

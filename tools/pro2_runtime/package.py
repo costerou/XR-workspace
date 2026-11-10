@@ -21,7 +21,7 @@ def build(build_dir,destination,rust_bridge=None):
     bridge=destination/'bin/pro2-sdk-bridge'
     if rust_bridge is not None:shutil.copyfile(rust_bridge,bridge)
     else:subprocess.run(['c++','-std=c++20','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-pthread',
-        '-I'+str(ROOT/'spike/driver/include'),str(ROOT/'tools/pro2_runtime/bridge.cpp'),str(ROOT/'spike/driver/src/publish.cpp'),str(ROOT/'spike/driver/src/predict.cpp'),str(ROOT/'spike/driver/src/vsync.cpp'),'-lcrypto','-ldl','-o',str(bridge)],check=True)
+        '-I'+str(ROOT/'spike/driver/include'),str(ROOT/'tools/pro2_runtime/bridge.cpp'),str(ROOT/'spike/driver/src/publish.cpp'),str(ROOT/'spike/driver/src/predict.cpp'),str(ROOT/'spike/driver/src/vsync.cpp'),str(ROOT/'spike/driver/src/rt.cpp'),'-lcrypto','-ldl','-o',str(bridge)],check=True)
     for name in ('xr-native-spike','libxr-ownership.so'):shutil.copy2(build_dir/name,destination/'bin'/name)
     files=subprocess.check_output(['git','ls-files','-z','tools','omarchy-plugin','docs/pro2'],cwd=ROOT).split(b'\0')
     for item in files:
