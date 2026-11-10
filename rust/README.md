@@ -366,3 +366,23 @@ machine. `corpus_tests.rs` replays `corpus/incidents/scenarios.json`. Where it d
   workspace builds and reorder its output. Wiring the monitor into the controller has to settle
   that, either by turning the feature on for the controller binary alone or by writing the reports
   in a fixed order.
+
+### D12: reconnect after a USB drop
+
+The C++ bridge ends the run when the glasses go away. Once a run is ready, the Rust one waits for
+them instead. Any of these counts as a drop: the glasses leave sysfs, they change bus address, or
+no pose comes for 100 ms. On a drop the bridge ends the SDK session in its order (close, stop,
+shutdown, destroy), pauses the feed so the renderer holds the last pose, and writes
+`{"event":"lost","reason":"unplugged"|"stale"|"no-pose","teardown_errors":n}`. When exactly one
+Pro 2 is present again, the bridge brings up a fresh session (create through open), retrying
+every 250 ms, and asks for the last display mode again. The first published pose writes
+`{"event":"reconnected","down_ms":x,"attempts":n}`. The run ends with `device-lost` in two cases:
+the glasses are not back within 30 s, or the run ends while they are down. Before ready, every
+fault still ends the run, as in the C++ bridge. `launch.py` accepts both events from either bridge
+and stays healthy through an outage.
+
+Offline gates (Rust build): the reconnect tests in `tests/pro2_runtime_qa/test_rust_bridge.py`, and
+`test_session_survives_unplug_and_replug_with_tracking_back` in `tests/pro2_runtime/test_pipeline.py`.
+The second one runs the real launcher and a native reader through a 0.6 s unplug. Offline tests
+cannot show that the vendor SDK accepts a destroy and a new create in one process. Only a live
+unplug and replug proves that.

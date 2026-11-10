@@ -11,6 +11,14 @@
 //! feed; open. Then samples until `--seconds`, a signal or a fault, and cleanup in the SDK's
 //! order. A `done` line always ends a run that got past the arguments.
 //!
+//! Unlike the C++ bridge, a run that was ready survives a USB drop: when the glasses leave sysfs
+//! (or change bus address) or go silent for 100 ms, the SDK session is ended in its order, the
+//! feed paused (readers hold the last pose) and a `lost` line written. When exactly one Pro 2 is
+//! back, a fresh session is brought up (create .. open, retried every 250 ms), the last display
+//! mode asked for again, and the first published sample writes a `reconnected` line. Nothing
+//! comes back within 30 s, or the run ends while down: `device-lost`. Before ready, and for every
+//! other fault, the run still fails closed as the C++ one does.
+//!
 //! Built with the `synthetic` feature it also takes `--fixture-root` (a fake sysfs) and
 //! `--fixture-hash` (the fixture library's hash), for the QA suites. Without it those are
 //! unknown arguments, and the run ends with one stderr line, `wake_us n=.. p50=.. p99=.. max=..`:
@@ -24,7 +32,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use xr_pose::feed::WriterOptions;
 use xr_pose::publish::{Pose, Publisher, PublisherOptions, Quat, history_step_for};
 
@@ -43,6 +51,13 @@ const DISPLAY_2D_120: u8 = 0x34;
 const ROUTE_SECONDS: f64 = 12.0 * 3600.0;
 const DEFAULT_MAX_SECONDS: f64 = 300.0;
 const LIVE_PREFIX: &str = "/tmp/shader_runtime_";
+/// How long a lost Pro 2 is waited for, unplug to the first sample of the new session. Kernel
+/// re-enumeration takes 0.9 to 4.2 s (docs/rust-rebuild-plan.md); past this the run ends.
+const RECONNECT_WINDOW: Duration = Duration::from_secs(30);
+/// Sysfs rescan while no Pro 2 is present.
+const WAIT_POLL: Duration = Duration::from_millis(10);
+/// Pause after a failed bring-up of a returned device (its nodes may still be settling).
+const RETRY_AFTER: Duration = Duration::from_millis(250);
 
 /// The SDK's IMU frequency codes, not USB bytes. 60 Hz unless a run asks; each still has to pass
 /// the SDK's capability query, and a refusal stops the run rather than dropping to 60.
@@ -164,6 +179,13 @@ extern "C" fn on_pose(v: *mut f32, ts: u64) {
     ring.count += 1;
     drop(ring);
     wake();
+}
+
+/// Drops anything left from an ended SDK session, before a new one is accepted.
+fn clear_queue() {
+    let mut ring = QUEUE.lock().unwrap_or_else(|e| e.into_inner());
+    ring.head = 0;
+    ring.count = 0;
 }
 
 fn pop() -> Option<Sample> {
@@ -321,21 +343,27 @@ fn network_isolated() -> Result<(), &'static str> {
     }
 }
 
-/// The first line of a sysfs attribute. Empty or unreadable: fault.
-fn first_line(path: &Path) -> Result<String, &'static str> {
-    let text = std::fs::read(path).map_err(|_| "identity-unreadable")?;
+/// The first line of a sysfs attribute. Empty or unreadable: fault. `None`: the file is gone,
+/// which is a device being unplugged while it is read.
+fn first_line(path: &Path) -> Result<Option<String>, &'static str> {
+    let text = match std::fs::read(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err("identity-unreadable"),
+    };
     if text.is_empty() {
         return Err("identity-unreadable");
     }
     let line = text.split(|&b| b == b'\n').next().unwrap_or_default();
-    Ok(String::from_utf8_lossy(line).into_owned())
+    Ok(Some(String::from_utf8_lossy(line).into_owned()))
 }
 
 /// Exactly one VITURE device under `root`, and it is a Pro 2: `<name>:<busnum>:<devnum>`, which
-/// changes if it is unplugged or another device takes its place.
-fn identity(root: &str) -> Result<String, &'static str> {
+/// changes if it is unplugged or another device takes its place. `None`: no VITURE device, or the
+/// only one vanished while it was read (unplugged). Two, or one that is not a Pro 2: fault.
+fn identity(root: &str) -> Result<Option<String>, &'static str> {
     let fs_error = |_| "identity-filesystem";
-    let (mut fingerprint, mut found) = (String::new(), 0);
+    let (mut fingerprint, mut found) = (None, 0);
     for entry in std::fs::read_dir(root).map_err(fs_error)? {
         let dir = entry.map_err(fs_error)?.path();
         let vendor = dir.join("idVendor");
@@ -351,29 +379,35 @@ fn identity(root: &str) -> Result<String, &'static str> {
             }
             Err(_) => return Err("identity-filesystem"),
         }
-        if first_line(&vendor)? != "35ca" {
+        let attribute = |name: &str| first_line(&dir.join(name));
+        let Some(vendor) = attribute("idVendor")? else {
+            continue;
+        };
+        if vendor != "35ca" {
             continue;
         }
-        found += 1;
-        if first_line(&dir.join("idProduct"))? != "1301"
-            || first_line(&dir.join("product"))? != "VITURE PRO 2 XR Glasses"
-        {
+        let (Some(product_id), Some(product)) = (attribute("idProduct")?, attribute("product")?)
+        else {
+            continue; // went away mid-read
+        };
+        if product_id != "1301" || product != "VITURE PRO 2 XR Glasses" {
             return Err("identity-mismatch");
         }
+        let (Some(bus), Some(dev)) = (attribute("busnum")?, attribute("devnum")?) else {
+            continue;
+        };
         let name = dir
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        fingerprint = format!(
-            "{name}:{}:{}",
-            first_line(&dir.join("busnum"))?,
-            first_line(&dir.join("devnum"))?
-        );
+        found += 1;
+        fingerprint = Some(format!("{name}:{bus}:{dev}"));
     }
-    if found != 1 {
-        return Err("exclusive-identity-required");
+    match found {
+        0 => Ok(None),
+        1 => Ok(fingerprint),
+        _ => Err("exclusive-identity-required"),
     }
-    Ok(fingerprint)
 }
 
 /// SHA-256 of the whole file behind `fd`, read from its start, lower-case hex.
@@ -415,35 +449,28 @@ struct Run {
     wake_ns: Vec<u64>,
 }
 
-fn run(
-    args: &mut Args,
-    sdk_slot: &mut Option<sdk::Sdk>,
+/// One SDK session's sample checks. A reconnect starts a new one: the device clock may restart,
+/// and the first two samples are skipped again.
+#[derive(Default)]
+struct Session {
+    prev: u64,
+    have: bool,
+    valid: u32,
+}
+
+/// Create, family, initialize, start, register, firmware, the feed (first time only), open: the
+/// SDK's bring-up, on this thread. Every handle made is in `out` for [`teardown`].
+///
+/// # Safety
+/// `sdk` is the resolved SDK; called on the thread that makes every SDK call.
+unsafe fn connect(
+    sdk: &sdk::Sdk,
+    args: &Args,
+    code: u8,
     out: &mut Run,
 ) -> Result<(), &'static str> {
-    network_isolated()?;
-    let fingerprint = identity(&args.root)?;
-    if hash_fd(args.sdk_fd)? != args.expected {
-        return Err("sdk-hash");
-    }
-    // SAFETY: plain eventfd creation; the fd lives until the process exits.
-    let efd = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
-    if efd < 0 {
-        return Err("eventfd");
-    }
-    WAKE.store(efd, Ordering::SeqCst);
-    let library = sdk::load(args.sdk_fd)?;
-    let sdk = &*sdk_slot.insert(sdk::Sdk::resolve(library, args.display_fd != -1)?);
-    let code = rate_code(args.pose_hz).ok_or("arguments")?;
     // SAFETY: every call below is the SDK's C API as the C++ bridge makes it, on this thread.
     unsafe {
-        if (sdk.is_product_id_valid)(PRODUCT_ID) != 1
-            || (sdk.is_product_support_imu_frequency)(PRODUCT_ID, 1, code.into()) != 1
-        {
-            return Err("capability");
-        }
-        if identity(&args.root)? != fingerprint {
-            return Err("identity-changed");
-        }
         let handle = (sdk.create)(PRODUCT_ID);
         if handle.is_null() {
             return Err("create");
@@ -474,136 +501,294 @@ fn run(
         if !firmware_ok {
             return Err("firmware");
         }
-        let options = PublisherOptions {
-            feed: WriterOptions {
-                prefix: args.prefix.clone(),
-                display_fov_deg: args.projection as f32,
-                look_ahead_cfg: LOOK_AHEAD,
-                private_segments: true,
-                ..WriterOptions::default()
-            },
-            history_step: history_step_for(args.pose_hz as u32),
-            mount_pitch_deg: args.mount_pitch as f32,
-            instant_start: true,
-            fractional_ms: true,
-        };
-        let publisher = out
-            .publisher
-            .insert(Publisher::open(&options).map_err(|_| "publisher-open")?);
+        if out.publisher.is_none() {
+            let options = PublisherOptions {
+                feed: WriterOptions {
+                    prefix: args.prefix.clone(),
+                    display_fov_deg: args.projection as f32,
+                    look_ahead_cfg: LOOK_AHEAD,
+                    private_segments: true,
+                    ..WriterOptions::default()
+                },
+                history_step: history_step_for(args.pose_hz as u32),
+                mount_pitch_deg: args.mount_pitch as f32,
+                instant_start: true,
+                fractional_ms: true,
+            };
+            out.publisher = Some(Publisher::open(&options).map_err(|_| "publisher-open")?);
+        }
+        clear_queue();
         ACCEPTING.store(true, Ordering::SeqCst);
         out.open_attempt = true;
         if (sdk.open_imu)(handle, 1, code) != 0 {
             return Err("open");
         }
+    }
+    Ok(())
+}
 
-        let start = Instant::now();
-        let mut last_ns = monotonic_ns();
-        let (mut prev, mut have, mut valid) = (0u64, false, 0u32);
-        while !STOPPED.load(Ordering::SeqCst) && start.elapsed().as_secs_f64() < args.seconds {
-            if identity(&args.root)? != fingerprint {
-                return Err("identity-changed");
+/// Stops taking samples and ends the SDK session in its order: close (if open was tried), stop,
+/// shutdown, destroy. Returns how many calls failed. Leaves the feed as it is.
+fn teardown(sdk: &sdk::Sdk, out: &mut Run) -> u32 {
+    ACCEPTING.store(false, Ordering::SeqCst);
+    let mut errors = 0;
+    if let Some(handle) = out.handle.take() {
+        // SAFETY: the SDK's teardown, in its order, on the thread that made the handle.
+        unsafe {
+            if out.open_attempt && (sdk.close_imu)(handle, 1) != 0 {
+                errors += 1;
             }
-            if OVERFLOW.load(Ordering::SeqCst) {
-                return Err("queue-overflow-or-null");
-            }
-            if args.display_fd != -1 {
-                // The parent's 3D switch, on this thread like every SDK call. EOF: the parent
-                // closed it, and no switch can come again.
-                let mut mode = 0u8;
-                let n = libc::read(args.display_fd, (&raw mut mode).cast(), 1);
-                if n == 0 {
-                    args.display_fd = -1;
-                } else if n == 1 {
-                    if mode != DISPLAY_3D && mode != DISPLAY_2D_120 {
-                        return Err("display-request");
-                    }
-                    let set = sdk.set_display_mode.ok_or("display-request")?;
-                    let result = set(handle, mode.into());
-                    status(
-                        args.status_fd,
-                        &format!("{{\"event\":\"display\",\"mode\":{mode},\"result\":{result}}}\n"),
-                    );
-                } else {
-                    let errno = std::io::Error::last_os_error().raw_os_error();
-                    if !matches!(errno, Some(libc::EAGAIN | libc::EINTR)) {
-                        return Err("display-read");
-                    }
+            for call in [sdk.stop, sdk.shutdown] {
+                if call(handle) != 0 {
+                    errors += 1;
                 }
             }
-            let Some(s) = pop() else {
-                let limit = if out.ready {
-                    100_000_000
-                } else {
-                    3_000_000_000
-                };
-                let idle = monotonic_ns().saturating_sub(last_ns);
-                if idle > limit {
-                    return Err(if out.ready { "stale" } else { "no-pose" });
-                }
-                // Wake just past the stale limit or the run's end, whichever is first, and at
-                // least every IDLE_CHECK_NS so the identity check still runs while no pose comes.
-                let left = (args.seconds - start.elapsed().as_secs_f64()).max(0.0);
-                let until_end = (left * 1e9) as u64;
-                wait(
-                    (limit - idle + 1).min(until_end).min(IDLE_CHECK_NS),
-                    args.display_fd,
-                );
+            (sdk.destroy)(handle);
+        }
+    }
+    out.open_attempt = false;
+    errors
+}
+
+/// Between a lost device and the next published sample: when it began, and the bring-up
+/// attempts so far.
+struct Outage {
+    since: Instant,
+    attempts: u32,
+}
+
+/// The glasses are gone, or went silent: end the SDK session, pause the feed (readers hold the
+/// last pose) and wait. A fresh session is brought up when exactly one Pro 2 is present again.
+fn lose(sdk: &sdk::Sdk, status_fd: i32, out: &mut Run, outage: &mut Option<Outage>, reason: &str) {
+    let errors = teardown(sdk, out);
+    if let Some(p) = out.publisher.as_mut() {
+        p.pause();
+    }
+    status(
+        status_fd,
+        &format!("{{\"event\":\"lost\",\"reason\":\"{reason}\",\"teardown_errors\":{errors}}}\n"),
+    );
+    outage.get_or_insert(Outage {
+        since: Instant::now(),
+        attempts: 0,
+    });
+}
+
+fn run(
+    args: &mut Args,
+    sdk_slot: &mut Option<sdk::Sdk>,
+    out: &mut Run,
+) -> Result<(), &'static str> {
+    network_isolated()?;
+    let mut fingerprint = identity(&args.root)?.ok_or("exclusive-identity-required")?;
+    if hash_fd(args.sdk_fd)? != args.expected {
+        return Err("sdk-hash");
+    }
+    // SAFETY: plain eventfd creation; the fd lives until the process exits.
+    let efd = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
+    if efd < 0 {
+        return Err("eventfd");
+    }
+    WAKE.store(efd, Ordering::SeqCst);
+    let library = sdk::load(args.sdk_fd)?;
+    let sdk = &*sdk_slot.insert(sdk::Sdk::resolve(library, args.display_fd != -1)?);
+    let code = rate_code(args.pose_hz).ok_or("arguments")?;
+    // SAFETY: the SDK's capability queries, on this thread.
+    unsafe {
+        if (sdk.is_product_id_valid)(PRODUCT_ID) != 1
+            || (sdk.is_product_support_imu_frequency)(PRODUCT_ID, 1, code.into()) != 1
+        {
+            return Err("capability");
+        }
+    }
+    if identity(&args.root)?.as_ref() != Some(&fingerprint) {
+        return Err("identity-changed");
+    }
+    // SAFETY: on this thread, with the resolved SDK.
+    unsafe { connect(sdk, args, code, out)? };
+
+    let start = Instant::now();
+    let mut last_ns = monotonic_ns();
+    let mut session = Session::default();
+    let mut outage: Option<Outage> = None;
+    let mut display_mode: Option<u8> = None;
+    // Once the run was ready, a lost device is waited for instead of ending the run (see
+    // [`lose`]). Before ready, every fault still ends the run.
+    while !STOPPED.load(Ordering::SeqCst) && start.elapsed().as_secs_f64() < args.seconds {
+        if outage
+            .as_ref()
+            .is_some_and(|o| o.since.elapsed() > RECONNECT_WINDOW)
+        {
+            return Err("device-lost");
+        }
+        let present = identity(&args.root)?;
+        if out.handle.is_none() {
+            // Down: wait for the glasses, then bring a session up.
+            let Some(found) = present else {
+                wait(WAIT_POLL.as_nanos() as u64, -1);
                 continue;
             };
-            last_ns = s.host_ns;
-            if monotonic_ns().saturating_sub(s.host_ns) > 100_000_000 {
-                return Err("queued-stale");
-            }
-            if !s.v.iter().all(|v| v.is_finite()) {
-                return Err("nonfinite");
-            }
-            if have && s.ts <= prev {
-                return Err("clock-reset-wrap-duplicate");
-            }
-            if have {
-                note_gap(&mut out.gaps, (s.ts - prev) as f64 / 1e6);
-            }
-            prev = s.ts;
-            have = true;
-            let v = s.v.map(f64::from);
-            let norm = (v[3] * v[3] + v[4] * v[4] + v[5] * v[5] + v[6] * v[6]).sqrt();
-            if (norm - 1.0).abs() > 0.05 {
-                return Err("quaternion-norm");
-            }
-            valid += 1;
-            if valid < 3 {
+            fingerprint = found;
+            let o = outage.as_mut().ok_or("device-lost")?;
+            o.attempts += 1;
+            // SAFETY: on this thread, with the resolved SDK.
+            if unsafe { connect(sdk, args, code, out) }.is_err() {
+                teardown(sdk, out);
+                wait(RETRY_AFTER.as_nanos() as u64, -1);
                 continue;
             }
-            // SDK w, x, y, z to the publisher's x forward, y left, z up, as the C++ bridge.
-            let q = Quat {
-                w: (v[3] / norm) as f32,
-                x: (-v[6] / norm) as f32,
-                y: (-v[4] / norm) as f32,
-                z: (v[5] / norm) as f32,
-            };
-            // False here only for a reader holding the lock: that one write is skipped and its
-            // sample kept, never the session's end.
-            if !publisher.publish(&Pose {
-                q,
-                t_ns: s.ts,
-                calibrated: true,
-            }) {
-                continue;
-            }
-            out.samples += 1;
-            #[cfg(feature = "synthetic")]
-            out.wake_ns.push(monotonic_ns().saturating_sub(s.host_ns));
-            if !out.ready {
-                out.ready = true;
+            session = Session::default();
+            last_ns = monotonic_ns();
+            if let (Some(mode), Some(set), Some(handle)) =
+                (display_mode, sdk.set_display_mode, out.handle)
+            {
+                // A drop can reset the glasses' display mode: ask again for the last one set.
+                // SAFETY: the SDK's call, on this thread, with a live handle.
+                let result = unsafe { set(handle, mode.into()) };
                 status(
                     args.status_fd,
-                    &format!(
-                        "{{\"event\":\"ready\",\"projection_diagonal_approx\":{:.3},\"pose_rate_hz\":{},\"mount_pitch_deg\":{:.3}}}\n",
-                        args.projection, args.pose_hz, args.mount_pitch
-                    ),
+                    &format!("{{\"event\":\"display\",\"mode\":{mode},\"result\":{result}}}\n"),
                 );
             }
+            continue;
         }
+        if present.as_ref() != Some(&fingerprint) {
+            if !out.ready {
+                return Err(if present.is_some() {
+                    "identity-changed"
+                } else {
+                    "exclusive-identity-required"
+                });
+            }
+            lose(sdk, args.status_fd, out, &mut outage, "unplugged");
+            continue;
+        }
+        if OVERFLOW.load(Ordering::SeqCst) {
+            return Err("queue-overflow-or-null");
+        }
+        let handle = out.handle.ok_or("device-lost")?;
+        if args.display_fd != -1 {
+            // The parent's 3D switch, on this thread like every SDK call. EOF: the parent
+            // closed it, and no switch can come again.
+            let mut mode = 0u8;
+            // SAFETY: a one-byte read into a live byte from a descriptor we were handed.
+            let n = unsafe { libc::read(args.display_fd, (&raw mut mode).cast(), 1) };
+            if n == 0 {
+                args.display_fd = -1;
+            } else if n == 1 {
+                if mode != DISPLAY_3D && mode != DISPLAY_2D_120 {
+                    return Err("display-request");
+                }
+                let set = sdk.set_display_mode.ok_or("display-request")?;
+                // SAFETY: the SDK's call, on this thread, with a live handle.
+                let result = unsafe { set(handle, mode.into()) };
+                if result == 0 {
+                    display_mode = Some(mode);
+                }
+                status(
+                    args.status_fd,
+                    &format!("{{\"event\":\"display\",\"mode\":{mode},\"result\":{result}}}\n"),
+                );
+            } else {
+                let errno = std::io::Error::last_os_error().raw_os_error();
+                if !matches!(errno, Some(libc::EAGAIN | libc::EINTR)) {
+                    return Err("display-read");
+                }
+            }
+        }
+        let Some(s) = pop() else {
+            let silent = monotonic_ns().saturating_sub(last_ns);
+            // Before ready, or reconnected but no sample yet: 3 s. A live session: 100 ms.
+            let limit = if !out.ready || outage.is_some() {
+                3_000_000_000
+            } else {
+                100_000_000
+            };
+            if silent > limit {
+                if !out.ready {
+                    return Err("no-pose");
+                }
+                let reason = if outage.is_some() { "no-pose" } else { "stale" };
+                lose(sdk, args.status_fd, out, &mut outage, reason);
+                continue;
+            }
+            // Wake just past the silence limit or the run's end, whichever is first, and at
+            // least every IDLE_CHECK_NS so the identity check still runs while no pose comes.
+            let left = (args.seconds - start.elapsed().as_secs_f64()).max(0.0);
+            let until_end = (left * 1e9) as u64;
+            wait(
+                (limit - silent + 1).min(until_end).min(IDLE_CHECK_NS),
+                args.display_fd,
+            );
+            continue;
+        };
+        last_ns = s.host_ns;
+        if monotonic_ns().saturating_sub(s.host_ns) > 100_000_000 {
+            return Err("queued-stale");
+        }
+        if !s.v.iter().all(|v| v.is_finite()) {
+            return Err("nonfinite");
+        }
+        if session.have && s.ts <= session.prev {
+            return Err("clock-reset-wrap-duplicate");
+        }
+        if session.have {
+            note_gap(&mut out.gaps, (s.ts - session.prev) as f64 / 1e6);
+        }
+        session.prev = s.ts;
+        session.have = true;
+        let v = s.v.map(f64::from);
+        let norm = (v[3] * v[3] + v[4] * v[4] + v[5] * v[5] + v[6] * v[6]).sqrt();
+        if (norm - 1.0).abs() > 0.05 {
+            return Err("quaternion-norm");
+        }
+        session.valid += 1;
+        if session.valid < 3 {
+            continue;
+        }
+        // SDK w, x, y, z to the publisher's x forward, y left, z up, as the C++ bridge.
+        let q = Quat {
+            w: (v[3] / norm) as f32,
+            x: (-v[6] / norm) as f32,
+            y: (-v[4] / norm) as f32,
+            z: (v[5] / norm) as f32,
+        };
+        let publisher = out.publisher.as_mut().ok_or("publisher-open")?;
+        // False here only for a reader holding the lock: that one write is skipped and its
+        // sample kept, never the session's end.
+        if !publisher.publish(&Pose {
+            q,
+            t_ns: s.ts,
+            calibrated: true,
+        }) {
+            continue;
+        }
+        out.samples += 1;
+        #[cfg(feature = "synthetic")]
+        out.wake_ns.push(monotonic_ns().saturating_sub(s.host_ns));
+        if let Some(o) = outage.take() {
+            status(
+                args.status_fd,
+                &format!(
+                    "{{\"event\":\"reconnected\",\"down_ms\":{:.1},\"attempts\":{}}}\n",
+                    o.since.elapsed().as_secs_f64() * 1e3,
+                    o.attempts
+                ),
+            );
+        }
+        if !out.ready {
+            out.ready = true;
+            status(
+                args.status_fd,
+                &format!(
+                    "{{\"event\":\"ready\",\"projection_diagonal_approx\":{:.3},\"pose_rate_hz\":{},\"mount_pitch_deg\":{:.3}}}\n",
+                    args.projection, args.pose_hz, args.mount_pitch
+                ),
+            );
+        }
+    }
+    if outage.is_some() && !STOPPED.load(Ordering::SeqCst) {
+        return Err("device-lost");
     }
     if !out.ready && !STOPPED.load(Ordering::SeqCst) {
         return Err("no-ready");
@@ -637,21 +822,7 @@ fn main() {
     if let Some(p) = out.publisher.as_mut() {
         p.pause();
     }
-    let mut cleanup_errors = 0;
-    if let (Some(handle), Some(sdk)) = (out.handle, sdk.as_ref()) {
-        // SAFETY: the SDK's teardown, in its order, on the thread that made the handle.
-        unsafe {
-            if out.open_attempt && (sdk.close_imu)(handle, 1) != 0 {
-                cleanup_errors += 1;
-            }
-            for call in [sdk.stop, sdk.shutdown] {
-                if call(handle) != 0 {
-                    cleanup_errors += 1;
-                }
-            }
-            (sdk.destroy)(handle);
-        }
-    }
+    let cleanup_errors = sdk.as_ref().map_or(0, |sdk| teardown(sdk, &mut out));
     drop(out.publisher.take()); // removes the private feed before the run is reported done
     let g = out.gaps;
     status(

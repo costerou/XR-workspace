@@ -4,7 +4,8 @@ Both run against the same synthetic SDK and a sysfs tree rebuilt from the real P
 docs/pro2/fixtures/hardware-2026-11-04/usb.json: same exit code, same status events, same done
 fields (all but the timing-dependent sample count and seconds), the same SDK call trace, and the
 same feed as an independent C++ reader sees it. The production Rust binary must not link
-libcrypto. Needs PRO2_BRIDGE_RUST_DIR (see tests/pro2_bridge.py); run via run.py.
+libcrypto. The one intended difference is reconnect (D12): after ready, the Rust bridge waits out
+a USB drop instead of ending the run, so those cases are checked on their own. Needs PRO2_BRIDGE_RUST_DIR (see tests/pro2_bridge.py); run via run.py.
 """
 import hashlib
 import json
@@ -23,7 +24,7 @@ SNAPSHOT = ROOT / 'docs/pro2/fixtures/hardware-2026-11-04/usb.json'
 RUST = os.environ.get('PRO2_BRIDGE_RUST_DIR')
 CASES = ('normal', 'null_create', 'unsupported_pid', 'unsupported_rate', 'wrong_family', 'initialize', 'start', 'register',
          'open', 'wrong_firmware', 'firmware_error', 'firmware_length', 'firmware_short_length', 'close', 'stop', 'shutdown',
-         'queue_overflow', 'null_callback', 'duplicate', 'clock_reverse', 'nonfinite', 'bad_norm', 'stale_after_ready',
+         'queue_overflow', 'null_callback', 'duplicate', 'clock_reverse', 'nonfinite', 'bad_norm',
          'two_pose', 'ready_then_bad', 'callback_during_close', 'stdout_spoof')
 
 
@@ -63,8 +64,9 @@ class RustBridgeParity(unittest.TestCase):
             subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True)
         cls.digest = hashlib.sha256(cls.sdk.read_bytes()).hexdigest()
 
-    def run_bridge(self, binary, case='normal', extra=(), display=None, interrupt=False, mutate=False, sysfs=None, probe=False,
+    def run_bridge(self, binary, case='normal', extra=(), display=None, interrupt=False, action=None, sysfs=None, probe=False,
                    seconds='.25', env_extra=None):
+        """action(device, usb, process): run on a timer 0.1 s in, for unplug and replug."""
         with tempfile.TemporaryDirectory(dir=self.build) as tmp:
             folder = Path(tmp); usb = folder / 'sysfs'
             device = sysfs(usb) if sysfs else sysfs_from_snapshot(usb)
@@ -83,11 +85,11 @@ class RustBridgeParity(unittest.TestCase):
                                             '--prefix', prefix, '--projection', '44.5', '--seconds', seconds, '--fixture-root', str(usb),
                                             '--fixture-hash', self.digest, *args, *extra], pass_fds=fds, env=env,
                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                if interrupt or mutate:
-                    def action():
+                if interrupt or action:
+                    def fire():
                         if interrupt: process.send_signal(signal.SIGTERM)
-                        else: (device / 'devnum').write_text('14\n')
-                    timer = threading.Timer(.1, action); timer.start()
+                        else: action(device, usb, process)
+                    timer = threading.Timer(.1, fire); timer.start()
                 stdout, stderr = process.communicate(timeout=8 + float(seconds))
             finally:
                 if timer: timer.cancel(); timer.join()
@@ -186,7 +188,7 @@ class RustBridgeParity(unittest.TestCase):
             return code, records, (folder / 'trace').exists()
 
     def test_signal_topology_and_display_match(self):
-        for label, options in (('sigterm', dict(interrupt=True)), ('unplug', dict(mutate=True)),
+        for label, options in (('sigterm', dict(interrupt=True)),
                                ('display', dict(display=bytes([0x32, 0x34]))), ('display-refused', dict(display=b'\x01')),
                                ('rate-240', dict(extra=('--pose-rate', '240'))), ('pitch', dict(extra=('--mount-pitch', '-8.5')))):
             with self.subTest(label=label):
@@ -238,6 +240,101 @@ class RustBridgeParity(unittest.TestCase):
             self.assertNotIn('libcrypto', ldd, ldd)
             self.assertNotIn('libssl', ldd, ldd)
         self.assertIn('libcrypto', subprocess.run(['ldd', str(self.cpp)], capture_output=True, text=True, check=True).stdout, 'the check would see it')
+
+    # Reconnect (D12): Rust only. The C++ bridge ends the run on each of these.
+
+    def assertReconnected(self, rust, reason, creates=2):
+        events = [r['event'] for r in rust['records']]
+        self.assertEqual(events, ['ready', 'lost', 'reconnected', 'done'], rust['records'])
+        lost, back, done = rust['records'][1], rust['records'][2], rust['records'][3]
+        self.assertEqual(lost['reason'], reason)
+        self.assertGreaterEqual(back['attempts'], 1)
+        self.assertGreater(back['down_ms'], 0)
+        self.assertEqual((rust['code'], done['error'], done['cleanup_errors'], done['ready']), (0, '', 0, True), rust)
+        self.assertEqual(rust['trace'].count('create'), creates, rust['trace'])
+        # The first session is ended in the SDK's order before the next one starts.
+        first_end = rust['trace'].index('destroy')
+        self.assertEqual(rust['trace'][first_end - 3:first_end + 1], ['close', 'stop', 'shutdown', 'destroy'])
+        self.assertEqual(rust['trace'][first_end + 1], 'create')
+        self.assertEqual(rust['trace'][-4:], ['close', 'stop', 'shutdown', 'destroy'])
+        self.assertNotIn(True, [':WRONG_OWNER' in t for t in rust['trace']])
+        return back
+
+    @staticmethod
+    def unplug(away_s=.4, devnum='14', restore=True, twin=False):
+        """The device directory leaves sysfs for away_s, then comes back under a new devnum, as a replug."""
+        def action(device, usb, process):
+            hidden = usb.parent / 'unplugged'
+            device.rename(hidden)
+            threading.Event().wait(away_s)
+            if twin:
+                copy = usb / '1-6'; copy.mkdir()
+                for f in hidden.iterdir():
+                    if f.is_file(): (copy / f.name).write_text(f.read_text())
+            if restore:
+                (hidden / 'devnum').write_text(devnum + '\n'); hidden.rename(device)
+        return action
+
+    def test_reconnect_after_unplug_and_replug(self):
+        rust = self.run_bridge(self.rust, action=self.unplug(), seconds='1.5', probe=True)
+        back = self.assertReconnected(rust, 'unplugged')
+        self.assertGreaterEqual(back['down_ms'], 350)
+        self.assertEqual(rust['observed'], dict(seen=True, disabled_after=True, explicit_fov=True))
+        # Samples flowed after the replug: 1.5 s minus the outage at 16 ms is well over 40.
+        self.assertGreater(rust['records'][-1]['samples'], 40, rust['records'][-1])
+
+    def test_reconnect_after_renumber(self):
+        """The same port, a new bus address with no visible gap (the old unplug parity case)."""
+        rust = self.run_bridge(self.rust, action=lambda device, usb, process: (device / 'devnum').write_text('14\n'), seconds='.8')
+        self.assertReconnected(rust, 'unplugged')
+
+    def test_reconnect_after_silence(self):
+        """Glasses that stop sending but stay in sysfs: stale after 100 ms, then a fresh session."""
+        for case in ('stall_once', 'stall_restart_clock'):
+            with self.subTest(case=case):
+                rust = self.run_bridge(self.rust, case, seconds='1')
+                self.assertReconnected(rust, 'stale')
+
+    def test_reconnect_asks_for_the_display_mode_again(self):
+        rust = self.run_bridge(self.rust, 'stall_once', display=bytes([0x32]), seconds='1')
+        events = [r['event'] for r in rust['records']]
+        self.assertEqual(events.count('display'), 2, rust['records'])
+        self.assertEqual(rust['trace'].count('display:50'), 2, rust['trace'])
+        second = rust['trace'].index('display:50', rust['trace'].index('display:50') + 1)
+        self.assertLess(rust['trace'].index('create', rust['trace'].index('destroy')), second)
+
+    def test_device_never_back_is_device_lost(self):
+        rust = self.run_bridge(self.rust, action=self.unplug(restore=False), seconds='1')
+        self.assertEqual([r['event'] for r in rust['records']], ['ready', 'lost', 'done'])
+        self.assertEqual((rust['code'], rust['records'][-1]['error'], rust['records'][-1]['cleanup_errors']), (1, 'device-lost', 0))
+        self.assertEqual(rust['trace'].count('create'), 1)
+
+    def test_failed_bring_up_retries_until_device_lost(self):
+        rust = self.run_bridge(self.rust, 'reconnect_fails', action=self.unplug(away_s=.1), seconds='1.2')
+        self.assertEqual([r['event'] for r in rust['records']], ['ready', 'lost', 'done'])
+        self.assertEqual(rust['records'][-1]['error'], 'device-lost')
+        self.assertGreaterEqual(rust['trace'].count('create'), 3, rust['trace'])  # 250 ms between attempts
+        self.assertNotIn('open', rust['trace'][rust['trace'].index('destroy'):])
+
+    def test_two_devices_after_unplug_fail_closed(self):
+        rust = self.run_bridge(self.rust, action=self.unplug(twin=True), seconds='1')
+        self.assertEqual(rust['records'][-1]['error'], 'exclusive-identity-required', rust['records'])
+        self.assertEqual(rust['trace'].count('create'), 1)
+
+    def test_sigterm_while_down_is_a_clean_stop(self):
+        def unplug_then_stop(device, usb, process):
+            device.rename(usb.parent / 'unplugged'); threading.Event().wait(.2)
+            process.send_signal(signal.SIGTERM)
+        rust = self.run_bridge(self.rust, action=unplug_then_stop, seconds='2')
+        self.assertEqual([r['event'] for r in rust['records']], ['ready', 'lost', 'done'])
+        self.assertEqual((rust['code'], rust['records'][-1]['error']), (0, ''))
+
+    def test_lost_before_ready_still_fails_closed(self):
+        """A drop before the first sample is published is a fault, as in the C++ bridge."""
+        for binary in (self.cpp, self.rust):
+            rust = self.run_bridge(binary, 'no_pose', action=lambda device, usb, process: (device / 'devnum').write_text('14\n'), seconds='.5')
+            self.assertEqual(rust['records'][-1]['error'], 'identity-changed', binary)
+            self.assertEqual(rust['trace'].count('create'), 1)
 
 
 if __name__ == '__main__':

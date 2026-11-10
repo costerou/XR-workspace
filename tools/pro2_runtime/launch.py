@@ -111,7 +111,7 @@ class RuntimeSession:
         self.root,self.manifest=verify_manifest(root);self.seconds=seconds
         self.directory=Path(run_dir).absolute();self.directory.mkdir(mode=0o700,parents=False,exist_ok=False)
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
-        self.status=None;self.started=None;self.log=None;self.scanner=None;self.display=None;self.last_display=None
+        self.status=None;self.started=None;self.log=None;self.scanner=None;self.display=None;self.last_display=None;self.link=None;self.reconnects=0
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
     def command(self,exe,sdk,write,display=None):
         return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),*(['--display-fd',str(display)] if display is not None else []),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds),
@@ -163,6 +163,10 @@ class RuntimeSession:
                         self.ready=True
                     elif event.get('event')=='done':self.done=event
                     elif event.get('event')=='display':self.last_display=event;continue  # one per 3D switch: not counted as a flood
+                    elif event.get('event') in ('lost','reconnected'):
+                        # The Rust bridge waiting out a USB drop (D12): the feed is paused, readers hold the last pose, and the
+                        # bridge itself ends the run (done, device-lost) if the glasses are not back in 30 s. Health stays ready.
+                        self.link=event;self.reconnects+=event['event']=='reconnected';continue
                     else:raise ValueError('runtime status event')
                     self.events.append(event)
                     if len(self.events)>8:raise ValueError('runtime status flood')

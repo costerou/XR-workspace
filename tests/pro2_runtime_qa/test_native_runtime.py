@@ -9,7 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
-from tests.pro2_bridge import build_bridge
+from tests.pro2_bridge import build_bridge, implementation
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -140,7 +140,15 @@ class NativeRuntimeQA(unittest.TestCase):
                 self.assertEqual(trace[-4:], ['close', 'stop', 'shutdown', 'destroy'])
 
     def test_topology_change_terminal(self):
+        # The devnum changes after ready. The C++ bridge ends the run on it; the Rust bridge (D12)
+        # treats it as an unplug and replug and reconnects, which test_rust_bridge covers in depth.
         code, records, _, _ = self.run_bridge(mutate=True)
+        if implementation() == 'rust':
+            self.assertEqual(code, 0, records)
+            self.assertEqual([r['event'] for r in records], ['ready', 'lost', 'reconnected', 'done'])
+            self.assertEqual(records[1]['reason'], 'unplugged')
+            self.assertEqual(records[-1]['error'], '')
+            return
         self.assertNotEqual(code, 0, records)
         self.assertEqual(records[-1]['error'], 'identity-changed')
 

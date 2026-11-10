@@ -12,7 +12,7 @@
 
 static void (*pose_cb)(float *, uint64_t);
 static pthread_t owner, worker;
-static int created, started_thread;
+static int created, started_thread, connections;  /* connections: create calls, for the reconnect cases */
 static atomic_int running;
 static const char *scenario(void) { const char *s=getenv("PRO2_QA_CASE"); return s?s:"normal"; }
 static int is(const char *s) { return strcmp(scenario(),s)==0; }
@@ -34,21 +34,25 @@ static void emit(unsigned i, uint64_t origin) {
     if(i>=4 && is("bad_norm"))v[3]=2;
     if(pose_cb)pose_cb(is("null_callback")?NULL:v,stamp);
 }
+/* stall_once: the first session goes silent after 10 samples, as glasses about to drop do; later
+ * ones are normal. stall_restart_clock: the same, and every session's clock starts at the same
+ * stamp. reconnect_fails: every session after the first fails to initialize. */
+static int stalled(unsigned i) { return (is("stall_once")||is("stall_restart_clock")) && connections==1 && i>=10; }
 static void *produce(void *arg) {
-    (void)arg; uint64_t origin=now_ns(); unsigned i=0;
+    (void)arg; uint64_t origin=is("stall_restart_clock")?1000000ULL:now_ns(); unsigned i=0;
     while(atomic_load(&running)) {
-        if(!is("no_pose") && !is("stdout_spoof") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2))emit(i++,origin);
+        if(!is("no_pose") && !is("stdout_spoof") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2) && !stalled(i))emit(i++,origin);
         struct timespec wait={0,(long)period_ns()}; nanosleep(&wait,NULL);
     }
     return NULL;
 }
-void *xr_device_provider_create(int pid) { owner=pthread_self(); created=1; trace("create"); return is("null_create")||pid!=0x1301?NULL:&created; }
+void *xr_device_provider_create(int pid) { owner=pthread_self(); created=1; ++connections; trace("create"); return is("null_create")||pid!=0x1301?NULL:&created; }
 int xr_device_provider_is_product_id_valid(int pid) { trace("cap_pid"); return !is("unsupported_pid")&&pid==0x1301; }
 /* PRO2_QA_RATE: one more report rate the fixture supports, as a VITURE_IMU_FREQUENCY_* code. */
 static int rate_ok(int rate) { const char *extra=getenv("PRO2_QA_RATE"); return rate==0||(extra&&rate==atoi(extra)); }
 int xr_device_provider_is_product_support_imu_frequency(int pid,int mode,int rate) { trace("cap_rate"); return !is("unsupported_rate")&&pid==0x1301&&mode==1&&rate_ok(rate); }
 int xr_device_provider_get_device_type(void *h) { (void)h; trace("family"); return is("wrong_family")?2:1; }
-int xr_device_provider_initialize(void *h,const char *cfg,const char *cache) { (void)h;(void)cfg;(void)cache;return result("initialize"); }
+int xr_device_provider_initialize(void *h,const char *cfg,const char *cache) { (void)h;(void)cfg;(void)cache;if(is("reconnect_fails")&&connections>1){trace("initialize");return -37;}return result("initialize"); }
 int xr_device_provider_start(void *h) { (void)h;return result("start"); }
 int xr_device_provider_register_imu_pose_callback(void *h,void (*cb)(float *,uint64_t)) { (void)h;pose_cb=cb;return result("register"); }
 int xr_device_provider_get_glasses_version(void *h,char *out,int *len) {
