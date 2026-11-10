@@ -244,6 +244,14 @@ holds the Rust ports to them byte for byte.
   The Rust fusion uses plain `f64` arrays, not `glam`: bit parity needs the C++ operation order
   exactly, and `glam`'s quaternion maths does not promise it.
 
+  Calibration lives in `fusion::Fusion`; `xr-luma-driver`'s `bias` module ports the C++
+  `wiring::BiasStore` and the bias half of `FusionEstimator`: `luma-gyro-bias` in the state
+  directory warm-starts Fusion, the estimator notes a `Good` bias once a minute and when it goes,
+  and `BiasStore::tick` rewrites the file every 5 minutes. The file is the C++ one byte for byte
+  (three `%.9g` floats, spaces, `\n`). `tests/calibration.rs` replays both fixtures the way
+  `luma_replay_report` does and requires its calibration times: 2.60 s (real, moving) and 1.50 s
+  (upside down, still).
+
 - `corpus/json/strict_json.json` holds 3435 JSON texts (hand-picked edges and a seeded fuzz), each
   with the verdict of Python's `strict_json` and of C++ `decode_control`, and the verdict
   `xr_wire::json::parse` must give. Where Python and C++ differ (nesting past 32, a lone surrogate
