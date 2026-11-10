@@ -389,7 +389,8 @@ pub fn monotonic_ns() -> u64 {
 
 /// The engine beside the pinned renderer binary, or None: only an installed copy ever runs.
 pub fn find_engine(renderer: Option<&Path>) -> Option<PathBuf> {
-    let path = renderer?.with_file_name(ENGINE_NAME);
+    let renderer = renderer.filter(|r| !r.as_os_str().is_empty())?;
+    let path = renderer.with_file_name(ENGINE_NAME);
     super::process::executable(&path).then_some(path)
 }
 
@@ -909,6 +910,8 @@ impl ImmersiveRun {
         if t.is_finished() {
             let _ = thread.take().map(JoinHandle::join);
         } else {
+            // Abandoned, as Python's daemon worker: a later close (Drop) does not wait or stop it again.
+            drop(thread.take());
             let _ = guarded(|| self.inner.engine.stop());
         }
     }
@@ -1147,8 +1150,10 @@ impl Inner {
                 self.fail("sbs", format!("{button} took them back to 2D"));
             } else if target == current && !reassert {
                 if current.is_empty() && self.parked() {
-                    if let Some(Err(SbsError(why))) = guarded(|| self.sbs.settle()) {
-                        self.emit(Event::Leave(or_name(why, "SbsError")));
+                    match guarded(|| self.sbs.settle()) {
+                        Some(Ok(())) => {}
+                        Some(Err(SbsError(why))) => self.emit(Event::Leave(or_name(why, "SbsError"))),
+                        None => self.emit(Event::Leave(INTERNAL.to_owned())),
                     }
                 }
             } else if target.is_empty() {

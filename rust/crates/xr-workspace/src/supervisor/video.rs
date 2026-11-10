@@ -193,14 +193,15 @@ pub fn validate_request(op: &str, payload: &Value) -> Result<Request> {
     if map.keys().any(|k| !["path", "url", "web", "format"].contains(&k.as_str())) || targets != 1 {
         return Err(Error::Invalid("invalid video_open"));
     }
-    let format = map.get("format").map(validate_format).transpose()?;
+    // The target is checked before the format, as Python does, so a request bad in both names the target.
+    let format = || map.get("format").map(validate_format).transpose();
     if !map.contains_key("path") {
         web_video::web_request(map, true)?;
-        return Ok(Request::OpenWeb { url: map.get("url").cloned(), web: map.get("web").cloned(), format });
+        return Ok(Request::OpenWeb { url: map.get("url").cloned(), web: map.get("web").cloned(), format: format()? });
     }
     match &map["path"] {
         Value::String(path) if path.starts_with('/') && (2..=MAX_PATH).contains(&path.len()) && !path.contains('\0') => {
-            Ok(Request::Open { path: path.clone(), format })
+            Ok(Request::Open { path: path.clone(), format: format()? })
         }
         _ => Err(Error::Invalid("video_open needs an absolute path")),
     }
@@ -809,6 +810,11 @@ mod tests {
         }
         // The shape check accepts local hosts; the run refuses them when it opens.
         assert!(matches!(validate_request("video_open", &json!({"url": "http://127.0.0.1/a.mp4"})), Ok(Request::OpenWeb { .. })));
+        // Bad in both target and format: the target's error, as video.py checks it first.
+        let both = validate_request("video_open", &json!({"path": "rel.mp4", "format": {"projection": "x"}}));
+        assert!(matches!(both, Err(Error::Invalid("video_open needs an absolute path"))), "{both:?}");
+        let both = validate_request("video_open", &json!({"url": "ftp://a/x", "format": {"projection": "x"}}));
+        assert!(!matches!(both, Err(Error::Invalid("invalid video format"))), "{both:?}");
     }
 
     #[test]

@@ -824,3 +824,57 @@ fn memory_never_laid_out_is_a_failure_to_start_not_a_hang() {
     let got = e.start(&names(&["XR-1"]), &|| false);
     assert!(matches!(&got, Err(EngineError(why)) if why.contains("quit")), "{got:?}");
 }
+
+/// Parked glasses whose settle panics (review fix: Python's `_settle` reports any exception as a leave).
+struct PanickySettle;
+
+impl Sbs for PanickySettle {
+    fn enter(&self, _cancelled: &dyn Fn() -> bool) -> std::result::Result<bool, SbsError> {
+        Ok(true)
+    }
+    fn leave(&self) -> std::result::Result<(), SbsError> {
+        Ok(())
+    }
+    fn parked(&self) -> bool {
+        true
+    }
+    fn settle(&self) -> std::result::Result<(), SbsError> {
+        panic!("bug")
+    }
+}
+
+#[test]
+fn a_settle_that_panics_is_still_a_leave() {
+    let log = Log::default();
+    let run = ImmersiveRun::new(Arc::new(FakeEngine::new(&log)), Arc::new(PanickySettle));
+    run.request(&names(&["XR-1"]), None, None);
+    events(&run, 1);
+    run.request(&[], None, None); // down, then parked: the worker settles the glasses
+    let mut got = Vec::new();
+    wait_for("the leave", || {
+        got.extend(run.take_events());
+        got.contains(&Event::Leave("an internal error".into()))
+    });
+    run.close(CLOSE_WAIT);
+}
+
+#[test]
+fn an_abandoned_worker_is_not_waited_for_or_stopped_again() {
+    let log = Log::default();
+    let gate = Arc::new(AtomicBool::new(false));
+    let (run, engine) = run_of(FakeEngine::new(&log), FakeSbs { stuck: Some(gate.clone()), ..FakeSbs::new(&log) });
+    run.request(&names(&["XR-1"]), None, None);
+    wait_for("the engine", || engine.alive());
+    run.close(Duration::from_millis(50));
+    let stops = entries(&log).iter().filter(|e| *e == "stop").count();
+    let started = Instant::now();
+    drop(run); // Drop closes again
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert_eq!(entries(&log).iter().filter(|e| *e == "stop").count(), stops);
+    gate.store(true, Ordering::SeqCst);
+}
+
+#[test]
+fn an_empty_renderer_path_finds_no_engine() {
+    assert_eq!(find_engine(Some(Path::new(""))), None);
+}

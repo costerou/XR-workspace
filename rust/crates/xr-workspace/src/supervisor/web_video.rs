@@ -938,7 +938,7 @@ impl StreamRelay {
         self.stdout_fd
     }
 
-    fn spawn(&mut self) -> io::Result<(OwnedFd, OwnedFd)> {
+    fn spawn(&mut self) -> io::Result<OwnedFd> {
         let (read_end, write_end) = pipe(libc::O_CLOEXEC)?;
         set_nonblocking(write_end.as_raw_fd())?;
         grow_pipe(write_end.as_raw_fd());
@@ -966,7 +966,7 @@ impl StreamRelay {
         self.threads.push(std::thread::spawn(move || read_loop(&shared, limit, OwnedFd::from(out), OwnedFd::from(err), wake_read, &child, pid)));
         let shared = self.shared.clone();
         self.threads.push(std::thread::spawn(move || write_loop(&shared, write_end, wake_read)));
-        Ok((read_end, OwnedFd::from(std::fs::File::open("/dev/null")?)))
+        Ok(read_end)
     }
 
     fn kill(&self) {
@@ -1093,7 +1093,7 @@ fn write_loop(shared: &Shared, fd: OwnedFd, wake: RawFd) {
 
 impl Relay for StreamRelay {
     fn start(&mut self) -> io::Result<OwnedFd> {
-        self.spawn().map(|(read_end, _)| read_end)
+        self.spawn()
     }
 
     fn stop(&mut self) {
