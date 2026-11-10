@@ -24,3 +24,23 @@ xr-wire = { path = "../xr-wire" }
 [[test]]
 name = "video_render"
 harness = false
+
+[[test]]
+name = "gl_frame"
+harness = false
+
+[[test]]
+name = "gl_parity"
+harness = false
+
+[[test]]
+name = "glass_render"
+harness = false
+
+[[test]]
+name = "overlay_residue"
+harness = false
+
+[[test]]
+name = "pill_border_render"
+harness = false

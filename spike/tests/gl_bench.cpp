@@ -5,6 +5,8 @@
 //                       is pixel-identical to the same frame drawn by a fresh compositor (no stale caches, uploads or
 //                       GL state carried between frames). Exit 77 (skipped) without EGL/GLES.
 //   gl_bench --hashes   FNV-1a of every scenario frame (RGB) and of the CPU-rendered cards: compare before/after a change.
+//   gl_bench --dump DIR every CPU-rendered input of the scenarios (cards, the 81 slider-drag panels, the handle atlas) as
+//                       raw images (u32 width, u32 height, RGBA bytes): what the Rust compositor's bench draws with.
 //   gl_bench --bench [--frames N] [--size WxH]
 //                       per scenario: CPU submit time of the draw call, GPU time (EXT_disjoint_timer_query), frame time
 //                       to glFinish, frames over the 120 Hz budget, GL calls per frame; then card/font CPU timings.
@@ -512,6 +514,36 @@ int hashes(std::uint32_t w, std::uint32_t h) {
     return 0;
 }
 
+int dump(std::uint32_t w, std::uint32_t h, const std::string& dir) {
+    Resources r = load_resources(w, h);
+    auto put = [&](const std::string& name, const HudImage& im) {
+        const std::string path = dir + "/" + name + ".rgba";
+        std::FILE* f = std::fopen(path.c_str(), "wb");
+        if (!f) { std::fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
+        const std::uint32_t head[2]{im.width, im.height};
+        const bool ok = std::fwrite(head, sizeof head, 1, f) == 1 && std::fwrite(im.rgba.data(), 1, im.rgba.size(), f) == im.rgba.size();
+        return std::fclose(f) == 0 && ok;
+    };
+    bool ok = put("popup", r.popup) && put("video", r.card) && put("help", r.help) && put("panel", r.panel_static);
+    const auto list = scenarios();
+    for (int f = 0; f < 81 && ok; ++f) { std::uint64_t g; ok = put("panel_drag" + std::to_string(f), panel_image(r, list[10], f, g)); }
+    ok = ok && put("handles", render_handle_atlas(kAccent, r.font.get()));
+    {  // glass_render_test's open panels: in the installed font, and in the pixel font in each theme colour
+        PlacementMenuState st; st.open = true; st.field = 2;
+        for (auto& p : st.placements) p = placement_menu_flat();
+        ok = ok && put("glass_panel", render_glass_panel(st, r.font.get()));
+        for (const std::uint32_t hex : {0xe68e0du, 0x1e66f5u, 0xf2fcffu, 0x26a269u, 0x0000ffu, 0xffffffu, 0x8d8d8du}) {
+            const std::array<float, 3> accent{float(hex >> 16) / 255.f, float((hex >> 8) & 255u) / 255.f, float(hex & 255u) / 255.f};
+            PlacementMenuState themed; themed.open = true; themed.field = 3;
+            for (auto& p : themed.placements) p = placement_menu_flat();
+            themed.placements[0][3] = 60;
+            char name[32]; std::snprintf(name, sizeof name, "glass_panel_%06x", hex);
+            ok = ok && put(name, render_glass_panel(themed, nullptr, accent));
+        }
+    }
+    return ok ? 0 : 1;
+}
+
 int bench(std::uint32_t w, std::uint32_t h, int frames) {
     Resources r = load_resources(w, h);
     std::string why;
@@ -639,16 +671,19 @@ int bench(std::uint32_t w, std::uint32_t h, int frames) {
 int main(int argc, char** argv) {
     std::uint32_t w = 1536, h = 960;  // the 1920x1200 glasses at scale 1.25 (check mode); --size for others
     int frames = 1000;
-    enum { kCheck, kHashes, kBench } mode = kCheck;
+    enum { kCheck, kHashes, kBench, kDump } mode = kCheck;
+    std::string dir;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--hashes") mode = kHashes;
         else if (a == "--bench") mode = kBench;
+        else if (a == "--dump" && i + 1 < argc) { mode = kDump; dir = argv[++i]; }
         else if (a == "--frames" && i + 1 < argc) frames = std::max(1, std::atoi(argv[++i]));
         else if (a == "--size" && i + 1 < argc) { unsigned ww = 0, hh = 0; if (std::sscanf(argv[++i], "%ux%u", &ww, &hh) == 2 && ww && hh) { w = ww; h = hh; } }
-        else { std::fprintf(stderr, "usage: gl_bench [--hashes | --bench [--frames N]] [--size WxH]\n"); return 2; }
+        else { std::fprintf(stderr, "usage: gl_bench [--hashes | --bench [--frames N] | --dump DIR] [--size WxH]\n"); return 2; }
     }
     if (mode == kHashes) return hashes(w, h);
     if (mode == kBench) return bench(w, h, frames);
+    if (mode == kDump) return dump(w, h, dir);
     return check(w, h);
 }

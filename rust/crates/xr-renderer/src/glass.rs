@@ -38,6 +38,7 @@ use crate::material::{
     MD_DISABLED_CONTAINER, MD_DISABLED_CONTENT, MD_ELEVATION_DIALOG, MD_ELEVATION_DRAGGED, MD_ELEVATION_HOVER,
     MD_ELEVATION_PILL, MD_STATE_DRAGGED, MD_STATE_HOVER, MdRgb, md_elevation,
 };
+use crate::options_geometry::RESTORE_PILL_W;
 use crate::view::{BORDER_PX, FRect, Placement, cclamp, cmax, cmin};
 
 /// The pill <-> panel morph.
@@ -253,10 +254,160 @@ pub enum ImmersivePart {
     Tail = 2,
 }
 
-// The handle atlas (render_handle_atlas, not ported here): HANDLE_ATLAS_SCALE px per tile px, cells
+// The handle atlas (render_handle_atlas, not ported here; its cell boxes are): HANDLE_ATLAS_SCALE px per tile px, cells
 // HANDLE_ATLAS_GUTTER px apart so that bilinear filtering stays in its cell.
 pub const HANDLE_ATLAS_SCALE: u32 = 3;
 pub const HANDLE_ATLAS_GUTTER: u32 = 2;
+
+// The atlas: seven bar cells down the left (idle, then one hot segment each hovered and dragged), and to their right the
+// caps, a column per state and a row per corner, and right of those the 3D button: a column for its segment and one for
+// its tail, four states each. Atlas px, HANDLE_ATLAS_GUTTER between cells and round the edge. Below them (from
+// ATLAS_OLD_H) the options gear and Maximize icons, the hint and the Restore pills.
+const ATLAS_GAP: u32 = HANDLE_ATLAS_GUTTER;
+const ATLAS_BAR_W: u32 = LEVEL_BAR_W as u32 * HANDLE_ATLAS_SCALE;
+const ATLAS_BAR_H: u32 = LEVEL_BAR_H as u32 * HANDLE_ATLAS_SCALE;
+const ATLAS_CAP: u32 = (CAP_OUTER + CAP_INNER) as u32 * HANDLE_ATLAS_SCALE;
+const BAR_CELLS: u32 = 1 + 2 * LEVEL_SEGMENTS as u32;
+const CAP_STATES: u32 = 3;
+const CAP_CORNERS: u32 = 4;
+const ATLAS_MAIN_W: u32 = IMMERSIVE_MAIN_W as u32 * HANDLE_ATLAS_SCALE;
+const ATLAS_TAIL_W: u32 = IMMERSIVE_TAIL_W as u32 * HANDLE_ATLAS_SCALE;
+const ATLAS_MAIN_X: u32 =
+    ATLAS_GAP + ATLAS_BAR_W + ATLAS_GAP + CAP_STATES * (ATLAS_CAP + ATLAS_GAP);
+const ATLAS_TAIL_X: u32 = ATLAS_MAIN_X + ATLAS_MAIN_W + ATLAS_GAP;
+/// The handle atlas's size in px.
+pub const HANDLE_ATLAS_W: u32 = ATLAS_TAIL_X + ATLAS_TAIL_W + ATLAS_GAP;
+const ATLAS_OLD_H: u32 = ATLAS_GAP
+    + if BAR_CELLS * (ATLAS_BAR_H + ATLAS_GAP) > CAP_CORNERS * (ATLAS_CAP + ATLAS_GAP) {
+        BAR_CELLS * (ATLAS_BAR_H + ATLAS_GAP)
+    } else {
+        CAP_CORNERS * (ATLAS_CAP + ATLAS_GAP)
+    };
+pub const HANDLE_ATLAS_H: u32 = ATLAS_OLD_H + 240;
+const ATLAS_PILL_W: f32 = RESTORE_PILL_W * HANDLE_ATLAS_SCALE as f32;
+const ATLAS_PILL_Y: f32 = ATLAS_OLD_H as f32 + 150.0;
+const _: () = assert!(
+    2.0 * ATLAS_PILL_W + 6.0 <= HANDLE_ATLAS_W as f32,
+    "the band's pills stay in the atlas"
+);
+
+/// The part of the handle atlas an image shows, in texture coordinates (row 0 at v = 0).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct AtlasBox {
+    pub u0: f32,
+    pub v0: f32,
+    pub u1: f32,
+    pub v1: f32,
+}
+
+struct AtlasCell {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
+const fn cell(x: u32, y: u32, w: u32, h: u32) -> AtlasCell {
+    AtlasCell { x, y, w, h }
+}
+
+fn bar_cell(row: u32) -> AtlasCell {
+    cell(
+        ATLAS_GAP,
+        ATLAS_GAP + row * (ATLAS_BAR_H + ATLAS_GAP),
+        ATLAS_BAR_W,
+        ATLAS_BAR_H,
+    )
+}
+
+fn bar_row(segment: LevelSegment, active: bool) -> u32 {
+    if segment == LevelSegment::None {
+        0
+    } else {
+        1 + segment as i32 as u32 + if active { LEVEL_SEGMENTS as u32 } else { 0 }
+    }
+}
+
+fn cap_cell(corner: u32, state: u32) -> AtlasCell {
+    cell(
+        ATLAS_GAP + ATLAS_BAR_W + ATLAS_GAP + state * (ATLAS_CAP + ATLAS_GAP),
+        ATLAS_GAP + corner * (ATLAS_CAP + ATLAS_GAP),
+        ATLAS_CAP,
+        ATLAS_CAP,
+    )
+}
+
+fn button_row(lit: bool, hot: bool) -> u32 {
+    ATLAS_GAP + (u32::from(lit) * 2 + u32::from(hot)) * (ATLAS_BAR_H + ATLAS_GAP)
+}
+
+fn box_of(c: &AtlasCell) -> AtlasBox {
+    let w = HANDLE_ATLAS_W as f32;
+    let h = HANDLE_ATLAS_H as f32;
+    AtlasBox {
+        u0: c.x as f32 / w,
+        v0: c.y as f32 / h,
+        u1: (c.x + c.w) as f32 / w,
+        v1: (c.y + c.h) as f32 / h,
+    }
+}
+
+pub fn options_gear_box() -> AtlasBox {
+    box_of(&cell(360, ATLAS_OLD_H + 2, 84, 42))
+}
+
+pub fn options_icon_box(hot: bool) -> AtlasBox {
+    box_of(&cell(2 + 2 * u32::from(hot) * 84, ATLAS_OLD_H + 2, 78, 78))
+}
+
+pub fn options_hint_box() -> AtlasBox {
+    box_of(&cell(2, ATLAS_OLD_H + 84, 250, 60))
+}
+
+/// The band's Restore pill: its icon and label.
+pub fn options_restore_box(hot: bool) -> AtlasBox {
+    box_of(&cell(
+        2 + u32::from(hot) * (ATLAS_PILL_W + 4.0) as u32,
+        ATLAS_PILL_Y as u32,
+        ATLAS_PILL_W as u32,
+        78,
+    ))
+}
+
+pub fn level_bar_box(segment: LevelSegment, active: bool) -> AtlasBox {
+    box_of(&bar_cell(bar_row(segment, active)))
+}
+
+pub fn immersive_main_box(lit: bool, hot: bool) -> AtlasBox {
+    box_of(&cell(
+        ATLAS_MAIN_X,
+        button_row(lit, hot),
+        ATLAS_MAIN_W,
+        ATLAS_BAR_H,
+    ))
+}
+
+pub fn immersive_tail_box(lit: bool, hot: bool) -> AtlasBox {
+    box_of(&cell(
+        ATLAS_TAIL_X,
+        button_row(lit, hot),
+        ATLAS_TAIL_W,
+        ATLAS_BAR_H,
+    ))
+}
+
+pub fn corner_cap_box(corner: u32, hot: bool, active: bool) -> AtlasBox {
+    box_of(&cap_cell(
+        corner.min(CAP_CORNERS - 1),
+        if active {
+            2
+        } else if hot {
+            1
+        } else {
+            0
+        },
+    ))
+}
 
 // --- Look -------------------------------------------------------------------------------------------------------------
 // Pill states (GlassFrame::pill_levels). Hover = the pointer is on the pill (or the open panel's header); active = it is

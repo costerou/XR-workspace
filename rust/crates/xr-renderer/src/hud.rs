@@ -558,6 +558,23 @@ impl CardFade {
 // arrows and the indicator are also clicked with the overview free pointer (HelpCardControls, help_geometry_json).
 // fits=false only if a single row is wider or taller than the surface allows.
 
+/// A rendered card: `width` x `height` premultiplied RGBA8, row 0 the top row (hud.hpp HudImage).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HudImage {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+impl HudImage {
+    /// The pixels are exactly width x height x 4 bytes: what the GL draws need before they upload.
+    pub fn complete(&self) -> bool {
+        self.width != 0
+            && self.height != 0
+            && self.rgba.len() == self.width as usize * self.height as usize * 4
+    }
+}
+
 /// A centred card's top-left, output px.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct CardOrigin {

@@ -285,6 +285,69 @@ impl Canvas {
     }
 }
 
+/// Where a ray from the eye (world space, any length) meets a desktop: tile uv and the world point (stereo.hpp). Used
+/// for the pointer, which must sit on the surface it points at.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SurfaceHit {
+    pub u: f32,
+    pub v: f32,
+    pub world: Vec3,
+}
+
+/// The nearest hit of `ray` on the desktop's drawn strip (Moeller-Trumbore from the eye at the origin), None for a miss.
+pub fn stereo_surface_hit(
+    canvas: &Canvas,
+    tile: &FRect,
+    placement: &Placement,
+    ray: &Vec3,
+) -> Option<SurfaceHit> {
+    let mesh = tile_mesh(canvas, tile, placement, tile);
+    let sub = |a: &Vec3, b: &Vec3| [a.x - b.x, a.y - b.y, a.z - b.z];
+    let cross = |a: &[f32; 3], b: &[f32; 3]| {
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    };
+    let dot = |a: &[f32; 3], b: &[f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let d = [ray.x, ray.y, ray.z];
+    let mut best = None;
+    let mut nearest = f32::MAX;
+    for w in mesh.windows(3) {
+        let (a, b, c) = (&w[0], &w[1], &w[2]);
+        let e1 = sub(&b.world, &a.world);
+        let e2 = sub(&c.world, &a.world);
+        let n = cross(&d, &e2);
+        let det = dot(&e1, &n);
+        if det.abs() < 1e-9 {
+            continue;
+        }
+        let o = [-a.world.x, -a.world.y, -a.world.z];
+        let s = dot(&o, &n) / det;
+        if !(0.0..=1.0).contains(&s) {
+            continue;
+        }
+        let q = cross(&o, &e1);
+        let t = dot(&d, &q) / det;
+        if t < 0.0 || s + t > 1.0 {
+            continue;
+        }
+        let along = dot(&e2, &q) / det;
+        if along <= 0.0 || along >= nearest {
+            continue;
+        }
+        nearest = along;
+        let r = 1.0 - s - t;
+        best = Some(SurfaceHit {
+            u: r * a.u + s * b.u + t * c.u,
+            v: r * a.v + s * b.v + t * c.v,
+            world: Vec3::new(ray.x * along, ray.y * along, ray.z * along),
+        });
+    }
+    best
+}
+
 /// Below this the arc is numerically flat.
 const MIN_CURVATURE: f32 = 1e-4;
 
