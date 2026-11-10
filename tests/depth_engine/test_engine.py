@@ -377,5 +377,22 @@ class Sizes(unittest.TestCase):
         self.assertEqual(S.round_patch(35), 42)  # 2.5 patches rounds up, as lround does; Python's round() would give 28.
 
 
+class SupervisedExit(unittest.TestCase):
+    def test_failed_attach_exits_cleanly_with_stdin_open(self):
+        """A supervised engine that dies before its final os._exit must not abort at interpreter exit: the stdin watcher
+        blocked in a buffered read held the reader's lock, and 3.12+ dumped core (SIGABRT) over it."""
+        p = subprocess.Popen([sys.executable, "-m", "tools.depth_engine", "serve", "--supervised", "--backend", "fake",
+                              "--wait", "0.1", "--desktops", "XR-1", "--shm", "/nonexistent-xr-probe"],
+                             cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        try:  # stdin stays open until the engine has exited, as a live supervisor's pipe would.
+            err = p.stderr.read()
+            code = p.wait(timeout=20)
+        finally:
+            p.kill()
+            p.stdin.close()
+            p.stderr.close()
+        self.assertNotIn(b"Fatal Python error", err)
+        self.assertGreater(code, 0, err.decode(errors="replace"))
+
 if __name__ == "__main__":
     unittest.main()

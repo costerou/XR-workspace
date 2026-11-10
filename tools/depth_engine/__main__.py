@@ -72,10 +72,10 @@ def watch_stdin(stop: list) -> None:
     """Supervised (tools/native_spike/immersive.py ProcessEngine): the end of input means the supervisor is gone, whatever
     killed it, so this goes too. Its JSON lines name desktops for the record; which channels run comes from the shared memory."""
     def work():
-        try:
-            while sys.stdin.buffer.readline():
+        try:  # os.read, not sys.stdin: a thread blocked in a buffered read holds its lock and aborts interpreter exit.
+            while os.read(0, 65536):
                 pass
-        except (OSError, ValueError):
+        except OSError:
             pass
         stop.append(1)
     threading.Thread(target=work, daemon=True).start()
