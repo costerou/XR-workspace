@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use indexmap::IndexMap;
 use serde_json::{Map, Value, json};
 
 use super::detect::{
@@ -180,7 +181,7 @@ pub struct IncidentMonitor {
     next_core_check: f64,
     said: Option<String>,
     limit: RateLimit,
-    ended: Map<String, Value>,
+    ended: IndexMap<String, Value>,
     saved_watch: Option<Value>,
     latest: Option<Map<String, Value>>,
 }
@@ -196,8 +197,8 @@ impl IncidentMonitor {
         let saved = reports.load_state();
         let pick = |key: &str| saved.get(key).cloned().unwrap_or_default();
         let ended = match pick("ended") {
-            Value::Object(ended) => ended,
-            _ => Map::new(),
+            Value::Object(ended) => ended.into_iter().collect(),
+            _ => IndexMap::new(),
         };
         let latest = match pick("latest") {
             Value::Object(latest) => Some(latest),
@@ -868,7 +869,7 @@ impl IncidentMonitor {
         let mut state = Map::new();
         state.insert("schema".into(), 1.into());
         state.insert("watch".into(), watch);
-        state.insert("ended".into(), Value::Object(self.ended.clone()));
+        state.insert("ended".into(), Value::Object(self.ended.clone().into_iter().collect()));
         state.insert("limit".into(), self.limit.save());
         state.insert(
             "latest".into(),

@@ -22,6 +22,8 @@ workspace = true
 # Sockets with a timed connect, SO_PEERCRED, getuid and access(2) in the key helper: the calls std does not expose.
 libc = "0.2"
 rustix = { version = "1", features = ["fs", "process", "rand"] }
+# The incident monitor's `ended` runs: insertion order, like the Python dict, so pruning keeps the newest.
+indexmap = "2"
 # The incident monitor's regex rules (the scrubber, kernel and journal lines).
 regex = "1"
 serde = { version = "1", features = ["derive"] }

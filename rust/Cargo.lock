@@ -641,6 +641,7 @@ dependencies = [
 name = "xr-workspace"
 version = "0.0.0"
 dependencies = [
+ "indexmap",
  "libc",
  "regex",
  "rustix",
