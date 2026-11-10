@@ -80,6 +80,9 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// The message a repeated key is refused with (`control` tells it from other syntax errors by it).
+pub(crate) const DUPLICATE_KEY: &str = "duplicate key";
+
 /// `decode_control`'s nesting limit: a value may sit inside at most 32 arrays or objects.
 pub const MAX_DEPTH: usize = 32;
 
@@ -116,7 +119,7 @@ pub fn parse_strict(raw: &[u8]) -> Result<Value, Error> {
 /// Whether any value sits inside more than `max` arrays or objects. Counts what `decode_control`
 /// counts: every token outside a string (a key, a scalar or a nested container) at the current
 /// number of open brackets. It only has to be right for valid JSON; anything else the parser refuses.
-fn too_deep(raw: &[u8], max: usize) -> bool {
+pub(crate) fn too_deep(raw: &[u8], max: usize) -> bool {
     let (mut open, mut in_string, mut escaped) = (0usize, false, false);
     for &b in raw {
         if in_string {
@@ -202,7 +205,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let mut entries = Vec::new();
         while let Some(key) = map.next_key::<String>()? {
             if !seen.insert(key.clone()) {
-                return Err(de::Error::custom("duplicate key"));
+                return Err(de::Error::custom(DUPLICATE_KEY));
             }
             entries.push((key, map.next_value()?));
         }

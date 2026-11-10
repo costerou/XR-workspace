@@ -8,7 +8,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 
 | Crate | Kind | Replaces |
 | --- | --- | --- |
-| `xr-wire` | library | Control and status envelopes, the ownership plugin's `xrspike` requests and replies (`plugin`) and the renderer's status datagrams (`status`), strict JSON (`strict_json`, `decode_control`), and the on-disk formats: journal, consent, progress, result, recovery and install pins, read and written byte-for-byte as the Python writers produce them through private atomic writes (0600, no-follow, fsync and rename) |
+| `xr-wire` | library | Control and status envelopes, the ownership plugin's `xrspike` requests and replies (`plugin`) and the renderer's status datagrams (`status`), strict JSON (`strict_json`, `decode_control`), the renderer control wire (`control`: the 23 op payloads, the stream and the encoders), and the on-disk formats: journal, consent, progress, result, recovery and install pins, read and written byte-for-byte as the Python writers produce them through private atomic writes (0600, no-follow, fsync and rename) |
 | `xr-pose` | library | Pose shared memory: SysV feed, seqlock channels, `PredictionWire` |
 | `xr-luma-driver` | binary + library (`rt`) | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |

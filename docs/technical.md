@@ -1040,6 +1040,10 @@ two kinds of exception. The run socket checks only the payloads that the wire al
 payload of every other plain op. The payloads of `options_*`, `video_*`, `environment`, `immersive`, `placement` and
 `stabilization` pass through unread, for the module that applies them to check; the corpus marks those cases with `owner`. On the
 controller socket, the Rust decoder refuses a line nested past 32 levels and a leading byte order mark, both of which Python takes.
+`xr_wire::control` decodes a frame to the typed payload of its op with the same verdicts as `decode_control`, keeps the
+stream's identity and replay floor (`control::Stream`), and encodes each op's frame as its Python sender does;
+`rust/crates/xr-wire/tests/control_corpus.rs` holds it to every case of `control_frames.json` and the `*_payloads.json`
+fixtures. Two deliberate differences: `-0` is refused where an integer is required, and depth is checked before parsing.
 
 `ignorable_control_error` still lists only the display-only payloads it always did.
 
