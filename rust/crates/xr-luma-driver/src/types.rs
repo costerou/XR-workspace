@@ -2,7 +2,7 @@
 
 /// One inertial sample in SI units, body frame: x forward, y left, z up, and accel as specific
 /// force (+9.8 on z when level). The protocol layer remaps the Luma Ultra's wire axes into this.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ImuSample {
     pub t_ns: u64,
     pub gyro_rad_s: [f32; 3],
