@@ -1,0 +1,10 @@
+[package]
+name = "xr-workspace"
+description = "Controller, supervisor, key helper and installer."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

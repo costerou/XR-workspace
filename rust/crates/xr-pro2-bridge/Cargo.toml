@@ -1,0 +1,10 @@
+[package]
+name = "xr-pro2-bridge"
+description = "Pro 2 bridge host around the VITURE SDK, loaded through FFI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

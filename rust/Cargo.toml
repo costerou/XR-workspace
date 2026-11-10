@@ -1,0 +1,20 @@
+# XR Workspace Rust rebuild. See docs/rust-rebuild-plan.md.
+[workspace]
+resolver = "3"
+members = [
+    "crates/xr-wire",
+    "crates/xr-pose",
+    "crates/xr-luma-driver",
+    "crates/xr-pro2-bridge",
+    "crates/xr-renderer",
+    "crates/xr-workspace",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
