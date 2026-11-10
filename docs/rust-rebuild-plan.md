@@ -70,9 +70,10 @@ goal, and anything marked **(not measured)** has no baseline yet.
    `pose_orientation` (16 floats), `pose_orientation_mutex` (process-shared robust
    `pthread_mutex_t`), `disabled`, `display_fov`, `look_ahead_cfg`. Single writer, enforced by
    `flock` on `<prefix>writer.lock`.
-8. **Newer pose channels, unused.** Seqlock `/dev/shm/xr-luma-pose` (`PoseRecord`,
+8. **Newer pose channels.** Seqlock `/dev/shm/xr-luma-pose` (`PoseRecord`,
    40 bytes; only `bench/` writes it so far) and `PredictionWire` (64 bytes, magic `0x4c505231`), which
-   `xr-luma-driver` writes on every sample since D3 as the SysV segment `<prefix>pose_prediction`.
+   `xr-luma-driver` writes on every sample since D3 as the SysV segment `<prefix>pose_prediction`, and the C++
+   renderer predicts from.
 9. **Depth.** `XRD1` memfd, 4,096-byte header, seqlock, three slots.
 10. **Files on disk.** `journal.json`, consent `<run_id>.json`, `.progress.json`, `.result.json`,
     `.recovery.json`, `installed.json`, the pin files, `profiles.json`, `window-memory.json`.
@@ -221,7 +222,7 @@ goal below is to remove the wait entirely.
 |---|---|---|---|---|
 | D1 | Measure the real glasses first: URB completion time against device time, per packet | No baseline exists for real USB. Everything else is judged against it. | New `--latency-log` mode; reuse the `tracking_bench` report format | Baseline recorded with the machine idle and loaded |
 | D2 | Lock-free handoff: renderer reads the seqlock channel; the mutex feed is still published for compatibility | Removes the up-to-2 ms lock wait and the skip-on-busy writer path | `pose_age_ms` in the status dict; a reader wait histogram | Pose age p99 ≤ 1.5 ms at 1 kHz; zero reader waits |
-| D3 | Driver publishes angular velocity and acceleration straight from the gyro (`PredictionWire`); renderer stops differencing quaternions | Velocity is under 1 ms old instead of about 8 ms, and is not quantised by pose spacing | Replay `luma_imu_real.bin`: predict at 10, 17 and 25 ms and compare with the orientation the recording reaches | Prediction error RMS at 17 ms cut by at least half **(target)** |
+| D3 | Driver publishes angular velocity and acceleration straight from the gyro (`PredictionWire`); renderer stops differencing quaternions | Velocity is under 1 ms old instead of about 8 ms, and is not quantised by pose spacing | Replay `luma_imu_real.bin`: predict at 10, 17 and 25 ms and compare with the orientation the recording reaches | Prediction error RMS at 17 ms cut by at least half **(target)**. Met: renderer 0.077° to 0.011° (ctest `luma_renderer_prediction`) |
 | D4 | Late latch in the renderer: start drawing as late as the compositor deadline allows, read the pose last | Read-to-present is 16.6 ms; the untracked path shows about 6 ms is reachable | `read_to_present` p50/p95 in the status dict; `capture_e2e_bench` | p50 ≤ 9 ms, p95 ≤ 11 ms at 120 Hz **(target)** |
 | D5 | Use the display vsync events on endpoint `0x83`, which are on the IMU timebase | Gives the prediction horizon the true scan-out time without guessing a clock offset. It also yields sensor-to-vsync latency with no camera. | Horizon error against `wp_presentation` timestamps | Horizon error p95 ≤ 1 ms **(target)** |
 | D6 | Temperature bias model: learn bias against temperature per device at rest, store it, and apply zero-rate updates whenever the head is still | Bias moves 0.016°/s per °C; this is the main cause of heading drift | 20-minute desk-still recording and a cold-start warm-up recording, replayed | Drift ≤ 0.1°/min from 0.5°/min **(target)** |

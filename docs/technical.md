@@ -657,9 +657,20 @@ what the driver reads and how it starts the stream; none of these flags can send
 `luma::PredictionWire` in `spike/driver/include/luma/predict.hpp`, magic `LPR1`, a sequence lock). On every sample it holds the
 newest pose, its arrival time on `CLOCK_MONOTONIC`, and the gyro's angular velocity and acceleration from `luma::Predictor`, all
 in the feed's frame (mount pitch applied), so `luma::extrapolate` on it starts from the feed's `q0`. It reads as no sample while
-the feed is disabled. No reader uses it yet: the renderer still differences `q0` and `q1`, and the feed itself is unchanged.
+the feed is disabled. The feed itself is unchanged.
 Checked by ctest `luma_prediction_wire`, which replays `luma_imu_real.bin` through the real daemon: 1,000 writes a second, and at
 17 ms ahead the wire predicts the recording to 0.011° rms while moving, against 0.073° for the renderer's difference.
+
+The renderer predicts from it (D3). `xr::MotionFeed` (`spike/src/motion_feed.cpp`, apart from `pose.cpp` so tools that
+compile the feed reader alone are unchanged) attaches the segment and reads it with the bounded seqlock read, never waiting. The
+renderer opens it beside the feed and retries once a second while it has no fresh sample, which also picks up a restarted driver's
+new segment. While a calibrated sample under 50 ms old is there (`motion_age_ms`), the frame's horizon
+starts from that sample's real arrival time, not the relative pose age, and `motion_delta` runs `luma::extrapolate` on it (velocity
+and acceleration, stop clamp, still gate, the 15° cap). Otherwise, with XRLinuxDriver or a wire with no fresh sample, it differences
+`q0` and `q1` as before. The stabilizer's prediction gain shortens only the difference's horizon: the wire gates a still head on
+the gyro itself, and the gain would triple its error in slow turns. The status's `latency.prediction.wire_frames` counts frames
+predicted from the wire. Checked by ctest `luma_renderer_prediction`, which replays the recording through the renderer's own reader
+and predictor: at 17 ms the wire is 0.011° rms while moving against 0.077° for the difference, and under 0.002° at rest.
 
 ### Renderer trial flags
 

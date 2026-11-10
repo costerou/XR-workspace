@@ -1,4 +1,5 @@
 #include "fake_feed.hpp"
+#include "xr/motion_feed.hpp"
 #include "xr/predict.hpp"
 #include <cmath>
 #include <cstdio>
@@ -260,6 +261,25 @@ int main() {
         const auto w = angular_velocity(got);
         CHECK(w && near((*w)[2], 0.2 * 3.14159265 / 180, 1e-5));
         CHECK(feed->look_ahead_cfg() && look_ahead_from(*feed->look_ahead_cfg()));
+        CHECK(!MotionFeed::open(prefix));  // XRLinuxDriver publishes no PredictionWire: the renderer differences q0 and q1
+    }
+    // D3: the delta from the driver's gyro motion (PredictionWire), on a rotated base, 200 deg/s of yaw.
+    {
+        FeedMotion m;
+        m.q = base;
+        m.host_ns = 5'000'000'000ull;
+        m.omega_rad_s = {0, 0, float(200 * 3.14159265 / 180)};
+        const Quat predicted = quat_mul(m.q, motion_delta(m, 20.f, 15.f));
+        CHECK(deg(predicted, quat_mul(base, axis_angle(0, 0, 1, 4.f))) < 0.01f);
+        CHECK(near(deg(motion_delta(m, 200.f, 15.f), Quat{}), 15.f, 0.01));  // clamped like prediction_delta
+        CHECK(deg(motion_delta(m, 0.f, 15.f), Quat{}) < 1e-4f);
+        CHECK(deg(motion_delta(m, -5.f, 15.f), Quat{}) < 1e-4f);
+        m.omega_rad_s = {0, 0, float(1 * 3.14159265 / 180)};  // 1 deg/s: a still head's gyro noise, not extrapolated
+        CHECK(deg(motion_delta(m, 30.f, 15.f), Quat{}) < 1e-4f);
+        CHECK(near(*motion_age_ms(m, m.host_ns + 3'500'000), 3.5));
+        CHECK(motion_age_ms(m, m.host_ns + 50'000'000));
+        CHECK(!motion_age_ms(m, m.host_ns + 50'000'001));  // a stopped driver
+        CHECK(!motion_age_ms(m, m.host_ns - 1));             // from the future: not this clock
     }
     std::cout << "predict ok\n";
     return 0;

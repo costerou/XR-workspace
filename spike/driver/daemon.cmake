@@ -63,3 +63,11 @@ target_include_directories(luma_latency_log_test PRIVATE include)
 target_compile_features(luma_latency_log_test PRIVATE cxx_std_20)
 target_compile_options(luma_latency_log_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_test(NAME luma_latency_log COMMAND luma_latency_log_test "$<TARGET_FILE:luma_latency_report>")
+
+# D3, the renderer's half: the renderer's own feed reader and predictor (xr_predict) on the same replay, wire against q0/q1.
+if(TARGET xr_predict)
+  add_executable(luma_renderer_prediction_test tests/renderer_prediction_test.cpp)
+  target_link_libraries(luma_renderer_prediction_test PRIVATE xr_luma_daemon xr_predict)
+  target_compile_options(luma_renderer_prediction_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME luma_renderer_prediction COMMAND luma_renderer_prediction_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin")
+endif()

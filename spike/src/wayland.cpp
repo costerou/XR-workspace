@@ -21,6 +21,7 @@
 #include "xr/continuity.hpp"
 #include <sys/stat.h>
 #include "xr/motion_smooth.hpp"
+#include "xr/motion_feed.hpp"
 #include "xr/predict.hpp"
 #include "xr/late_latch.hpp"
 #include "xr/stabilization.hpp"
@@ -489,6 +490,9 @@ struct Presentation::Impl : SurfaceRequests {
     std::string pose_prefix;
     float supervised_projection = 0;
     std::unique_ptr<PoseFeed> pose_feed;
+    std::unique_ptr<MotionFeed> motion_feed;  // the Luma driver's PredictionWire; absent on XRLinuxDriver
+    std::uint64_t motion_retry_ms = 0;
+    bool motion_live = false;  // the last frame predicted from a fresh wire sample
     Stabilizer stabilization;
     std::string pose_why;
     std::uint64_t pose_retry_ms = 0;
@@ -510,7 +514,7 @@ struct Presentation::Impl : SurfaceRequests {
     }
     PoseAge pose_age;
     bool prediction = false;
-    std::uint64_t predicted_frames = 0, unpredicted_frames = 0;  // while enabled and tracking
+    std::uint64_t predicted_frames = 0, unpredicted_frames = 0, wire_frames = 0;  // while enabled and tracking; wire: from PredictionWire
     float last_horizon_ms = 0, last_predicted_deg = 0;
     static constexpr float kMaxPredictionDeg = 15.f;
     MotionSmoother smoother;  // only with smooth_ms > 0 (motion_smooth.hpp): the Pro 2's slow, uneven feed
@@ -1178,6 +1182,7 @@ std::string Presentation::capture_report() const {
                ",\"read_to_present\":" + stats(s.latency.summary()) + ",\"pose_age_relative\":" + stats(s.pose_age.summary()) +
                ",\"prediction\":{\"enabled\":" + (s.prediction ? "true" : "false") + ",\"predicted_frames\":" +
                std::to_string(s.predicted_frames) + ",\"unpredicted_frames\":" + std::to_string(s.unpredicted_frames) +
+               ",\"wire_frames\":" + std::to_string(s.wire_frames) +
                ",\"last_horizon_ms\":" + std::to_string(s.last_horizon_ms) + ",\"last_predicted_deg\":" + std::to_string(s.last_predicted_deg) +
                ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json +
                (s.smooth_ms > 0 ? ",\"smoothing\":{\"tau_ms\":" + std::to_string(s.smooth_ms) + ",\"frames\":" + std::to_string(s.smoothed_frames) +
@@ -1687,6 +1692,11 @@ Status Presentation::draw_test_pattern() {
                 s.pose_feed = PoseFeed::open(s.pose_prefix, s.pose_why); s.pose_retry_ms = now + 1000;
                 if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
             }
+            // Opened apart from the feed: the driver may create it later, and a restarted driver makes a new segment, which
+            // leaves the old one stale (no fresh motion below) until it is reopened here.
+            if (s.pose_feed && !s.motion_live && now >= s.motion_retry_ms) {
+                s.motion_feed = MotionFeed::open(s.pose_prefix); s.motion_retry_ms = now + 1000;
+            }
             const auto sample = s.pose_feed ? s.pose_feed->read() : std::nullopt;
             auto stabilized = sample;
             if (stabilized) stabilized->orientation = s.stabilization.update(stabilized->orientation, stabilized->device_ms);
@@ -1697,18 +1707,28 @@ Status Presentation::draw_test_pattern() {
             Quat relative = s.pose.relative();
             const auto age = sample ? s.pose_age.observe(double(read_ns) / 1e6, sample->device_ms) : std::nullopt;
             if (s.prediction && s.pose.tracking()) {  // never extrapolate a held (stale) pose
-                const auto omega = sample ? angular_velocity(history_of(*sample)) : std::nullopt;
+                // D3: the Luma driver's gyro motion when it publishes one, timed from that sample's real arrival; otherwise
+                // (XRLinuxDriver, or a wire with no fresh sample) the velocity between the feed's two newest samples.
+                const auto motion = sample && s.motion_feed ? s.motion_feed->read() : std::nullopt;
+                const auto motion_age = motion ? motion_age_ms(*motion, read_ns) : std::nullopt;
+                s.motion_live = motion_age.has_value();
+                const auto omega = sample && !motion_age ? angular_velocity(history_of(*sample)) : std::nullopt;
                 const auto refresh = s.metrics.snapshot().last_refresh_prediction_ns;
                 const auto horizon = prediction_horizon(s.pose_feed ? look_ahead_from(s.pose_feed->look_ahead_cfg().value_or(std::array<float, 4>{}))
                                                                     : std::nullopt,
-                                                        s.latency.expected_ms(), age.value_or(0.0), refresh ? refresh / 1e6 : 1000.0 / 120);
+                                                        s.latency.expected_ms(), motion_age ? *motion_age : age.value_or(0.0),
+                                                        refresh ? refresh / 1e6 : 1000.0 / 120);
                 if (s.smooth_ms > 0 && horizon && sample) {
                     // Horizon from the feed's bound; the pose is the stabilized sample, so a still head stays still.
                     relative = s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6);
                     s.last_horizon_ms = s.smoother.last_horizon_ms(); s.last_predicted_deg = s.smoother.last_predicted_deg();
                     ++s.predicted_frames; ++s.smoothed_frames;
-                } else if (omega && horizon) {
-                    const Quat delta = prediction_delta(*omega, *horizon * s.stabilization.prediction_gain(), Impl::kMaxPredictionDeg);
+                } else if ((motion_age || omega) && horizon) {
+                    // The stabilizer's rest gate shortens the horizon to hide the finite difference's noise. The wire has its own
+                    // gate (luma::PredictConfig::still_gate, on the gyro), and the stabilizer's would triple its error in slow turns.
+                    const Quat delta = motion_age ? motion_delta(*motion, *horizon, Impl::kMaxPredictionDeg)
+                                                  : prediction_delta(*omega, *horizon * s.stabilization.prediction_gain(), Impl::kMaxPredictionDeg);
+                    if (motion_age) ++s.wire_frames;
                     relative = quat_mul(relative, delta);  // body frame: newest sample * delta
                     s.last_horizon_ms = *horizon; s.last_predicted_deg = quat_angle(Quat{}, delta) * float(180 / M_PI);
                     ++s.predicted_frames;
