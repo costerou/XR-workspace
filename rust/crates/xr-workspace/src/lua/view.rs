@@ -271,3 +271,11 @@ pub fn remove_menu_binds_lua() -> String {
         remove_lua("xr_workspace_menu_binds")
     )
 }
+
+/// The `mutate` command that gives managed output `name` Hyprland's monitor focus (the glasses view's focus).
+pub fn focus_command(name: &str) -> Result<String> {
+    if !super::managed(name) {
+        return Err(Refused("focus is limited to managed outputs"));
+    }
+    Ok(format!("dispatch hl.dsp.focus({{monitor=\"{name}\"}})"))
+}

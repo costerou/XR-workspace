@@ -102,7 +102,7 @@ pub fn managed(s: &str) -> bool {
 }
 
 /// `(?:<prefix>)-[0-9]{min,max}` for one of `prefixes`.
-fn connector(s: &str, prefixes: &[&str], min: usize, max: usize) -> bool {
+pub(crate) fn connector(s: &str, prefixes: &[&str], min: usize, max: usize) -> bool {
     prefixes.iter().any(|p| {
         s.strip_prefix(p)
             .and_then(|r| r.strip_prefix('-'))

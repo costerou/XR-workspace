@@ -3,7 +3,7 @@
 use super::{Refused, Result, connector, py_g};
 
 /// The wide mode and its rates, best first, for a glasses model.
-fn mode(model: &str) -> Result<((u32, u32), &'static [f64])> {
+pub fn mode(model: &str) -> Result<((u32, u32), &'static [f64])> {
     match model {
         "pro2" => Ok(((3840, 1080), &[60.0])),
         "luma-ultra" => Ok(((3840, 1200), &[90.0, 60.0])),

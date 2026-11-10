@@ -12,6 +12,7 @@ pub mod control;
 pub mod desktops;
 pub mod fit_windows;
 pub mod geometry;
+pub mod hyprland;
 pub mod install;
 pub mod journal;
 pub mod json;

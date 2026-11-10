@@ -45,3 +45,17 @@ pub fn land_lua(addr: &str, workspace: i64, x: Option<i64>, y: Option<i64>) -> R
          if p then hl.dispatch(hl.dsp.cursor.move({{ x = p.x, y = p.y }})) end end"
     ))
 }
+
+/// The `mutate` command that moves window `addr` onto regular workspace `workspace`: following it (`follow`, a send
+/// key), or leaving the focus, the cursor and the selected desktop where they are (the overview's window drag).
+pub fn move_command(addr: &str, workspace: i64, follow: bool) -> Result<String> {
+    if !address(addr) {
+        return Err(Refused("invalid window address"));
+    }
+    if !(0 < workspace && workspace <= 2147483647) {
+        return Err(Refused("invalid workspace"));
+    }
+    Ok(format!(
+        "dispatch hl.dsp.window.move({{ workspace = \"{workspace}\", follow = {follow}, window = \"address:{addr}\" }})"
+    ))
+}
