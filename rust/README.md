@@ -12,7 +12,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | `xr-pose` | library | Pose shared memory: SysV feed, seqlock channels, `PredictionWire` |
 | `xr-luma-driver` | binary + library (`rt`) | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
-| `xr-renderer` | binary | The C++ renderer |
+| `xr-renderer` | binary + library | The C++ renderer; the library so far holds the Wayland shell, EGL, the video player and the logic: layout checks, view animator, glass, HUD, options and binds panel geometry |
 | `xr-workspace` | binaries + library | Controller, supervisor and installer (`xr-workspace`) and the key helper (`xr-control`); the supervisor's Lua generators are in `xr_workspace::lua`, its window placement decisions (`adopt`, `window_memory`, `desktops`, `fit_windows`, `send`, `resize`, `geometry`) beside them |
 
 ## Gates
@@ -406,3 +406,27 @@ Offline gates (Rust build): the reconnect tests in `tests/pro2_runtime_qa/test_r
 The second one runs the real launcher and a native reader through a 0.6 s unplug. Offline tests
 cannot show that the vendor SDK accepts a destroy and a new create in one process. Only a live
 unplug and replug proves that.
+
+## Renderer logic parity
+
+`xr-renderer`'s library is the C++ renderer's logic with no GL: `validate_layout`, the view animator
+and placement maths (`view.cpp`), glass pill and panel geometry (`glass.cpp`), the HUD's layout
+(`hud.cpp` without FreeType or pixels), the options panel geometry and the binds panel's fit. Its
+tests port every non-raster check of the matching ctests (`layout`, `view`, `hud`, `glass`,
+`binds_panel`, `options_geometry`). The raster parts (atlases, card pixels, fonts) come with the GL
+port.
+
+Three dump binaries print what their C++ namesakes in `spike/tests/` print:
+`glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
+`--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
+`placement_contract_test.py` against the Rust dumps. To compare them byte for byte with a C++ build
+of `spike/`:
+
+```sh
+cmake -S spike -B /path/to/build -DCMAKE_BUILD_TYPE=Release
+cmake --build /path/to/build --target glass_geometry_dump placement_geometry_dump options_geometry_dump
+rust/crates/xr-renderer/cpp_parity.sh /path/to/build
+```
+
+The maths stays in `f32` in the C++ order, with `std::min`/`std::max`/`std::remainder` mirrored, so
+the numbers match bit for bit; `--layout` reproduces nlohmann's number format.

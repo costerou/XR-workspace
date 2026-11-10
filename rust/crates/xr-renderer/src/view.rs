@@ -78,12 +78,22 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-/// `std::remainder` on floats (IEEE remainder, the quotient rounded to nearest, ties to even). Worked in `f64`:
-/// both operands and the small multiple of `y` are exact there, so the result is the exact IEEE remainder,
-/// where an `f32` quotient could round onto a tie (an orbit just past +-pi) and pick the other way round.
+/// `std::remainder` on floats (IEEE remainder, the quotient rounded to nearest, ties to even), exact like glibc's.
+/// Worked in `f64` from fmod by 2|y| (exact), so no quotient is ever rounded: an `f32` one could round onto a tie (an
+/// orbit just past +-pi) and pick the other way round, and an `f64` one is not exact either once |x / y| is large.
+/// r is in [0, 2|y|); y / 2, 3|y| / 2, r - |y| and r - 2|y| are all exact in `f64`, and the result is an `f32`.
 fn remainder(x: f32, y: f32) -> f32 {
-    let (x, y) = (f64::from(x), f64::from(y));
-    (x - (x / y).round_ties_even() * y) as f32
+    let (ax, ay) = (f64::from(x).abs(), f64::from(y).abs());
+    let r = ax % (2.0 * ay);
+    let r = if 2.0 * r <= ay {
+        r // a tie at |y| / 2 takes the even quotient
+    } else if 2.0 * r < 3.0 * ay {
+        r - ay
+    } else {
+        r - 2.0 * ay // a tie at 3|y| / 2 takes the even quotient too
+    };
+    // remainder(-x, y) is -remainder(x, y), a zero included; NaN (y 0, x infinite or either NaN) stays NaN.
+    if x.is_sign_negative() { -(r as f32) } else { r as f32 }
 }
 
 const TWO_PI: f32 = 2.0 * PI;
