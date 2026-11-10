@@ -363,6 +363,7 @@ name = "xr-luma-driver"
 version = "0.0.0"
 dependencies = [
  "libc",
+ "xr-pose",
 ]
 
 [[package]]

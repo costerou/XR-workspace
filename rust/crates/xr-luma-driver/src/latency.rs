@@ -12,6 +12,8 @@ pub struct LatencyHistogram {
     count: u64,
     min: u64,
     max: u64,
+    sum: f64,
+    sum_sq: f64,
 }
 
 impl Default for LatencyHistogram {
@@ -21,14 +23,24 @@ impl Default for LatencyHistogram {
             count: 0,
             min: u64::MAX,
             max: 0,
+            sum: 0.0,
+            sum_sq: 0.0,
         }
     }
 }
 
 impl LatencyHistogram {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    /// Hot: no allocation, no branch beyond min and max.
+    #[inline]
     pub fn record(&mut self, ns: u64) {
         self.buckets[index(ns)] += 1;
         self.count += 1;
+        let v = ns as f64;
+        self.sum += v;
+        self.sum_sq += v * v;
         self.min = self.min.min(ns);
         self.max = self.max.max(ns);
     }
@@ -40,6 +52,20 @@ impl LatencyHistogram {
     }
     pub fn max(&self) -> u64 {
         self.max
+    }
+    pub fn mean(&self) -> f64 {
+        if self.count == 0 {
+            0.0
+        } else {
+            self.sum / self.count as f64
+        }
+    }
+    pub fn stddev(&self) -> f64 {
+        if self.count == 0 {
+            return 0.0;
+        }
+        let m = self.mean();
+        (self.sum_sq / self.count as f64 - m * m).max(0.0).sqrt()
     }
     /// `p` is a percentage, 0 to 100. The answer is the top of the bucket holding it, capped at the largest value seen.
     pub fn percentile(&self, p: f64) -> u64 {

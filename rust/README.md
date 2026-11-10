@@ -10,7 +10,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | --- | --- | --- |
 | `xr-wire` | library | Control and status envelopes, the ownership plugin's `xrspike` requests and replies (`plugin`) and the renderer's status datagrams (`status`), strict JSON (`strict_json`, `decode_control`), and the on-disk formats: journal, consent, progress, result, recovery and install pins, read and written byte-for-byte as the Python writers produce them through private atomic writes (0600, no-follow, fsync and rename) |
 | `xr-pose` | library | Pose shared memory: SysV feed, seqlock channels, `PredictionWire` |
-| `xr-luma-driver` | binary | The C++ Luma Ultra driver |
+| `xr-luma-driver` | binary + library (`rt`) | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
 | `xr-renderer` | binary | The C++ renderer |
 | `xr-workspace` | binaries + library | Controller, supervisor and installer (`xr-workspace`) and the key helper (`xr-control`); the supervisor's Lua generators are in `xr_workspace::lua` |
@@ -112,6 +112,46 @@ capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \
 
 Its output carries the renderer's `timing_report`, so the C++ and Rust reports can be compared
 field by field.
+
+## Driver real-time layer
+
+`xr-luma-driver`'s `rt` module ports the C++ `luma::rt` pipeline (`spike/driver/include/luma/rt.hpp`):
+a reader thread hands each sample through a lock-free SPSC ring to a fusion thread (ring mode), or
+runs the sink itself (inline mode). Thread policy (SCHED_FIFO with the RLIMIT_RTTIME guard, else
+nice, else a short EEVDF slice), memory locking and the latency histogram come across unchanged.
+
+`luma_rt_bench` is the port of the C++ `luma_rt_bench`, with the same options, report and `json`
+line, so the two can be run side by side. `tests/rt_alloc.rs` and the bench count every `malloc` in
+the process, so "0 allocations" covers libc as well as Rust.
+
+```sh
+cargo build --release -p xr-luma-driver
+target/release/luma_rt_bench --mode ring --seconds 10      # or --mode inline, --check, --quick
+```
+
+Like the C++ bench's default build, it uses the stand-in Mahony filter rather than `fusion::Fusion`, and
+publishes through `xr_pose::PoseWriter` to its own `/luma-rt-bench-<pid>` object. `--publish mutex`
+and `--spin-reader` are not ported.
+
+Gate result (2026-11-10, shared 16-CPU machine at load 14–48, no real-time limits so both run
+SCHED_OTHER with a short slice): two sets of 20 runs of 10 s each, Rust and C++ started together so
+both see the same load. Medians:
+
+| Mode | Rust p50 / p99 (us) | C++ p50 / p99 (us) | Lost (Rust / C++) | Allocations |
+| --- | --- | --- | --- | --- |
+| ring, set 1 | 8.7 / 1171 | 9.0 / 1761 | 0 / 14 | 0 / 0 |
+| ring, set 2 | 8.55 / 844 | 8.4 / 844 | 0 / 0 | 0 / 0 |
+| inline, set 1 | 5.1 / 232 | 5.05 / 329 | 0 / 45 | 0 / 0 |
+| inline, set 2 | 4.95 / 262 | 4.6 / 311 | 0 / 0 | 0 / 0 |
+
+Every loss on either side was a kernel queue overflow, where the reader was descheduled for more
+than 64 ms. There were no ring overruns. On a loaded machine, judge loss with both benches running
+at the same time.
+
+The p50 values are bucket tops, and at 5 us a bucket is about 0.15 us wide, so a 0.05–0.35 us
+difference is within one or two buckets. Part of the inline gap is the fake sensor, not the
+pipeline. LLVM compiles the rig's table CRC about 17 ns slower than GCC, and it runs twice per
+sample: once in the sender, once in the parse.
 
 ## Corpus
 
