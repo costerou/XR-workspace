@@ -8,7 +8,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// `strerror`'s text, as the C++ driver prints it: Rust's own adds " (os error N)".
-fn reason(error: &io::Error) -> String {
+pub fn reason(error: &io::Error) -> String {
     let text = error.to_string();
     match text.rfind(" (os error ") {
         Some(cut) => text[..cut].to_owned(),

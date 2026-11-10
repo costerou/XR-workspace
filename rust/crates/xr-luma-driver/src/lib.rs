@@ -13,3 +13,4 @@ pub mod rt;
 pub mod transport;
 pub mod types;
 pub mod usbdevfs;
+pub mod wiring;
