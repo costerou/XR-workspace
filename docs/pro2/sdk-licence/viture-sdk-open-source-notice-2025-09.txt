@@ -1,0 +1,72 @@
+Source: https://www.viture.com/en-SG/viture-sdk-license-agreement-sider
+Fetched: 2026-11-10 (HTTP 200). SHA-256 of the fetched HTML: 0e29f56cfe6bb21faa5bf466d10d20ca1bf39d36b17c35db9823d2602f40ec73
+The open-source notice VITURE publishes next to the SDK licence agreement. Unedited except for
+line breaks.
+----------------------------------------------------------------------------------------------
+
+Open Source Software Notice
+XR SDK for Unity
+GLM (OpenGL Mathematics) v0.9.9.7
+License: MIT License (The Happy Bunny License)
+Copyright: Copyright (c) 2005-2020 G-Truc Creation
+FlatBuffers v25.9.23
+License: Apache License 2.0
+Copyright: Copyright 2014 Google Inc.
+yaml-cpp
+License: MIT License
+Copyright: Copyright (c) 2008-2015 Jesse Beder
+OpenCV (v4.x)
+License: Apache License 2.0
+Copyright:
+- Copyright (C) 2000-2024, Intel Corporation, all rights reserved.
+- Copyright (C) 2009-2011, Willow Garage Inc., all rights reserved.
+- Copyright (C) 2009-2016, NVIDIA Corporation, all rights reserved.
+- Copyright (C) 2010-2013, Advanced Micro Devices, Inc., all rights
+reserved.
+- Copyright (C) 2015-2024, OpenCV Foundation, all rights reserved.
+- Copyright (C) 2015-2016, Itseez Inc., all rights reserved.
+Unity Native Plugin API
+License: Unity Companion License
+Copyright: Copyright © 2015 Unity Technologies ApS
+XR Glasses SDK
+Flatbuffers
+License: Apache License 2.0
+Copyright: Copyright 2014 Google Inc.
+OpenCV (v4.2.0)
+License: BSD 3-Clause License
+Copyright:
+- Copyright (C) 2000-2019, Intel Corporation, all rights reserved.
+- Copyright (C) 2009-2011, Willow Garage Inc., all rights reserved.
+- Copyright (C) 2009-2016, NVIDIA Corporation, all rights reserved.
+- Copyright (C) 2010-2013, Advanced Micro Devices, Inc., all rights
+reserved.
+- Copyright (C) 2015-2016, OpenCV Foundation, all rights reserved.
+- Copyright (C) 2015-2016, Itseez Inc., all rights reserved.
+HIDAPI
+License: BSD 3-Clause License
+Copyright: Copyright (c) 2010 Signal 11 Software
+yaml-cpp
+License: MIT License
+Copyright: Copyright (c) 2008-2015 Jesse Beder
+Eigen
+License: Mozilla Public License (MPL) 2.0
+Copyright: Copyright (c) The Eigen Authors
+libusb (via libusb-cmake)
+License: GNU Lesser General Public License (LGPL) 2.1
+Copyright: Copyright © 2001 Johannes Erdfelt; Copyright © 2020-2023
+libusb-cmake community
+tiny-AES-c
+License: Public Domain / Unlicense
+Author: kokke
+libuvc
+License: BSD 3-Clause License
+Copyright: Copyright (C) 2010-2015 Ken Tossell
+cpp-httplib
+License: MIT License
+Copyright: Copyright (c) 2017 yhirose
+Mbed TLS
+License: Dual Apache License 2.0 OR GNU General Public License v2.0 or later
+Copyright: Copyright The Mbed TLS Contributors
+raylib
+License: zlib/libpng License
+Copyright: Copyright (c) 2013-2024 Ramon Santamaria (@raysan5)

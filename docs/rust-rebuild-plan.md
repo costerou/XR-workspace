@@ -332,8 +332,9 @@ them can be overturned.
    still the end state.
 2. No feature freeze. During phase 6 the Python supervisor gets bug fixes only; new features go
    into the Rust one.
-3. The SDK is loaded from the user's installed package and never redistributed, until the
-   licence text is found.
+3. The SDK is loaded from the user's installed package and never redistributed. The licence
+   was found on 2026-11-10 and allows exactly that; its rules for the rebuild are in
+   [pro2/sdk-licence/README.md](pro2/sdk-licence/README.md).
 4. Real-time scheduling is built with a normal-priority fallback. Installing the limits file
    stays a human step. Decided (2026-11-10): install it, as `rtprio 20`, `nice -10` and
    `memlock 131072` for `cody`, with the commands in [performance.md](performance.md#setting-up-real-time-once).
@@ -355,8 +356,11 @@ Tasks are tracked on the Notion board "XR Workspace — Rust rebuild".
    in the C++ renderer before it is ported?
 2. Is a feature freeze on the Python supervisor acceptable while it is ported (two to three
    months)?
-3. Do you have the VITURE SDK licence text? It was not found in the repo or the package. May we
-   keep loading `libglasses.so` from our own Rust host, and may it be redistributed?
+3. Answered from VITURE's published SDK licence (see
+   [pro2/sdk-licence/README.md](pro2/sdk-licence/README.md)): loading `libglasses.so` from our
+   own Rust host is allowed; redistribution needs a VITURE-specific EULA, so we do not. Still
+   open: whether to remove the disassembly notes already published, and whether to ask VITURE
+   about header declarations and benchmarks.
 4. May the driver install `/etc/security/limits.d/90-xr-luma-driver.conf` (root, needs a reboot)
    so real-time scheduling can be measured and used?
 5. Do the cameras stay off for good? Without a camera or magnetometer reference, 0.1°/min is the
