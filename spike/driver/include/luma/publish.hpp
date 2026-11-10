@@ -37,6 +37,11 @@
 //   - A reader that died holding the lock is recovered. The driver ignores lock errors.
 //   - open refuses when another writer is running: see PublisherOptions::proc_root.
 //
+// With PublisherOptions::seqlock_name set, every usable calibrated pose also goes, first and without any lock, to the seqlock
+// channel (rt.hpp PoseRecord at /dev/shm/<name>): the same quaternion as q0, mount pitch applied, its CLOCK_MONOTONIC time
+// exact as t_raw_ns + raw_to_mono_ns. A held mutex never skips it. A pause or close writes one record without kPoseCalibrated.
+// spike/src/pose.cpp reads it in preference to the mutex feed (docs/rust-rebuild-plan.md, D2).
+//
 // Publisher is for one thread. publish() does not allocate.
 #include "luma/predict.hpp"
 #include "luma/types.hpp"
@@ -71,6 +76,9 @@ struct PublisherOptions {
     // is running" when a live process has that name under this /proc. Checked at open only.
     std::string proc_root = "/proc";
     bool vsync = false;  // also make pose_vsync, for publish_vsync (the daemon's --read-events)
+    // The seqlock channel's POSIX shm name, rt::kPoseShmName in production (--pose-seqlock); empty: not published. Tests pass a
+    // private one. open fails if it cannot be created.
+    std::string seqlock_name;
 };
 
 // src/devices/viture.c viture_apply_imu_rate.
@@ -81,6 +89,7 @@ struct PublisherStats {
     std::uint64_t invalid = 0;  // quaternions dropped
     std::uint64_t busy = 0;     // writes skipped on a held lock, their samples kept
     std::uint64_t motion = 0;   // valid states written to pose_prediction
+    std::uint64_t seqlock_written = 0;  // records on the seqlock channel, the uncalibrated ones of a pause included
 };
 
 class Publisher {

@@ -452,6 +452,8 @@ const char* const kUsage =
     "  --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose\n"
     "  --pose-log-every N       default 10\n"
     "  --latency-log FILE       host and device time of every IMU packet, live or replay; read it with luma_latency_report\n"
+    "  --pose-seqlock           also write the lock-free pose channel /dev/shm/xr-luma-pose, which the renderer prefers;\n"
+    "                           live feed only (the mutex feed is written as before)\n"
     "  --feature-NAME, --no-feature-NAME  optional features that send nothing; see spike/driver/docs/features.md\n"
     "  --help\n";
 
@@ -487,6 +489,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--read-events") o.read_events = o.config.vsync = true;
         else if (arg == "--drain-camera") o.drain_camera = true;
         else if (arg == "--no-rt") o.no_rt = true;
+        else if (arg == "--pose-seqlock") o.pose_seqlock = true;
         else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }
         else if (arg == "--pose-log") { const char* v = value(); if (!v) return std::nullopt; o.pose_log = v; }
         else if (arg == "--latency-log") { const char* v = value(); if (!v) return std::nullopt; o.latency_log = v; }
@@ -519,6 +522,8 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
     if (o.replay && o.ipc_prefix == kLiveIpcPrefix) { why = "--replay must not write the live feed"; return std::nullopt; }
     if (o.replay_realtime && !o.replay) { why = "--replay-realtime needs --replay"; return std::nullopt; }
     if (o.pose_log && !o.replay) { why = "--pose-log needs --replay"; return std::nullopt; }
+    // One channel name, and its readers take it for the glasses: a replay or a private prefix must not write it.
+    if (o.pose_seqlock && o.ipc_prefix != kLiveIpcPrefix) { why = "--pose-seqlock is for the live feed only"; return std::nullopt; }
     o.config.settle_max = std::max(o.config.settle_max, o.config.settle_first);
     if (o.config.silent_reopen_after <= o.config.stale_after) { why = "--reopen-ms must be longer than --stale-ms"; return std::nullopt; }
     return o;

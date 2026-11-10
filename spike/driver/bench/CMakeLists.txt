@@ -3,11 +3,7 @@
 find_package(Threads REQUIRED)
 set(LUMA_RT_WARNINGS -Wall -Wextra -Wpedantic -Werror)
 
-add_library(xr_luma_rt STATIC ../src/rt.cpp)
-target_include_directories(xr_luma_rt PUBLIC ../include)
-target_compile_features(xr_luma_rt PUBLIC cxx_std_20)
-target_compile_options(xr_luma_rt PRIVATE ${LUMA_RT_WARNINGS})
-target_link_libraries(xr_luma_rt PUBLIC Threads::Threads)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../rt.cmake)
 
 add_executable(luma_rt_test rt_test.cpp)
 target_link_libraries(luma_rt_test PRIVATE xr_luma_rt)

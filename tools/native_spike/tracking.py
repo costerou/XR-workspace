@@ -55,9 +55,11 @@ LUMA_LOG = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state'
 LUMA_LOG_MAX = 1 << 20  # bytes; a start moves a bigger log aside, keeping one
 # Flags for the Luma driver, for what the live plan's stage G finds the glasses need. Not a general command line: only these
 # pass, and each sends nothing beyond frames Transport already allows. A file with anything else fails the start, and the
-# failure says why, rather than the driver running with half its flags.
+# failure says why, rather than the driver running with half its flags. --pose-seqlock sends nothing at all: it also writes
+# the lock-free pose channel, /dev/shm/xr-luma-pose, which the renderer then reads instead of the mutex feed.
 LUMA_FLAGS = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/luma-driver-flags'
-LUMA_FLAG_CHOICES = {'--start': ('stream', 'prepared', 'full'), '--read-events': None, '--drain-camera': None}
+LUMA_FLAG_CHOICES = {'--start': ('stream', 'prepared', 'full'), '--read-events': None, '--drain-camera': None,
+                     '--pose-seqlock': None}
 LUMA_READY = 'luma: calibrated'
 LUMA_LOST = ('luma: disconnected', 'luma: calibrating')
 # Luma has no licence wait: it either calibrates in seconds or is not going to.

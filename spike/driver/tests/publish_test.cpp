@@ -2,6 +2,7 @@
 // under a private prefix, in segments this test created (private_segments, or FakeFeed), so the live IPC is never touched.
 #include "fake_feed.hpp"
 #include "luma/publish.hpp"
+#include "luma/rt.hpp"
 #include "xr/pose.hpp"
 #include "xr/predict.hpp"
 #include <algorithm>
@@ -17,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <sys/ipc.h>
+#include <sys/mman.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <thread>
@@ -661,6 +663,243 @@ void private_feeds_skip_the_writer_checks() {  // a test feed is not the live wr
     CHECK(!fs::exists(prefix_of(other) + "writer.lock"));
 }
 
+// ---- the seqlock pose channel (D2): what the renderer reads first, and how it falls back ------------------------------------
+std::uint64_t mono_ns() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return std::uint64_t(ts.tv_sec) * 1'000'000'000ull + std::uint64_t(ts.tv_nsec);
+}
+struct ChannelName {  // a channel of this test's own, never /xr-luma-pose
+    std::string name;
+    ChannelName() {
+        static int n = 0;
+        name = "/luma-publish-test-" + std::to_string(getpid()) + "-" + std::to_string(n++);
+    }
+    ~ChannelName() { shm_unlink(name.c_str()); }
+};
+PublisherOptions with_channel(PublisherOptions o, const ChannelName& channel) { o.seqlock_name = channel.name; return o; }
+// Poses 1 ms apart whose newest is about now, as the live driver's are.
+std::uint64_t recent_t0(int count) { return mono_ns() - std::uint64_t(count) * kMs; }
+
+void seqlock_carries_the_mutex_feeds_pose_and_time() {
+    Scratch scratch;
+    ChannelName channel;
+    PublisherOptions options;  // the driver's own: mount pitch on, fractional ms, instant start
+    auto publisher = open_private(scratch, with_channel(options, channel));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    const std::uint64_t t0 = recent_t0(40);
+    for (int i = 0; i < 40; ++i) CHECK(publisher->publish(pose(i, t0)));
+    CHECK(publisher->stats().seqlock_written == 40 + 1);  // and the uncalibrated record open() wrote first
+    const auto sample = feed->read();
+    CHECK(sample);
+    const auto v = raw_pose(prefix_of(scratch));
+    // The same mounted orientation as the mutex feed's q0, and the sample's exact CLOCK_MONOTONIC time.
+    CHECK(std::fabs(sample->orientation.x - v[0]) < 1e-6f && std::fabs(sample->orientation.y - v[1]) < 1e-6f &&
+          std::fabs(sample->orientation.z - v[2]) < 1e-6f && std::fabs(sample->orientation.w - v[3]) < 1e-6f);
+    CHECK(sample->sample_ns == t0 + 39 * kMs);
+    const auto r = feed->stats();
+    CHECK(r.seqlock_attached && r.seqlock_source && r.seqlock_reads == 1 && r.mutex_reads == 0 && r.waits == 0);
+    CHECK(r.age_count == 1 && r.last_age_ns < 1000 * kMs);
+}
+
+void busy_mutex_never_delays_the_seqlock() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, with_channel(step(1), channel));
+    const std::string prefix = prefix_of(scratch);
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix, why, channel.name);
+    CHECK(feed);
+    const std::uint64_t t0 = recent_t0(203);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i, t0));
+    Attached lock(prefix);
+    std::atomic<bool> held{false}, release{false};
+    std::thread holder([&] {
+        pthread_mutex_lock(lock.mutex);
+        held = true;
+        while (!release) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        pthread_mutex_unlock(lock.mutex);
+    });
+    while (!held) std::this_thread::yield();
+    const std::uint64_t written = publisher->stats().seqlock_written;
+    constexpr int kBusy = 200;
+    for (int i = 3; i < 3 + kBusy; ++i) publisher->publish(pose(i, t0));
+    std::uint64_t slowest = 0;
+    std::optional<xr::FeedSample> sample;
+    for (int i = 0; i < 100; ++i) {  // the renderer's reads while the mutex feed is held: none waits
+        const std::uint64_t start = mono_ns();
+        sample = feed->read();
+        slowest = std::max(slowest, mono_ns() - start);
+        CHECK(sample);
+    }
+    release = true;
+    holder.join();
+    CHECK(publisher->stats().busy == kBusy);                      // every mutex-feed write was skipped...
+    CHECK(publisher->stats().seqlock_written == written + kBusy);  // ...and every seqlock write made
+    CHECK(sample->sample_ns == t0 + std::uint64_t(2 + kBusy) * kMs && same(sample->orientation, distinct(2 + kBusy)));
+    const auto r = feed->stats();
+    CHECK(r.waits == 0 && r.mutex_reads == 0 && r.seqlock_reads == 100);
+    CHECK(slowest < kMs);  // the mutex path would wait 2 ms here
+}
+
+void a_pause_or_a_stopped_writer_falls_back_to_the_mutex_feed() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, with_channel(step(1), channel));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    std::uint64_t t0 = recent_t0(3);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i, t0));
+    CHECK(feed->read() && feed->stats().seqlock_source);
+    publisher->pause();  // uncalibrated on the channel, disabled on the mutex feed: no sample from either
+    CHECK(!feed->read());
+    CHECK(!feed->stats().seqlock_source);
+    t0 = recent_t0(13);  // pose(10 + i, t0) is t0 + 10 + i ms
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(10 + i, t0));
+    auto sample = feed->read();
+    CHECK(sample && feed->stats().seqlock_source && same(sample->orientation, distinct(12)));
+    // A writer that stopped: its last record is calibrated but old. The mutex feed decides, here with a newer pose.
+    const std::uint64_t old = mono_ns() - 2 * std::uint64_t(xr::PoseFeed::kSeqlockFreshMs * 1e6);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(20 + i, old));
+    const std::uint64_t mutex_reads = feed->stats().mutex_reads;
+    sample = feed->read();
+    CHECK(sample && !feed->stats().seqlock_source && feed->stats().mutex_reads == mutex_reads + 1);
+    CHECK(sample->sample_ns == 0 && same(sample->orientation, distinct(22)));  // the mutex feed's own clock, no CLOCK_MONOTONIC
+    CHECK(feed->stats().switches == 1);
+}
+
+void an_absent_channel_reads_the_mutex_feed_and_is_found_later() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, step(1));  // a driver without --pose-seqlock
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i));
+    auto sample = feed->read();
+    CHECK(sample && same(sample->orientation, distinct(2)));
+    auto r = feed->stats();
+    CHECK(!r.seqlock_attached && !r.seqlock_source && r.mutex_reads == 1 && r.seqlock_reads == 0);
+    // A driver that starts writing the channel later is picked up within a second, with no reopen.
+    std::string ignored;
+    auto writer = rt::SeqlockWriter<rt::PoseRecord>::create(channel.name, ignored);
+    CHECK(writer);
+    const Quatf q = distinct(7);
+    const std::int64_t offset = rt::raw_to_monotonic_offset_ns();
+    const auto write_now = [&] { writer->publish({q.w, q.x, q.y, q.z, mono_ns() - std::uint64_t(offset), offset, 7, rt::kPoseCalibrated}); };
+    write_now();
+    const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!feed->stats().seqlock_source && std::chrono::steady_clock::now() < give_up) {
+        write_now();
+        sample = feed->read();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    r = feed->stats();
+    CHECK(r.seqlock_attached && r.seqlock_source && same(sample->orientation, q) && r.waits == 0);
+}
+
+void a_channel_replaced_under_the_reader_is_mapped_again() {
+    // A writer that left the name for a new object (another layout, or a writer that died mid-record and was replaced): the
+    // reader's mapping holds the old object, whose record only ages. It lets go and maps the name again, with no reopen.
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, step(1));
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i));  // the mutex feed enabled, so the seqlock is asked first
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    const std::int64_t offset = rt::raw_to_monotonic_offset_ns();
+    const auto record = [&](const Quatf& q, std::uint32_t seq) {
+        return rt::PoseRecord{q.w, q.x, q.y, q.z, mono_ns() - std::uint64_t(offset), offset, seq, rt::kPoseCalibrated};
+    };
+    auto old_writer = rt::SeqlockWriter<rt::PoseRecord>::create(channel.name, why);
+    CHECK(old_writer);
+    old_writer->publish(record(distinct(5), 5));
+    auto sample = feed->read();
+    CHECK(sample && feed->stats().seqlock_source && same(sample->orientation, distinct(5)));
+    shm_unlink(channel.name.c_str());
+    auto new_writer = rt::SeqlockWriter<rt::PoseRecord>::create(channel.name, why);
+    CHECK(new_writer);
+    const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    bool back = false;
+    while (!back && std::chrono::steady_clock::now() < give_up) {
+        new_writer->publish(record(distinct(9), 9));
+        sample = feed->read();
+        back = sample && feed->stats().seqlock_source && same(sample->orientation, distinct(9));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    CHECK(back);
+    CHECK(feed->stats().waits == 0);
+}
+
+void a_channel_never_written_is_no_sample_from_it() {
+    Scratch scratch;
+    ChannelName channel;
+    std::string ignored;
+    auto writer = rt::SeqlockWriter<rt::PoseRecord>::create(channel.name, ignored);  // created, nothing published
+    CHECK(writer);
+    auto publisher = open_private(scratch, step(1));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i));
+    CHECK(feed->read() && feed->stats().seqlock_attached && !feed->stats().seqlock_source && feed->stats().retries == 0);
+}
+
+// The reader keeps its own history of the channel: prediction gets a sample at least 16 ms older and its exact spacing.
+void seqlock_history_gives_prediction_the_right_speed() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, with_channel(step(1), channel));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    constexpr float kRadPerMs = 0.002f;  // about 115 degrees a second, about z
+    const std::uint64_t t0 = recent_t0(80);
+    std::optional<xr::FeedSample> sample;
+    std::optional<std::array<float, 3>> omega;
+    for (int i = 0; i < 80; ++i) {
+        const float a = kRadPerMs * float(i) / 2;
+        publisher->publish({Quatf{std::cos(a), 0, 0, std::sin(a)}, t0 + std::uint64_t(i) * kMs, std::uint32_t(i), true});
+        if (i % 4 != 3) continue;  // a frame every 4 samples, as at 250 Hz
+        sample = feed->read();
+        CHECK(sample);
+        omega = xr::angular_velocity(xr::history_of(*sample));
+        if (i < 16) CHECK(!omega);  // nothing 16 ms old yet: unpredicted, not predicted from 4 ms
+    }
+    CHECK(omega);
+    CHECK(std::fabs((*omega)[2] - kRadPerMs) < kRadPerMs * 0.02f && std::fabs((*omega)[0]) < 1e-5f && std::fabs((*omega)[1]) < 1e-5f);
+    CHECK(sample->device_ms - sample->older_ms[0] >= 16.f && sample->device_ms - sample->older_ms[0] <= 20.f);
+    CHECK(sample->older_ms[1] == sample->older_ms[0]);  // so the spacing is taken as it is, not averaged
+}
+
+void seqlock_reader_never_tears_under_a_full_rate_writer() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, with_channel(step(1), channel));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    CHECK(feed);
+    std::atomic<bool> done{false};
+    const std::uint64_t t0 = mono_ns();
+    std::thread writer([&] {
+        for (int i = 0; i < 200000; ++i) publisher->publish(pose(i % 1000, t0, 1000));  // 1 us apart, so t says which
+        done = true;
+    });
+    int reads = 0, torn = 0;
+    while (!done) {
+        const auto sample = feed->read();
+        if (!sample || !sample->sample_ns) continue;
+        ++reads;
+        if (!same(sample->orientation, distinct(int((sample->sample_ns - t0) / 1000)))) ++torn;
+    }
+    writer.join();
+    CHECK(reads > 0 && torn == 0);
+    CHECK(feed->stats().waits == 0);
+}
+
 void publish_does_not_allocate() {
     Scratch scratch;
     auto publisher = open_private(scratch);
@@ -672,6 +911,22 @@ void publish_does_not_allocate() {
     auto lost = pose(10100); lost.calibrated = false;
     publisher->publish(lost);
     CHECK(g_allocations == before);
+}
+
+void seqlock_publish_does_not_allocate() {
+    Scratch scratch;
+    ChannelName channel;
+    auto publisher = open_private(scratch, with_channel(PublisherOptions{}, channel));
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why, channel.name);
+    const std::uint64_t t0 = recent_t0(200);
+    for (int i = 0; i < 100; ++i) publisher->publish(pose(i, t0));
+    feed->read();
+    const std::uint64_t before = g_allocations;
+    for (int i = 100; i < 200; ++i) { CHECK(publisher->publish(pose(i, t0))); CHECK(feed->read()); }
+    publisher->pause();
+    feed->read();
+    CHECK(g_allocations == before);  // the writer, and the renderer's read too
 }
 }
 
@@ -773,6 +1028,10 @@ int main() {
         T(history_step_is_the_drivers), T(second_publisher_is_refused_until_the_first_is_gone),
         T(running_xrdriver_is_refused_and_a_dead_one_is_not), T(private_feeds_skip_the_writer_checks), T(publish_does_not_allocate),
         T(vsync_segment_round_trips), T(vsync_segment_is_only_made_when_asked), T(vsync_meter_scores_presents),
+        T(seqlock_carries_the_mutex_feeds_pose_and_time), T(busy_mutex_never_delays_the_seqlock),
+        T(a_pause_or_a_stopped_writer_falls_back_to_the_mutex_feed), T(an_absent_channel_reads_the_mutex_feed_and_is_found_later),
+        T(a_channel_replaced_under_the_reader_is_mapped_again), T(a_channel_never_written_is_no_sample_from_it), T(seqlock_history_gives_prediction_the_right_speed),
+        T(seqlock_reader_never_tears_under_a_full_rate_writer), T(seqlock_publish_does_not_allocate),
 #undef T
     };
     int failed = 0;

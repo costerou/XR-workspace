@@ -157,6 +157,36 @@ runs normally. Then stop XR and remove the file, or restore the flags from stage
 rm "$HOME/.config/viture-workspace/luma-driver-flags"
 ```
 
+### The seqlock pose channel (D2), when Cody wants to try it
+
+Off by default. With it, the driver also publishes each pose on `/dev/shm/xr-luma-pose`, and the renderer reads that instead of
+the mutex feed, which is still written for anything else. Add the flag to whatever the flags file already holds:
+
+```sh
+printf -- '--pose-seqlock\n' >> "$HOME/.config/viture-workspace/luma-driver-flags"
+```
+
+The driver reads its flags when it starts and outlives a run, so stop it between runs first:
+`python3 -m tools.native_spike tracking stop`. Then Cody starts XR on New driver and works normally for a few minutes.
+
+**S1. While it runs.** Open the in-session options, Session. Pass: *Pose age ms* shows a number, refreshed each second, at or
+under 1.5. It reads *Not measured* only while the renderer is on the mutex feed.
+
+**S2. After Stop XR.** Read the renderer's exit report from the run's journal:
+
+```sh
+python3 -m tools.latency_baseline                 # the newest Luma run; the raw lines are in its journal
+journalctl --user --since -1h | grep -o '"pose_reader":{[^}]*}'
+journalctl --user --since -1h | grep -o '"pose_age_absolute":{[^}]*}'
+```
+
+Pass: `pose_reader` says `"source":"seqlock"`, `"waits":0`, `"mutex_reads"` a handful at most (the reads before the driver
+calibrated), and `pose_age_absolute` has `"p99_ms"` at or under 1.5. The picture must have tracked exactly as before.
+
+**S3. The fallback.** Remove the flag (edit the file, or `rm` it if it held nothing else), stop the driver as above, and run once
+more. Pass: tracking as usual, *Pose age ms* reads *Not measured*, and `pose_reader` with `"source":"mutex"` and `"seqlock_reads":0`.
+The renderer finds a stale channel left from S1 and ignores it, as its records are over 100 ms old.
+
 ### The 3DoF test
 
 Unchanged from `docs/tracking-3dof-ab.md`: pick 3DoF test in the same box. It never falls back, on purpose: a failure stops the

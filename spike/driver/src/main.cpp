@@ -101,7 +101,8 @@ int main(int argc, char** argv) {
     }
     // Only the real feed is shared and left in place. Anything else, a replay or a bench run, makes its own segments and removes
     // them: ftok keys hold 16 bits of the inode, so attaching to whatever exists could land on the live feed.
-    std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why, options->ipc_prefix != kLiveIpcPrefix, options->read_events);
+    std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why, options->ipc_prefix != kLiveIpcPrefix, options->read_events,
+                                                   options->pose_seqlock ? rt::kPoseShmName : "");
     if (!sink) return fail(4, "feed " + why);
     if (options->pose_log) {
         sink = wiring::logging_sink(std::move(sink), *options->pose_log, options->pose_log_every, why);

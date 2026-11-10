@@ -326,10 +326,12 @@ std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys
 
 std::unique_ptr<Link> live_link(const Options& options, Logger log) { return link_with(live_config(options), nullptr, std::move(log)); }
 
-std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments, bool vsync) {
+std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments, bool vsync,
+                                const std::string& seqlock_name) {
     PublisherOptions options;
     options.vsync = vsync;
     options.prefix = ipc_prefix;
+    options.seqlock_name = seqlock_name;
     options.history_step = history_step_for(1000);
     options.private_segments = private_segments;
     auto publisher = Publisher::open(options, why);

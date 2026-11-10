@@ -279,6 +279,7 @@ struct Options {
     std::optional<std::string> pose_log;  // --replay only: write every Nth pose here, for tools
     unsigned pose_log_every = 10;
     std::optional<std::string> latency_log;  // host and device time of every IMU packet, for luma_latency_report
+    bool pose_seqlock = false;   // also write rt.hpp's lock-free pose channel, /dev/shm/xr-luma-pose (live feed only)
     std::vector<std::string> feature_flags;  // --feature-* and --no-feature-*, passed on as they are
     DaemonConfig config{};
 };

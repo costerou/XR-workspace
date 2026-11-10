@@ -48,7 +48,9 @@ std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys
 std::unique_ptr<Link> live_link(const Options& options, Logger log);
 // private_segments: create and remove our own segments and never attach to any that exist. A replay must set it: ftok keys
 // hold only 16 bits of the inode, so even a private prefix can land on the live feed's key. vsync: also the pose_vsync segment.
-std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments = false, bool vsync = false);
+// seqlock_name: also write the lock-free pose channel there (rt.hpp kPoseShmName for --pose-seqlock); empty for none.
+std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments = false, bool vsync = false,
+                                const std::string& seqlock_name = {});
 // A sink that also logs poses, for --pose-log.
 std::unique_ptr<Sink> logging_sink(std::unique_ptr<Sink> inner, const std::string& path, unsigned every, std::string& why);
 // A link that also logs every IMU packet's host and device time, for --latency-log (include/luma/latency_log.hpp). It writes in

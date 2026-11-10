@@ -58,9 +58,10 @@ goal, and anything marked **(not measured)** has no baseline yet.
    `immersive`, `restore_band`, `video`.
 4. **Renderer → supervisor.** Heartbeat byte `H` (2 s gap ends the run). Status datagrams:
    `control_applied`, `control_refused`, `owner_readback`, geometry replies, and the 1 Hz status dict
-   (`presented_hz`, `missed`, `capture_path`, `tracking`, `video`, `capture_failure_run`; the supervisor also
-   accepts `pose_age_ms`, which the renderer does not send). Whole-run `read_to_present` and `pose_age_relative`
-   p50/p95/mean/max are in the `managed_output_capture` exit report on stderr, kept in the run's journal.
+   (`presented_hz`, `missed`, `capture_path`, `tracking`, `video`, `capture_failure_run`, and `pose_age_ms`
+   while the renderer reads the seqlock channel, D2). Whole-run `read_to_present` and `pose_age_relative`
+   p50/p95/mean/max, and with D2 `pose_age_absolute` p50/p95/p99/max and `pose_reader`, are in the
+   `managed_output_capture` exit report on stderr, kept in the run's journal.
 5. **Supervisor ↔ plugin.** hyprctl command `xrspike `, seven keys including `epoch`, at most
    8,192 bytes in and 1 MiB out. Ops: `hello`, `pair_hello`, `pair_observe`, `cursor_shape`,
    `create`, `reshape`, `inspect`, `remove`.
@@ -103,7 +104,8 @@ goal, and anything marked **(not measured)** has no baseline yet.
 - Never measured: real-glasses USB latency, real-time scheduling, the 3-hour soak gate, physical
   motion-to-photon, per-phase start-up times, renderer GPU time in a live run.
 - The renderer consumes the mutex feed and derives velocity from two quaternion samples 2–50 ms
-  apart. The driver's own predictor and the seqlock channels have no consumer.
+  apart. The driver's own predictor and the seqlock channels have no consumer. (D2, since: the
+  renderer reads the pose seqlock first when the driver publishes it with `--pose-seqlock`.)
 - Head-tracked capture-to-present is 13.15 / 16.47 ms (p50 / p99) against 5.72 / 9.90 ms
   untracked, so drawing on every callback costs about one refresh.
 - Pro 2 pose age is 9.4 ms p50 at 60 Hz, against 3.1 ms through XRLinuxDriver.
@@ -245,7 +247,7 @@ Out of scope unless Cody decides otherwise: camera-based heading or 6DoF.
 | Stalls | — | 0 intervals over 34 ms | `stall_intervals` |
 | Read-to-present | 16.6 ms (Pro 2); Luma: phase 0 run pending | p50 ≤ 9 ms, p95 ≤ 11 ms | `read_to_present` (exit report; `python3 -m tools.latency_baseline`) |
 | Capture-to-present, head-tracked | 13.15 / 16.47 ms | ≤ 7 / 11 ms | `capture_e2e_bench` |
-| Pose age, Luma | — (**not measured** live; phase 0 run pending) | p99 ≤ 1.5 ms | `pose_age_relative` (exit report; `python3 -m tools.latency_baseline`). Relative to the best case in the last 8 s, and p50/p95/max only: an absolute age and a p99 need D2 |
+| Pose age, Luma | — (**not measured** live; phase 0 run pending) | p99 ≤ 1.5 ms | `pose_age_relative` (exit report; `python3 -m tools.latency_baseline`). Relative to the best case in the last 8 s, and p50/p95/max only. With `--pose-seqlock` (D2) the exit report also has `pose_age_absolute` with a p99; offline, `luma_pose_channel_bench` gives p99 0.77–1.08 ms with the writer on time, 0 reader waits (docs/performance.md) |
 | Pose age, Pro 2 | 9.4 ms p50 | ≤ 3 ms p50 | same |
 | Sensor-to-vsync (motion-to-photon proxy) | **not measured** | ≤ 12 ms before prediction, residual ≤ 2 ms after | D5 vsync events; optional 240 fps camera check |
 | Driver added latency | p50 5–10 µs, p99 23–40 µs | no worse; p99.9 ≤ 100 µs with real-time scheduling | `tracking_bench` |

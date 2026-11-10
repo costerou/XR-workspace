@@ -5,6 +5,7 @@
 #include "xr/options_geometry.hpp"
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
+#include <cstdio>
 #include <wayland-client.h>
 #include "presentation-time-client-protocol.h"
 #include "ext-image-capture-source-v1-client-protocol.h"
@@ -492,6 +493,7 @@ struct Presentation::Impl : SurfaceRequests {
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
     std::string pose_prefix;
+    std::string pose_seqlock;  // the driver's lock-free channel, preferred when it is written (production prefix only)
     float supervised_projection = 0;
     std::unique_ptr<PoseFeed> pose_feed;
     std::unique_ptr<MotionFeed> motion_feed;  // the Luma driver's PredictionWire; absent on XRLinuxDriver
@@ -1114,8 +1116,16 @@ std::string Presentation::status_json(double now_ms) const {
         add("\"vsync_error_ms\":" + std::to_string(v.error_p95_ms));
         if (v.sensor_count) add("\"sensor_to_vsync_ms\":" + std::to_string(v.sensor_p50_ms));
     }
-    // PoseAge is relative to an unknown transport floor/device clock offset;
-    // it cannot substantiate an absolute pose_age_ms measurement.
+    // pose_age_ms only when the newest sample came from the seqlock channel, whose time is CLOCK_MONOTONIC: read time minus
+    // sample time, measured. The mutex feed's PoseAge is relative to an unknown clock offset, so it is never sent as this.
+    if (impl_->pose_feed) {
+        const auto r = impl_->pose_feed->stats();
+        if (r.seqlock_source) {
+            char text[32];
+            std::snprintf(text, sizeof text, "%.3f", double(r.last_age_ns) / 1e6);
+            add(std::string("\"pose_age_ms\":") + text);
+        }
+    }
     std::string path;
     for (const auto& ptr : impl_->captures) {
         const auto& c = *ptr;
@@ -1126,6 +1136,20 @@ std::string Presentation::status_json(double now_ms) const {
     }
     if (!path.empty()) add("\"capture_path\":\"" + path + "\"");
     return raw;
+}
+namespace {
+// The exit report's pose_age_absolute (seqlock reads: read time minus the sample's CLOCK_MONOTONIC time) and pose_reader.
+std::string pose_reader_json(const PoseFeed* feed) {
+    const PoseReaderStats r = feed ? feed->stats() : PoseReaderStats{};
+    const auto ms = [](std::uint64_t ns) { return std::to_string(double(ns) / 1e6); };
+    return ",\"pose_age_absolute\":{\"count\":" + std::to_string(r.age_count) + ",\"p50_ms\":" + ms(r.age_p50_ns) +
+           ",\"p95_ms\":" + ms(r.age_p95_ns) + ",\"p99_ms\":" + ms(r.age_p99_ns) + ",\"max_ms\":" + ms(r.age_max_ns) + "}" +
+           ",\"pose_reader\":{\"source\":\"" + (!feed ? "none" : r.seqlock_source ? "seqlock" : "mutex") +
+           "\",\"seqlock_attached\":" + (r.seqlock_attached ? "true" : "false") + ",\"seqlock_reads\":" + std::to_string(r.seqlock_reads) +
+           ",\"mutex_reads\":" + std::to_string(r.mutex_reads) + ",\"waits\":" + std::to_string(r.waits) +
+           ",\"retries\":" + std::to_string(r.retries) + ",\"switches\":" + std::to_string(r.switches) +
+           ",\"read_p99_us\":" + std::to_string(double(r.read_p99_ns) / 1e3) + ",\"read_max_us\":" + std::to_string(double(r.read_max_ns) / 1e3) + "}";
+}
 }
 std::string Presentation::timing_report() const {
     return (impl_ ? impl_->metrics : final_metrics_).report();
@@ -1191,6 +1215,7 @@ std::string Presentation::capture_report() const {
                        std::to_string((*cfg)[3]) + "]";
         out += ",\"latency\":{\"kind\":\"software_read_to_present\",\"clock_monotonic\":" + std::string(s.latency.clock_ok() ? "true" : "false") +
                ",\"read_to_present\":" + stats(s.latency.summary()) + ",\"pose_age_relative\":" + stats(s.pose_age.summary()) +
+               pose_reader_json(s.pose_feed.get()) +
                ",\"prediction\":{\"enabled\":" + (s.prediction ? "true" : "false") + ",\"predicted_frames\":" +
                std::to_string(s.predicted_frames) + ",\"unpredicted_frames\":" + std::to_string(s.unpredicted_frames) +
                ",\"wire_frames\":" + std::to_string(s.wire_frames) +
@@ -1356,6 +1381,8 @@ void Presentation::enable_tracking(std::string prefix, float supervised_projecti
     impl_->pose.level_reference(level_gravity);  // a comparison only: the Pro 2's frame is its mount pitch, in the feed
     impl_->supervised_projection = supervised_projection;
     if(supervised_projection > 0) impl_->half_w = 0;
+    // The channel has one fixed name, so only the production feed's renderer reads it; a test prefix gets its own feed alone.
+    impl_->pose_seqlock = prefix == "/tmp/shader_runtime_" ? kSeqlockPoseName : "";
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
 void Presentation::enable_late_latch(double guard_ms) {
@@ -1711,7 +1738,7 @@ Status Presentation::draw_test_pattern() {
         if (s.tracking_requested) {  // late sample: just before drawing
             const auto now = monotonic_ms();
             if (!s.pose_feed && now >= s.pose_retry_ms) {
-                s.pose_feed = PoseFeed::open(s.pose_prefix, s.pose_why); s.pose_retry_ms = now + 1000;
+                s.pose_feed = PoseFeed::open(s.pose_prefix, s.pose_why, s.pose_seqlock); s.pose_retry_ms = now + 1000;
                 if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
             }
             // Opened apart from the feed: the driver may create it later, and a restarted driver makes a new segment, which

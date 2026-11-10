@@ -990,6 +990,9 @@ void test_options() {
     CHECK(logged && logged->pose_log == "p" && logged->pose_log_every == 5);
     CHECK(parse({"--latency-log", "l"})->latency_log == "l");  // live too: it is what measures the real glasses
     CHECK(!parse({"--latency-log"}));
+    CHECK(!plain->pose_seqlock && parse({"--pose-seqlock"})->pose_seqlock);  // off unless asked for (luma-driver-flags)
+    CHECK(!parse({"--pose-seqlock", "--ipc-prefix", "/run/x_"}));  // one channel name: only the live feed may write it
+    CHECK(!parse({"--replay", "f", "--ipc-prefix", "/run/x_", "--pose-seqlock"}));
 }
 
 // ---- the real binary -----------------------------------------------------------------------------------------------

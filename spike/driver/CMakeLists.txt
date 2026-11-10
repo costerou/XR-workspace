@@ -2,11 +2,12 @@
 # pthreads only, no VITURE SDK. Tests never open a real device.
 find_package(Threads REQUIRED)
 
+include(rt.cmake)
 add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp src/predict.cpp src/vsync.cpp)
 target_compile_features(xr_luma_driver PUBLIC cxx_std_20)
 target_include_directories(xr_luma_driver PUBLIC include)
 target_compile_options(xr_luma_driver PRIVATE -Wall -Wextra -Wpedantic -Werror)
-target_link_libraries(xr_luma_driver PUBLIC Threads::Threads)
+target_link_libraries(xr_luma_driver PUBLIC Threads::Threads xr_luma_rt)
 
 add_executable(luma_transport_test tests/transport_test.cpp)
 target_compile_options(luma_transport_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -22,6 +23,13 @@ add_executable(publish_test tests/publish_test.cpp ../src/pose.cpp ../src/predic
 target_include_directories(publish_test PRIVATE ../include ../tests)
 target_link_libraries(publish_test PRIVATE xr_luma_driver)
 add_test(NAME luma_publish COMMAND publish_test)
+# D2's gate (pose age p99 <= 1.5 ms at 1 kHz, zero reader waits, mutex fallback): the renderer's PoseFeed against the
+# Publisher. The smoke run is 2 s a scenario; run it bare for the 10 s numbers.
+add_executable(luma_pose_channel_bench bench/pose_channel_bench.cpp ../src/pose.cpp ../src/predict.cpp)
+target_include_directories(luma_pose_channel_bench PRIVATE ../include)
+target_link_libraries(luma_pose_channel_bench PRIVATE xr_luma_driver)
+add_test(NAME luma_pose_channel_bench_smoke COMMAND luma_pose_channel_bench --quick)
+set_tests_properties(luma_pose_channel_bench_smoke PROPERTIES TIMEOUT 60)
 
 add_executable(luma_vsync_test tests/vsync_test.cpp)
 target_compile_options(luma_vsync_test PRIVATE -Wall -Wextra -Wpedantic -Werror)

@@ -25,8 +25,24 @@ std::array<float, 3> apply(const Mat3& m, std::array<float, 3> v);
 std::optional<std::array<float, 2>> project(const Mat3& view, float ndc_x, float ndc_y, float hw, float hh);
 
 // orientation/device_ms: newest. older/older_ms: the driver's two previous samples (~16, ~32 ms),
-// unvalidated here; prediction checks them (predict.hpp).
-struct FeedSample { Quat orientation; float device_ms = 0; std::array<Quat, 2> older{}; std::array<float, 2> older_ms{}; };
+// unvalidated here; prediction checks them (predict.hpp). sample_ns: the sample's CLOCK_MONOTONIC time where the feed
+// says it (the seqlock channel), 0 where it does not (the mutex feed's clock is the driver's own).
+struct FeedSample { Quat orientation; float device_ms = 0; std::array<Quat, 2> older{}; std::array<float, 2> older_ms{}; std::uint64_t sample_ns = 0; };
+
+// The Luma driver's seqlock pose channel (spike/driver/include/luma/rt.hpp PoseRecord, published with --pose-seqlock).
+inline constexpr char kSeqlockPoseName[] = "/xr-luma-pose";
+
+// How PoseFeed::read has gone. Times in ns, from the histograms; ages are read time minus sample time, seqlock reads only.
+struct PoseReaderStats {
+    bool seqlock_attached = false;
+    bool seqlock_source = false;  // the newest sample came from the channel (so last_age_ns is its age)
+    std::uint64_t seqlock_reads = 0, mutex_reads = 0;  // reads that returned a sample, by source
+    std::uint64_t retries = 0;  // seqlock reads that met the writer mid-write and copied again (a spin, never a sleep)
+    std::uint64_t waits = 0;    // mutex reads that found the lock held and blocked on it
+    std::uint64_t switches = 0; // the source changed between two samples
+    std::uint64_t age_count = 0, age_p50_ns = 0, age_p95_ns = 0, age_p99_ns = 0, age_max_ns = 0, last_age_ns = 0;
+    std::uint64_t read_p99_ns = 0, read_max_ns = 0;  // how long read() took, every call
+};
 
 // When the glasses' panel scans out, from our driver's pose_vsync segment (spike/driver/include/luma/vsync.hpp, written with
 // --read-events; XRLinuxDriver has none). A scan-out is anchor_host_ns + k * period_ns for a whole k; anchor_feed_ms is the
@@ -42,10 +58,15 @@ struct VsyncSnapshot {
 
 class PoseFeed {
 public:
-    // prefix "/tmp/shader_runtime_" in production; tests pass a private prefix.
-    static std::unique_ptr<PoseFeed> open(const std::string& prefix, std::string& why);
+    // prefix "/tmp/shader_runtime_" in production; tests pass a private prefix. seqlock_name: the seqlock channel to prefer
+    // (kSeqlockPoseName in production, empty for none); its absence is no error, and it is looked for again once a second.
+    static std::unique_ptr<PoseFeed> open(const std::string& prefix, std::string& why, const std::string& seqlock_name = {});
     ~PoseFeed();
-    // Under the driver's process-shared (robust) mutex; nullopt if disabled/invalid. Waits at most
+    // From the seqlock channel when it holds a calibrated pose under kSeqlockFreshMs old: no lock, so no wait. Its history
+    // is the reader's own, one sample at least kSeqlockHistoryMs older than the newest (older[1] repeats older[0], so
+    // prediction takes the exact spacing). device_ms there is CLOCK_MONOTONIC ms since the feed first used the channel.
+    // Otherwise, the mutex feed as below: a driver without the channel, or one that stopped writing it.
+    // Mutex feed: under the driver's process-shared (robust) mutex; nullopt if disabled/invalid. Waits at most
     // 2 ms for the lock; if the driver holds it longer (stopped) or died holding it, the newest sample
     // already read is returned again (same device timestamp, so it ages normally). After two timeouts
     // in a row, frames do not wait for 50 ms, then wait once more; a driver that still holds the lock
@@ -56,6 +77,9 @@ public:
     // The driver's scan-out timing when it publishes one and has it locked; nullopt otherwise, also when the driver is
     // mid-write (a sequence lock, tried a few times, never waited on).
     std::optional<VsyncSnapshot> vsync() const;
+    PoseReaderStats stats() const;
+    static constexpr double kSeqlockFreshMs = 100;   // older than this, the channel's writer is taken to have stopped
+    static constexpr double kSeqlockHistoryMs = 16;  // what the mutex feed's q1 is at 1 kHz
 private:
     PoseFeed() = default;
     struct Impl;

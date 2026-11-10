@@ -158,6 +158,40 @@ the pipeline, which is supported.
 - **The renderer's reading.** The `/dev/shm/xr-luma-pose` feed has no real consumer yet.
 - **CPU %** counts the driver's two threads in user and kernel time. Interrupt work for USB is on top, and would be there with any driver.
 
+## Renderer pose handoff (D2)
+
+`luma_pose_channel_bench` (`spike/driver/bench/pose_channel_bench.cpp`) runs the real `Publisher` at 1 kHz and the renderer's
+real `PoseFeed` against it, on a private prefix and channel. The writer thread gets the driver's thread policy. In two of the
+three seqlock scenarios, and in the mutex scenario, a third thread holds the mutex feed's lock 3 ms in every 10, as a slow reader
+of the old feed would. Pose age is read time minus the sample's `CLOCK_MONOTONIC` time. *Behind* counts reads that got an
+older sample than one the writer had already finished publishing: the handoff's own lag. *Writer late* is how far after its
+1 ms deadline the writer stamped a sample.
+
+Measured 2026-11-10 on the same machine, while other builds ran (load average 28 to 37). The writer ran on the short slice,
+without real-time, for 10 s a scenario. These are the pose age p99, the writer late p99 in brackets, and the result:
+
+| Scenario | Run A | Run B | Run C | Run D |
+|---|---|---|---|---|
+| Seqlock, 120 Hz reader, mutex held | 1.02 (-) pass | 1.08 (0.22) pass | 0.79 (0.02) pass | 3.08 (3.47) miss |
+| Seqlock, reader flat out, mutex held | 1.00 (-) pass | 1.00 (0.30) pass | 1.00 (0.05) pass | 2.23 (2.03) miss |
+| Seqlock, 120 Hz reader, no contention | 0.77 (-) pass | 0.77 (0.03) pass | 1.51 (0.43) miss | 1.44 (0.85) pass |
+| Channel absent: mutex feed, mutex held | 12.3 | 12.3 | 27.8 | 30.4 |
+
+Run A was before *writer late* was recorded. In every seqlock run, every read came from the seqlock, with 0 reader waits and 0
+behind. The ring of history worked, and a read took 1.5 to 7.6 us at p99. The old path, under the same contention, waited on
+about one read in three, for up to the 2 ms limit. Its writer also skipped about 30% of its writes on the held lock.
+Percentiles are the upper bounds of 3% buckets: run C's 1.51 is the bucket just over 1.5.
+
+So the handoff adds nothing to the age but the read's place between two samples (0 to 1 ms at 1 kHz). Every miss follows a writer
+stamping late: the age p99 is about the writer's lateness p99 plus that 1 ms. The gate holds when the driver thread runs on time.
+On a busy machine without real-time, it does not, and the same is true of the live driver. A first run at load average 58,
+before the writer had the thread policy, reached a p99 of 11 to 59 ms. There, the flat-out reader fell back to the mutex feed
+when the writer stalled for more than 100 ms. Real-time scheduling is what is meant to make this hold under any load, and it is
+still not set up here.
+
+The ctest smoke run, `luma_pose_channel_bench_smoke` (2 s a scenario), checks the waits, the behind count and the fallback. It
+does not check timing, for the same reason as `luma_rt_bench_smoke`.
+
 ## Running the tests
 
 ```bash

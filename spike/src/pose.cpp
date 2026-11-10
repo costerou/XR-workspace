@@ -1,4 +1,5 @@
 #include "xr/pose.hpp"
+#include "luma/rt.hpp"
 #include <algorithm>
 #include <atomic>
 #include <bit>
@@ -6,6 +7,7 @@
 #include <cmath>
 #include <ctime>
 #include <pthread.h>
+#include <string_view>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
@@ -90,6 +92,23 @@ struct PoseFeed::Impl {
     // up to 1 s.
     std::uint64_t retry_ns = 0, backoff_ns = 0;
     unsigned timeouts = 0;
+    // The seqlock channel, when the driver writes one. Looked for again every kSeqlockRetryNs while it is absent.
+    std::string seqlock_name;
+    std::optional<luma::rt::ShmMapping> seqlock_map;
+    const luma::rt::SeqlockSlot<luma::rt::PoseRecord>* seqlock = nullptr;
+    std::uint64_t seqlock_retry_ns = 0;
+    std::uint64_t seqlock_good_ns = 0;  // the last fresh sample, or the attach
+    // The reader's own history of the channel's samples, newest at head; ns is CLOCK_MONOTONIC. 16 entries cover the 16 ms
+    // look-back at any frame rate down to one sample per ms.
+    struct Past { Quat q; std::uint64_t ns = 0; std::uint32_t seq = 0; };
+    std::array<Past, 16> past{};
+    std::size_t past_n = 0, past_head = 0;
+    std::uint64_t epoch_ns = 0;  // device_ms on the channel is CLOCK_MONOTONIC since this
+    enum class Source { none, seqlock, mutex } source = Source::none;
+    PoseReaderStats counts;
+    luma::rt::LatencyHistogram age, read_time;
+    std::optional<FeedSample> read_seqlock(std::uint64_t now);
+    std::optional<FeedSample> read_mutex();
     ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov), static_cast<void*>(look_ahead), static_cast<void*>(vsync)}) if (p) shmdt(p); }
 };
 namespace {
@@ -105,7 +124,7 @@ void* attach(const std::string& path, std::size_t min_size, bool writable, std::
     return addr;
 }
 }
-std::unique_ptr<PoseFeed> PoseFeed::open(const std::string& prefix, std::string& why) {
+std::unique_ptr<PoseFeed> PoseFeed::open(const std::string& prefix, std::string& why, const std::string& seqlock_name) {
     std::unique_ptr<PoseFeed> feed(new PoseFeed());
     feed->impl_ = std::make_unique<Impl>();
     auto& s = *feed->impl_;
@@ -120,6 +139,7 @@ std::unique_ptr<PoseFeed> PoseFeed::open(const std::string& prefix, std::string&
     s.fov = static_cast<float*>(attach(prefix + "display_fov", sizeof(float), false, ignored));
     s.look_ahead = static_cast<float*>(attach(prefix + "look_ahead_cfg", sizeof(float) * 4, false, ignored));
     s.vsync = static_cast<std::uint32_t*>(attach(prefix + "pose_vsync", 64, false, ignored));
+    s.seqlock_name = seqlock_name;
     return feed;
 }
 PoseFeed::~PoseFeed() = default;
@@ -163,9 +183,101 @@ std::uint64_t monotonic_ns() {
     return std::uint64_t(ts.tv_sec) * 1'000'000'000ull + std::uint64_t(ts.tv_nsec);
 }
 }
+static_assert(std::string_view(kSeqlockPoseName) == luma::rt::kPoseShmName);
+PoseReaderStats PoseFeed::stats() const {
+    const auto& s = *impl_;
+    PoseReaderStats r = s.counts;
+    r.seqlock_attached = s.seqlock != nullptr;
+    r.seqlock_source = s.source == Impl::Source::seqlock;
+    r.age_count = s.age.count();
+    r.age_p50_ns = s.age.percentile(50); r.age_p95_ns = s.age.percentile(95); r.age_p99_ns = s.age.percentile(99);
+    r.age_max_ns = s.age.max();
+    r.read_p99_ns = s.read_time.percentile(99); r.read_max_ns = s.read_time.max();
+    return r;
+}
 std::optional<FeedSample> PoseFeed::read() {
     auto& s = *impl_;
-    if (*s.disabled) { s.last.reset(); return std::nullopt; }
+    const std::uint64_t start = monotonic_ns();
+    std::optional<FeedSample> out;
+    if (*s.disabled) { s.last.reset(); s.past_n = 0; s.source = Impl::Source::none; }
+    else {
+        out = s.read_seqlock(start);
+        if (out) {
+            if (s.source == Impl::Source::mutex) ++s.counts.switches;
+            s.source = Impl::Source::seqlock; ++s.counts.seqlock_reads;
+            s.last = out;
+        } else if ((out = s.read_mutex())) {
+            if (s.source == Impl::Source::seqlock) ++s.counts.switches;
+            s.source = Impl::Source::mutex; ++s.counts.mutex_reads;
+        } else s.source = Impl::Source::none;
+    }
+    s.read_time.record(monotonic_ns() - start);
+    return out;
+}
+// No lock and no system call but the clock: a copy of 40 bytes, again only if the driver was writing it at that instant.
+std::optional<FeedSample> PoseFeed::Impl::read_seqlock(std::uint64_t now) {
+    if (seqlock_name.empty()) return std::nullopt;
+    if (!seqlock) {
+        if (now < seqlock_retry_ns) return std::nullopt;
+        constexpr std::uint64_t kSeqlockRetryNs = 1'000'000'000;
+        seqlock_retry_ns = now + kSeqlockRetryNs;
+        std::string ignored;
+        auto mapping = luma::rt::ShmMapping::reader(seqlock_name, sizeof(luma::rt::PoseRecord),
+            luma::rt::ShmMapping::kSlotOffset + sizeof(luma::rt::SeqlockSlot<luma::rt::PoseRecord>), ignored);
+        if (!mapping) return std::nullopt;
+        seqlock_map.emplace(std::move(*mapping));
+        seqlock = static_cast<const luma::rt::SeqlockSlot<luma::rt::PoseRecord>*>(seqlock_map->slot());
+        seqlock_good_ns = now;
+    }
+    // No fresh sample for longer than the freshness window: let the mapping go, and the next read (at most once a second) maps
+    // the name again. That covers a writer that died mid-record (the sequence stays odd) and one that replaced the object with
+    // another layout (this mapping keeps the old object, whose record only ages). A paused driver costs one remap a second.
+    constexpr std::uint64_t kFreshNs = std::uint64_t(PoseFeed::kSeqlockFreshMs * 1e6), kFutureNs = 1'000'000;
+    const auto none = [&] {
+        if (now >= seqlock_good_ns + kFreshNs && now >= seqlock_retry_ns) { seqlock = nullptr; seqlock_map.reset(); }
+        return std::nullopt;
+    };
+    luma::rt::PoseRecord r;
+    bool got = false;
+    // Still mid-record after 4,096 tries: a writer preempted while writing, or dead. The mutex feed serves this read.
+    for (unsigned attempt = 0; attempt < 4096 && !(got = seqlock->load(r, 1)); ++attempt) {
+        if (seqlock->seq.load(std::memory_order_relaxed) == 0) break;  // never written
+        ++counts.retries;
+    }
+    if (!got || !(r.flags & luma::rt::kPoseCalibrated)) return none();
+    now = monotonic_ns();  // after the load: a reader preempted before it must not take the record for one from the future
+    const auto q = quat_normalized({r.x, r.y, r.z, r.w});
+    const std::uint64_t t = r.t_raw_ns + std::uint64_t(r.raw_to_mono_ns);
+    // A writer that stopped (killed, unplugged) leaves its last calibrated record: too old, and the mutex feed decides.
+    if (!q || t > now + kFutureNs || now > t + kFreshNs) return none();
+    seqlock_good_ns = now;
+    if (past_n == 0 || r.seq != past[past_head].seq || t != past[past_head].ns) {
+        if (past_n && t < past[past_head].ns) past_n = 0;  // a new writer on an older clock: no history across it
+        past_head = (past_head + 1) % past.size();
+        past[past_head] = {*q, t, r.seq};
+        past_n = std::min(past_n + 1, past.size());
+    }
+    // device_ms as a float, as the mutex feed's is: exact to well under a microsecond for the first hours, then restarted, which
+    // prediction and PoseAge take for a new driver clock (they do the same for the mutex feed's).
+    constexpr std::uint64_t kEpochSpanNs = std::uint64_t((1u << 24) - 1000) * 1'000'000ull;
+    if (!epoch_ns || t < epoch_ns || t - epoch_ns >= kEpochSpanNs) epoch_ns = t;
+    const auto ms = [&](std::uint64_t ns) { return float(double(ns - std::min(ns, epoch_ns)) / 1e6); };
+    FeedSample f{*q, ms(t), {*q, *q}, {ms(t), ms(t)}, t};
+    constexpr std::uint64_t kHistoryNs = std::uint64_t(PoseFeed::kSeqlockHistoryMs * 1e6);
+    for (std::size_t i = 1; i < past_n; ++i) {
+        const Past& p = past[(past_head + past.size() - i) % past.size()];
+        if (t - p.ns >= kHistoryNs) {
+            if (p.ns >= epoch_ns) { f.older = {p.q, p.q}; f.older_ms = {ms(p.ns), ms(p.ns)}; }
+            break;
+        }
+    }
+    const std::uint64_t age_ns = now > t ? now - t : 0;
+    age.record(age_ns);
+    counts.last_age_ns = age_ns;
+    return f;
+}
+std::optional<FeedSample> PoseFeed::Impl::read_mutex() {
+    auto& s = *this;
     // The driver holds its lock only to copy 16 floats (XRLinuxDriver src/outputs.c), so it is nearly
     // always free. First try with an already-passed deadline: an atomic and no system call when the lock
     // is free. (Not pthread_mutex_trylock: on a not-recoverable robust mutex glibc's trylock leaves our
@@ -183,6 +295,7 @@ std::optional<FeedSample> PoseFeed::read() {
     if (rc == ETIMEDOUT) {
         const std::uint64_t now = monotonic_ns();
         if (s.retry_ns && now < s.retry_ns) return s.last;  // backing off: no waiting
+        ++s.counts.waits;
         const std::uint64_t until = now + kWaitNs;
         const timespec deadline{time_t(until / 1'000'000'000ull), long(until % 1'000'000'000ull)};
         rc = pthread_mutex_clocklock(s.mutex, CLOCK_MONOTONIC, &deadline);

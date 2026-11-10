@@ -1,4 +1,5 @@
 #include "luma/publish.hpp"
+#include "luma/rt.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <new>
+#include <optional>
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ipc.h>
@@ -82,9 +84,13 @@ struct Publisher::Impl {
     std::uint64_t epoch_ns = 0, last_ns = 0;
     bool clock_started = false, live = false;
     PublisherStats stats;
+    std::optional<rt::SeqlockWriter<rt::PoseRecord>> seqlock;
+    std::int64_t raw_to_mono_ns = 0;  // taken at open: only the split of the time between the two fields depends on it
+    rt::PoseRecord record{};          // the last one written
 
     ~Impl() {
         if (disabled) set_disabled(true);
+        uncalibrated();
         if (wire) write_prediction(*wire, MotionState{});
         if (vsync) write_vsync(*vsync, VsyncState{}, std::nan(""));  // not locked: a reader stops using it
         for (void* addr : attached) shmdt(addr);
@@ -170,7 +176,20 @@ struct Publisher::Impl {
         if (ms >= kRestartMs) { epoch_ns = t_ns; return 0; }
         return options.fractional_ms ? float(double(t_ns - epoch_ns) / double(kNsPerMs)) : float(ms);
     }
+    void write_seqlock(const Quatf& q, const PoseOut& pose) {
+        if (!seqlock) return;
+        record = {q.w, q.x, q.y, q.z, pose.t_ns - std::uint64_t(raw_to_mono_ns), raw_to_mono_ns, pose.seq, rt::kPoseCalibrated};
+        seqlock->publish(record);
+        ++stats.seqlock_written;
+    }
+    void uncalibrated() {  // the last pose and time, so a reader sees it go, not a jump to identity
+        if (!seqlock || !(record.flags & rt::kPoseCalibrated)) return;
+        record.flags = 0;
+        seqlock->publish(record);
+        ++stats.seqlock_written;
+    }
     void pause() {
+        uncalibrated();
         set_disabled(true);
         write_prediction(*wire, MotionState{});
         live = false;
@@ -218,6 +237,14 @@ std::unique_ptr<Publisher> Publisher::open(const PublisherOptions& options, std:
         write_vsync(*s.vsync, VsyncState{}, std::nan(""));
     }
     if (!s.init_mutex()) { why = "cannot initialise the pose mutex"; return nullptr; }
+    if (!options.seqlock_name.empty()) {
+        auto writer = rt::SeqlockWriter<rt::PoseRecord>::create(options.seqlock_name, why);
+        if (!writer) return nullptr;
+        s.seqlock.emplace(std::move(*writer));
+        s.raw_to_mono_ns = rt::raw_to_monotonic_offset_ns();
+        s.record.flags = rt::kPoseCalibrated;  // so this first uncalibrated() overwrites whatever a dead writer left
+        s.uncalibrated();
+    }
     std::memcpy(s.pose, kResetPose, sizeof kResetPose);
     *fov = options.display_fov_deg;
     std::memcpy(look_ahead, options.look_ahead_cfg.data(), sizeof(float) * 4);
@@ -233,6 +260,7 @@ bool Publisher::publish(const PoseOut& pose) {
     if (!usable(pose.q)) { ++s.stats.invalid; return false; }
 
     const Quatf q = s.mounted ? multiply(pose.q, s.mount) : pose.q;
+    s.write_seqlock(q, pose);  // first, and never waits
     const std::size_t size = s.ring.size();
     const std::size_t slot = (s.head + s.count) % size;
     s.ring[slot] = {{q.x, q.y, q.z, q.w}, s.device_ms(pose.t_ns)};

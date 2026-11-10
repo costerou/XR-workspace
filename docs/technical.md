@@ -647,12 +647,36 @@ checks as the standard driver. `ensure_ready` restarts a driver that is not the 
 ### Flags for the new driver
 
 `~/.config/viture-workspace/luma-driver-flags`, if it exists, holds flags for `xr-luma-driver`: `--start stream|prepared|full`,
-`--read-events` and `--drain-camera`, nothing else. They are what stage G of `spike/driver/docs/live-test-plan.md` finds the
-glasses need. A file with anything else fails the start with a reason, which the notification shows. The file changes
-what the driver reads and how it starts the stream; none of these flags can send a frame `Transport` would not pass.
+`--read-events`, `--drain-camera` and `--pose-seqlock`, nothing else. The first three are what stage G of
+`spike/driver/docs/live-test-plan.md` finds the glasses need. A file with anything else fails the start with a reason, which the
+notification shows. The file changes what the driver reads, how it starts the stream and where it publishes; none of these flags
+can send a frame `Transport` would not pass.
+
 `--read-events` also makes the driver lock onto the panel's vsync events and publish the scan-out time in a `pose_vsync`
 segment. The renderer then adds `vsync_error_ms` and `sensor_to_vsync_ms` to its status, which Options → Session shows. See
 [Real glasses: display vsync](performance.md#real-glasses-display-vsync).
+
+`--pose-seqlock` also publishes every pose on the seqlock channel `/dev/shm/xr-luma-pose` (`luma::rt::kPoseShmName`), next to the
+mutex feed, which is still written exactly as before for XRLinuxDriver-era readers. It is off by default and refused with a
+private `--prefix` or `--replay`, so only the live driver can write that name.
+
+### How the renderer reads the pose
+
+`spike/src/pose.cpp`, `PoseFeed`. On the live feed (`/tmp/shader_runtime_`) the renderer looks for the seqlock channel first,
+and again once a second while it is absent. It takes a sample from it only when the record is calibrated, holds a valid
+quaternion, and is no more than 100 ms old (1 ms ahead is allowed for clock rounding). Otherwise, and whenever the mutex feed's
+`disabled` flag is set, it reads the mutex feed as before. So a driver without the flag, XRLinuxDriver, a stopped or paused Luma
+driver and a stale file left in `/dev/shm` all give the old path, with no setting to change. A seqlock read never blocks: it
+retries while the writer is mid-record, up to 4,096 times, then serves that one read from the mutex feed. With no fresh
+sample for 100 ms it lets the mapping go and maps the name again, at most once a second, so a writer that replaced the object is
+found again.
+
+Prediction needs two samples 2 to 50 ms apart. The seqlock holds only the newest, so the reader keeps its own ring of the last
+16 samples it saw and pairs the newest with one at least 16 ms older, the same spacing the mutex feed's history gives. The
+sample's time is `CLOCK_MONOTONIC`, so the renderer knows the pose's absolute age, not just its age above the best recent case.
+That is the `pose_age_ms` in the 1 Hz status dict (sent only while the seqlock is the source) and `pose_age_absolute` in the exit
+report, next to `pose_reader`: the source, reads from each path, reader waits on the mutex, seqlock retries and source switches.
+A switch moves the device clock to another epoch, which `PoseAge` and prediction already treat as a driver restart.
 
 ### Motion beside the pose (PredictionWire)
 
