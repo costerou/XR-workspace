@@ -9,6 +9,7 @@ pub mod cfmt;
 pub mod desktops;
 pub mod egl;
 pub mod glass;
+pub mod glass_theme;
 pub mod hud;
 pub mod layout;
 pub mod material;
