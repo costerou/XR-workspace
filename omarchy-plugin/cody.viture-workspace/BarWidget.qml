@@ -31,14 +31,10 @@ Ui.BarWidget {
             onTriggered: Quickshell.execDetached(["bash", Qt.resolvedUrl("restart.sh").toString().replace(/^file:\/\//, "")])
         }
     }
-    Ui.WidgetButton {
+    Ui.BarIconButton {
         id:button
         bar:root.bar
         anchors.fill:parent
-        text: ""
-        labelVisible:false
-        hasVisualContent:true
-        fixedWidth:Style.space(56)
         tooltipText:Model.barTooltip(client.connected, client.snapshot)
         onPressed: function(mouseButton) {
             if (mouseButton === Qt.RightButton) contextMenu.popup(button, 0, button.height)
@@ -49,20 +45,17 @@ Ui.BarWidget {
         readonly property string role:client.connected ? Model.barColorRole(client.snapshot.state, client.snapshot.output) : "muted"
         readonly property color tint:role==="accent" ? Commons.Color.accent : role==="warning" ? Tone.warn
             : role==="foreground" ? Commons.Color.foreground : Commons.Color.muted
-        Emblem {
-            id:mark
-            objectName:"barMark"
-            anchors.centerIn:parent
-            height:Style.bar.iconSize+2
-            width:Math.round(height*120/84)
-            color:button.tint
+        // The kit sizes the slot and scales the mark to the bar's icon size, like every native bar icon.
+        iconComponent: Component {
+            Emblem { objectName:"barMark"; color:button.tint }
         }
+        // Outside the icon so it doesn't shift the kit's optical centring; pinned to the painted mark's top right.
         Rectangle {
             visible:button.role==="warning"
             width:5; height:5; radius:2.5
             color:Tone.warn
-            anchors.left:mark.right; anchors.top:mark.top
-            anchors.leftMargin:-1; anchors.topMargin:-2
+            x:Math.round((button.width + button.componentPaintedWidth) / 2) - 1
+            y:Math.round((button.height - button.componentPaintedHeight) / 2) - 2
         }
     }
 }
