@@ -964,6 +964,9 @@ the renderer takes; skipped in a plain Python run, which has no decoder), real c
 4 desktops, every ordered pair of its actions from each state a panel can be in, and every id taken on the supervisor's thread
 with the real workers running. The `frames()` helpers of the Python suites check the ids too (`control_wire.in_order`).
 That search found one mismatch, the order of R's frames. Python and C++ agree on everything the panel sends.
+`fixtures/control_frames.json` (`control_corpus.py`, checked by `test_control_corpus.py` in the same ctest) records, for
+each of the 23 ops, frames byte for byte as the Python encoders send them, mutations of them, and envelope faults, each with
+the renderer's verdict (accepted, or the refusal's code and detail): the corpus the Rust rebuild must match.
 
 `ignorable_control_error` still lists only the display-only payloads it always did.
 

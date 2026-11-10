@@ -190,7 +190,8 @@ if(XR_ENABLE_IPC)
   add_test(NAME placement_menu_ipc COMMAND placement_menu_ipc_test
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/placement_menu_payloads.json")
   set_tests_properties(placement_menu_ipc PROPERTIES SKIP_RETURN_CODE 77)
-  # The real supervisor's frames through the renderer's own control checks (tests/native_spike/test_control_wire.py).
+  # The real supervisor's frames through the renderer's own control checks (tests/native_spike/test_control_wire.py), and the
+  # control-frame corpus the Rust rebuild matches (tests/native_spike/test_control_corpus.py).
   add_executable(control_wire_check tests/control_wire_check.cpp)
   target_link_libraries(control_wire_check PRIVATE xr_ipc nlohmann_json::nlohmann_json)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -198,7 +199,7 @@ if(XR_ENABLE_IPC)
   endif()
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
-    add_test(NAME control_wire COMMAND "${Python3_EXECUTABLE}" -m unittest test_control_wire test_control_panel_fuzz
+    add_test(NAME control_wire COMMAND "${Python3_EXECUTABLE}" -m unittest test_control_wire test_control_panel_fuzz test_control_corpus
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/..")
     set_tests_properties(control_wire PROPERTIES TIMEOUT 120
       ENVIRONMENT "CONTROL_WIRE_CHECK=$<TARGET_FILE:control_wire_check>;PYTHONPATH=.:tests/native_spike")
