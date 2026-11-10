@@ -664,7 +664,7 @@
     },
     "DragMathTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::free_pointer",
      "tests": 2
     },
@@ -676,13 +676,13 @@
     },
     "HitTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::free_pointer",
      "tests": 4
     },
     "HugeResizeMathTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::free_pointer",
      "tests": 4
     },
@@ -706,7 +706,7 @@
     },
     "ProjectionTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::free_pointer",
      "tests": 6
     },
@@ -3068,7 +3068,7 @@
     },
     "ConfineTests": {
      "fate": "port",
-     "rust_test": null,
+     "rust_test": "rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs",
      "target": "xr-workspace supervisor::unified_cursor",
      "tests": 2
     },

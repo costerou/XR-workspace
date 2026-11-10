@@ -1,7 +1,7 @@
 //! The sampler's decisions: one [`Sampler::step`] is one iteration of the Python's `_run` loop, and each method is
 //! the Python method of the same name, its calls in the same order. Nothing here sleeps or spawns.
 
-use super::push::{EdgePush, PushEnv, along, entry_point, output_at};
+use super::push::{ENTRY_PX, EdgePush, PushEnv, along, entry_point, output_at};
 use super::{
     CARRY_LEASH_PX, CURSOR_TIMEOUT, CallError, Clock, IDLE_S, JUMP_PX, LEASH_PX, MONITORS_TIMEOUT,
     Mode, OUTPUTS_REFRESH, PENDING_S, RECENTRE_PX, REGRAB_S, SAMPLE_JUMP_PX,
@@ -655,7 +655,7 @@ impl<P: SampledPointer, C: SamplerClient, K: Clock> Sampler<P, C, K> {
                 self.pending = None;
                 self.push.reset();
                 self.pointer.set_pan(None);
-                let entry = entry_point(o, edge, t);
+                let entry = entry_point(o, edge, t, ENTRY_PX);
                 let made = match py_index(&self.names, target) {
                     Some(name) => self.client.confine_cursor(entry.0, entry.1, name),
                     None => Err(CallError::Failed),

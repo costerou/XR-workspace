@@ -1,192 +1,20 @@
 //! Zoomed in: the confinement to home and the push past an edge of home that switches desktops (a port of
-//! `unified_cursor.EdgePush` and its helpers, lines 173-386). Points are layout pixels; a cursor read from Hyprland
-//! may be fractional, as the Python keeps it.
+//! `unified_cursor.EdgePush`, lines 276-386; its helpers are [`crate::supervisor::unified_cursor`]'s, re-exported
+//! here). Points are layout pixels; a cursor read from Hyprland may be fractional, as the Python keeps it.
 
-use super::{INSET_PX, JUMP_PX, PanPlan, Side};
+use super::{JUMP_PX, PanPlan, Side};
 use crate::resize::OutputRect;
-use crate::supervisor::columns::EDGE_PX;
-
-/// unified_cursor: PUSH_PX of push past one edge, each part within PUSH_WINDOW_S of the last, switch.
-pub const PUSH_PX: f64 = 48.0;
-pub const PUSH_WINDOW_S: f64 = 0.25;
-/// The touch on an edge Hyprland clamps the cursor at counts this much, and the cursor goes this far back in.
-pub const NUDGE_PX: f64 = 12.0;
-/// After a switch no push counts for this long.
-pub const SWITCH_COOLDOWN_S: f64 = 0.8;
-/// During a pan the hidden cursor waits this far inside the edge, goes back there once this far off, and a pan that
-/// ended puts it this far inside the edge.
-pub const PAN_HOLD_PX: f64 = 64.0;
-pub const PAN_LEASH_PX: f64 = 24.0;
-pub const PAN_PULL_PX: f64 = 2.0;
-/// The cursor enters the new desktop this far inside the edge it came in over.
-pub const ENTRY_PX: f64 = 24.0;
+use crate::supervisor::unified_cursor::by_index;
+pub use crate::supervisor::unified_cursor::{
+    ENTRY_PX, NUDGE_PX, PAN_HOLD_PX, PAN_LEASH_PX, PAN_PULL_PX, PUSH_PX, PUSH_WINDOW_S, Point, SWITCH_COOLDOWN_S,
+    along, band, confine_target, contact, crossing, entry_point, hold_point, inside, nudge, output_at, pan_point,
+};
 /// edge_pan.START_PX (logical px of push before anything shows) and REST_S (a hand this long still ends the pan).
 pub const START_PX: f64 = 24.0;
 pub const REST_S: f64 = 0.6;
 
-pub type Point = (f64, f64);
-
-fn contains(o: &OutputRect, c: Point) -> bool {
-    let (lx, ly) = (c.0 - o.x as f64, c.1 - o.y as f64);
-    0.0 <= lx && lx < o.width && 0.0 <= ly && ly < o.height
-}
-
-/// The output the cursor is on.
-pub fn output_at(outputs: &[OutputRect], cursor: Point) -> Option<&OutputRect> {
-    outputs.iter().find(|o| contains(o, cursor))
-}
-
-fn by_index(outputs: &[OutputRect], i: i64) -> Option<&OutputRect> {
-    outputs.iter().find(|o| o.index as i64 == i)
-}
-
-/// The integer layout pixel of `o` nearest `cursor`, at least `inset` px inside every edge.
-pub fn inside(o: &OutputRect, cursor: Point, inset: f64) -> (i64, i64) {
-    let (x, y) = (o.x as f64, o.y as f64);
-    (
-        cursor.0.max(x + inset).min(x + o.width - 1.0 - inset).trunc() as i64,
-        cursor.1.max(y + inset).min(y + o.height - 1.0 - inset).trunc() as i64,
-    )
-}
-
 fn float(p: (i64, i64)) -> Point {
     (p.0 as f64, p.1 as f64)
-}
-
-/// Zoomed in: where to put the cursor back on output `home`, or none to leave it. On another XR output: back. Off the
-/// XR outputs: back only if the previous sample was on home and it is within JUMP_PX of home (the hand, not a warp).
-pub fn confine_target(
-    outputs: &[OutputRect],
-    home: i64,
-    cursor: Option<Point>,
-    previous: Option<Point>,
-) -> Option<(i64, i64)> {
-    let o = by_index(outputs, home)?;
-    let cursor = cursor?;
-    match output_at(outputs, cursor) {
-        Some(now) if now.index as i64 == home => return None,
-        Some(_) => {}
-        None => {
-            let prev = previous.and_then(|p| output_at(outputs, p))?;
-            if prev.index as i64 != home {
-                return None;
-            }
-            let (x, y) = (o.x as f64, o.y as f64);
-            let dx = (x - cursor.0).max(0.0).max(cursor.0 - (x + o.width - 1.0));
-            let dy = (y - cursor.1).max(0.0).max(cursor.1 - (y + o.height - 1.0));
-            if dx.hypot(dy) > JUMP_PX {
-                return None;
-            }
-        }
-    }
-    Some(inside(o, cursor, INSET_PX))
-}
-
-/// The edges of `o` whose outermost pixel the cursor (on `o`) is on, horizontal first.
-fn contact(o: &OutputRect, c: Point) -> Vec<Side> {
-    let (lx, ly) = (c.0 - o.x as f64, c.1 - o.y as f64);
-    let mut sides = Vec::new();
-    if lx < 1.0 {
-        sides.push(Side::Left);
-    } else if lx >= o.width - 1.0 {
-        sides.push(Side::Right);
-    }
-    if ly < 1.0 {
-        sides.push(Side::Up);
-    } else if ly >= o.height - 1.0 {
-        sides.push(Side::Down);
-    }
-    sides
-}
-
-/// (edge, px past it) of a cursor off `o`: the axis it is furthest past.
-fn crossing(o: &OutputRect, c: Point) -> (Side, f64) {
-    let (lx, ly) = (c.0 - o.x as f64, c.1 - o.y as f64);
-    let dx = lx - lx.max(0.0).min(o.width - 1.0);
-    let dy = ly - ly.max(0.0).min(o.height - 1.0);
-    if dx.abs() >= dy.abs() {
-        (if dx > 0.0 { Side::Right } else { Side::Left }, dx.abs())
-    } else {
-        (if dy > 0.0 { Side::Down } else { Side::Up }, dy.abs())
-    }
-}
-
-/// The cursor NUDGE_PX back inside `o` from edge `side`, the other coordinate kept.
-fn nudge(o: &OutputRect, c: Point, side: Side) -> (i64, i64) {
-    let (x, y) = float(inside(o, c, INSET_PX));
-    let (ox, oy) = (o.x as f64, o.y as f64);
-    let p = match side {
-        Side::Left => (ox + NUDGE_PX, y),
-        Side::Right => (ox + o.width - 1.0 - NUDGE_PX, y),
-        Side::Up => (x, oy + NUDGE_PX),
-        Side::Down => (x, oy + o.height - 1.0 - NUDGE_PX),
-    };
-    inside(o, p, INSET_PX)
-}
-
-/// How far along edge `side` of `o` the cursor is, 0..1 (left / top to right / bottom).
-pub fn along(o: &OutputRect, c: Point, side: Side) -> f64 {
-    let p = inside(o, c, 0.0);
-    let (lx, ly) = ((p.0 - o.x) as f64, (p.1 - o.y) as f64);
-    match side {
-        Side::Up | Side::Down => lx / (o.width - 1.0).max(1.0),
-        Side::Left | Side::Right => ly / (o.height - 1.0).max(1.0),
-    }
-}
-
-/// Left / right: the cursor (on `o`) within columns.EDGE_PX of that edge.
-fn band(o: &OutputRect, c: Point) -> Option<Side> {
-    let lx = c.0 - o.x as f64;
-    if lx >= o.width - EDGE_PX {
-        Some(Side::Right)
-    } else if lx <= EDGE_PX - 1.0 {
-        Some(Side::Left)
-    } else {
-        None
-    }
-}
-
-/// A push held at edge `side` (left / right) of `o` for its columns: in the edge band, 1 px in from the outermost
-/// pixel, as far along the edge as it is.
-pub fn hold_point(o: &OutputRect, c: Point, side: Side) -> (i64, i64) {
-    let (_, y) = inside(o, c, INSET_PX);
-    let x = if side == Side::Left {
-        (o.x as f64 + EDGE_PX - 1.0).trunc()
-    } else {
-        (o.x as f64 + o.width - EDGE_PX).ceil()
-    };
-    (x as i64, y)
-}
-
-fn edge_point(o: &OutputRect, side: Side, t: f64, near: f64) -> (i64, i64) {
-    let (w, h) = (o.width - 1.0, o.height - 1.0);
-    let local = match side {
-        Side::Up => ((t * w).round_ties_even(), near),
-        Side::Down => ((t * w).round_ties_even(), h - near),
-        Side::Left => (near, (t * h).round_ties_even()),
-        Side::Right => (w - near, (t * h).round_ties_even()),
-    };
-    inside(
-        o,
-        (o.x as f64 + local.0, o.y as f64 + local.1),
-        INSET_PX,
-    )
-}
-
-/// `inset` px inside edge `side` of `o`, fraction `t` along it.
-pub fn pan_point(o: &OutputRect, side: Side, t: f64, inset: f64) -> (i64, i64) {
-    edge_point(o, side, t, inset)
-}
-
-/// Where the cursor enters `o` after a push past the old desktop's `side` edge: just inside the opposite edge.
-pub fn entry_point(o: &OutputRect, side: Side, t: f64) -> (i64, i64) {
-    let opposite = match side {
-        Side::Up => Side::Down,
-        Side::Down => Side::Up,
-        Side::Left => Side::Right,
-        Side::Right => Side::Left,
-    };
-    edge_point(o, opposite, t, ENTRY_PX)
 }
 
 /// What [`EdgePush::step`] asks of its caller: the desktop past an edge of home, the columns (when given), and the

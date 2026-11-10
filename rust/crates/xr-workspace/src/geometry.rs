@@ -15,6 +15,27 @@ pub const MAX_ROLL: i64 = 9000;
 /// `X_LIMIT` and `TURN` in orbit.py: x is tenths of a degree round you.
 pub const X_LIMIT: i64 = 1800;
 pub const TURN: i64 = 3600;
+/// `RESOLUTION_GROUPS`: the Resolution list's columns, a shape's name and its sizes (width, height).
+pub const RESOLUTION_GROUPS: [(&str, &[(i64, i64)]); 3] = [
+    ("16:9", &[(1280, 720), (1600, 900), (1920, 1080), (2560, 1440), (3840, 2160)]),
+    ("16:10", &[(1680, 1050), (1920, 1200), (2560, 1600)]),
+    ("Ultrawide", &[(2560, 1080), (3440, 1440), (3840, 1080), (5120, 1440)]),
+];
+/// `RESOLUTIONS`: every RESOLUTION_GROUPS size, in order.
+pub const RESOLUTIONS: [(i64, i64); 12] = [
+    (1280, 720),
+    (1600, 900),
+    (1920, 1080),
+    (2560, 1440),
+    (3840, 2160),
+    (1680, 1050),
+    (1920, 1200),
+    (2560, 1600),
+    (2560, 1080),
+    (3440, 1440),
+    (3840, 1080),
+    (5120, 1440),
+];
 
 /// The Ultrawide button's widths for the common heights, then the 16:9 ones it goes back to.
 const ULTRAWIDE_WIDTHS: [(i64, i64); 3] = [(1080, 2560), (1440, 3440), (2160, 5120)];

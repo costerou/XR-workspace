@@ -230,6 +230,34 @@ impl Json {
     }
 }
 
+/// Written back as `json.dumps` writes the Python value it stands for: keys in order, `25.0` a float.
+impl Serialize for Json {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeMap, SerializeSeq};
+        match self {
+            Json::Null => s.serialize_unit(),
+            Json::Bool(b) => s.serialize_bool(*b),
+            Json::Int(i) => s.serialize_i64(*i),
+            Json::Float(f) => s.serialize_f64(*f),
+            Json::Str(v) => s.serialize_str(v),
+            Json::Array(items) => {
+                let mut seq = s.serialize_seq(Some(items.len()))?;
+                for item in items {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            Json::Object(entries) => {
+                let mut map = s.serialize_map(Some(entries.len()))?;
+                for (k, v) in entries {
+                    map.serialize_entry(k, v)?;
+                }
+                map.end()
+            }
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Json {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Json, D::Error> {
         deserializer.deserialize_any(JsonVisitor)

@@ -121,3 +121,19 @@ pub(crate) fn py_hypot(x: f64, y: f64) -> f64 {
 pub(crate) fn py_square(x: f64) -> f64 {
     x.powf(std::hint::black_box(2.0))
 }
+
+/// Python's `a // b` for floats (CPython's `float_floor_div`: `fmod`, then the quotient floored and nudged to the
+/// nearest integer), which is not always `(a / b).floor()`. `b` is never zero here.
+pub(crate) fn py_floordiv(a: f64, b: f64) -> f64 {
+    let m = a % b;
+    let mut div = (a - m) / b;
+    if m != 0.0 && ((b < 0.0) != (m < 0.0)) {
+        div -= 1.0;
+    }
+    if div != 0.0 {
+        let floor = div.floor();
+        if div - floor > 0.5 { floor + 1.0 } else { floor }
+    } else {
+        (0.0f64).copysign(a / b)
+    }
+}

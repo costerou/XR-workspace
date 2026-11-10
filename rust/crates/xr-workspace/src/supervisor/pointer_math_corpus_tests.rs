@@ -1,5 +1,6 @@
 //! Replays `rust/corpus/pointer/math.json` (the Python's answers, from `tests/native_spike/pointer_math_corpus.py`)
-//! against the ports of orbit.py, neighbors.py, restore_band.py, bump.py and edge_pan.py, byte for byte.
+//! against the ports of orbit.py, neighbors.py, restore_band.py, bump.py and edge_pan.py, and of free_pointer.py's,
+//! options_geometry.py's and unified_cursor.py's module-level functions ([`fp_cases`]), byte for byte.
 //!
 //! Every case is a call (its arguments, and the bytes `json.dumps` wrote of its result or the exception it raised);
 //! every trace is an instance's life (the constructor, then each call with its result and the instance's state after
@@ -16,6 +17,8 @@ use crate::geometry::Placement;
 use crate::pyjson::{Json, float_repr};
 use crate::resize::OutputRect;
 use std::fmt::Write as _;
+
+mod fp_cases;
 
 const CORPUS: &str = include_str!("../../../../corpus/pointer/math.json");
 
@@ -744,7 +747,7 @@ fn call(name: &str, a: &Args) -> Outcome {
             );
             obj(vec![("$bytes", Json::Str(String::from_utf8(line).expect("ASCII")))])
         }
-        other => panic!("no replay for {other:?}"),
+        other => return fp_cases::call(other, a),
     };
     Outcome::Out(dump(&out))
 }
@@ -756,6 +759,7 @@ enum Traced {
     PillDrag(Box<PillDrag>),
     Pusher(Box<Pusher>),
     Dwell(Dwell),
+    TextHold(super::free_pointer::TextHold),
 }
 
 impl Traced {
@@ -776,6 +780,7 @@ impl Traced {
                 Traced::Pusher(Box::new(Pusher::new(g, u(a.at(1)), rolls(a.get(2, "rolls")))))
             }
             "restore_band.Dwell" => Traced::Dwell(Dwell::new()),
+            "free_pointer.TextHold" => Traced::TextHold(super::free_pointer::TextHold::new()),
             other => panic!("no replay for the class {other:?}"),
         }
     }
@@ -832,6 +837,14 @@ impl Traced {
                     ("armed", Json::Bool(d.armed)),
                 ]);
                 (out, state)
+            }
+            (Traced::TextHold(t), "step") => {
+                let out = Json::Bool(t.step(a.at(0).as_bool().expect("text"), n(a.at(1))));
+                (out, fp_cases::text_hold_state(t))
+            }
+            (Traced::TextHold(t), "clear") => {
+                t.clear();
+                (Json::Null, fp_cases::text_hold_state(t))
             }
             (_, other) => panic!("no replay for the method {other:?}"),
         };
@@ -1049,6 +1062,8 @@ fn an_unknown_name_fails_the_replay() {
     let kw = Json::Object(Vec::new());
     let a = Args { pos: arr(&empty), kw: &kw };
     assert!(std::panic::catch_unwind(|| call("orbit.no_such_function", &a)).is_err());
+    assert!(std::panic::catch_unwind(|| call("free_pointer.no_such_function", &a)).is_err());
+    assert!(std::panic::catch_unwind(|| call("unified_cursor.no_such_function", &a)).is_err());
     assert!(std::panic::catch_unwind(|| Traced::new("orbit.NoSuchClass", &a)).is_err());
 }
 

@@ -1,11 +1,13 @@
 """Phase 6 corpus for the Rust rebuild (docs/rust-rebuild-plan.md): the pointer's pure maths.
 
 rust/corpus/pointer/math.json is made only by this module, from the shipped tools/native_spike/orbit.py, neighbors.py,
-restore_band.py, bump.py and edge_pan.py, by recording the calls the Python's own unit tests really make: every
-module-level function of the five modules (private helpers too) is wrapped, run the test suites below, and each call's
-arguments and result are kept. The classes are recorded too: Footprint and Plan as calls (their constructor, and each
-method on a recorded instance), PillDrag, Pusher and Dwell as traces per instance (the constructor, then each outer
-method call with its result and the instance's state after it), since their methods depend on what came before. The Rust
+restore_band.py, bump.py, edge_pan.py, free_pointer.py, options_geometry.py and unified_cursor.py, by recording the
+calls the Python's own unit tests really make: every module-level function of the eight modules (private helpers too)
+is wrapped, run the test suites below, and each call's arguments and result are kept. The classes are recorded too:
+Footprint and Plan as calls (their constructor, and each method on a recorded instance), PillDrag, Pusher, Dwell and
+TextHold as traces per instance (the constructor, then each outer method call with its result and the instance's state
+after it), since their methods depend on what came before. The pointer's own classes (OverviewPointer, PointerSampler,
+UnifiedPointer, UnifiedSampler, EdgePush) are not: they drive the functions, and their calls are what is recorded. The Rust
 port (rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs) replays every case and must give the same
 bytes.
 
@@ -13,14 +15,14 @@ Results are kept as the bytes `json.dumps(result, separators=(',', ':'))` writes
 {"$footprint": {...}}, a Plan as {"$plan": {...}}, a Pusher as {"$pusher": its state}, bytes as {"$bytes": text}), so
 an int stays `1` and a float `1.0`. Arguments are kept as JSON values in the same encoding.
 
-Left out, and counted in the file's "skipped": a call whose arguments or result hold a non-finite float (JSON has none),
+Left out, and counted in the file's "skipped" (with "no recorded suite calls it" for a function none of them reach): a call whose arguments or result hold a non-finite float (JSON has none),
 or something that is not plain data (a test's mock); and a call that does not give the recorded result when replayed
 on its own (the tests that patch orbit.place_point / orbit._outline, and the footprints the lru_cache kept from them).
 
 Each function keeps at most CAP distinct cases (BUDGET bytes), chosen by a hash of the case, so the choice does not
 depend on the order the calls came in; each class at most TRACES traces of at most TRACE_CALLS calls.
 
-Regenerate (after a deliberate change to one of the five modules or the tests that drive them) with:
+Regenerate (after a deliberate change to one of the eight modules or the tests that drive them) with:
 
     TMPDIR=/tmp /usr/bin/python3 tests/native_spike/pointer_math_corpus.py --write
 
@@ -41,22 +43,30 @@ ROOT = HERE.parents[1]
 for path in (ROOT, HERE):
     if str(path) not in sys.path: sys.path.insert(0, str(path))
 
-from tools.native_spike import bump, edge_pan, neighbors, orbit, restore_band  # noqa: E402
+from tools.native_spike import (bump, edge_pan, free_pointer, neighbors, options_geometry, orbit,  # noqa: E402
+                                restore_band, unified_cursor)
 
 CORPUS_FILE = ROOT / 'rust' / 'corpus' / 'pointer' / 'math.json'
-MODULES = {'orbit': orbit, 'neighbors': neighbors, 'restore_band': restore_band, 'bump': bump, 'edge_pan': edge_pan}
+MODULES = {'orbit': orbit, 'neighbors': neighbors, 'restore_band': restore_band, 'bump': bump, 'edge_pan': edge_pan,
+           'free_pointer': free_pointer, 'options_geometry': options_geometry, 'unified_cursor': unified_cursor}
 # Calls (classes whose methods are pure given the instance) and traces (instances that carry state from call to call).
 CALL_CLASSES = {'orbit.Footprint': (orbit.Footprint, ('rotated',)), 'edge_pan.Plan': (edge_pan.Plan, ('frame',))}
 TRACE_CLASSES = {'orbit.PillDrag': (orbit.PillDrag, ('follow',)), 'bump.Pusher': (bump.Pusher, ('move',)),
-                 'restore_band.Dwell': (restore_band.Dwell, ('reset', 'restart', 'disarm', 'step'))}
-# The suites whose calls are recorded: the five modules' own, and the pointer's (free_pointer, unified_cursor) that drive
-# them with the inputs a run really gives. Not their Sampler test classes: those drive the pointer's thread on the wall
+                 'restore_band.Dwell': (restore_band.Dwell, ('reset', 'restart', 'disarm', 'step')),
+                 'free_pointer.TextHold': (free_pointer.TextHold, ('step', 'clear'))}
+# The suites whose calls are recorded: the eight modules' own, and the pointer's and the panel's that drive them with
+# the inputs a run really gives. Not their Sampler test classes: those drive the pointer's thread on the wall
 # clock, so what they call depends on timing (and recording slows it past what they allow).
 SUITES = ('test_orbit', 'test_bump', 'test_bump_gaps', 'test_edge_pan', 'test_free_pointer', 'test_unified_cursor',
           'test_pointer_zones', 'test_directional_switch', 'test_restore_pointer', 'test_glass_pills', 'test_roll_level',
-          'test_grab_pill')
+          'test_grab_pill', 'test_free_pointer_focus', 'test_text_cursor', 'test_super_drag', 'test_window_drag',
+          'test_overview_cursor', 'test_options_review', 'test_options_supervisor', 'test_resolution_dropdown',
+          'test_scale_dropdown', 'test_help_pages', 'test_maximize_level', 'test_immersive', 'test_dot_click_focus',
+          'test_panel_follows_focus', 'test_scroll_before_switch', 'test_environment', 'test_native_restore_acquisition')
 # Tests that time the Python: recording slows it, so they may fail while recording (their calls are still kept).
-TIMED = {'test_quick_enough_for_the_pointer_and_for_a_slider_jump'}
+TIMED = {'test_quick_enough_for_the_pointer_and_for_a_slider_jump', 'test_quick_enough_for_the_loop'}
+# Tests outside a Sampler class that still run the pointer's thread on the wall clock: left out like those.
+WALL_CLOCK = {'test_view_controls_hands_it_to_the_sampler'}
 CAP, BUDGET = 60, 40000          # per function: distinct cases, bytes
 TRACES, TRACE_CALLS, TRACE_BUDGET = 40, 30, 400000  # per class
 EVERY = 101                      # past the first FIRST calls of a function, one call in EVERY is looked at
@@ -90,7 +100,7 @@ def encode(v):
 
 
 def decode(v):
-    """encode()'s inverse, for the replay: lists stay lists (the five modules index them like tuples)."""
+    """encode()'s inverse, for the replay: lists stay lists (the modules index them like tuples)."""
     if type(v) is list: return [decode(x) for x in v]
     if type(v) is dict:
         if '$footprint' in v:
@@ -117,11 +127,13 @@ def state(name, obj):
     if name == 'bump.Pusher':
         return {'reached': obj.reached, 'pushed': obj.pushed, 'blocked': obj.blocked, 'steps': obj.steps,
                 'memory': sorted([k, v] for k, v in obj.memory.items())}
+    if name == 'free_pointer.TextHold':
+        return {'on': obj.on, 'until': obj.until, 'left': obj.left, 'sweep': obj.sweep}
     return {'touched': obj.touched, 'anchor': obj.anchor, 'since': obj.since, 'armed': obj.armed}
 
 
 def functions():
-    """(qualified name, module, attribute) of every module-level function of the five modules."""
+    """(qualified name, module, attribute) of every module-level function of the eight modules."""
     out = []
     for mod_name, mod in MODULES.items():
         for attr, v in vars(mod).items():
@@ -289,11 +301,11 @@ def _flat(suite):
 
 
 def record():
-    """Run SUITES with every function and class of the five modules recorded."""
+    """Run SUITES with every function and class of the eight modules recorded."""
     # Loaded (so imported) before the recording starts: what the suites' modules compute as they are imported is
     # left out, so the file is the same whether or not something imported them first (a unittest run of several).
     suite = unittest.TestSuite(t for t in _flat(unittest.defaultTestLoader.loadTestsFromNames(SUITES))
-                               if 'Sampler' not in type(t).__name__)
+                               if 'Sampler' not in type(t).__name__ and t.id().split('.')[-1] not in WALL_CLOCK)
     rec = Recorder()
     uninstall = rec.install()
     try:
@@ -407,6 +419,9 @@ def select(rec):
 def corpus():
     rec = record()
     cases, traces, skipped = select(rec)
+    for name in methods():  # (the Rust port's own unit tests cover these)
+        if not cases.get(name) and not traces.get(name) and name not in skipped:
+            skipped[name] = {'no recorded suite calls it': 0}
     return {'schema': 1, 'cases': {k: cases[k] for k in sorted(cases)}, 'traces': {k: traces[k] for k in sorted(traces)},
             'skipped': {k: {w: n for w, n in sorted(skipped[k].items())} for k in sorted(skipped)}}
 

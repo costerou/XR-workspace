@@ -49,34 +49,18 @@ use super::columns::ColumnsClient;
 use super::overview_cursor::CursorClient;
 use crate::resize::OutputRect;
 
-/// free_pointer.SAMPLE_S: one cursor sample per this long in the overview.
-pub const SAMPLE_S: f64 = 1.0 / 250.0;
-/// free_pointer.IDLE_S: the Python's poll outside the overview.
-pub const IDLE_S: f64 = 0.1;
-/// free_pointer.OUTPUTS_REFRESH: the XR monitors are read again this often.
-pub const OUTPUTS_REFRESH: f64 = 2.0;
-/// free_pointer.RECENTRE_PX: free mode puts a hidden cursor this far from its parking point back.
-pub const RECENTRE_PX: f64 = 200.0;
-/// free_pointer.JUMP_PX: a move further than this is a warp, never the hand.
-pub const JUMP_PX: f64 = 400.0;
-/// free_pointer.SAMPLE_JUMP_PX: a sample this far from the last on either axis counts no motion.
-pub const SAMPLE_JUMP_PX: i64 = 1500;
-/// free_pointer.INSET_PX: the confinement keeps the cursor this far inside home.
-pub const INSET_PX: f64 = 2.0;
-/// free_pointer shape reads: every SHAPE_S, every SHAPE_CHECK_S while the plugin pushes, SHAPE_SETTLE_S after a warp,
-/// SHAPE_RETRY_S after a failure.
-pub const SHAPE_S: f64 = 1.0 / 120.0;
-pub const SHAPE_CHECK_S: f64 = 0.25;
-pub const SHAPE_SETTLE_S: f64 = 1.0 / 30.0;
-pub const SHAPE_RETRY_S: f64 = 1.0;
+/// free_pointer's sampling, motion and shape-read constants.
+pub use super::free_pointer::{
+    IDLE_S, INSET_PX, JUMP_PX, OUTPUTS_REFRESH, RECENTRE_PX, SAMPLE_JUMP_PX, SAMPLE_S, SHAPE_CHECK_S, SHAPE_RETRY_S,
+    SHAPE_S, SHAPE_SETTLE_S,
+};
 /// A config reload that dropped the binds is answered by a regrab at most once per this long.
 pub const REGRAB_S: f64 = 2.0;
 /// input_lock.PARK_MARGIN_PX and LEASH_PX.
 pub const PARK_MARGIN_PX: f64 = 100.0;
 pub const LEASH_PX: f64 = 32.0;
 /// unified_cursor.CARRY_LEASH_PX and PENDING_S.
-pub const CARRY_LEASH_PX: f64 = 6.0;
-pub const PENDING_S: f64 = 0.5;
+pub use super::unified_cursor::{CARRY_LEASH_PX, PENDING_S};
 /// The reads' timeouts.
 pub const MONITORS_TIMEOUT: Duration = Duration::from_millis(500);
 pub const CURSOR_TIMEOUT: Duration = Duration::from_millis(250);

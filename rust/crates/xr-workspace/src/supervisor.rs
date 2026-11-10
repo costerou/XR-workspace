@@ -11,8 +11,14 @@
 //!   extends the heartbeat's, and the reverse.
 //! - Stopping sends SIGTERM, then SIGKILL after the grace. Recovery runs once the renderer has been reaped.
 //!
-//! Not here yet (later phase 6 tasks): the run control socket, Hyprland events, the overview pointer's `poll`, the status
-//! dict's parsing (each status line goes to a caller's handler), the journal recovery and the start-up marks.
+//! - [`Supervisor::run_hosting`] also hosts a [`hook::LoopHook`] (the overview pointer's `poll`): the loop waits on the
+//!   hook's eventfd with the heartbeat, and polls the hook only when that was signalled or the hook's own deadline has
+//!   come, sending what it returns on the bounded send path. There is no fixed pointer tick: an idle hook (overview
+//!   closed) costs the loop nothing.
+//!
+//! Not here yet (later phase 6 tasks): the run control socket, Hyprland events, the overview pointer itself (its state
+//! machine and the `ViewControl` around it; the loop's seam for it is [`hook`]), the status dict's parsing (each status
+//! line goes to a caller's handler), the journal recovery and the start-up marks.
 //!
 //! The pure parts sit in submodules, each mirroring one Python module (`immersive`, `quality`, `view` and the rest;
 //! `geometry` is the crate's). Inputs are typed, so what the Python refuses by type (a bool for an int, a float for an
@@ -50,6 +56,8 @@ pub mod web_video;
 // The overview pointer's sampler side: the cursor reads and compositor calls, the real cursor's visibility and the
 // scrolling layout's columns, each held to `rust/corpus/pointer/sampler.json`.
 pub mod columns;
+// The run loop's seam for the overview pointer's `poll` (an eventfd and a trait).
+pub mod hook;
 pub mod overview_cursor;
 pub mod sampler;
 #[cfg(test)]
@@ -59,11 +67,14 @@ mod sampler_corpus_tests;
 // `rust/corpus/pointer/math.json`.
 pub mod bump;
 pub mod edge_pan;
+pub mod free_pointer;
 pub mod neighbors;
+pub mod options_geometry;
 pub mod orbit;
 #[cfg(test)]
 mod pointer_math_corpus_tests;
 pub mod restore_band;
+pub mod unified_cursor;
 mod parity;
 // Privacy mode (Ctrl+Alt+D): privacy.py's main display blank, its watcher and the recovery wake.
 pub mod privacy;
@@ -72,13 +83,15 @@ use parity::corpus;
 use parity::{json_int, json_str, py_repr, py_strip};
 
 use std::io::{self, Read, Write};
-use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd};
 use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+pub use hook::{LoopHook, WakeFd};
 
 /// Two sequential IPC requests, each bounded at two seconds, plus scheduling allowance. Separate from (and never
 /// extending) the heartbeat's two seconds.
@@ -247,6 +260,8 @@ pub struct Supervisor<C: Renderer, R> {
     pub guard_restarts: u32,
     status_lines: StatusLines,
     on_status: Option<StatusHandler>,
+    /// The loop's passes (one per wait that returned), for the tests and benches that check it does not spin.
+    pub loop_passes: u64,
 }
 
 impl<C: Renderer, R> Supervisor<C, R> {
@@ -275,6 +290,7 @@ impl<C: Renderer, R> Supervisor<C, R> {
             guard_restarts: 0,
             status_lines: StatusLines::default(),
             on_status: None,
+            loop_passes: 0,
         }
     }
 
@@ -465,13 +481,36 @@ impl<C: Renderer, R> Supervisor<C, R> {
         interrupt: &AtomicBool,
         interval: Duration,
     ) -> io::Result<R> {
+        self.run_with(heartbeat, status, None, interrupt, interval)
+    }
+
+    /// [`Supervisor::run`], hosting `hook` (see [`hook`]): its frames go to the renderer on `heartbeat`.
+    pub fn run_hosting(
+        &mut self,
+        heartbeat: &UnixStream,
+        status: Option<&UnixDatagram>,
+        hook: &mut dyn LoopHook,
+        interrupt: &AtomicBool,
+        interval: Duration,
+    ) -> io::Result<R> {
+        self.run_with(heartbeat, status, Some(hook), interrupt, interval)
+    }
+
+    fn run_with(
+        &mut self,
+        heartbeat: &UnixStream,
+        status: Option<&UnixDatagram>,
+        hook: Option<&mut dyn LoopHook>,
+        interrupt: &AtomicBool,
+        interval: Duration,
+    ) -> io::Result<R> {
         if interval.is_zero() || interval > Duration::from_millis(100) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "invalid poll interval",
             ));
         }
-        let outcome = self.run_inner(heartbeat, status, interrupt, interval);
+        let outcome = self.run_inner(heartbeat, status, hook, interrupt, interval);
         // Reaping the renderer is never delayed by waiting on IPC. Whatever ended the loop, the worker is killed and
         // reaped and its pipe closed.
         self.stop_guard();
@@ -482,6 +521,7 @@ impl<C: Renderer, R> Supervisor<C, R> {
         &mut self,
         heartbeat: &UnixStream,
         status: Option<&UnixDatagram>,
+        mut hook: Option<&mut dyn LoopHook>,
         interrupt: &AtomicBool,
         interval: Duration,
     ) -> io::Result<R> {
@@ -491,7 +531,8 @@ impl<C: Renderer, R> Supervisor<C, R> {
         }
         let mut heartbeat_open = true;
         let mut status_open = status.is_some();
-        let timeout = interval.as_millis() as libc::c_int;
+        let hook_fd = hook.as_ref().map(|h| h.wake_fd().as_fd().as_raw_fd());
+        let mut frames = Vec::new();
         while !self.finished {
             let now = Instant::now();
             if interrupt.load(Ordering::Relaxed) {
@@ -503,7 +544,24 @@ impl<C: Renderer, R> Supervisor<C, R> {
                 break;
             }
             self.check_guard(now);
-            let mut fds = Vec::with_capacity(2);
+            // A stopping run sends nothing more, so its hook is neither waited on for a deadline nor polled.
+            let hosting = self.stopping_at.is_none();
+            let deadline = match hook.as_deref_mut() {
+                Some(hook) if hosting => hook.deadline(),
+                _ => None,
+            };
+            // Rounded up to the millisecond, so a deadline never turns into a run of zero-length waits.
+            let wait =
+                deadline.map_or(interval, |d| d.saturating_duration_since(now).min(interval));
+            let timeout = wait.as_micros().div_ceil(1000) as libc::c_int;
+            let mut fds = Vec::with_capacity(3);
+            if let Some(fd) = hook_fd {
+                fds.push(libc::pollfd {
+                    fd,
+                    events: libc::POLLIN,
+                    revents: 0,
+                });
+            }
             if heartbeat_open {
                 fds.push(libc::pollfd {
                     fd: heartbeat.as_raw_fd(),
@@ -525,11 +583,19 @@ impl<C: Renderer, R> Supervisor<C, R> {
                 }
                 return Err(error);
             }
+            self.loop_passes += 1;
+            let mut woken = false;
             for ready in fds.iter().filter(|p| p.revents != 0) {
                 let now = Instant::now();
                 self.tick(now);
                 if self.finished {
                     break;
+                }
+                if let Some(hook) = hook.as_deref()
+                    && Some(ready.fd) == hook_fd
+                {
+                    woken |= hook.wake_fd().drain();
+                    continue;
                 }
                 if let Some(status) = status
                     && ready.fd == status.as_raw_fd()
@@ -557,7 +623,19 @@ impl<C: Renderer, R> Supervisor<C, R> {
                     heartbeat_open = false;
                 }
             }
-            self.tick(Instant::now());
+            let now = Instant::now();
+            self.tick(now);
+            if let Some(hook) = hook.as_deref_mut()
+                && !self.finished
+                && self.stopping_at.is_none()
+                && (woken || deadline.is_some_and(|d| now >= d))
+            {
+                hook.poll(now, &mut frames);
+                if !frames.is_empty() {
+                    self.send(heartbeat, &frames, Vec::new());
+                    frames.clear();
+                }
+            }
         }
         Ok(self
             .result
@@ -803,6 +881,8 @@ pub struct Launch<'a> {
     /// Sent after the start frame (saved spacing, overview).
     pub initial_frames: Vec<u8>,
     pub status_handler: Option<StatusHandler>,
+    /// Hosted by the run loop (the overview pointer's `poll`, [`hook`]).
+    pub hook: Option<&'a mut dyn LoopHook>,
 }
 
 impl<'a> Launch<'a> {
@@ -830,6 +910,7 @@ impl<'a> Launch<'a> {
             tracking_timeout: None,
             initial_frames: Vec::new(),
             status_handler: None,
+            hook: None,
         }
     }
 
@@ -975,7 +1056,14 @@ pub fn launch<R>(
     if sent.is_err() {
         watchdog.disconnect(Instant::now(), Some(StopReason::SendFailed));
     }
-    let outcome = watchdog.run(&parent, Some(&status_parent), interrupt, POLL_INTERVAL);
+    let hook = spec.hook.take();
+    let outcome = watchdog.run_with(
+        &parent,
+        Some(&status_parent),
+        hook,
+        interrupt,
+        POLL_INTERVAL,
+    );
     // Also reap on loop errors.
     watchdog.reap();
     let stop_reason = watchdog.stop_reason;

@@ -7,10 +7,10 @@
 //! `py_hypot`. The private helpers are public here, without the underscore: the free pointer and the unified cursor
 //! build on them.
 //!
-//! `_strips` reads the handles' rectangles from `free_pointer.py`; those helpers ([`level_bar_rect`], [`pill_rect`],
-//! [`glass_to_desktop`] and their constants) live here until `free_pointer.py` is ported.
+//! `_strips` reads the handles' rectangles from `free_pointer.py`'s port ([`super::free_pointer`]).
 
 use super::bump::{self, Pusher};
+use super::free_pointer::{glass_to_desktop, level_bar_rect, pill_rect};
 use super::python::{py_hypot, py_max, py_min, py_round, py_sum};
 use crate::geometry::Placement;
 pub use crate::geometry::{TURN, X_LIMIT, wrap};
@@ -36,20 +36,6 @@ pub const CLEARANCE_PX: f64 = 1.0;
 /// Steradians: the "overlaps no more than now" tolerance.
 pub const AREA_EPS: f64 = 1e-9;
 const BEHIND: f64 = 1e-6;
-
-// free_pointer.py's handle sizes (glass.hpp), for `strips`.
-pub const PILL_SHARE: f64 = 0.24;
-pub const PILL_MIN: f64 = 64.0;
-pub const PILL_MAX: f64 = 160.0;
-pub const PILL_THICKNESS: f64 = 14.0;
-pub const PILL_GAP: f64 = 10.0;
-/// view.hpp kBorderPx: the selected desktop's frame, tile px.
-pub const BORDER_PX: f64 = 6.0;
-pub const LEVEL_BAR_W: f64 = 148.0;
-pub const LEVEL_BAR_H: f64 = 26.0;
-pub const LEVEL_BAR_GAP: f64 = 12.0;
-pub const LEVEL_BAR_SHARE: f64 = 0.25;
-pub const LEVEL_BAR_MIN_W: f64 = 120.0;
 
 /// The overview's geometry (`free_pointer.parse_overview_geometry`): the canvas `w` x `h` px, the view's half extents
 /// `half` (tangents) and each desktop's slot. Calls that only need the canvas take one with no tiles.
@@ -151,8 +137,13 @@ pub fn apply_t(m: &Mat3, v: &Vec3) -> Vec3 {
 /// desktop faces the eye, upright along its meridian, `distance` times as far as its slot's centre, bent by
 /// `curvature` toward you and turned by its levelling roll. Mirrors spike/src/view.cpp place_point.
 pub fn place_point(g: &Geometry, tile: &Tile, p: &Pose, px: f64, py: f64) -> Vec3 {
-    let (w, h) = (g.w as f64, g.h as f64);
-    let [hw, hh] = g.half;
+    place_point_on(g.w as f64, g.h as f64, g.half, tile, p, px, py)
+}
+
+/// [`place_point`] on a canvas given as numbers: `free_pointer.band_canvas` hands `orbit.place_point` the settled
+/// Restore geometry's canvas, whose size may be a float.
+pub fn place_point_on(w: f64, h: f64, half: [f64; 2], tile: &Tile, p: &Pose, px: f64, py: f64) -> Vec3 {
+    let [hw, hh] = half;
     let (sx, sy) = (2.0 * hw / w, 2.0 * hh / h);
     let [tx, ty, tw_px, th_px] = *tile;
     let (cx, cy) = (tx + tw_px / 2.0, ty + th_px / 2.0);
@@ -391,45 +382,6 @@ pub fn outline(g: &Geometry, tile: &Tile, p: &Pose) -> Vec<Vec3> {
     let mut out: Vec<Vec3> = xs.iter().map(|&x| place_point(g, tile, p, x, top)).collect();
     out.extend(xs.iter().rev().map(|&x| place_point(g, tile, p, x, bottom)));
     out
-}
-
-/// `free_pointer.level_bar_scale`: what the level bar is scaled by (glass.hpp): 1, less on a narrow desktop; 0 if empty.
-pub fn level_bar_scale(tile: &Tile) -> f64 {
-    let (tw, th) = (tile[2], tile[3]);
-    if !(tw > 0.0 && th > 0.0) {
-        return 0.0;
-    }
-    py_min(py_min(py_max(LEVEL_BAR_SHARE * tw, LEVEL_BAR_MIN_W), LEVEL_BAR_W), tw) / LEVEL_BAR_W
-}
-
-/// `free_pointer.level_bar_rect`: the level bar as drawn, (x, y, w, h) tile px, centred above the top edge.
-pub fn level_bar_rect(tile: &Tile) -> [f64; 4] {
-    let s = level_bar_scale(tile);
-    if s.is_nan() || s <= 0.0 {
-        return [0.0; 4];
-    }
-    let (w, h) = (LEVEL_BAR_W * s, LEVEL_BAR_H * s);
-    [tile[0] + (tile[2] - w) / 2.0, tile[1] - LEVEL_BAR_GAP * s - h, w, h]
-}
-
-/// `free_pointer.pill_rect`: the drawn glass pill, (x, y, w, h) canvas px, centred PILL_GAP under the desktop.
-pub fn pill_rect(tile: &Tile) -> [f64; 4] {
-    let [tx, ty, tw, th] = *tile;
-    let w = py_min(py_min(py_max(PILL_SHARE * tw, PILL_MIN), PILL_MAX), tw);
-    [tx + (tw - w) / 2.0, ty + th + PILL_GAP, w, PILL_THICKNESS]
-}
-
-/// `free_pointer.glass_anchor`: what glass hangs from, the middle of the border's outer edge under the desktop.
-pub fn glass_anchor(tile: &Tile) -> (f64, f64) {
-    (tile[0] + tile[2] / 2.0, tile[1] + tile[3] + BORDER_PX)
-}
-
-/// `free_pointer.glass_to_desktop`: glass px to the desktop surface px it is drawn at, scaled by the desktop's
-/// distance about glass_anchor.
-pub fn glass_to_desktop(tile: &Tile, p: &Pose, gx: f64, gy: f64) -> (f64, f64) {
-    let k = scale_of(p.distance);
-    let (ax, ay) = glass_anchor(tile);
-    (ax + (gx - ax) * k, ay + (gy - ay) * k)
 }
 
 /// `_strips`: points round the strips a desktop's handles take on its placed surface (un-orbited): the level bar above
