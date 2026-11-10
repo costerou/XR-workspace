@@ -18,6 +18,9 @@
 //! (`view.validate_stabilization`) belong to those modules; they come through here as a [`Value`]
 //! for the code that applies them to check.
 //!
+//! One place Rust is stricter than `decode_control`: `-0` is a float to serde_json, so it is refused
+//! where an integer is required (Python reads the integer 0). No writer sends `-0`.
+//!
 //! `rust/corpus/sockets/frames.json` (`tests/xr_controller/socket_corpus.py`) holds the frames the
 //! shipped writers sent, the status replies, and the shipped verdicts on frames wrong on purpose.
 

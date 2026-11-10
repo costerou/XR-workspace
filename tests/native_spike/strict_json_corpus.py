@@ -40,6 +40,8 @@ DIVERGENCES = {
     'lone_surrogate': ('cpp', 'Python keeps a lone \\uD800-\\uDFFF escape as a lone surrogate, which is not text; C++ refuses it'),
     'overflow': ('cpp', 'Python turns a number past the f64 range into inf (or an exact int); C++ refuses it, like NaN and Infinity'),
     'bom': ('python', 'C++ skips a leading UTF-8 byte order mark; Python refuses it, and no sender writes one'),
+    'nul': ('python', 'C++ stops reading at a raw NUL byte, taking the JSON before it; Python refuses it, and no sender '
+                      'writes one'),
 }
 EDGES = [
     # NaN and Infinity, in every spelling the decoders know
@@ -64,6 +66,8 @@ EDGES = [
     '\u00a01', '1\u00a0', '/*c*/1', '1//c',
     # a byte order mark
     '\ufeff1', '\ufeff{}', '1\ufeff',
+    # a raw NUL byte, after, before and inside a value (wire_fuzz.py found the first)
+    '1\x00', '{}\x00', '[1]\x00', '{"a":1}\x00x', '\x001', '[1\x00]', '"a\x00"',
 ]
 BAD_UTF8 = [b'"\xff"', b'"\xc3"', b'"\xed\xa0\x80"', b'"\xc0\xaf"', b'"\xf4\x90\x80\x80"', b'[1]\xff', b'\xef\xbb\xbf1',
             b'{"\xe9":1}', b'"\xe2\x82"']
@@ -182,6 +186,7 @@ def divergence(data):
     text = data.decode('utf-8', errors='replace')
     if depth(data) > MAX_DEPTH: return 'depth'
     if text.startswith('\ufeff'): return 'bom'
+    if '\x00' in text: return 'nul'
     if re.search(r'(?<!\\)(?:\\\\)*\\u[dD][89a-fA-F]', text): return 'lone_surrogate'
     if any(math.isinf(float(n)) for n in re.findall(r'-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?', text)): return 'overflow'
     return None

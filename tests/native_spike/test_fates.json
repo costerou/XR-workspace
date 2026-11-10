@@ -39,6 +39,10 @@
   "view_corpus.py": {
    "fate": "keep",
    "reason": "Writes rust/corpus/view/view.json, the parity corpus the Rust view state, settings file and frame encoders are held to."
+  },
+  "wire_fuzz.py": {
+   "fate": "keep",
+   "reason": "The cross-language wire fuzz (the phase 1 gate): drives the Python, C++ and Rust decoders, not a test of one."
   }
  },
  "tests": {
@@ -3493,6 +3497,21 @@
     }
    },
    "covers": "tools/native_spike/window_memory.py"
+  },
+  "test_wire_fuzz.py": {
+   "classes": {
+    "Rewrite": {
+     "tests": 3,
+     "fate": "keep"
+    },
+    "WireFuzz": {
+     "tests": 1,
+     "fate": "wire",
+     "via": "rust/crates/xr-wire/examples/wire_fuzz_verdicts.rs",
+     "how": "The phase 1 cross-language gate: the same generated frames through Python, C++ and the Rust example, every verdict compared. It runs the Rust code, so it stays as it is."
+    }
+   },
+   "reason": "Checks wire_fuzz.py's rewrite of a frame into what C++ and Python are given; the harness is a test tool, not ported."
   }
  }
 }

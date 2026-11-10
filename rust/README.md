@@ -267,13 +267,20 @@ holds the Rust ports to them byte for byte.
   `luma_replay_report` does and requires its calibration times: 2.60 s (real, moving) and 1.50 s
   (upside down, still).
 
-- `corpus/json/strict_json.json` holds 3435 JSON texts (hand-picked edges and a seeded fuzz), each
+- `corpus/json/strict_json.json` holds 3442 JSON texts (hand-picked edges and a seeded fuzz), each
   with the verdict of Python's `strict_json` and of C++ `decode_control`, and the verdict
   `xr_wire::json::parse` must give. Where Python and C++ differ (nesting past 32, a lone surrogate
-  escape, a number past the `f64` range, a byte order mark), the case names the rule followed; the
+  escape, a number past the `f64` range, a byte order mark, a raw NUL byte), the case names the rule followed; the
   Rust layer always takes the stricter verdict. `tests/native_spike/strict_json_corpus.py` makes it
   (with `CONTROL_WIRE_CHECK` set to the built `control_wire_check`); `test_strict_json_corpus.py`
   and `cargo test -p xr-wire` check it.
+
+- `tests/native_spike/wire_fuzz.py` is the cross-language fuzz: generated frames through Python, C++
+  and Rust, every verdict compared on the JSON layer, the renderer stream and the run socket. Build
+  `examples/wire_fuzz_verdicts` (`cargo build --release -p xr-wire --example wire_fuzz_verdicts`)
+  and `control_wire_check`, then run
+  `CONTROL_WIRE_CHECK=../build/release/control_wire_check python3 ../tests/native_spike/wire_fuzz.py --frames 1000000`
+  from `rust/`. It exits 1 on any difference.
 
 `tests/native_spike/lua_corpus.py` makes the two Hyprland files. `test_lua_corpus.py` fails when they no
 longer match the Python, or when a generator branch has no case. After a deliberate change to a

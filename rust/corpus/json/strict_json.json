@@ -21,6 +21,10 @@
   "bom": {
    "rust_follows": "python",
    "why": "C++ skips a leading UTF-8 byte order mark; Python refuses it, and no sender writes one"
+  },
+  "nul": {
+   "rust_follows": "python",
+   "why": "C++ stops reading at a raw NUL byte, taking the JSON before it; Python refuses it, and no sender writes one"
   }
  },
  "cases": [
@@ -137,6 +141,13 @@
 {"kind":"edge","text":"\ufeff1","python":"refused","cpp":"accepted","divergence":"bom","rust":"refused"},
 {"kind":"edge","text":"\ufeff{}","python":"refused","cpp":"accepted","divergence":"bom","rust":"refused"},
 {"kind":"edge","text":"1\ufeff","python":"refused","cpp":"refused","rust":"refused"},
+{"kind":"edge","text":"1\u0000","python":"refused","cpp":"accepted","divergence":"nul","rust":"refused"},
+{"kind":"edge","text":"{}\u0000","python":"refused","cpp":"accepted","divergence":"nul","rust":"refused"},
+{"kind":"edge","text":"[1]\u0000","python":"refused","cpp":"accepted","divergence":"nul","rust":"refused"},
+{"kind":"edge","text":"{\"a\":1}\u0000x","python":"refused","cpp":"accepted","divergence":"nul","rust":"refused"},
+{"kind":"edge","text":"\u00001","python":"refused","cpp":"refused","rust":"refused"},
+{"kind":"edge","text":"[1\u0000]","python":"refused","cpp":"refused","rust":"refused"},
+{"kind":"edge","text":"\"a\u0000\"","python":"refused","cpp":"refused","rust":"refused"},
 {"kind":"bad_utf8","hex":"22ff22","python":"refused","cpp":"refused","rust":"refused"},
 {"kind":"bad_utf8","hex":"22c322","python":"refused","cpp":"refused","rust":"refused"},
 {"kind":"bad_utf8","hex":"22eda08022","python":"refused","cpp":"refused","rust":"refused"},
