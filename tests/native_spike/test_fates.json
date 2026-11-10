@@ -20,6 +20,10 @@
    "fate": "keep",
    "reason": "Writes rust/corpus/hyprland/, the parity corpus the Rust generators are held to."
   },
+  "placement_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/placement/plans.json, the corpus the Rust window placement is held to."
+  },
   "state_file_corpus.py": {
    "fate": "keep",
    "reason": "Writes fixtures/state_files/, the run-file corpus for the cross-recovery gate."
@@ -1767,6 +1771,16 @@
      "fate": "port",
      "target": "xr-workspace supervisor::view",
      "rust_test": null
+    }
+   }
+  },
+  "test_placement_corpus.py": {
+   "classes": {
+    "PlacementCorpusTest": {
+     "tests": 3,
+     "fate": "wire",
+     "via": "rust/corpus/placement/plans.json",
+     "how": "The placement gate: the Rust adopt, window_memory, desktops, fit_windows, send, resize and geometry decide what these cases record. The Python test keeps the corpus true to the Python."
     }
    }
   },

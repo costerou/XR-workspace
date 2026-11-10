@@ -28,7 +28,7 @@ whatever its fate. The fates say what will cover the Rust supervisor.
 
 | port | wire | keep | drop | all |
 |---|---|---|---|---|
-| 2501 | 132 | 23 | 4 | 2660 |
+| 2501 | 135 | 23 | 4 | 2663 |
 
 The `port` count is large because almost every supervisor test imports a Python module and calls it
 directly. Few tests drive the supervisor through a socket or a process the Rust binary would also serve,
@@ -50,8 +50,9 @@ The biggest port targets: `free_pointer` 301, `view` 297, `unified_cursor` 192, 
 - **Renderer payload fixtures (33 tests).** The classes that compare the Python encoders with
   `fixtures/*_payloads.json` and `cursor_shape_names.json`. The renderer's C++ tests read the same files;
   the Rust encoders are held to them.
-- **The phase 0 corpora (8 tests).** `test_control_corpus`, `test_lua_corpus`, `test_state_file_corpus`
-  keep the corpora true to the Python. The phase 6 parity and cross-recovery gates hold Rust to them.
+- **The phase 0 corpora (8 tests) and the placement corpus (3).** `test_control_corpus`,
+  `test_lua_corpus`, `test_state_file_corpus` and `test_placement_corpus` keep the corpora true to the
+  Python. The phase 6 parity, cross-recovery and placement gates hold Rust to them.
 
 ## Dropped tests
 

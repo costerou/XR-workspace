@@ -13,7 +13,7 @@ exception is opt-in: `xr-workspace install` is a Rust port of the installer, run
 | `xr-luma-driver` | binary + library (`rt`) | The C++ Luma Ultra driver |
 | `xr-pro2-bridge` | binary | The Pro 2 bridge host (VITURE SDK through FFI) |
 | `xr-renderer` | binary | The C++ renderer |
-| `xr-workspace` | binaries + library | Controller, supervisor and installer (`xr-workspace`) and the key helper (`xr-control`); the supervisor's Lua generators are in `xr_workspace::lua` |
+| `xr-workspace` | binaries + library | Controller, supervisor and installer (`xr-workspace`) and the key helper (`xr-control`); the supervisor's Lua generators are in `xr_workspace::lua`, its window placement decisions (`adopt`, `window_memory`, `desktops`, `fit_windows`, `send`, `resize`, `geometry`) beside them |
 
 ## Gates
 
@@ -219,6 +219,24 @@ test fails them while decoding the arguments. It lists each such case by name in
 fails on any case it does not list. The Python helper keeps copies of a few strings
 (`xr_control.REMOVE_MENU_BINDS` and others), because it runs with `-I` and imports nothing. Rust has
 one source for each, and the test checks those cases against it.
+
+- `corpus/placement/plans.json` lists what the supervisor's window placement code decides: adoption,
+  window memory (capture, validate, match, plan), desktop actions, fitting windows into a smaller
+  desktop, the send keys, resize outputs and desktop geometry. Each case holds a function's arguments
+  (Hyprland replies taken from fixtures) and its result, or its refusal message. The fixtures hold
+  every kind of window that never leaves the physical monitor: pinned windows, special workspaces and
+  the XR Workspace panel under both of its titles.
+
+`tests/native_spike/placement_corpus.py` makes it, and `test_placement_corpus.py` fails when it no
+longer matches the Python or a function that can refuse has no refusal case.
+`crates/xr-workspace/tests/placement_corpus.rs` replays every case on the Rust port and compares the
+results as JSON. It also checks the gate directly: no window that stays is ever adopted, remembered
+or moved back, and none of them appears in the evals `xr_workspace::lua` makes from those plans.
+After a deliberate change to the Python, regenerate it:
+
+```sh
+TMPDIR=/tmp /usr/bin/python3 tests/native_spike/placement_corpus.py --write
+```
 
 - `corpus/supervisor/run_order.json` lists the ordered steps `managed.py` takes on a start, a stop, a
   recovery and a recovery after the compositor exited, with the result. Each path has one case per
