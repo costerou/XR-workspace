@@ -40,10 +40,8 @@ ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
 ioctl REAPURBNDELAY = {endpoint=0x81, status=0, actual_length=1}
 ioctl SUBMITURB {type=interrupt, endpoint=0x81, flags=0x0, buffer_length=1024} = 0
 ioctl REAPURBNDELAY = -1 EAGAIN
-ioctl REAPURBNDELAY = -1 EAGAIN
 ioctl REAPURBNDELAY = {endpoint=0x82, status=0, actual_length=2}
 ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
-ioctl REAPURBNDELAY = -1 EAGAIN
 ioctl REAPURBNDELAY = -1 EAGAIN
 ioctl SUBMITURB {type=bulk, endpoint=0x06, flags=0x0, buffer_length=1} = 0
 ioctl REAPURBNDELAY = {endpoint=0x06, status=0, actual_length=1}
@@ -86,7 +84,6 @@ ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
 ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
 ioctl REAPURBNDELAY = {endpoint=0x82, status=0, actual_length=1}
 ioctl SUBMITURB {type=bulk, endpoint=0x82, flags=0x0, buffer_length=512} = 0
-ioctl REAPURBNDELAY = -1 EAGAIN
 ioctl REAPURBNDELAY = -1 EAGAIN
 ioctl DISCARDURB {endpoint=0x81, buffer_length=1024} = 0
 ioctl DISCARDURB {endpoint=0x81, buffer_length=1024} = 0

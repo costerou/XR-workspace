@@ -525,14 +525,16 @@ impl Transport {
     /// Waits up to `timeout` for a packet or a link change. A zero timeout polls.
     pub fn read(&mut self, buffer: &mut [u8], timeout: Duration) -> TransportRead {
         let deadline = deadline_after(timeout);
+        let mut reaped = false; // This call already took everything the kernel had finished.
         loop {
             if !self.opened {
                 return TransportRead::status(IoStatus::Closed);
             }
             if self.count > 0 {
                 // A backed-up device is when the ring holds packets, and its queue must not run dry
-                // while the caller works through them, so handing one over refills it too.
-                if self.fd.is_some() {
+                // while the caller works through them, so handing one over refills it too. Not straight
+                // after the wake's own reap: that one ended on EAGAIN microseconds ago.
+                if !reaped && self.fd.is_some() {
                     self.reap_all();
                     self.finish_reap();
                 }
@@ -568,7 +570,9 @@ impl Transport {
                 }
                 continue; // Only a very long wait, split up by poll_ms().
             }
+            // One wake, every finished URB: a burst the host handed over together costs one wake-up (D10).
             self.reap_all();
+            reaped = true;
             if fds[0].revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0 {
                 self.mark_lost("poll: device removed".to_string());
             }
