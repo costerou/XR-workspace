@@ -17,7 +17,7 @@ def build(build_dir,destination):
     (destination/'bin').mkdir(mode=0o700)
     bridge=destination/'bin/pro2-sdk-bridge'
     subprocess.run(['c++','-std=c++20','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-pthread',
-        '-I'+str(ROOT/'spike/driver/include'),str(ROOT/'tools/pro2_runtime/bridge.cpp'),str(ROOT/'spike/driver/src/publish.cpp'),str(ROOT/'spike/driver/src/predict.cpp'),'-lcrypto','-ldl','-o',str(bridge)],check=True)
+        '-I'+str(ROOT/'spike/driver/include'),str(ROOT/'tools/pro2_runtime/bridge.cpp'),str(ROOT/'spike/driver/src/publish.cpp'),str(ROOT/'spike/driver/src/predict.cpp'),str(ROOT/'spike/driver/src/vsync.cpp'),'-lcrypto','-ldl','-o',str(bridge)],check=True)
     for name in ('xr-native-spike','libxr-ownership.so'):shutil.copy2(build_dir/name,destination/'bin'/name)
     files=subprocess.check_output(['git','ls-files','-z','tools','omarchy-plugin','docs/pro2'],cwd=ROOT).split(b'\0')
     for item in files:

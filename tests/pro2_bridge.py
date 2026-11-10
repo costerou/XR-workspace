@@ -20,7 +20,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CXX = ['c++', '-std=c++20', '-pthread', '-Ispike/driver/include', 'tools/pro2_runtime/bridge.cpp',
-       'spike/driver/src/publish.cpp', 'spike/driver/src/predict.cpp', '-lcrypto', '-ldl']
+       'spike/driver/src/publish.cpp', 'spike/driver/src/predict.cpp', 'spike/driver/src/vsync.cpp', '-lcrypto', '-ldl']
 
 
 def cpp_command(out, synthetic=True):
