@@ -168,6 +168,13 @@ holds the Rust ports to them byte for byte.
   each open, close and ioctl of one scripted session on a fake kernel. The C++ transport test writes
   it (`LUMA_TRACE_WRITE=1`) and checks it; `crates/xr-luma-driver/tests/transport.rs` holds the Rust
   transport to the same calls in the same order.
+- `corpus/journal/cases.json` holds the run journal (`tools/native_spike/journal.py`): the journal file
+  each scripted run leaves, then the Python recovery of it against a scripted compositor, clean and
+  with one fault (an error, a disconnect, a session change, a refused or an ignored call) injected
+  at every call it makes, then a clean retry. Journals the Python refuses are listed with the error
+  text. `tests/native_spike/journal_corpus.py` makes it and is also the live Python oracle for
+  `crates/xr-workspace/tests/cross_recovery.rs`, which holds the Rust journal to both directions:
+  Rust recovers the Python runs, and the Python recovers runs the Rust wrote.
 
 - `corpus/luma-fusion/` holds the C++ `luma::Fusion`'s output for every sample of the two replay
   fixtures (`real.bin`, `upside_down.bin`, from `spike/driver/tests/fixtures/`) and for a faults run
