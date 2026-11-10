@@ -41,9 +41,11 @@ class Machine:
         self.plug('5-2', '1a86:8091', 3)
         self.plug('5-2.1', '35ca:1104', 4)
 
-    def driver(self, pid=4242, name='xrDriver'):
+    def driver(self, pid=4242, name='xrDriver', exe=None):
         folder = self.proc / str(pid)
         (folder / 'task' / str(pid)).mkdir(parents=True)
+        if exe is not None:  # the binary it runs, as /proc/PID/exe says; the target need not exist
+            (folder / 'exe').symlink_to(exe)
         (folder / 'comm').write_text(f'{name}\n')
         (folder / 'stat').write_text(f'{pid} ({name} x) S ' + ' '.join(['0'] * 10) + ' 5 5 0\n')
         (folder / 'task' / str(pid) / 'schedstat').write_text('100 2000000 3\n')

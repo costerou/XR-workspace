@@ -67,7 +67,7 @@ The report sets each signal against ordinary windows of the same length, because
 The C++ driver writes `luma: <word> key=value ... at=<epoch s>` lines (`spike/driver/src/main.cpp`), and `tracking.py`
 sends them to `~/.local/state/viture-workspace/luma-driver.log`. `stale ms=` is read as a sample gap, `disconnected` as a
 USB error, `retry` as a reconnect attempt and `reconnected gap_ms=` as a finished reconnect, summed in `driver_events`.
-`at=` dates each line, so a saved log can be replayed too. A test checks every `luma:` word in the driver's source is read.
+`at=` dates each line, so a saved log can be replayed too. The Rust driver writes the same lines. A test checks every `luma:` word in either driver's source is read.
 
 A future driver may instead write one event per line, JSON or logfmt, with an `event` key:
 
@@ -77,10 +77,15 @@ A future driver may instead write one event per line, JSON or logfmt, with an `e
 
 `unix_ms=` on any line gives its own time; without it the line is stamped on arrival. Other events are ignored.
 
-## The C++ driver baseline
+## The C++ baseline and the Rust soak (D13)
 
-`tools/luma_soak/cpp_baseline.sh` runs the 3-hour soak of the C++ `xr-luma-driver` and stores its report in `docs/soak/`.
-Any number of drops is a valid measurement there; see `docs/soak/README.md`.
+`tools/luma_soak/soak.sh cpp` (also `cpp_baseline.sh`) runs the 3-hour soak of the C++ `xr-luma-driver`, and
+`soak.sh rust` that of the Rust one; each stores its report in `docs/soak/`. Any number of drops is a valid measurement
+there. `soak.sh rust` then runs `compare` against the stored baseline: no more drops than the C++ driver over equal hours,
+exit 0 PASS, 1 FAIL, 2 INCONCLUSIVE. See `docs/soak/README.md`.
+
+Both builds run as `xr-luma-driver`, so the soak records each driver process's binary (`coverage.driver_exes`), and
+`gate --driver-build cpp|rust` makes a soak of the other build, or of both, inconclusive.
 
 ## Fixtures
 

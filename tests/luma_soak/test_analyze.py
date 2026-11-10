@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import unittest
 
-from tools.luma_soak.analyze import EXIT_DROP, EXIT_INCONCLUSIVE, EXIT_PASS, Policy, analyze, records_from_logs
+from tools.luma_soak.analyze import EXIT_DROP, EXIT_INCONCLUSIVE, EXIT_PASS, Policy, analyze, driver_build, records_from_logs
 
 FIXTURES = Path(__file__).parent / 'fixtures'
 T0 = 1793700000.0
@@ -119,6 +119,55 @@ class VerdictTests(unittest.TestCase):
         gap = {'src': 'feed', 't': T0 + 9, 'kind': 'gap', 'start': T0 + 8.9, 'ms': 90.0}
         self.assertEqual(self.verdict(start(), *alive(), gap, stop())['exit'], EXIT_PASS)
         self.assertEqual(self.verdict(start(), *alive(), gap, stop(), max_feed_gap_ms=50.0)['exit'], EXIT_DROP)
+
+
+RUST_PIN = '/home/u/.local/share/viture-workspace/bin/0123456789ab/rust/xr-luma-driver'
+CPP_PIN = '/home/u/.local/share/viture-workspace/bin/0123456789ab/xr-luma-driver'
+
+
+def running(exe, duration=1800):
+    return [dict(r, driver_exes=[exe]) if r['src'] == 'cpu' else r for r in alive(duration)]
+
+
+class DriverBuildTests(unittest.TestCase):
+    """Both builds are called xr-luma-driver; a soak of one must not be counted as the other's (D13)."""
+
+    def test_paths(self):
+        self.assertEqual(driver_build(RUST_PIN), 'rust')
+        self.assertEqual(driver_build(CPP_PIN), 'cpp')
+        self.assertEqual(driver_build('/repo/rust/target/release/xr-luma-driver'), 'rust')
+        self.assertEqual(driver_build('/repo/spike/build/driver/xr-luma-driver'), 'cpp')
+        self.assertEqual(driver_build('/worktrees/rust-p2-soak/spike/build/xr-luma-driver'), 'cpp')
+        self.assertEqual(driver_build(RUST_PIN + ' (deleted)'), 'rust')
+
+    def test_the_binaries_are_in_the_report(self):
+        report = analyze([start(), *running(RUST_PIN), stop()], Policy())
+        self.assertEqual(report['coverage']['driver_exes'], [RUST_PIN])
+
+    def test_the_named_build_passes(self):
+        self.assertEqual(analyze([start(), *running(RUST_PIN), stop()], Policy(driver_build='rust'))['verdict']['exit'], EXIT_PASS)
+        self.assertEqual(analyze([start(), *running(CPP_PIN), stop()], Policy(driver_build='cpp'))['verdict']['exit'], EXIT_PASS)
+
+    def test_the_other_build_proves_nothing(self):
+        result = analyze([start(), *running(CPP_PIN), stop()], Policy(driver_build='rust'))['verdict']
+        self.assertEqual(result['exit'], EXIT_INCONCLUSIVE)
+        self.assertIn('the cpp driver ran, not only the rust one', result['reasons'][0])
+
+    def test_a_mixed_soak_proves_nothing(self):
+        records = [start(), *running(RUST_PIN, 900), *[dict(r, t=r['t'] + 900) for r in running(CPP_PIN, 900)], stop()]
+        result = analyze(records, Policy(driver_build='rust'))['verdict']
+        self.assertEqual(result['exit'], EXIT_INCONCLUSIVE)
+        self.assertIn('cpp/rust', result['reasons'][0])
+
+    def test_no_record_is_only_ever_the_cpp_driver(self):
+        # Sessions from before the soak recorded binaries could only have run the C++ driver: the Rust one was a stub.
+        self.assertEqual(analyze([start(), *alive(), stop()], Policy(driver_build='cpp'))['verdict']['exit'], EXIT_PASS)
+        result = analyze([start(), *alive(), stop()], Policy(driver_build='rust'))['verdict']
+        self.assertEqual(result['exit'], EXIT_INCONCLUSIVE)
+        self.assertIn('no record of which driver binary ran', result['reasons'][0])
+
+    def test_a_drop_still_fails_whatever_the_build(self):
+        self.assertEqual(analyze([start(), *running(CPP_PIN), *drop_at(T0 + 100), stop()], Policy(driver_build='rust'))['verdict']['exit'], EXIT_DROP)
 
 
 class WitnessTests(unittest.TestCase):

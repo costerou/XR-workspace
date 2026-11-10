@@ -4,13 +4,14 @@ Records are dicts with `src` and `t` (epoch seconds):
     meta   kind=start {tree, glasses_at_start, ids}; kind=stop {reason, duration_s, audit, glasses_at_end, suspended_s}; kind=blind {why}
     kernel line (raw journal line)
     driver line, t_hi (only when replayed: an undated line is known only to lie between t and t_hi)
-    cpu    driver_pids, system_pct, core_max_pct, driver_pct, run_delay_ms
+    cpu    driver_pids, driver_exes (the binaries they run), system_pct, core_max_pct, driver_pct, run_delay_ms
     sysfs  kind=gone|renumbered|appeared, path, id, devnum
     feed   kind=gap, start, ms; kind=stats, advances, window_s
 """
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import PurePosixPath
 
 from . import driverlog
 from .kernel import GLASSES_IDS, HUB_IDS, UsbModel, parse_line
@@ -24,6 +25,24 @@ QUIET_AFTER_S = 30.0       # the seconds after a drop are the driver reconnectin
 COVERAGE = 0.95            # share of the soak the driver and the feed must have been alive for
 
 EXIT_PASS, EXIT_DROP, EXIT_INCONCLUSIVE = 0, 1, 2
+BUILDS = ('cpp', 'rust')
+
+
+def driver_build(exe):
+    """Which build of xr-luma-driver a binary path is. Both have one name; the install pins the Rust one in
+    bin/<hash>/rust/ (tools/xr_controller/install.py RUST_DIR) and a dev build sits under the repo's rust/target/."""
+    return 'rust' if 'rust' in PurePosixPath(exe.removesuffix(' (deleted)')).parts else 'cpp'
+
+
+def build_problem(exes, build):
+    """Why a soak's driver binaries do not prove `build` ran, or None. A session with none recorded counts as C++ only:
+    the soak recorded no binaries before the Rust driver could run at all (it was a stub until 2026-11-10)."""
+    builds = {driver_build(exe) for exe in exes or ()}
+    if builds - {build}:
+        return f"the {'/'.join(sorted(builds))} driver ran, not only the {build} one: {', '.join(exes)}"
+    if not builds and build != 'cpp':
+        return f'no record of which driver binary ran, need the {build} one'
+    return None
 
 
 @dataclass
@@ -40,6 +59,7 @@ class Policy:
     require_driver: bool = True
     require_feed: bool = True
     max_feed_gap_ms: float = None
+    driver_build: str = None         # 'cpp' or 'rust': only a soak of that build of xr-luma-driver proves anything
     notes: list = field(default_factory=list)
 
 
@@ -290,6 +310,7 @@ def analyze(records, policy=None):
                      'feed': round(len(live_stats) / len(stats), 3) if stats else None,
                      'feed_samples_per_s': _avg(rates), 'worst_feed_gap_ms': max((round(g['ms'], 1) for g in gaps), default=None),
                      'driver_processes': len({pid for s in samples for pid in s.get('driver_pids', ())}),
+                     'driver_exes': sorted({exe for s in samples for exe in s.get('driver_exes', ())}),
                      'cpu_samples': len(samples), 'driver_lines': len(lines), 'kernel_lines': len(times)},
         'watch': {'glasses_at_start': start.get('glasses_at_start') if start else None, 'glasses_at_end': stop.get('glasses_at_end') if stop else None,
                   'audit': stop.get('audit') if stop else None, 'suspended_s': stop.get('suspended_s') if stop else None, 'blind': blind},
@@ -331,6 +352,8 @@ def verdict(report, policy):
             unproven.append(f"driver running for {coverage['driver']} of the soak, need {COVERAGE}")
         if policy.require_feed and (coverage['feed'] or 0) < COVERAGE:
             unproven.append(f"pose feed advancing for {coverage['feed']} of the soak, need {COVERAGE}")
+        if policy.driver_build and (problem := build_problem(coverage.get('driver_exes'), policy.driver_build)):
+            unproven.append(problem)
     if report['unattributed']:
         unproven.append(f"{len(report['unattributed'])} USB disconnect(s) on a port nothing identified")
     if unproven:

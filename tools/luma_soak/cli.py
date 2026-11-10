@@ -3,9 +3,11 @@
     monitor   watch until --duration or Ctrl-C, then print the report
     gate      the same, then exit 0 only for a proven zero-drop soak; or judge an existing --session
     report    print the report of a --session, or of saved logs
+    compare   the D13 drop gate: a Rust soak's stored report against the C++ baseline's
     sanitize  strip serials and the host name from a log on stdin, to make a fixture
 
 gate exit codes: 0 PASS, 1 a drop (or a --strict or --max-feed-gap-ms limit), 2 INCONCLUSIVE (the soak proved nothing).
+compare exit codes: 0 PASS (no more drops than the C++ baseline over equal hours), 1 FAIL, 2 INCONCLUSIVE (a report proves nothing).
 """
 import argparse
 import json
@@ -16,7 +18,8 @@ import sys
 import time
 
 from . import report as report_text, sanitize
-from .analyze import EXIT_INCONCLUSIVE, Policy, analyze, records_from_logs
+from .analyze import BUILDS, EXIT_INCONCLUSIVE, Policy, analyze, records_from_logs
+from .compare import compare
 from .kernel import GLASSES_IDS, HUB_IDS
 from .monitor import Config, Monitor, load_session
 from .probes import DEFAULT_FEED, DRIVER_NAMES
@@ -35,6 +38,7 @@ def _parser():
     judge.add_argument('--max-feed-gap-ms', type=float, help='also fail on a pose feed gap longer than this')
     judge.add_argument('--no-require-driver', action='store_true', help='a soak with no driver running can still pass')
     judge.add_argument('--no-require-feed', action='store_true', help='a soak with no advancing pose feed can still pass')
+    judge.add_argument('--driver-build', choices=BUILDS, help='only a soak of this build of xr-luma-driver can pass')
     judge.add_argument('--port', help='treat an unidentified disconnect at or under this port (e.g. 5-2) as a drop')
     judge.add_argument('--json', action='store_true', help='print the report as JSON')
     judge.add_argument('--glasses-id', action='append', metavar='VID:PID', help=f'default {", ".join(sorted(GLASSES_IDS))}')
@@ -63,6 +67,10 @@ def _parser():
     report.add_argument('--since', type=float, help='epoch seconds')
     report.add_argument('--until', type=float, help='epoch seconds')
     report.add_argument('--last', type=int, default=20, help='drops to detail in the text report')
+    against = commands.add_parser('compare', help='the D13 drop gate: a Rust soak report against the C++ baseline report')
+    against.add_argument('--baseline', type=Path, required=True, help='the C++ soak, a stored .report.json')
+    against.add_argument('--candidate', type=Path, required=True, help='the Rust soak, a stored .report.json')
+    against.add_argument('--json', action='store_true')
     clean = commands.add_parser('sanitize', help='stdin to stdout')
     clean.add_argument('--kernel-usb', action='store_true', help='keep only kernel USB lines')
     return parser
@@ -74,7 +82,7 @@ def _ids(given, default):
 
 def _policy(args):
     return Policy(window_s=args.window, port=args.port, budget=args.budget, strict=args.strict, max_feed_gap_ms=args.max_feed_gap_ms,
-                  require_driver=not args.no_require_driver, require_feed=not args.no_require_feed,
+                  driver_build=args.driver_build, require_driver=not args.no_require_driver, require_feed=not args.no_require_feed,
                   glasses_ids=_ids(args.glasses_id, GLASSES_IDS), hub_ids=_ids(args.hub_id, HUB_IDS),
                   since=getattr(args, 'since', None), until=getattr(args, 'until', None))
 
@@ -112,6 +120,15 @@ def _run(args):
         for line in sanitize.lines(sys.stdin, args.kernel_usb):
             print(line)
         return 0
+    if args.command == 'compare':
+        result = compare(json.loads(args.baseline.read_text()), json.loads(args.candidate.read_text()))
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"drop gate: {result['result']}")
+            for reason in result['reasons']:
+                print(f'  {reason}')
+        return result['exit']
     policy = _policy(args)
     if args.command == 'report':
         if bool(args.session) == bool(args.kernel_log):

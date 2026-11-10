@@ -26,7 +26,7 @@ def render(report, limit=20):
     coverage, watch = report['coverage'], report['watch']
     if report['mode'] == 'live':
         out.append(f"Watch: audit {watch['audit']}, glasses at start {watch['glasses_at_start']}, at end {watch['glasses_at_end']}, "
-                   f"driver alive {coverage['driver']} ({coverage['driver_processes']} process(es)), feed advancing {coverage['feed']} at {coverage['feed_samples_per_s']} samples/s, worst feed gap {coverage['worst_feed_gap_ms']} ms")
+                   f"driver alive {coverage['driver']} ({coverage['driver_processes']} process(es){', ' + ', '.join(coverage['driver_exes']) if coverage.get('driver_exes') else ''}), feed advancing {coverage['feed']} at {coverage['feed_samples_per_s']} samples/s, worst feed gap {coverage['worst_feed_gap_ms']} ms")
         out.extend(f'  stream note: {why}' for why in watch['blind'])
     if report['siblings'] or report['kernel_trouble'] or report['unattributed']:
         out.append(f"Also: {len(report['siblings'])} camera/mic disconnect(s), {len(report['kernel_trouble'])} kernel USB warning(s), {len(report['unattributed'])} unidentified disconnect(s)")

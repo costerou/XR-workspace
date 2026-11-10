@@ -1,7 +1,8 @@
 # Soak reports
 
 Stored soak reports of the Luma Ultra, for the Rust rebuild's drop gate (`docs/rust-rebuild-plan.md`, D13): the Rust
-driver must show no more USB drops per hour than the C++ driver over equal hours. This folder holds the C++ "before".
+driver must show no more USB drops than the C++ driver over equal hours. This folder holds the C++ "before" and the Rust
+"after"; `tools/luma_soak/soak.sh rust` compares them and prints the gate's result.
 
 ## Results
 
@@ -9,10 +10,15 @@ driver must show no more USB drops per hour than the C++ driver over equal hours
 |---|---|---|---|---|---|---|
 | 2026-11-01 to 03 | XRLinuxDriver, mixed use, kernel log only | 72.1 (25.5 with glasses on) | 54 | 0.75 over the boot, up to 3.2 in use | replay: can count, not prove | `tests/luma_soak/fixtures/kernel_boot_2026-11-01_03.log` |
 | _pending_ | C++ `xr-luma-driver` | 3 | | | | `cpp-baseline-<stamp>.report.json` |
+| _pending_ | Rust `xr-luma-driver` | 3 | | | | `rust-soak-<stamp>.report.json` |
 
 Fill a row from the summary line the script prints. A drop is the thing counted, so a run with drops is still a valid
 baseline. "Valid" means every other condition of `luma_soak gate` held: at least 3 hours, glasses on USB at both ends,
-`xr-luma-driver` running and the pose feed advancing for 95% of the run, the kernel log readable at the end, no suspend.
+`xr-luma-driver` running and the pose feed advancing for 95% of the run, the kernel log readable at the end, no suspend,
+and only the named build running. Both builds are called `xr-luma-driver`, so the soak records the binary each driver
+process runs (`/proc/PID/exe`, `coverage.driver_exes`). A path with a `rust` folder in it is the Rust build
+(`bin/<hash>/rust/xr-luma-driver`, `rust/target/...`); anything else is the C++ one. A Rust soak with no binary on record
+is not valid. A C++ one is, because sessions recorded before 2026-11-10 hold no binary and could only run the C++ driver.
 
 ## Running the C++ baseline
 
@@ -39,9 +45,36 @@ record. Judge and store it with `tools/luma_soak/cpp_baseline.sh --session ~/.lo
 It is still judged against the full 3 hours: a shorter run is stored but marked not valid. One unbroken run is the
 baseline; shorter runs are not added together.
 
-## What the report holds about the C++ driver
+## Running the Rust soak, and the gate
 
-The driver writes `luma: <word> key=value ... at=<epoch s>` lines to `~/.local/state/viture-workspace/luma-driver.log`
+The same soak with the Rust driver pinned, then the comparison. Run it only after a valid C++ baseline is stored here.
+
+1. Build and pin the Rust driver: `cargo build --release -p xr-luma-driver` in `rust/`, then
+   `python3 -m tools.xr_controller install --build <build dir> --rust-driver rust/target/release/xr-luma-driver`.
+   `tracking-override` must not be set (step 1 above); `luma-cpp` would run the C++ driver.
+2. Start a Luma Ultra session and wait for tracking, as for the baseline. The panel names the driver in use.
+3. From the repo root:
+
+       tools/luma_soak/soak.sh rust
+
+   It watches for 3 hours, stores `rust-soak-<stamp>.report.json` and `.report.txt` here, and prints
+   `rust soak: VALID: ...` as the baseline does. Then it compares the report with the newest `cpp-baseline-*.report.json`
+   here (or `LUMA_SOAK_BASELINE=FILE`) and prints `drop gate: PASS`, `FAIL` or `INCONCLUSIVE` with one line why.
+4. Back to the C++ driver at any time: `python3 -m tools.xr_controller tracking-override set luma-cpp`.
+
+| Exit | Gate | Meaning |
+|---|---|---|
+| 0 | PASS | Both soaks valid, and the Rust drops are no more than the C++ drops scaled to the Rust hours |
+| 1 | FAIL | Both valid, and the Rust driver dropped more |
+| 2 | INCONCLUSIVE | No stored baseline, either soak not valid, the wrong build in either, or the Rust soak under 95% of the baseline's hours |
+
+The same comparison from two stored reports: `python3 -m tools.luma_soak compare --baseline FILE --candidate FILE`.
+Only a PASS lets the Rust driver become the default (plan phase 2). At about 3 drops per hour one 3-hour pair is noisy
+(plan, Risks): a FAIL by one or two drops is worth a second pair of runs before the port is blamed.
+
+## What the report holds about the driver
+
+Both drivers write the same `luma: <word> key=value ... at=<epoch s>` lines to `~/.local/state/viture-workspace/luma-driver.log`
 (`tools/native_spike/tracking.py` sends its stderr there). The soak reads them:
 
 | Driver line | Read as |

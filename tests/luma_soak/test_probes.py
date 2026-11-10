@@ -71,6 +71,20 @@ class CpuTests(unittest.TestCase):
         self.assertAlmostEqual(out['driver_pct'], 50.0, delta=1.0)
         self.assertEqual(out['run_delay_ms'], 10.0)
 
+    def test_the_driver_binary_is_recorded(self):
+        self.machine.driver(name='xr-luma-driver', exe='/data/bin/abc/rust/xr-luma-driver')
+        self.assertEqual(probes.CpuSampler(self.machine.proc, names=('xr-luma-driver',)).sample()['driver_exes'],
+                         ['/data/bin/abc/rust/xr-luma-driver'])
+
+    def test_argv0_stands_in_for_an_unreadable_exe(self):
+        self.machine.driver(name='xr-luma-driver')
+        (self.machine.proc / '4242/cmdline').write_bytes(b'/data/bin/abc/xr-luma-driver\0--state-dir\0/x\0')
+        self.assertEqual(probes.CpuSampler(self.machine.proc, names=('xr-luma-driver',)).sample()['driver_exes'], ['/data/bin/abc/xr-luma-driver'])
+
+    def test_no_binary_known_records_none(self):
+        self.machine.driver()
+        self.assertNotIn('driver_exes', self.sampler().sample())
+
     def test_name_with_a_bracket_in_stat(self):
         self.machine.driver()
         (self.machine.proc / '4242/stat').write_text('4242 (a) b) S ' + ' '.join(['0'] * 10) + ' 7 8 0\n')

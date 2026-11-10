@@ -96,3 +96,11 @@ class CppLumaDriverLines(unittest.TestCase):
         self.assertGreater(len(words), 10)
         for word in sorted(words):
             self.assertIsNotNone(driverlog.classify(f'luma: {word} x=1 at=1793700000.123'), word)
+
+    def test_every_line_the_rust_driver_writes_is_understood(self):
+        """The Rust xr-luma-driver writes the same lines (D13 compares the two), so its soak must read every one."""
+        source = Path(__file__).resolve().parents[2] / 'rust/crates/xr-luma-driver/src'
+        words = set(re.findall(r'"luma: ([a-z_]+)', ''.join(p.read_text() for p in source.glob('*.rs'))))
+        self.assertGreater(len(words), 10)
+        for word in sorted(words):
+            self.assertIsNotNone(driverlog.classify(f'luma: {word} x=1 at=1793700000.123'), word)

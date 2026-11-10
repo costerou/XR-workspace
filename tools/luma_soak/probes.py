@@ -20,6 +20,19 @@ def _read(path):
         return None
 
 
+def _exe(proc, pid):
+    """The binary a process runs: /proc/PID/exe, else argv[0] (tracking.py starts the driver by its full pinned path)."""
+    try:
+        return os.readlink(f'{proc}/{pid}/exe')
+    except OSError:
+        pass
+    try:
+        argv0 = Path(f'{proc}/{pid}/cmdline').read_bytes().split(b'\0')[0].decode(errors='replace')
+    except OSError:
+        return None
+    return argv0 or None
+
+
 def usb_tree(root='/sys/bus/usb/devices'):
     """{port path: {id, product, devnum}} for every USB device; root hubs and interfaces are left out."""
     tree = {}
@@ -60,6 +73,7 @@ class CpuSampler:
     def __init__(self, proc='/proc', names=DRIVER_NAMES, clock=time.monotonic):
         self.proc, self.names, self.clock = proc, tuple(names), clock
         self.pids, self.scanned, self.last_stat, self.last_driver, self.last_at = [], None, None, {}, None
+        self.exes = {}  # pid: the binary it runs, so a report says which build of a driver it watched
         self.tick = os.sysconf('SC_CLK_TCK')
 
     def _scan(self):
@@ -72,6 +86,7 @@ class CpuSampler:
             if name.isdigit() and _read(f'{self.proc}/{name}/comm') in self.names:
                 found.append(int(name))
         self.pids = sorted(found)
+        self.exes = {pid: self.exes.get(pid) or _exe(self.proc, pid) for pid in self.pids}
 
     def _system(self):
         cores = {}
@@ -122,6 +137,8 @@ class CpuSampler:
                 driver[pid] = read
         self.pids = sorted(driver)
         out['driver_pids'] = list(self.pids)
+        if exes := sorted({self.exes[pid] for pid in self.pids if self.exes.get(pid)}):
+            out['driver_exes'] = exes
         if dt and driver:
             ticks = delay = 0
             for pid, (t, d) in driver.items():
