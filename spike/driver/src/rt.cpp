@@ -110,6 +110,10 @@ ThreadPolicyResult apply_thread_policy(const ThreadPolicy& policy, const SysOps&
         if (const int rc = ops.set_fifo(priority); rc == 0) {
             result.sched = SchedClass::fifo;
             result.priority = priority;
+            if (policy.fifo_cpu >= 0 && result.cpu < 0) {
+                if (const int pin = ops.set_affinity(policy.fifo_cpu); pin == 0) result.cpu = policy.fifo_cpu;
+                else add_detail(result.detail, "not pinned to cpu " + std::to_string(policy.fifo_cpu) + ": " + errno_text(pin));
+            }
             return result;
         } else {
             add_detail(result.detail, "no SCHED_FIFO: " + errno_text(rc));
@@ -127,6 +131,18 @@ ThreadPolicyResult apply_thread_policy(const ThreadPolicy& policy, const SysOps&
         else add_detail(result.detail, "no short slice: " + errno_text(rc));
     }
     return result;
+}
+
+std::string describe(const ThreadPolicyResult& r) {
+    std::string out = "class=";
+    switch (r.sched) {
+        case SchedClass::fifo: out += "fifo priority=" + std::to_string(r.priority); break;
+        case SchedClass::nice: out += "nice nice=" + std::to_string(r.nice); break;
+        case SchedClass::normal: out += "normal"; break;
+    }
+    if (r.sched != SchedClass::fifo) out += std::string(" short_slice=") + (r.short_slice ? "yes" : "no");
+    out += " cpu=" + (r.cpu >= 0 ? std::to_string(r.cpu) : std::string("any"));
+    return out;
 }
 
 std::string rt_setup_commands(const std::string& user) {

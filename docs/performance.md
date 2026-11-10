@@ -80,6 +80,21 @@ What the numbers say:
   no overflow in any run. That is under a scheduling stall, not a USB one: USB drops are a separate matter, and a real one ends the
   session whatever this layer does.
 
+## What the driver does at start (D9)
+
+Live runs only, unless `--no-rt`: `lock_memory()` (declines below a 128 MiB `RLIMIT_MEMLOCK`, so `MCL_FUTURE` can never make an
+mmap fail), a 256 KiB stack prefault, then `apply_thread_policy` on the daemon's one thread: `SCHED_FIFO` 20 if permitted, else
+nice -10, else a normal thread with the short slice. It always starts; it never asks for sudo. One line says what it got:
+
+```
+luma: scheduling class=fifo priority=20 cpu=any memory=locked
+luma: scheduling class=normal short_slice=yes cpu=any memory=unlocked setup=docs/performance.md#setting-up-real-time-once
+```
+
+The second is what this machine prints without the limits file (checked 2026-11-10, with `chrt -p` showing `SCHED_OTHER` and a
+100000 ns runtime). Under `--load 16` with the machine's load average near 30, that fallback measured p99.9 143 ms and lost 89
+samples to kernel queue overflow: the gap the limits file is for. The FIFO numbers are still to be measured.
+
 ## Without real-time
 
 Until the setup is done this machine refuses both `SCHED_FIFO` and nice -10, so the driver falls back to a normal thread with a
@@ -127,7 +142,11 @@ $B --check --load 24 --mode inline
 
 `--check` exits 1 if a target is missed. The first line of the output says `reader fifo` if real-time was granted.
 
-Safety: priority 10 sits above normal programs and below the kernel's interrupt threads, so USB itself cannot be starved. A FIFO thread
+With real-time granted, `--check` also requires p99.9 at most 100 us (D9's target). To compare pinning, add `--reader-cpu N`
+to the bench; the driver's own switch is `--rt-cpu N`, which pins only once `SCHED_FIFO` is granted and is off by default until
+that comparison says pinning helps.
+
+Safety: priority 20 sits above normal programs and below the kernel's interrupt threads, so USB itself cannot be starved. A FIFO thread
 that stops blocking gets SIGXCPU after 200 ms of CPU, and SIGKILL after 1 s, so a bug cannot freeze a core; FIFO is refused if that
 guard cannot be set. Children never inherit real-time.
 

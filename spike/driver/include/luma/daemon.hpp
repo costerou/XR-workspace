@@ -280,6 +280,7 @@ struct Options {
     bool read_events = false;    // also read 0x83: display events, timed and published as pose_vsync (vsync.hpp)
     bool drain_camera = false;   // also read 0x82 and throw it away: 19 MB/s, only if a live test shows the need
     bool no_rt = false;          // leave the thread's scheduling alone
+    int rt_cpu = -1;             // pin here once SCHED_FIFO is granted; -1: not pinned
     std::string state_dir;       // where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state
     std::optional<std::string> pose_log;  // --replay only: write every Nth pose here, for tools
     unsigned pose_log_every = 10;

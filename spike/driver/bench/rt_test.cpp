@@ -364,6 +364,28 @@ void policy_pins_only_when_asked_and_survives_a_bad_cpu() {
     const auto r = apply_thread_policy(p, bad);
     CHECK(r.cpu == -1 && r.sched == SchedClass::fifo && !r.detail.empty());
 }
+// Pinning helps a FIFO thread keep its cache and hurts a normal one most of all (docs/performance.md), so fifo_cpu waits for FIFO.
+void policy_pins_fifo_cpu_only_once_fifo_is_granted() {
+    ThreadPolicy p; p.fifo_cpu = 5;
+    FakeOps granted;
+    const auto r = apply_thread_policy(p, granted);
+    CHECK(r.sched == SchedClass::fifo && r.cpu == 5 && granted.last_cpu == 5);
+    FakeOps refused; refused.fifo_rc = EPERM;
+    const auto fallback = apply_thread_policy(p, refused);
+    CHECK(fallback.sched == SchedClass::nice && fallback.cpu == -1 && refused.last_cpu == -1);
+    FakeOps bad; bad.affinity_rc = EINVAL;
+    const auto unpinned = apply_thread_policy(p, bad);
+    CHECK(unpinned.sched == SchedClass::fifo && unpinned.cpu == -1 && !unpinned.detail.empty());
+}
+void the_default_priority_is_20() { CHECK(ThreadPolicy{}.fifo_priority == 20); }
+void describe_names_what_was_granted() {
+    ThreadPolicyResult fifo; fifo.sched = SchedClass::fifo; fifo.priority = 20; fifo.cpu = 3;
+    CHECK(describe(fifo) == "class=fifo priority=20 cpu=3");
+    ThreadPolicyResult normal; normal.short_slice = true;
+    CHECK(describe(normal) == "class=normal short_slice=yes cpu=any");
+    ThreadPolicyResult nice; nice.sched = SchedClass::nice; nice.nice = -10;
+    CHECK(describe(nice) == "class=nice nice=-10 short_slice=no cpu=any");
+}
 // What the real kernel does with this user's real limits: whatever it granted, the report must match the thread's actual state.
 void apply_real_thread() {
     ThreadPolicyResult r;
@@ -699,7 +721,8 @@ int main() {
         T(policy_reports_the_priority_a_limit_allowed), T(policy_falls_back_to_nice), T(policy_survives_having_no_privilege_at_all),
         T(policy_refuses_fifo_without_the_runaway_guard), T(policy_asks_for_a_short_slice_only_as_a_fallback),
         T(policy_survives_a_kernel_without_slices), T(short_slice_reaches_the_real_kernel), T(policy_realtime_off_never_asks),
-        T(policy_pins_only_when_asked_and_survives_a_bad_cpu), T(apply_real_thread), T(pinning_to_a_cpu_that_does_not_exist_is_reported),
+        T(policy_pins_only_when_asked_and_survives_a_bad_cpu), T(policy_pins_fifo_cpu_only_once_fifo_is_granted), T(the_default_priority_is_20),
+        T(describe_names_what_was_granted), T(apply_real_thread), T(pinning_to_a_cpu_that_does_not_exist_is_reported),
         T(setup_commands_grant_what_the_defaults_ask), T(memory_lock_only_under_a_limit_it_cannot_hit),
         T(real_rttime_guard_lands_in_the_kernel), T(real_memory_lock_matches_the_limit),
         T(clocks_are_raw_and_convertible), T(histogram_percentiles_are_within_three_percent),

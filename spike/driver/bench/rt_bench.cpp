@@ -1,7 +1,8 @@
 // Sensor packet to published pose, measured: a fake 1 kHz transport drives the real luma::rt::Pipeline through a stand-in for
 // fusion and the real seqlock. docs/performance.md explains what it does and does not prove, and has the results.
 //   luma_rt_bench                       30 s, ring mode, seqlock, real-time if permitted
-//   luma_rt_bench --check               the same, and exits 1 if a target is missed (p99 < 0.5 ms, < 1% of a core, nothing lost)
+//   luma_rt_bench --check               the same, and exits 1 if a target is missed (p99 < 0.5 ms, < 1% of a core, nothing lost;
+//                                       with SCHED_FIFO also p99.9 <= 100 us)
 //   luma_rt_bench --quick               1 s; asserts only that nothing is lost or allocated (for ctest: no timing on a busy box)
 //   --mode ring|inline  --publish seqlock|mutex  --seconds N  --rate HZ  --rt auto|off  --no-slice  --lock
 //   --reader-cpu N  --fusion-cpu N  --sender-cpu N  --spin-reader  --load N (N busy threads)
@@ -302,6 +303,8 @@ int main(int argc, char** argv) {
     if (a.check) {
         require(lost == 0, "nothing lost");
         require(sink.total.percentile(99) < 500'000, "p99 under 0.5 ms");
+        // D9's target, and only where it is meant to hold: the tail a normal thread gets under load is the reason FIFO exists.
+        if (reader_sched == "fifo") require(sink.total.percentile(99.9) <= 100'000, "p99.9 at most 100 us with SCHED_FIFO");
         require(cpu_pct < 1.0, "under 1% of a core");
     }
     return failed ? 1 : 0;

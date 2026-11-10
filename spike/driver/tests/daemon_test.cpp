@@ -985,6 +985,9 @@ void test_options() {
     CHECK(!parse({"--start"}));
     const auto live = parse({"--start", "stream", "--read-events", "--drain-camera", "--no-rt", "--state-dir", "/x", "--feature-discovery", "--no-feature-temperature"});
     CHECK(live && live->read_events && live->drain_camera && live->no_rt && live->state_dir == "/x" && live->feature_flags.size() == 2);
+    CHECK(plain && plain->rt_cpu == -1);
+    CHECK(parse({"--rt-cpu", "3"})->rt_cpu == 3);
+    CHECK(!parse({"--rt-cpu", "-1"}) && !parse({"--rt-cpu", "x"}) && !parse({"--rt-cpu"}) && !parse({"--rt-cpu", "1024"}));
     CHECK(!parse({"--pose-log", "f"}));  // writes to disk on the pose thread: replay only
     const auto logged = parse({"--replay", "f", "--ipc-prefix", "/run/x_", "--pose-log", "p", "--pose-log-every", "5"});
     CHECK(logged && logged->pose_log == "p" && logged->pose_log_every == 5);

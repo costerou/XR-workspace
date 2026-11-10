@@ -457,6 +457,7 @@ const char* const kUsage =
     "  --read-events            also read endpoint 0x83: time the display's vsync, published as pose_vsync\n"
     "  --drain-camera           also read camera endpoint 0x82 and throw it away: 19 MB/s, for a device that stalls without it\n"
     "  --no-rt                  leave scheduling alone\n"
+    "  --rt-cpu N               pin to CPU N, but only once SCHED_FIFO is granted (default: not pinned)\n"
     "  --state-dir PATH         where the gyro bias is kept between runs\n"
     "  --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose\n"
     "  --pose-log-every N       default 10\n"
@@ -500,6 +501,15 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--event-reopen") o.config.event_reopen = true;
         else if (arg == "--no-rt") o.no_rt = true;
         else if (arg == "--pose-seqlock") o.pose_seqlock = true;
+        else if (arg == "--rt-cpu") {
+            const char* v = value();
+            if (!v) return std::nullopt;
+            const std::string_view text = v;
+            int cpu = -1;
+            const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), cpu);
+            if (ec != std::errc() || end != text.data() + text.size() || cpu < 0 || cpu >= 1024) { why = "--rt-cpu needs a CPU number, 0 to 1023"; return std::nullopt; }
+            o.rt_cpu = cpu;
+        }
         else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }
         else if (arg == "--pose-log") { const char* v = value(); if (!v) return std::nullopt; o.pose_log = v; }
         else if (arg == "--latency-log") { const char* v = value(); if (!v) return std::nullopt; o.latency_log = v; }

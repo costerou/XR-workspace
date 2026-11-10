@@ -68,10 +68,18 @@ int main(int argc, char** argv) {
     if (const std::string refused = take_instance_lock(options->ipc_prefix); !refused.empty()) return fail(5, refused);
 
     // Live only. It helps when it can and costs nothing when it cannot: acceptance P3, works without privileges.
+    // The daemon is one thread, this one, so the policy covers the whole hot path. Memory first: a FIFO thread that faults waits
+    // on the disk like any other. lock_memory declines below a safe RLIMIT_MEMLOCK, and then the stack is still prefaulted.
     if (!options->replay && !options->no_rt) {
+        const rt::MemoryLockResult memory = rt::lock_memory();
+        rt::prefault_stack(256 * 1024);
         rt::ThreadPolicy policy;
+        policy.fifo_cpu = options->rt_cpu;
         const rt::ThreadPolicyResult result = rt::apply_thread_policy(policy);
+        log_line("luma: scheduling " + rt::describe(result) + (memory.locked ? " memory=locked" : " memory=unlocked")
+                 + (result.needs_setup ? " setup=docs/performance.md#setting-up-real-time-once" : ""));
         if (!result.detail.empty()) log_line("luma: scheduling " + result.detail);
+        if (!memory.detail.empty()) log_line("luma: scheduling " + memory.detail);
     }
 
     std::unique_ptr<wiring::BiasStore> bias;

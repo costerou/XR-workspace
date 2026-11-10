@@ -40,9 +40,11 @@ enum class SchedClass { fifo, nice, normal };
 
 struct ThreadPolicy {
     bool realtime = true;     // false: leave the thread as it is
-    int fifo_priority = 10;   // above every normal task, below the kernel's interrupt threads (50), so USB itself is never starved
+    int fifo_priority = 20;   // above every normal task, below the kernel's interrupt threads (50), so USB itself is never
+                              // starved. The limits file grants exactly 20; a lower RLIMIT_RTPRIO lowers it to match.
     int fallback_nice = -10;  // when real-time is not permitted
     int cpu = -1;             // pin to this CPU, -1 to let the scheduler choose
+    int fifo_cpu = -1;        // pin to this CPU only once SCHED_FIFO is granted: a pinned normal thread is the worst case measured
     bool short_slice = true;  // without real-time, ask for the shortest time slice (below)
 };
 struct ThreadPolicyResult {
@@ -77,6 +79,9 @@ const SysOps& real_sys_ops() noexcept;
 // Applies to the calling thread. Order of preference: SCHED_FIFO, nice, nothing. Never fails: tracking without privileges is
 // worse tracking, not no tracking. Never asks for FIFO without the RLIMIT_RTTIME guard in place.
 ThreadPolicyResult apply_thread_policy(const ThreadPolicy& policy, const SysOps& ops = real_sys_ops());
+
+// One line for the log: what was granted, as key=value pairs ("class=fifo priority=20 cpu=3").
+std::string describe(const ThreadPolicyResult& result);
 
 // The exact one-time commands that permit SCHED_FIFO, nice and locked memory for `user`.
 std::string rt_setup_commands(const std::string& user);
