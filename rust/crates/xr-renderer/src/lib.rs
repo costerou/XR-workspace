@@ -5,6 +5,7 @@
 //! geometry dumps are compared byte for byte with the C++ ones.
 
 pub mod binds_panel;
+pub mod capture;
 pub mod cfmt;
 pub mod depth;
 pub mod depth_feed;
