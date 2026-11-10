@@ -28,6 +28,17 @@ set_tests_properties(luma_prediction_bench PROPERTIES
     PASS_REGULAR_EXPRESSION "old vs new[^\n]*\n +10 ms +old rms +[0-9.]+ p95 +[0-9.]+ +new rms +[0-9.]+ p95 +[0-9.]+[^\n]*\n +17 ms [^\n]*\n +25 ms +old rms"
     FAIL_REGULAR_EXPRESSION "n 0 ")
 
+# The golden files the Rust fusion port is held to bit for bit (rust/corpus/luma-fusion/, rust/README.md).
+# Fails when fusion.cpp's output moves; rewrite them on purpose with `luma_fusion_golden write`.
+add_executable(luma_fusion_golden tools/fusion_golden.cpp)
+target_link_libraries(luma_fusion_golden PRIVATE xr_luma_protocol xr_luma_fusion)
+target_compile_options(luma_fusion_golden PRIVATE -Wall -Wextra -Wpedantic -Werror)
+set(LUMA_FUSION_CORPUS "${CMAKE_CURRENT_LIST_DIR}/../../rust/corpus/luma-fusion")
+set(LUMA_FIXTURES "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures")
+add_test(NAME luma_fusion_golden_real COMMAND luma_fusion_golden check plain "${LUMA_FIXTURES}/luma_imu_real.bin" "${LUMA_FUSION_CORPUS}/real.bin")
+add_test(NAME luma_fusion_golden_upside_down COMMAND luma_fusion_golden check plain "${LUMA_FIXTURES}/luma_imu_upside_down.bin" "${LUMA_FUSION_CORPUS}/upside_down.bin")
+add_test(NAME luma_fusion_golden_real_faults COMMAND luma_fusion_golden check faults "${LUMA_FIXTURES}/luma_imu_real.bin" "${LUMA_FUSION_CORPUS}/real_faults.bin")
+
 add_executable(luma_latency_report tools/latency_report.cpp)
 target_include_directories(luma_latency_report PRIVATE include)
 target_compile_features(luma_latency_report PRIVATE cxx_std_20)

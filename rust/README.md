@@ -49,7 +49,34 @@ holds the Rust ports to them byte for byte.
   it gets, for each public call that talks to the compositor. A scripted stand-in compositor on a
   temporary socket gives the replies; the real Hyprland is never used.
 
-`tests/native_spike/lua_corpus.py` makes both files. `test_lua_corpus.py` fails when they no
+- `corpus/luma-fusion/` holds the C++ `luma::Fusion`'s output for every sample of the two replay
+  fixtures (`real.bin`, `upside_down.bin`, from `spike/driver/tests/fixtures/`) and for a faults run
+  of the real one (`real_faults.bin`: warm-start bias, 10 lost samples, a 400 ms gap, a clock jump of
+  1 s, a duplicate). `xr-luma-driver`'s `tests/fusion_parity.rs` replays them and requires every bit
+  to match.
+
+  Format, little endian: `LUMAFUS1`, `u32` sample count, `u32` status interval (100). Then per
+  sample the input (`u64 t_ns`, `u32 seq`, `f32` gyro x3, `f32` accel x3) and the `PoseOut`
+  (`f32` q w,x,y,z, `u64 t_ns`, `u32 seq`, `u8 calibrated`). After every 100th sample and the last
+  one, the `FusionStatus` (`u8` quality, `u8` still, `f32` x3 each for bias, omega body, omega
+  world and up, `f32 calibrated_after_s`, `u64` samples, rejected, gaps, time jumps) and
+  `predict(0.017)` (`f32` q x4).
+
+  `spike/driver/tools/fusion_golden.cpp` writes them from the samples the daemon would feed Fusion
+  (parse, sequence tracker, accepted only). The ctests `luma_fusion_golden_*` fail when fusion.cpp's
+  output moves. After a deliberate change to fusion.cpp, rewrite them and port the change:
+
+  ```sh
+  G=build/release/driver/luma_fusion_golden F=spike/driver/tests/fixtures C=rust/corpus/luma-fusion
+  $G write plain $F/luma_imu_real.bin $C/real.bin
+  $G write plain $F/luma_imu_upside_down.bin $C/upside_down.bin
+  $G write faults $F/luma_imu_real.bin $C/real_faults.bin
+  ```
+
+  The Rust fusion uses plain `f64` arrays, not `glam`: bit parity needs the C++ operation order
+  exactly, and `glam`'s quaternion maths does not promise it.
+
+`tests/native_spike/lua_corpus.py` makes the two Hyprland files. `test_lua_corpus.py` fails when they no
 longer match the Python, or when a generator branch has no case. After a deliberate change to a
 generator, regenerate them:
 
