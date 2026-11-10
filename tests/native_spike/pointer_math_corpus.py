@@ -56,13 +56,15 @@ TRACE_CLASSES = {'orbit.PillDrag': (orbit.PillDrag, ('follow',)), 'bump.Pusher':
                  'free_pointer.TextHold': (free_pointer.TextHold, ('step', 'clear'))}
 # The suites whose calls are recorded: the eight modules' own, and the pointer's and the panel's that drive them with
 # the inputs a run really gives. Not their Sampler test classes: those drive the pointer's thread on the wall
-# clock, so what they call depends on timing (and recording slows it past what they allow).
+# clock, so what they call depends on timing (and recording slows it past what they allow). Nor
+# test_native_restore_acquisition: it runs only when XR_RESTORE_GEOMETRY_BINARY names a native build (as
+# tests/run_all.sh sets it), so recording it would make the file depend on the build and the environment.
 SUITES = ('test_orbit', 'test_bump', 'test_bump_gaps', 'test_edge_pan', 'test_free_pointer', 'test_unified_cursor',
           'test_pointer_zones', 'test_directional_switch', 'test_restore_pointer', 'test_glass_pills', 'test_roll_level',
           'test_grab_pill', 'test_free_pointer_focus', 'test_text_cursor', 'test_super_drag', 'test_window_drag',
           'test_overview_cursor', 'test_options_review', 'test_options_supervisor', 'test_resolution_dropdown',
           'test_scale_dropdown', 'test_help_pages', 'test_maximize_level', 'test_immersive', 'test_dot_click_focus',
-          'test_panel_follows_focus', 'test_scroll_before_switch', 'test_environment', 'test_native_restore_acquisition')
+          'test_panel_follows_focus', 'test_scroll_before_switch', 'test_environment')
 # Tests that time the Python: recording slows it, so they may fail while recording (their calls are still kept).
 TIMED = {'test_quick_enough_for_the_pointer_and_for_a_slider_jump', 'test_quick_enough_for_the_loop'}
 # Tests outside a Sampler class that still run the pointer's thread on the wall clock: left out like those.
