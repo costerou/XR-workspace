@@ -1,7 +1,9 @@
 // Offline replay of a pose capture through the renderer's own per-frame pose path: the feed as PoseFeed serves it (three
 // newest samples, history_step 1), then Stabilizer, PoseState, PoseAge, prediction_horizon and MotionSmoother, in the order of
 // wayland.cpp's draw. No feed, no compositor, no GPU, no SDK.
-// stdin: host_ms device_ms x y z w, one sample per line (device_ms from 0).
+// stdin: host_ms device_ms x y z w, one sample per line (device_ms from 0). --mode wire adds wx wy wz: the bridge's velocity at
+// that sample, rad/s, body frame, as xr-pro2-bridge publishes it on pose_prediction (its motion_replay example writes these).
+// wire is the renderer's smooth path with that wire live: the velocity from it, the horizon timed from the sample's host time.
 // stdout: first "center x y z w tx ty tz tw" (the recentre, and the level turn: relative = conj(center) * head * turn), then one line per frame: present_ms device_ms x y z w horizon_ms predicted_deg yaw_deg roll_deg
 // (host clock; x y z w is what the frame shows, relative to the recentre). yaw_deg and roll_deg come from the view the renderer would
 // draw with: how far right the view has turned, and how far a horizontal line on the canvas leans at the screen's centre, positive
@@ -10,6 +12,7 @@
 #include "xr/predict.hpp"
 #include "xr/stabilization.hpp"
 #include "view_lean.hpp"
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
@@ -18,19 +21,23 @@
 #include <string>
 #include <vector>
 using namespace xr;
-struct In { double host; float device; Quat q; };
+struct In { double host; float device; Quat q; std::array<float, 3> omega{}; };
 int main(int argc, char** argv) {
     std::map<std::string, std::string> o{{"--mode", "smooth"}, {"--period", "8.3333"}, {"--r2p", "16.6"}, {"--phase", "0"},
         {"--stabilization", "25"}, {"--tau", "35"}, {"--cap", "40"}, {"--constant", "0"}, {"--publish-delay", "1"},
         {"--max-predict", "6"}, {"--snap", "30"}, {"--brake", "3"}, {"--brake-floor", "4"}, {"--read-jitter", "0"}, {"--level", "0"}};
     for (int i = 1; i + 1 < argc; i += 2) { if (!o.count(argv[i])) { std::cerr << "unknown " << argv[i] << '\n'; return 2; } o[argv[i]] = argv[i + 1]; }
     auto num = [&](const char* k) { return std::strtod(o[k].c_str(), nullptr); };
+    const std::string mode = o["--mode"];
+    if (mode != "hold" && mode != "legacy" && mode != "smooth" && mode != "wire") return 2;
+    const bool wire = mode == "wire";
     std::vector<In> in;
     In s{};
-    while (std::cin >> s.host >> s.device >> s.q.x >> s.q.y >> s.q.z >> s.q.w) in.push_back(s);
+    while (std::cin >> s.host >> s.device >> s.q.x >> s.q.y >> s.q.z >> s.q.w) {
+        if (wire && !(std::cin >> s.omega[0] >> s.omega[1] >> s.omega[2])) return 2;
+        in.push_back(s);
+    }
     if (in.size() < 4) return 2;
-    const std::string mode = o["--mode"];
-    if (mode != "hold" && mode != "legacy" && mode != "smooth") return 2;
     const double period = num("--period"), r2p = num("--r2p");
     Stabilizer stabilizer; stabilizer.strength(int(num("--stabilization")));
     PoseState pose; PoseAge age;
@@ -62,7 +69,9 @@ int main(int argc, char** argv) {
         const auto a = age.observe(read, raw_ms);
         float horizon_shown = 0, predicted = 0;
         if (pose.tracking() && mode != "hold") {
-            const auto horizon = prediction_horizon(cfg, std::optional<double>(r2p - (read - grid)), a.value_or(0.0), period);
+            // The wire's age is from the sample's arrival (motion_age_ms), the feed's from its device time (PoseAge).
+            const double sample_age = wire ? read - in[newest].host : a.value_or(0.0);
+            const auto horizon = prediction_horizon(cfg, std::optional<double>(r2p - (read - grid)), sample_age, period);
             if (mode == "legacy") {
                 const auto omega = angular_velocity(history_of(f));
                 if (omega && horizon) {
@@ -71,7 +80,9 @@ int main(int argc, char** argv) {
                     horizon_shown = *horizon; predicted = quat_angle(Quat{}, delta) * float(180 / M_PI);
                 }
             } else if (horizon) {
-                relative = smoother.update(relative, f.device_ms, *horizon, read);
+                std::optional<std::array<float, 3>> measured;  // as wayland.cpp: rad/s to rad/ms
+                if (wire) measured = std::array<float, 3>{in[newest].omega[0] / 1000, in[newest].omega[1] / 1000, in[newest].omega[2] / 1000};
+                relative = smoother.update(relative, f.device_ms, *horizon, read, measured);
                 horizon_shown = smoother.last_horizon_ms(); predicted = smoother.last_predicted_deg();
             }
         }

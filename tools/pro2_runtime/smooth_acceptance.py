@@ -90,18 +90,20 @@ def load_capture(path):
     return [(h - h0, d - d0, q) for h, d, q in rows]
 
 
-def synthetic(seconds=20.0, seed=7):
-    """A head on the measured cadence (15, 15, 20 ms) with turns and stops, for tests that must run without private data."""
+GAPS_60HZ, GAPS_240HZ = (15.0, 15.0, 20.0), (1000 / 240,)
+
+
+def synthetic(seconds=20.0, seed=7, gaps=GAPS_60HZ):
+    """A head on the measured cadence (15, 15, 20 ms; or 240 Hz, D12) with turns and stops, for tests that must run without private data."""
     import random
     r = random.Random(seed)
     rows, t, i, angle, speed = [], 0.0, 0, 0.0, 0.0
-    gaps = (15.0, 15.0, 20.0)
     while t < seconds * 1000:
         phase = t % 3000
         wanted = 30 * math.sin(math.pi * phase / 1200) if phase < 1200 else 0.0
         if 1500 <= phase < 2500: wanted = -12 * math.sin(math.pi * (phase - 1500) / 1000)
         speed = wanted
-        gap = gaps[i % 3]
+        gap = gaps[i % len(gaps)]
         angle += speed * gap / 1000
         half = math.radians(angle + r.gauss(0, .012)) / 2
         rows.append((t + r.uniform(.2, .8), t, (0.0, 0.0, math.sin(half), math.cos(half))))
@@ -140,8 +142,19 @@ class Path_:
         return unit(tuple(a + (b - a) * u for a, b in zip(qs[i], qs[i + 1])))
 
 
+def bridge_motion(binary, rows):
+    """The rows with the bridge's velocity at each sample (rad/s, body frame), from xr-pro2-bridge's motion_replay example: what the
+    Rust bridge publishes on pose_prediction for that feed, for `--mode wire`. The rows are the feed as published (mount included)."""
+    text = ''.join(f'{h:.6f} {d:.6f} {q[0]:.9f} {q[1]:.9f} {q[2]:.9f} {q[3]:.9f}\n' for h, d, q, *_ in rows)
+    done = subprocess.run([str(binary)], input=text, capture_output=True, text=True, check=True, timeout=60)
+    out = [tuple(map(float, line.split()[6:9])) for line in done.stdout.splitlines()]
+    if len(out) != len(rows): raise ValueError('bridge motion output')
+    return [(h, d, q, w) for (h, d, q, *_), w in zip(rows, out)]
+
+
 def replay(binary, rows, *, mode, phase=0.0, tau=35.0, cap=40.0, constant=0.0, brake=3.0, brake_floor=4.0, stabilization=25, r2p=READ_TO_PRESENT_MS, period=8.3333, read_jitter=0.0, level=0):
-    text = ''.join(f'{h:.6f} {d:.6f} {q[0]:.9f} {q[1]:.9f} {q[2]:.9f} {q[3]:.9f}\n' for h, d, q in rows)
+    text = ''.join(f'{r[0]:.6f} {r[1]:.6f} {r[2][0]:.9f} {r[2][1]:.9f} {r[2][2]:.9f} {r[2][3]:.9f}'
+                   + (' {:.9f} {:.9f} {:.9f}'.format(*r[3]) if mode == 'wire' else '') + '\n' for r in rows)
     args = [str(binary), '--mode', mode, '--phase', str(phase), '--tau', str(tau), '--cap', str(cap), '--constant', str(constant),
             '--brake', str(brake), '--brake-floor', str(brake_floor), '--stabilization', str(stabilization), '--r2p', str(r2p), '--period', str(period), '--read-jitter', str(read_jitter), '--level', str(level)]
     done = subprocess.run(args, input=text, capture_output=True, text=True, check=True, timeout=60)
@@ -157,9 +170,9 @@ def replay(binary, rows, *, mode, phase=0.0, tau=35.0, cap=40.0, constant=0.0, b
 
 def measure(rows, center, frames, period=8.3333):
     """One replay's per-frame lists, ready to pool over phases."""
-    offset = min(h - d for h, d, _ in rows)
+    offset = min(r[0] - r[1] for r in rows)
     center, turn = center if len(center) == 2 else (center, (0.0, 0.0, 0.0, 1.0))
-    relative = [(h, d, unit(qmul(qmul(conj(center), q), turn))) for h, d, q in rows]
+    relative = [(h, d, unit(qmul(qmul(conj(center), q), turn))) for h, d, q, *_ in rows]
     times, smooth = reference(relative)
     path = Path_(times, smooth)
     shown = [f['q'] for f in frames]
@@ -243,7 +256,7 @@ def mounted(rows, degrees):
     """The feed as the bridge publishes it with this mount pitch: q * pitch about the left axis (luma::Publisher mount_pitch_deg)."""
     half = math.radians(degrees) / 2
     turn = (0.0, math.sin(half), 0.0, math.cos(half))
-    return [(host, device, unit(qmul(q, turn))) for host, device, q in rows]
+    return [(host, device, unit(qmul(q, turn))) for host, device, q, *_ in rows]
 
 
 def turn_lean(frames, begin_ms, end_ms):
@@ -300,11 +313,14 @@ def main(argv=None):
     parser.add_argument('--replay', required=True, type=Path)
     parser.add_argument('--captures', nargs='*', type=Path, default=[])
     parser.add_argument('--synthetic', action='store_true')
+    parser.add_argument('--synthetic-240', action='store_true', help='also a synthetic head at 240 Hz (D12)')
+    parser.add_argument('--bridge-motion', type=Path, help="xr-pro2-bridge's motion_replay example: also replay the Rust bridge's wire (D12)")
     parser.add_argument('--tau', type=float, default=SHIPPED['tau'])
     parser.add_argument('--brake', type=float, default=SHIPPED['brake'])
     args = parser.parse_args(argv)
     sets = {p.stem: load_capture(p) for p in args.captures}  # as captured: `smoothed` below adds the shipped mount, as the bridge does
     if args.synthetic: sets['synthetic'] = synthetic()
+    if args.synthetic_240: sets['synthetic_240'] = synthetic(gaps=GAPS_240HZ)
     report, failed = {}, []
     for name, rows in sets.items():
         before = evaluate(args.replay, rows, mode='hold', level=0)  # the first live test
@@ -313,6 +329,13 @@ def main(argv=None):
         jittered = evaluate(args.replay, mounted(rows, SHIPPED['mount']), mode='smooth', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake,
                             brake_floor=SHIPPED['brake_floor'], read_jitter=2.0)
         report[name] = dict(cadence=cadence(rows), hold=before, legacy_prediction=legacy, smoothed=after, smoothed_2ms_read_jitter=jittered)
+        wired = None
+        if args.bridge_motion:  # the renderer's smooth path with the Rust bridge's wire live: its velocity, from every sample
+            fed = bridge_motion(args.bridge_motion, mounted(rows, SHIPPED['mount']))
+            wired = evaluate(args.replay, fed, mode='wire', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'], brake=args.brake, brake_floor=SHIPPED['brake_floor'])
+            report[name]['bridge_wire'] = wired
+            report[name]['bridge_wire_2ms_read_jitter'] = evaluate(args.replay, fed, mode='wire', tau=args.tau, cap=SHIPPED['cap'], constant=SHIPPED['constant'],
+                                                                   brake=args.brake, brake_floor=SHIPPED['brake_floor'], read_jitter=2.0)
         turns = turn_window(args.captures, name)
         if turns:  # what Cody saw: the turns of the directional capture, before and after levelling
             lean = {}
@@ -320,10 +343,16 @@ def main(argv=None):
                 lean[key] = turn_lean(replay(args.replay, mounted(rows, mount), mode='hold', level=level, stabilization=0)[1], *turns)
             report[name]['tilt'] = lean
             if abs(lean['shipped_mount']['fast']) > TILT_LIMIT: failed.append(f"{name}: tilt {lean['shipped_mount']['fast']} over {TILT_LIMIT}")
+        # Judged: the path that runs. With the Rust bridge (D12) its wire is live and gives the velocity; without it, the C++ bridge's
+        # feed alone. At 240 Hz only the first is a real route: the renderer's own estimate, from one sample a frame, is not.
+        judged, label = (wired, 'bridge wire: ') if wired is not None else (after, '')
         if name == 'synthetic':  # for tests without private data: a head this clean only proves the direction, not the limits
-            if after['jerk_p95'] * 2 > before['jerk_p95'] or after['stuck_pct'] * 5 > before['stuck_pct']: failed.append('synthetic: not smoother than hold')
-        elif name != 'stationary': failed += [f'{name}: {f}' for f in failures(after)]
-        elif after['rest_step_p95'] > before['rest_step_p95'] + ACCEPT['rest_step_p95']: failed.append('stationary: rest jitter added')
+            if judged['jerk_p95'] * 2 > before['jerk_p95'] or judged['stuck_pct'] * 5 > before['stuck_pct']: failed.append(f'{name}: {label}not smoother than hold')
+        elif name == 'synthetic_240':  # held at 240 Hz it barely steps: smoothing may not add steps, and must take most of the lag out
+            if judged['jerk_p95'] > 1.1 * before['jerk_p95'] or judged['stuck_pct'] > before['stuck_pct'] or judged['lag_ms'] * 2 > before['lag_ms']:
+                failed.append(f'{name}: {label}not as smooth as hold, or not ahead of it')
+        elif name != 'stationary': failed += [f'{name}: {label}{f}' for f in failures(judged)]
+        elif judged['rest_step_p95'] > before['rest_step_p95'] + ACCEPT['rest_step_p95']: failed.append(f'stationary: {label}rest jitter added')
     print(json.dumps(dict(schema=1, parameters=dict(SHIPPED, tau=args.tau, brake=args.brake, stabilization=25), limits=ACCEPT, results=report, failed=failed), indent=2))
     return 1 if failed else 0
 

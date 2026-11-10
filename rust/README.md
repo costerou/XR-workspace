@@ -365,6 +365,19 @@ callback to publish, per sample. Gate: `test_callback_to_publish_p99_under_200_u
 3.7 ms p99, which is the scheduler; the short EEVDF slice the Luma driver uses is the fix if that
 matters live.
 
+### D12: 240 Hz and the motion wire
+
+`--pose-rate 240` (SDK code 3) is the request. The launcher passes it from the consent's `pose_rate_hz`, so the default stays 60.
+On every published sample the bridge also writes `<prefix>pose_prediction` (`Publisher::publish_motion`): the pose, its arrival
+time, and a velocity from `src/motion.rs` (see docs/technical.md, "Motion beside the pose"). The renderer's Pro 2 smoother uses
+it while it is live.
+
+- `cargo test -p xr-pro2-bridge` covers the estimator: rate and cadence, the 60 Hz equivalence, brake, still gate and resets.
+- `examples/motion_replay.rs` reads `host_ms device_ms x y z w` rows and adds `wx wy wz` (rad/s). It is what
+  `smooth_acceptance.py --bridge-motion` and `tests/pro2_runtime/test_smooth_acceptance.py` (`PRO2_BRIDGE_MOTION`) replay.
+- `tools/pro2_runtime/package.py --rust-bridge <production xr-pro2-bridge>` builds an uninstalled supervised-test bundle with it,
+  for the live check in docs/pro2/smooth-live-test.md (Run C).
+
 ## Incident monitor
 
 `src/incident/` ports `tools/xr_controller/incident_detect.py`, `incident_report.py` and

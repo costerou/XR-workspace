@@ -29,6 +29,7 @@
 //! while another same-user provider runs) and `--health <path> --nonce <n>` (the heartbeat file).
 
 mod host;
+mod motion;
 mod sdk;
 
 use sha2::{Digest, Sha256};
@@ -39,6 +40,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::time::{Duration, Instant};
 use xr_pose::feed::WriterOptions;
+use xr_pose::prediction::MotionState;
 use xr_pose::publish::{Pose, Publisher, PublisherOptions, Quat, history_step_for};
 
 const SDK_HASH: &str = "8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e";
@@ -472,12 +474,13 @@ struct Run {
 }
 
 /// One SDK session's sample checks. A reconnect starts a new one: the device clock may restart,
-/// and the first two samples are skipped again.
+/// and the first two samples are skipped again, and the velocity starts over (D12).
 #[derive(Default)]
 struct Session {
     prev: u64,
     have: bool,
     valid: u32,
+    motion: motion::MotionEstimator,
 }
 
 /// Create, family, initialize, start, register, firmware, the feed (first time only), open: the
@@ -806,7 +809,19 @@ fn run(
         }) {
             continue;
         }
+        // Every sample, so the velocity sees the whole stream the renderer would only sample
+        // once a frame (motion.rs). Device time: the SDK's own spacing, not arrival.
+        let omega_rad_s = session.motion.update([q.w, q.x, q.y, q.z], s.ts);
         out.samples += 1;
+        publisher.publish_motion(&MotionState {
+            q: [q.w, q.x, q.y, q.z],
+            host_ns: s.host_ns,
+            seq: out.samples as u32,
+            omega_rad_s,
+            alpha_rad_s2: [0.0; 3],
+            valid: true,
+            calibrated: true,
+        });
         #[cfg(feature = "synthetic")]
         out.wake_ns.push(monotonic_ns().saturating_sub(s.host_ns));
         if let Some(o) = outage.take() {

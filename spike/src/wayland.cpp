@@ -1742,8 +1742,15 @@ Status Presentation::draw_test_pattern() {
                                                         s.latency.expected_ms(), motion_age ? *motion_age : age.value_or(0.0),
                                                         refresh ? refresh / 1e6 : 1000.0 / 120);
                 if (s.smooth_ms > 0 && horizon && sample) {
-                    // Horizon from the feed's bound; the pose is the stabilized sample, so a still head stays still.
-                    relative = s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6);
+                    // Horizon from the feed's bound; the pose is the stabilized sample, so a still head stays still. A live wire
+                    // (the Rust bridge's, D12) gives the velocity: estimated from every sample, braked and still-gated there.
+                    std::optional<std::array<float, 3>> measured;
+                    if (motion_age) {
+                        const auto& w = motion->omega_rad_s;
+                        measured = std::array<float, 3>{w[0] / 1000, w[1] / 1000, w[2] / 1000};
+                        ++s.wire_frames;
+                    }
+                    relative = s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6, measured);
                     s.last_horizon_ms = s.smoother.last_horizon_ms(); s.last_predicted_deg = s.smoother.last_predicted_deg();
                     ++s.predicted_frames; ++s.smoothed_frames;
                 } else if ((motion_age || omega) && horizon) {

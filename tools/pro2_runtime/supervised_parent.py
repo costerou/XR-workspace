@@ -47,7 +47,7 @@ def summarize(log_text, result):
     presented = timing.get('presented') or 0
     predicted = prediction.get('predicted_frames') or 0
     return dict(presented=presented, interval_histogram=timing.get('interval_histogram'), abandoned=timing.get('abandoned'),
-                prediction_enabled=prediction.get('enabled'), predicted_frames=predicted, unpredicted_frames=prediction.get('unpredicted_frames'),
+                prediction_enabled=prediction.get('enabled'), predicted_frames=predicted, unpredicted_frames=prediction.get('unpredicted_frames'), wire_frames=prediction.get('wire_frames'),
                 predicted_share=round(predicted / presented, 3) if presented else 0.0, look_ahead_cfg=prediction.get('look_ahead_cfg'),
                 smoothing=prediction.get('smoothing'), last_horizon_ms=prediction.get('last_horizon_ms'),
                 read_to_present_p50_ms=(latency.get('read_to_present') or {}).get('p50_ms'), pose_age_p50_ms=(latency.get('pose_age_relative') or {}).get('p50_ms'),

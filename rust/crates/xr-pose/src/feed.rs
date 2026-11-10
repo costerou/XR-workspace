@@ -30,6 +30,7 @@
 //! - The reader waits at most 2 ms, then serves the newest sample again, and backs off from a
 //!   lock that stays held.
 
+use crate::prediction::{MotionState, PREDICTION_IPC_NAME, PredictionWire};
 use std::ffi::{CString, c_int, c_void};
 use std::fmt;
 use std::fs;
@@ -39,7 +40,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
-use crate::prediction::{MotionState, PREDICTION_IPC_NAME, PredictionWire};
 
 /// The live feed's prefix, shared with XRLinuxDriver and the C++ stack.
 pub const DEFAULT_PREFIX: &str = "/tmp/shader_runtime_";

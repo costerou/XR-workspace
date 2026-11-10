@@ -60,13 +60,14 @@ Vec MotionSmoother::velocity() const {
     return v;
 }
 
-Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, double now_ms) {
+Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, double now_ms, std::optional<std::array<float, 3>> measured) {
     relative = unit(relative);
     if (!std::isfinite(device_ms) || !std::isfinite(now_ms)) { reset(); return relative; }
     const bool fresh_sample = !count_ || device_ms != t_[0];
     if (fresh_sample) new_sample_ms_ = now_ms;
     learn(relative, device_ms);
-    Vec v = velocity();
+    const bool braked = measured && std::isfinite((*measured)[0] + (*measured)[1] + (*measured)[2]);
+    Vec v = braked ? *measured : velocity();
     peak_speed_dps_ = std::max(peak_speed_dps_, norm(v) * kRadToDeg * 1000.f);
     if (fresh_sample && count_ == 3) {  // one vote per sample, and only for a real turn: fast, and mostly about up
         const float speed = norm(v), gap = t_[0] - t_[1];
@@ -79,7 +80,7 @@ Quat MotionSmoother::update(Quat relative, float device_ms, float horizon_ms, do
     ++frames_;
     // The newest interval against the window: 1 at a steady speed, towards 0 as the head stops, 0 when it turns back.
     float keep = 1;
-    if (count_ == 3 && t_[0] > t_[1]) {
+    if (!braked && count_ == 3 && t_[0] > t_[1]) {
         Vec newest = log_of(quat_mul(quat_conj(q_[1]), q_[0]));
         for (auto& c : newest) c /= t_[0] - t_[1];
         const float e2 = p_.brake_floor_rad_per_ms * p_.brake_floor_rad_per_ms;

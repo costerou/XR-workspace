@@ -77,7 +77,7 @@ class Tilt(unittest.TestCase):
 class Summary(unittest.TestCase):
     def line(self):
         return json.dumps(dict(kind='managed_output_capture',outputs=[dict(name='XR-1',frames=9)],tracking=dict(samples=5368,lost_events=0,fov_source='pro2-supervised-approximate',diagonal_fov_deg=44.5),
-            latency=dict(read_to_present=dict(p50_ms=16.6),pose_age_relative=dict(p50_ms=9.4),prediction=dict(enabled=True,predicted_frames=9000,unpredicted_frames=0,last_horizon_ms=20.0,look_ahead_cfg=[0,0,0,40],smoothing=dict(tau_ms=35,frames=9000,snaps=0)))))
+            latency=dict(read_to_present=dict(p50_ms=16.6),pose_age_relative=dict(p50_ms=9.4),prediction=dict(enabled=True,predicted_frames=9000,unpredicted_frames=0,wire_frames=8990,last_horizon_ms=20.0,look_ahead_cfg=[0,0,0,40],smoothing=dict(tau_ms=35,frames=9000,snaps=0)))))
     def test_consent_for_keeps_one_desktop_and_sixty_unless_asked(self):
         from tools.pro2_runtime.supervised_parent import consent_for
         from tools.xr_controller.pro2_test import validate
@@ -89,7 +89,7 @@ class Summary(unittest.TestCase):
         timing=json.dumps(dict(kind='generated_pattern_presentation_timing',presented=10000,interval_histogram=[0,0,0,9000],abandoned=2))
         s=summarize('PRO2 SUPERVISED TEST\n'+timing+'\n'+self.line()+'\n{"kind":"x"}\nnot json\n',dict(complete=True,provider=dict(samples=5400)))
         self.assertEqual((s['predicted_share'],s['desktops'],s['provider']['samples'],s['complete']),(.9,['XR-1'],5400,True))
-        self.assertEqual(s['smoothing']['tau_ms'],35);self.assertEqual(s['look_ahead_cfg'],[0,0,0,40])
+        self.assertEqual(s['smoothing']['tau_ms'],35);self.assertEqual(s['wire_frames'],8990);self.assertEqual(s['look_ahead_cfg'],[0,0,0,40])
     def test_summarize_carries_why_a_run_stopped(self):
         from tools.pro2_runtime.supervised_parent import summarize
         s=summarize('xr-workspace: run guard: ValueError: gone\n',dict(complete=True,run=dict(stop_reason='guard-failed')))
@@ -132,6 +132,26 @@ class Replay(unittest.TestCase):
         text=json.dumps(A.evaluate(REPLAY,A.synthetic(seconds=4),mode='smooth'))
         self.assertNotIn('sdk_values',text);self.assertNotRegex(text,r'"q"')
 
+
+
+MOTION=os.environ.get('PRO2_BRIDGE_MOTION')
+@unittest.skipUnless(REPLAY and MOTION,"set PRO2_SMOOTH_REPLAY and PRO2_BRIDGE_MOTION (xr-pro2-bridge's motion_replay example)")
+class Wire(unittest.TestCase):
+    """D12: the Rust bridge's velocity on pose_prediction, through the renderer's smooth path."""
+    def test_the_bridge_velocity_is_the_heads(self):
+        rows=[(t+.5,t,(0.0,0.0,math.sin(math.radians(30*t/1000)/2),math.cos(math.radians(30*t/1000)/2))) for t in [k*1000/240 for k in range(240)]]
+        w=A.bridge_motion(MOTION,rows)[-1][3]
+        self.assertAlmostEqual(w[2],math.radians(30),places=3);self.assertAlmostEqual(w[0],0,places=4)
+    def test_at_240_hz_the_wire_beats_the_own_estimate_and_hold(self):
+        rows=A.mounted(A.synthetic(seconds=9,gaps=A.GAPS_240HZ),A.SHIPPED['mount'])
+        hold=A.evaluate(REPLAY,rows,mode='hold');own=A.evaluate(REPLAY,rows,mode='smooth')
+        wire=A.evaluate(REPLAY,A.bridge_motion(MOTION,rows),mode='wire')
+        self.assertLessEqual(wire['jerk_p95'],1.1*hold['jerk_p95']);self.assertLess(wire['jerk_p95'],own['jerk_p95'])
+        self.assertLess(wire['lag_ms']*2,hold['lag_ms']);self.assertLessEqual(wire['stuck_pct'],hold['stuck_pct'])
+    def test_at_60_hz_the_wire_is_no_worse_than_the_own_estimate(self):
+        rows=A.mounted(A.synthetic(seconds=9),A.SHIPPED['mount'])
+        own=A.evaluate(REPLAY,rows,mode='smooth');wire=A.evaluate(REPLAY,A.bridge_motion(MOTION,rows),mode='wire')
+        self.assertLessEqual(wire['lag_ms'],own['lag_ms']+.5);self.assertLessEqual(wire['jerk_p95'],own['jerk_p95']*1.1)
 
 RENDERER=os.environ.get('PRO2_RENDERER')
 @unittest.skipUnless(RENDERER,'set PRO2_RENDERER to a built xr-native-spike')

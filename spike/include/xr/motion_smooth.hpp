@@ -50,7 +50,11 @@ public:
     void reset() { valid_ = false; count_ = 0; }
     // `relative`: the newest (stabilized) sample, recentred; it only changes when device_ms does. horizon_ms: from that sample
     // to the frame's presentation. now_ms: the frame's own clock (any clock that only goes forward). Returns the pose to show.
-    Quat update(Quat relative, float device_ms, float horizon_ms, double now_ms);
+    // `measured`: body-frame velocity in rad/ms, already braked, from where every sample is seen (the Rust bridge's
+    // pose_prediction wire, which runs this estimator's velocity and brake on the whole 240 Hz stream). It replaces the
+    // estimate from the samples this sees, one per frame at best; the rest (history, snap, continuity filter) is unchanged.
+    Quat update(Quat relative, float device_ms, float horizon_ms, double now_ms,
+                std::optional<std::array<float, 3>> measured = std::nullopt);
     std::uint64_t snaps() const { return snaps_; }
     float last_correction_deg() const { return last_correction_deg_; }
     float last_predicted_deg() const { return last_predicted_deg_; }

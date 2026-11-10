@@ -111,6 +111,20 @@ class BundlePluginPathQA(unittest.TestCase):
             with self.assertRaises(ValueError): package.build(self.base / 'not-built', self.base / 'unsafe package')
             compiler.assert_not_called()
 
+    def test_packager_ships_a_given_rust_bridge_without_compiling(self):
+        from tools.pro2_runtime import package
+        built = self.base / 'built'; built.mkdir()
+        for name in ('xr-native-spike', 'libxr-ownership.so'): (built / name).write_bytes(b'inert')
+        rust = self.base / 'xr-pro2-bridge'; rust.write_bytes(b'inert rust bridge')
+        tools = {'git': b'', 'pkg-config': '1\n2\n'}  # no source files copied, a stand-in ABI and commit
+        output = lambda argv, **kw: tools.get(argv[0], 'abc\n') if argv[:2] != ['git', 'rev-parse'] else 'abc\n'
+        with patch.object(package.subprocess, 'run') as compiler, patch.object(package.subprocess, 'check_output', side_effect=output):
+            with self.assertRaises(ValueError): package.build(built, self.base / 'missing', self.base / 'no-such-bridge')
+            manifest = package.build(built, self.base / 'rust-bundle', rust)
+            compiler.assert_not_called()
+        self.assertEqual(manifest['bridge'], 'rust')
+        self.assertEqual(manifest['files']['bin/pro2-sdk-bridge'], hashlib.sha256(b'inert rust bridge').hexdigest())
+
     def test_cli_preflight_without_consent_state_sdk_or_client(self):
         import contextlib
         import io

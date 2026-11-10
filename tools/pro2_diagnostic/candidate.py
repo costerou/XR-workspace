@@ -15,6 +15,7 @@ LIBRARY = '/usr/lib/xr-driver/libglasses.so'
 SHA256 = '8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e'
 EXACT = ('35ca', '1301', 'VITURE PRO 2 XR Glasses')
 POSE, RATE60 = 1, 0  # viture_protocol_public.h:151,156; NOT USB command bytes
+RATES = {60: RATE60, 90: 1, 120: 2, 240: 3}  # the SDK's pose rate codes, as xr-pro2-bridge --pose-rate
 
 
 def inventory(root=Path('/sys/bus/usb/devices')):
@@ -55,7 +56,8 @@ class PoseLog:
 class SDK:
     """ctypes ABI from pinned public C headers; loading is itself an authorized step."""
     CALLBACK=C.CFUNCTYPE(None,C.POINTER(C.c_float),C.c_uint64)
-    def __init__(self, library=LIBRARY, sha256=SHA256):
+    def __init__(self, library=LIBRARY, sha256=SHA256, rate=RATE60):
+        self.rate=rate
         fd=os.open(library,os.O_RDONLY|os.O_CLOEXEC|os.O_NOFOLLOW)
         try:
             with os.fdopen(os.dup(fd),'rb') as f: digest=hashlib.file_digest(f,'sha256').hexdigest()
@@ -79,14 +81,14 @@ class SDK:
         bind('get_glasses_version',[C.c_void_p,C.c_char_p,C.POINTER(C.c_int)])
     def capabilities(self):
         return (self.functions['is_product_id_valid'](0x1301)==1 and
-                self.functions['is_product_support_imu_frequency'](0x1301,POSE,RATE60)==1)
+                self.functions['is_product_support_imu_frequency'](0x1301,POSE,self.rate)==1)
     def create(self):
         self.h=self.functions['create'](0x1301)
         if not self.h: raise RuntimeError('SDK create returned NULL')
     def family(self): return self.functions['get_device_type'](self.h)
     def call(self,name):
         actual={'register':'register_imu_pose_callback','open':'open_imu','close':'close_imu'}.get(name,name)
-        args={'initialize':(None,None),'open':(POSE,RATE60),'close':(POSE,)}.get(name,())
+        args={'initialize':(None,None),'open':(POSE,self.rate),'close':(POSE,)}.get(name,())
         rc=self.functions[actual](self.h,*args)
         if rc not in (None,0): raise RuntimeError(f'SDK {name} returned {rc}')
     def register(self,callback):
@@ -106,7 +108,7 @@ class SDK:
 def capture(rows,loader,seconds,emit,stop=None,recheck=None):
     admit(rows)  # before loader/dlopen/create or any SDK operation
     sdk=loader()
-    if not sdk.capabilities(): raise ValueError('SDK does not support exact PID pose60 capability')
+    if not sdk.capabilities(): raise ValueError('SDK does not support exact PID pose capability at this rate')
     pending=queue.Queue(maxsize=8192); dropped=0; log=PoseLog(); errors=[]
     def receive(values,stamp):
         nonlocal dropped
@@ -143,6 +145,7 @@ def main():
     parser.add_argument('--parent-authorized-sdk-session',action='store_true')
     parser.add_argument('--seconds',type=int,default=15,choices=range(1,31))
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--rate',type=int,default=60,choices=sorted(RATES),help='pose rate, Hz (D12: 240 for the bridge velocity replay)')
     args=parser.parse_args()
     if not args.parent_authorized_sdk_session: parser.error('parent-authorized active SDK session required')
     rows=inventory(); admit(rows)
@@ -153,7 +156,7 @@ def main():
         def emit(record): f.write(json.dumps(record,allow_nan=False)+'\n'); f.flush()
         emit(dict(kind='contract',model='pro2',library_sha256=SHA256,layout=['roll','pitch','yaw','qw','qx','qy','qz'],
                   timestamp_unit='unknown',documented_frame='NWU',observed_frame='unverified',conversion='none',pitch_correction='none'))
-        samples,invalid,dropped=capture(rows,SDK,args.seconds,emit,stop,recheck=inventory)
+        samples,invalid,dropped=capture(rows,lambda:SDK(rate=RATES[args.rate]),args.seconds,emit,stop,recheck=inventory)
         if not samples or invalid or dropped: raise RuntimeError('diagnostic incomplete/invalid; review log, do not advance gate')
 
 if __name__=='__main__': main()

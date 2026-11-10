@@ -675,6 +675,14 @@ the gyro itself, and the gain would triple its error in slow turns. The status's
 predicted from the wire. Checked by ctest `luma_renderer_prediction`, which replays the recording through the renderer's own reader
 and predictor: at 17 ms the wire is 0.011° rms while moving against 0.077° for the difference, and under 0.002° at rest.
 
+The Rust Pro 2 bridge (`rust/crates/xr-pro2-bridge`, not the shipped route) writes the same segment (D12). The Pro 2 has no gyro on
+the SDK, so the velocity comes from the poses: `src/motion.rs` takes every sample, so at 240 Hz it sees the whole stream that the
+renderer would sample only once a frame. It writes the rate between the newest sample and the one at least 25 ms older, braked by
+the share of that rate the last 12 ms kept (cubed, 4 °/s floor), gated to zero below 1.5 °/s (smoothstep to 4 °/s), and dropped
+after a 60 ms gap, a 30° jump or a clock that goes back. Acceleration is zero. At the 60 Hz 15/15/20 cadence this is the
+renderer's own estimate. On the Pro 2 smooth path (`--pro2-test-smooth-ms`), `MotionSmoother::update` takes that velocity when
+the wire is live, in place of its own three-sample estimate and brake, and counts the frame in `wire_frames`.
+
 ### Renderer trial flags
 
 `~/.config/viture-workspace/renderer-flags` (or under `$XDG_CONFIG_HOME`), if it exists, holds trial flags for the renderer of a

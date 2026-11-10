@@ -68,6 +68,28 @@ Cody sits still, then turns slowly. Read `provider` in `MEASURED`:
 
 Only if the rate looks right and Cody finds it better: report it, and the default can change in a later branch. Nothing here changes the default.
 
+## Run C: 240 Hz with the Rust bridge (D12)
+
+Two checks: the pose age, and the smoothness.
+
+1. A 240 Hz capture, still and then turning (same rules as [diagnostic-candidate.md](diagnostic-candidate.md)):
+
+       unshare -Urn -- timeout --signal=INT --kill-after=5s 45s python -m tools.pro2_diagnostic.candidate --parent-authorized-sdk-session --rate 240 --seconds 15 --output /tmp/pro2-240.jsonl 2>/tmp/pro2-240.private.stderr
+
+   Then replay it, offline:
+
+       python -m tools.pro2_runtime.smooth_acceptance --replay BUILD/pro2_smooth_replay --captures /tmp/pro2-240.jsonl --bridge-motion rust/target/release/examples/motion_replay
+
+   Pass: `"failed": []`, and the `bridge_wire` block meets the limits above.
+2. A supervised run with the Rust bridge. Build it with `cargo build --release -p xr-pro2-bridge`. Package a bundle with
+   `python -m tools.pro2_runtime.package --build BUILD --destination RELEASE/runtime --rust-bridge rust/target/release/xr-pro2-bridge`.
+   Then run:
+
+       RELEASE/runtime/bin/pro2-supervised-parent --bundle RELEASE/runtime --pose-rate 240 --stop-after 40
+
+   Pass: `pose_age_p50_ms` ≤ 3 (it was 9.4 at 60 Hz), `provider.samples / seconds` near 240, and `wire_frames` close to
+   `predicted_frames`. Cody turns slowly, then normally: the view should feel no worse than Run A.
+
 ## After
 
 The panel's Start needs no enable step: `python -m tools.xr_controller install` builds and pins its bundle ([own-drivers-default.md](../own-drivers-default.md)), and `pro2-route status` shows which one. The current pose rate desk test, three short runs of the installed bundle, is there too.

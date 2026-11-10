@@ -187,6 +187,23 @@ Offline answer, from the pinned SDK (`8dbe441e…`), never loaded:
 
 `--pose-rate` (consent `pose_rate_hz`) takes 60, 90, 120 or 240. It defaults to 60, is capability-checked again at run time, and a refusal stops the run rather than dropping to 60. It is only a flag: the smoothing is the fix that needs no new hardware behaviour. The desk test for it is in [smooth-live-test.md](smooth-live-test.md).
 
+**D12: 240 Hz with the Rust bridge.** At 240 Hz the C++ route has a problem. The renderer's smoother estimates velocity from the
+newest samples it sees, one per 8.3 ms frame, so it misses every other sample. In replay its jerk p95 is then 0.116, worse than
+holding the pose (0.073). The Rust bridge (`rust/crates/xr-pro2-bridge`) sees every sample. It writes a braked, still-gated
+velocity on `<prefix>pose_prediction` ([technical.md](../technical.md)), and the smoother uses it while it is live. Replay
+(`smooth_acceptance.py --synthetic --synthetic-240 --bridge-motion …`, synthetic heads):
+
+| Path | Rate | Stuck % | Jerk p95 | Lag ms | Rest step p95 |
+|---|---|---|---|---|---|
+| Hold | 240 | | 0.0731 | 21.6 | |
+| Renderer's own estimate | 240 | | 0.1164 | | |
+| Bridge wire | 240 | 0.39 | 0.0703 | 6.0 | 0.0059 |
+| Renderer's own estimate | 60 | | | 11.8 | 0.0077 |
+| Bridge wire | 60 | 4.4 | 0.255 | 9.8 | 0.0069 |
+
+Do not ask for 240 Hz through the C++ bridge. Use it only with a bundle built with `package.py --rust-bridge`. The default stays
+60: the launcher checks that the bridge's ready line reports the rate the consent asked for.
+
 ## Why two desktops appeared
 
 The consent asked for one, and `plan_outputs` creates exactly what it is given (`tests/pro2_runtime/test_desktop_count.py`). The only other way to a new output is Add on a desktop's open glass panel, or its N key. The run's stats fit that: XR-2 captured 1215 frames to XR-1's 5224, is the same size as XR-1, and the panel was last open on XR-2. No log records the press itself, so this is the only path in the code, not an observed click.

@@ -37,6 +37,16 @@ class CandidateTests(unittest.TestCase):
         with self.assertRaises(ValueError): capture(EXACT,lambda:sdk,0,lambda x:None)
         self.assertNotIn('create',sdk.calls)
 
+    def test_rate_reaches_capability_and_open(self):
+        from tools.pro2_diagnostic.candidate import SDK, RATES
+        self.assertEqual(RATES, {60: 0, 90: 1, 120: 2, 240: 3})  # xr-pro2-bridge rate_code
+        sdk=SDK.__new__(SDK); sdk.rate=RATES[240]; sdk.h=7; seen=[]
+        sdk.functions={'is_product_id_valid':lambda pid:1,
+                       'is_product_support_imu_frequency':lambda pid,mode,rate:seen.append(('support',rate)) or 1,
+                       'open_imu':lambda h,mode,rate:seen.append(('open',rate)) or 0}
+        self.assertTrue(sdk.capabilities()); sdk.call('open')
+        self.assertEqual(seen,[('support',3),('open',3)])
+
 EXACT=[('35ca','1301','VITURE PRO 2 XR Glasses')]
 class Fake:
     support=True

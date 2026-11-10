@@ -114,6 +114,18 @@ int run() {
         m.update(yaw(f.angle), 0, 30, f.t + 8);
         CHECK(m.last_predicted_deg() == 0.f);
     }
+    {   // A measured velocity (the bridge's wire) replaces the estimate: a 240 Hz feed read once a frame predicts exactly that speed,
+        // a measured stop predicts nothing though the samples seen are moving, and a non-finite one falls back to the estimate.
+        MotionSmoother m; float t = 0, angle = 0; const float dps = 30, rad_per_ms = dps * kDeg / 1000;
+        for (int k = 0; k < 40; ++k) { t += 4.1667f; angle += dps * 4.1667f / 1000; if (k % 2) m.update(yaw(angle), t, 20, t, std::array<float, 3>{0, 0, rad_per_ms}); }
+        CHECK(std::fabs(m.last_predicted_deg() - dps * 0.020f) < 0.001f);
+        t += 4.1667f; angle += dps * 4.1667f / 1000;
+        m.update(yaw(angle), t, 20, t, std::array<float, 3>{0, 0, 0});
+        CHECK(m.last_predicted_deg() == 0.f);
+        t += 4.1667f; angle += dps * 4.1667f / 1000;
+        m.update(yaw(angle), t, 20, t, std::array<float, 3>{NAN, 0, 0});
+        CHECK(std::fabs(m.last_predicted_deg() - dps * 0.020f) < 0.05f);
+    }
     {   // Non-finite input never poisons the state; reset forgets everything.
         MotionSmoother m;
         const Quat q = m.update(yaw(5), NAN, 20, 0);

@@ -56,9 +56,10 @@ class Order(unittest.TestCase):
         order(replay, ['stabilizer.update(', 'pose.update(', 'pose.relative()', 'age.observe(', 'const auto horizon = prediction_horizon(', 'smoother.update('])
 
     def test_both_give_the_smoother_the_same_clock_and_the_raw_stamp(self):
+        # Both also pass the bridge's wire velocity (D12), empty when the wire is absent.
         wayland = (ROOT / 'spike/src/wayland.cpp').read_text()
-        self.assertIn('s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6)', wayland)
-        self.assertIn('smoother.update(relative, f.device_ms, *horizon, read)', (ROOT / 'spike/tests/pro2_smooth_replay.cpp').read_text())
+        self.assertIn('s.smoother.update(relative, sample->device_ms, *horizon, double(read_ns) / 1e6, measured)', wayland)
+        self.assertIn('smoother.update(relative, f.device_ms, *horizon, read, measured)', (ROOT / 'spike/tests/pro2_smooth_replay.cpp').read_text())
 
     def test_the_capture_axes_are_the_bridges(self):
         # bridge: Quatf{w,x,y,z} = {v3,-v6,-v4,v5}. load_capture: (x,y,z,w) = (-v6,-v4,v5,v3).
