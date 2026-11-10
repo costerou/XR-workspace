@@ -308,8 +308,10 @@ the top acceptance priorities. The renderer is last because it is the largest an
 - **Late latch (D4)** trades latency against missed frames. A late frame is worse than a slow one,
   so the margin has to adapt.
 - **Plugin stays pinned** to one Hyprland commit. Rust changes nothing there.
-- **Uncommitted work.** `handoff.md` describes privacy and pinned-window changes still in flight;
-  the phase 0 corpus must be taken after they land.
+- **Uncommitted work (resolved 2026-11-10).** The privacy and pinned-window changes that
+  `handoff.md` described landed on master in `a03b8ce`. The phase 0 corpus is taken from master at
+  or after that commit. The handoff, with its still-open items, is now
+  [handoffs/2026-11-08-privacy-pinned-window.md](handoffs/2026-11-08-privacy-pinned-window.md).
 
 ### Hard to reverse
 
