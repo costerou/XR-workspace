@@ -91,6 +91,14 @@ holds the Rust ports to them byte for byte.
   The Rust fusion uses plain `f64` arrays, not `glam`: bit parity needs the C++ operation order
   exactly, and `glam`'s quaternion maths does not promise it.
 
+- `corpus/json/strict_json.json` holds 3435 JSON texts (hand-picked edges and a seeded fuzz), each
+  with the verdict of Python's `strict_json` and of C++ `decode_control`, and the verdict
+  `xr_wire::json::parse` must give. Where Python and C++ differ (nesting past 32, a lone surrogate
+  escape, a number past the `f64` range, a byte order mark), the case names the rule followed; the
+  Rust layer always takes the stricter verdict. `tests/native_spike/strict_json_corpus.py` makes it
+  (with `CONTROL_WIRE_CHECK` set to the built `control_wire_check`); `test_strict_json_corpus.py`
+  and `cargo test -p xr-wire` check it.
+
 `tests/native_spike/lua_corpus.py` makes the two Hyprland files. `test_lua_corpus.py` fails when they no
 longer match the Python, or when a generator branch has no case. After a deliberate change to a
 generator, regenerate them:

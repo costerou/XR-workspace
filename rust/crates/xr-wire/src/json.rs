@@ -1,10 +1,15 @@
 //! Strict JSON with the key order kept, and an encoder that writes exactly the bytes Python's
 //! `json.dumps` writes.
 //!
-//! Decoding matches `ipc.strict_json`: a repeated key, `NaN`, `Infinity` and anything that is not
-//! JSON is refused. serde_json also refuses a few inputs Python would take (integers outside the
-//! 64-bit range, numbers that overflow to infinity, lone surrogate escapes, a byte-order mark); none
-//! of them is ever written by our writers, and refusing is the safe side.
+//! Decoding is the one strict JSON layer every wire protocol and file uses. It accepts what both
+//! shipped decoders accept, Python's `ipc.strict_json` and the renderer's `decode_control`
+//! (`spike/src/ipc.cpp`), and refuses a repeated key (compared after unescaping), `NaN`, `Infinity`
+//! and anything that is not JSON. [`parse`] also checks a size and a depth limit before parsing.
+//! Where Python and C++ differ, it takes the stricter verdict: it refuses values nested past
+//! [`MAX_DEPTH`], numbers that overflow to infinity and lone surrogate escapes (Python takes them),
+//! and a byte-order mark (C++ skips it). Integers outside the 64-bit range are read as floats, as
+//! C++ does. `rust/corpus/json/strict_json.json` (`tests/native_spike/strict_json_corpus.py`)
+//! records the three verdicts for each of its cases.
 //!
 //! Encoding takes a [`Style`] that names the `json.dumps` arguments a writer uses. Strings are always
 //! escaped as `ensure_ascii=True` does, and floats are written as Python's `repr` writes them, so a
@@ -73,9 +78,70 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-/// Parse `raw` strictly: one JSON value, no repeated key, no `NaN` or `Infinity`.
+/// `decode_control`'s nesting limit: a value may sit inside at most 32 arrays or objects.
+pub const MAX_DEPTH: usize = 32;
+
+/// The bounds [`parse`] checks before parsing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// The most bytes the text may have.
+    pub max_bytes: usize,
+    /// The most arrays and objects any value may sit inside. The top-level value sits inside none.
+    pub max_depth: usize,
+}
+
+/// Parse `raw` strictly within `limits`. The size, then the depth, are checked before parsing.
+pub fn parse(raw: &[u8], limits: Limits) -> Result<Value, Error> {
+    if raw.len() > limits.max_bytes {
+        return Err(Error(format!(
+            "{} bytes is over the limit of {}",
+            raw.len(),
+            limits.max_bytes
+        )));
+    }
+    if too_deep(raw, limits.max_depth) {
+        return Err(Error(format!("nested deeper than {}", limits.max_depth)));
+    }
+    parse_strict(raw)
+}
+
+/// Parse `raw` strictly: one JSON value, no repeated key, no `NaN` or `Infinity`. No size or depth
+/// limit of its own (the readers in `disk` bound the size first); [`parse`] adds both.
 pub fn parse_strict(raw: &[u8]) -> Result<Value, Error> {
     serde_json::from_slice(raw).map_err(|e| Error(format!("invalid JSON: {e}")))
+}
+
+/// Whether any value sits inside more than `max` arrays or objects. Counts what `decode_control`
+/// counts: every token outside a string (a key, a scalar or a nested container) at the current
+/// number of open brackets. It only has to be right for valid JSON; anything else the parser refuses.
+fn too_deep(raw: &[u8], max: usize) -> bool {
+    let (mut open, mut in_string, mut escaped) = (0usize, false, false);
+    for &b in raw {
+        if in_string {
+            match (escaped, b) {
+                (true, _) => escaped = false,
+                (false, b'\\') => escaped = true,
+                (false, b'"') => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match b {
+            b' ' | b'\t' | b'\r' | b'\n' | b',' | b':' => {}
+            b']' | b'}' => open = open.saturating_sub(1),
+            _ => {
+                if open > max {
+                    return true;
+                }
+                match b {
+                    b'"' => in_string = true,
+                    b'[' | b'{' => open += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    false
 }
 
 impl<'de> Deserialize<'de> for Value {
@@ -367,5 +433,84 @@ mod tests {
         assert_eq!(encode(&value, Style::DEFAULT), r#"{"z": 1, "a": [1.0, -3, 18446744073709551615]}"#);
         assert_eq!(value.get("z").and_then(Value::as_int), Some(1));
         assert_eq!(value.get("a").unwrap(), &parse_strict(b"[1.0, -3, 18446744073709551615]").unwrap());
+    }
+
+    const LIMITS: Limits = Limits {
+        max_bytes: 16384,
+        max_depth: MAX_DEPTH,
+    };
+
+    fn nested(n: usize, inner: &str) -> String {
+        format!("{}{inner}{}", "[".repeat(n), "]".repeat(n))
+    }
+
+    #[test]
+    fn size_is_checked_before_parsing() {
+        let text = format!("[{}", " ".repeat(20));
+        let err = parse(
+            text.as_bytes(),
+            Limits {
+                max_bytes: 21,
+                ..LIMITS
+            },
+        )
+        .unwrap_err();
+        assert!(err.0.starts_with("invalid JSON"), "{err}");
+        let err = parse(
+            text.as_bytes(),
+            Limits {
+                max_bytes: 20,
+                ..LIMITS
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.0, "21 bytes is over the limit of 20");
+        assert!(
+            parse(
+                b"[1]",
+                Limits {
+                    max_bytes: 3,
+                    ..LIMITS
+                }
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn depth_is_checked_before_parsing() {
+        // Too deep is reported even though the text is cut off: the scan runs first.
+        assert_eq!(
+            parse("[".repeat(40).as_bytes(), LIMITS).unwrap_err().0,
+            "nested deeper than 32"
+        );
+        assert!(parse(nested(32, "1").as_bytes(), LIMITS).is_ok());
+        assert!(parse(nested(33, "").as_bytes(), LIMITS).is_ok());
+        assert!(parse(nested(33, "1").as_bytes(), LIMITS).is_err());
+        assert!(parse(nested(34, "").as_bytes(), LIMITS).is_err());
+        assert!(
+            parse(
+                format!("{}1{}", "{\"k\":".repeat(33), "}".repeat(33)).as_bytes(),
+                LIMITS
+            )
+            .is_err()
+        );
+        // Brackets inside strings do not count, escaped quotes included.
+        assert!(parse(format!("[\"{}\"]", "[{".repeat(40)).as_bytes(), LIMITS).is_ok());
+        assert!(parse(format!("[\"\\\"{}\"]", "[".repeat(40)).as_bytes(), LIMITS).is_ok());
+    }
+
+    #[test]
+    fn repeated_keys_compare_after_unescaping() {
+        assert!(parse(br#"{"\u0061":1,"a":2}"#, LIMITS).is_err());
+        assert!(parse(br#"[{"a":1},{"a":1}]"#, LIMITS).is_ok());
+    }
+
+    #[test]
+    fn numbers_past_f64_are_refused() {
+        for text in ["1e400", "[-1e400]", "1e309"] {
+            assert!(parse(text.as_bytes(), LIMITS).is_err(), "{text}");
+        }
+        assert!(parse(b"1e-400", LIMITS).is_ok());
     }
 }

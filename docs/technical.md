@@ -993,6 +993,11 @@ That search found one mismatch, the order of R's frames. Python and C++ agree on
 `fixtures/control_frames.json` (`control_corpus.py`, checked by `test_control_corpus.py` in the same ctest) records, for
 each of the 23 ops, frames byte for byte as the Python encoders send them, mutations of them, and envelope faults, each with
 the renderer's verdict (accepted, or the refusal's code and detail): the corpus the Rust rebuild must match.
+`rust/corpus/json/strict_json.json` (`strict_json_corpus.py`, checked by `test_strict_json_corpus.py` in the same ctest and by
+`cargo test -p xr-wire`) does the same for the JSON layer alone: edge cases and a seeded fuzz, each with Python `strict_json`'s
+and C++ `decode_control`'s verdict. They disagree in four places: Python takes values nested past 32, lone surrogate escapes and
+numbers past the f64 range (as inf), and C++ takes a leading byte order mark. `xr_wire::json::parse` refuses all four, and
+checks the size and depth limits before it parses.
 
 `ignorable_control_error` still lists only the display-only payloads it always did.
 
