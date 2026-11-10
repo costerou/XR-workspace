@@ -1,3 +1,304 @@
 //! XR renderer on GLES and Wayland.
+//!
+//! So far the presentation shell: the supervised launch of `spike/src/main.cpp` with the generated
+//! test pattern (static, or `--animate-pattern-ms`), the start/stop control frames, the status
+//! samples and the timing report. Capture, tracking, depth and the other control ops are refused
+//! at launch (exit 2) until they are ported.
 
-fn main() {}
+mod control;
+mod metrics;
+mod pattern;
+mod shell;
+
+use std::collections::BTreeMap;
+use std::io::Write as _;
+use std::os::fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd};
+use std::os::unix::net::UnixStream;
+use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
+
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use rustix::io::Errno;
+use rustix::net::{RecvFlags, SendFlags, recv, send};
+
+use control::{Op, Refusal, Stream};
+use shell::{Presentation, monotonic_ms_f64};
+
+const HELP: &str = "xr-renderer: native output-bound layer-shell renderer (no SDK/input).\n\
+Launched only by the permission-gated Python supervisor with inherited capability sockets.\n\
+Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n\
+Optional --status-fd FD: nonblocking measured status JSON, at most once per second.\n\
+Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n\
+Optional --control-errors fatal, for tests: a bad control frame stops the renderer. Otherwise it is logged and dropped.\n\
+Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n\
+Not yet in this build: --capture, --pose-feed, --depth-fd, --continuity-fd and control ops other than start and stop.\n\
+Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
+
+static STOPPING: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn stop(_: libc::c_int) {
+    STOPPING.store(true, Ordering::Relaxed);
+}
+
+/// An inherited descriptor number: decimal, 3 or more.
+fn number(value: &str) -> Option<i32> {
+    if value.is_empty() || !value.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    value.parse::<i32>().ok().filter(|&n| n >= 3)
+}
+
+fn same_user(fd: BorrowedFd) -> bool {
+    rustix::net::sockopt::socket_peercred(fd).is_ok_and(|c| c.uid == rustix::process::getuid())
+}
+
+/// The supervisor's start frame: one line of at most 16384 bytes, each byte within 250 ms.
+fn read_start(control: BorrowedFd) -> Option<Vec<u8>> {
+    let mut raw = Vec::new();
+    while raw.len() < control::MAX_FRAME {
+        let mut fds = [PollFd::new(&control, PollFlags::IN)];
+        if poll(
+            &mut fds,
+            Some(&Timespec {
+                tv_sec: 0,
+                tv_nsec: 250_000_000,
+            }),
+        )
+        .ok()?
+            == 0
+        {
+            return None;
+        }
+        let mut c = [0u8];
+        if recv(control, &mut c, RecvFlags::empty()).ok()?.0 != 1 {
+            return None;
+        }
+        raw.push(c[0]);
+        if c[0] == b'\n' {
+            break;
+        }
+    }
+    Some(raw)
+}
+
+fn send_line(fd: Option<BorrowedFd>, line: &str) {
+    if let Some(fd) = fd {
+        // Datagram socketpair: EAGAIN drops a whole line, never part of one.
+        let _ = send(
+            fd,
+            line.as_bytes(),
+            SendFlags::DONTWAIT | SendFlags::NOSIGNAL,
+        );
+    }
+}
+
+/// The first `n` characters (the C++ `substr` on these ASCII-only fields).
+fn prefix(s: &str, n: usize) -> &str {
+    s.char_indices().nth(n).map_or(s, |(i, _)| &s[..i])
+}
+
+fn main() -> ExitCode {
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    if argv.len() == 1 && argv[0] == "--help" {
+        print!("{HELP}");
+        return ExitCode::SUCCESS;
+    }
+    ExitCode::from(run(&argv))
+}
+
+fn run(argv: &[String]) -> u8 {
+    if argv.len() < 10 || argv.len() > 30 || argv.len() % 2 != 0 {
+        eprintln!("permission: supervised capability sockets required; see --help");
+        return 2;
+    }
+    let mut args = BTreeMap::new();
+    for pair in argv.chunks(2) {
+        if args.insert(pair[0].as_str(), pair[1].as_str()).is_some() {
+            return 2;
+        }
+    }
+    const REQUIRED: [&str; 5] = [
+        "--supervised-fd",
+        "--wayland-fd",
+        "--output",
+        "--run-id",
+        "--session",
+    ];
+    const OPTIONAL: [&str; 3] = ["--status-fd", "--control-errors", "--animate-pattern-ms"];
+    if !REQUIRED.iter().all(|k| args.contains_key(k))
+        || !args
+            .keys()
+            .all(|k| REQUIRED.contains(k) || OPTIONAL.contains(k))
+    {
+        return 2;
+    }
+    let status = match args.get("--status-fd") {
+        Some(v) => match number(v) {
+            Some(n) => Some(n),
+            None => return 2,
+        },
+        None => None,
+    };
+    if args.get("--control-errors").is_some_and(|v| *v != "fatal") {
+        return 2;
+    }
+    let fatal = args.contains_key("--control-errors");
+    let animation_ms = match args.get("--animate-pattern-ms") {
+        Some(v) => match pattern::parse_pattern_duration(v) {
+            Some(ms) => Some(ms),
+            None => return 2,
+        },
+        None => None,
+    };
+    let (Some(control_fd), Some(wayland_fd)) = (
+        number(args["--supervised-fd"]),
+        number(args["--wayland-fd"]),
+    ) else {
+        return 2;
+    };
+    if control_fd == wayland_fd || status.is_some_and(|s| s == control_fd || s == wayland_fd) {
+        return 2;
+    }
+    // SAFETY: the supervisor hands these descriptors over at exec for this process alone; each is
+    // owned once here and checked to be a socket of this user before any use.
+    let (control, wayland, status) = unsafe {
+        (
+            OwnedFd::from_raw_fd(control_fd),
+            OwnedFd::from_raw_fd(wayland_fd),
+            status.map(|fd| OwnedFd::from_raw_fd(fd)),
+        )
+    };
+    if !same_user(control.as_fd())
+        || !same_user(wayland.as_fd())
+        || status.as_ref().is_some_and(|s| !same_user(s.as_fd()))
+    {
+        return 2;
+    }
+    let status = status.as_ref().map(AsFd::as_fd);
+    // Startup is a validated start frame on a private inherited socket, never a public JSON grant.
+    let Some(start) = read_start(control.as_fd()) else {
+        return 2;
+    };
+    match control::decode(&start) {
+        Ok(m)
+            if m.op == Op::Start
+                && m.run_id == args["--run-id"]
+                && m.session == args["--session"] => {}
+        _ => return 2,
+    }
+    // SAFETY: plain handlers that only store to an atomic.
+    unsafe {
+        libc::signal(libc::SIGTERM, stop as *const () as libc::sighandler_t);
+        libc::signal(libc::SIGINT, stop as *const () as libc::sighandler_t);
+    }
+
+    let mut result = 0;
+    let mut presentation = match Presentation::open(UnixStream::from(wayland), args["--output"]) {
+        Ok(p) => Some(p),
+        Err(e) => {
+            eprintln!("{e}");
+            result = 1;
+            None
+        }
+    };
+    if let (Some(p), Some(ms)) = (&mut presentation, animation_ms) {
+        if let Err(e) = p.animate_pattern(ms) {
+            eprintln!("{e}");
+            result = 1;
+        }
+    }
+
+    // Further supervisor frames (stop) on the same private socket, replay-protected. A bad one is dropped.
+    let mut stream = Stream::new(args["--run-id"], args["--session"], fatal, &start);
+    let mut refusals = 0u64;
+    let mut deliver = |m: control::Message| {
+        if m.op == Op::Stop {
+            STOPPING.store(true, Ordering::Relaxed);
+        }
+        send_line(
+            status,
+            &format!("{{\"control_applied\":{}}}\n", m.request_id),
+        );
+    };
+    let mut refused = |r: Refusal| {
+        let line = serde_json::json!({"control_refused": {
+            "request_id": r.request_id, "op": prefix(&r.op, 64), "detail": prefix(&r.error.detail, 256),
+        }});
+        send_line(status, &format!("{line}\n"));
+        refusals += 1;
+        // Bounded: a supervisor that keeps doing this must not fill the journal.
+        if refusals <= 20 || refusals % 1000 == 0 {
+            let op = if r.op.is_empty() { "unreadable" } else { &r.op };
+            eprintln!(
+                "control: refused frame {} ({op}): {}: {} ({refusals} so far)",
+                r.request_id, r.error.code, r.error.detail
+            );
+        }
+    };
+    let mut closed = String::from("EOF");
+    let mut next_status = Instant::now();
+    if let Some(p) = &mut presentation {
+        while result == 0 && !STOPPING.load(Ordering::Relaxed) && !p.finished() {
+            let ready = match p
+                .draw_test_pattern()
+                .and_then(|()| p.dispatch(50, Some(control.as_fd())))
+            {
+                Ok(ready) => ready,
+                Err(e) => {
+                    eprintln!("{e}");
+                    result = 1;
+                    break;
+                }
+            };
+            if ready {
+                let mut buffer = [0u8; 4096];
+                let open = loop {
+                    match recv(&control, &mut buffer, RecvFlags::DONTWAIT) {
+                        Ok((0, _)) => break false, // supervisor gone
+                        Ok((n, _)) => {
+                            if !stream.feed(&buffer[..n], &mut deliver, &mut refused) {
+                                break false;
+                            }
+                        }
+                        Err(Errno::AGAIN | Errno::INTR) => break true,
+                        Err(e) => {
+                            closed = format!("recv: {e}");
+                            break false;
+                        }
+                    }
+                };
+                if !open {
+                    if stream.stopped() {
+                        eprintln!("control: stopping on a refused frame (--control-errors fatal)");
+                    } else {
+                        eprintln!("control: supervisor channel closed ({closed})");
+                    }
+                    result = 1;
+                    break;
+                }
+            }
+            let now = Instant::now();
+            if status.is_some() && now >= next_status {
+                next_status = now + Duration::from_secs(1);
+                send_line(status, &format!("{}\n", p.status_json(monotonic_ms_f64())));
+            }
+            if let Err(e) = send(&control, b"H", SendFlags::NOSIGNAL | SendFlags::DONTWAIT) {
+                eprintln!("control: supervisor channel closed (heartbeat: {e})");
+                result = 1;
+                break;
+            }
+        }
+    }
+    // Pending feedback becomes abandoned, never an invented discard.
+    let metrics = presentation.map(Presentation::close).unwrap_or_default();
+    let mut err = std::io::stderr().lock();
+    let _ = writeln!(err, "{}", metrics.report());
+    let _ = writeln!(
+        err,
+        "{{\"kind\":\"control_stream\",\"accepted\":{},\"refused\":{}}}",
+        stream.accepted(),
+        stream.refused()
+    );
+    result
+}

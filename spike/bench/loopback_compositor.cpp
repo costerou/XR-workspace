@@ -1379,6 +1379,7 @@ int main(int argc, char** argv) {
     for (const auto& j : reports) {
         if (j.contains("tracking") && j["tracking"].is_object()) out["tracking_report"] = j["tracking"];
         if (j.value("kind", "") == "control_stream") out["control_stream"] = j;
+        if (j.value("kind", "") == "generated_pattern_presentation_timing") out["timing_report"] = j;  // compared across renderers
         if (j.contains("kind") && j["kind"] == "managed_output_capture") {
             if(j.contains("options_menu"))out["options_presentation"]=j["options_menu"];
             nlohmann::json paths = nlohmann::json::array();
