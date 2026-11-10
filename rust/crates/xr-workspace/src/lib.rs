@@ -2,3 +2,4 @@
 
 pub mod install;
 pub mod json;
+pub mod managed;

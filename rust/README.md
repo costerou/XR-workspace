@@ -84,6 +84,20 @@ generator, regenerate them:
 TMPDIR=/tmp /usr/bin/python3 tests/native_spike/lua_corpus.py --write
 ```
 
+- `corpus/supervisor/run_order.json` lists the ordered steps `managed.py` takes on a start, a stop, a
+  recovery and a recovery after the compositor exited, with the result. Each path has one case per
+  failure point: every step that can fail is made to fail once at each of its calls. The steps are
+  recorded through fakes, so nothing touches a compositor or the disk.
+
+`tests/native_spike/run_order_corpus.py` makes it, and `test_run_order_corpus.py` fails when it no
+longer matches `managed.py` or a step that can fail has no case. The test in
+`crates/xr-workspace/src/managed/tests.rs` replays every case through the Rust order. After a
+deliberate change to the order, regenerate it:
+
+```sh
+TMPDIR=/tmp /usr/bin/python3 tests/native_spike/run_order_corpus.py --write
+```
+
 `corpus/drift/` holds the two real-glasses recordings that heading-drift work (plan D6) replays:
 `desk-still.lcap.xz` and `warm-up.lcap.xz`, each with a `.json` summary. See
 [corpus/drift/README.md](corpus/drift/README.md).
