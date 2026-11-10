@@ -2111,6 +2111,17 @@
     }
    }
   },
+  "test_renderer_flags.py": {
+   "covers": "tools/native_spike/supervisor.py",
+   "classes": {
+    "RendererFlagsTests": {
+     "tests": 6,
+     "fate": "port",
+     "target": "xr-workspace supervisor::supervisor",
+     "rust_test": null
+    }
+   }
+  },
   "test_resize.py": {
    "covers": "tools/native_spike/resize.py",
    "classes": {
