@@ -650,6 +650,9 @@ checks as the standard driver. `ensure_ready` restarts a driver that is not the 
 `--read-events` and `--drain-camera`, nothing else. They are what stage G of `spike/driver/docs/live-test-plan.md` finds the
 glasses need. A file with anything else fails the start with a reason, which the notification shows. The file changes
 what the driver reads and how it starts the stream; none of these flags can send a frame `Transport` would not pass.
+`--read-events` also makes the driver lock onto the panel's vsync events and publish the scan-out time in a `pose_vsync`
+segment. The renderer then adds `vsync_error_ms` and `sensor_to_vsync_ms` to its status, which Options → Session shows. See
+[Real glasses: display vsync](performance.md#real-glasses-display-vsync).
 
 ### Motion beside the pose (PredictionWire)
 

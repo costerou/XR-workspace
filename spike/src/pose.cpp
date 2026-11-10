@@ -1,5 +1,7 @@
 #include "xr/pose.hpp"
 #include <algorithm>
+#include <atomic>
+#include <bit>
 #include <cerrno>
 #include <cmath>
 #include <ctime>
@@ -81,13 +83,14 @@ struct PoseFeed::Impl {
     bool* disabled = nullptr;
     float* fov = nullptr;  // optional
     float* look_ahead = nullptr;  // optional
+    std::uint32_t* vsync = nullptr;  // optional: 16 words, spike/driver/include/luma/vsync.hpp VsyncWire
     std::optional<FeedSample> last;  // newest valid sample read: served again while the driver holds the lock
     // After two 2 ms waits in a row time out (a stopped driver, not a busy one), frames only try the
     // lock until retry_ns, then wait once more; while the holder never lets go the gap doubles, 50 ms
     // up to 1 s.
     std::uint64_t retry_ns = 0, backoff_ns = 0;
     unsigned timeouts = 0;
-    ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov), static_cast<void*>(look_ahead)}) if (p) shmdt(p); }
+    ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov), static_cast<void*>(look_ahead), static_cast<void*>(vsync)}) if (p) shmdt(p); }
 };
 namespace {
 void* attach(const std::string& path, std::size_t min_size, bool writable, std::string& why) {
@@ -116,6 +119,7 @@ std::unique_ptr<PoseFeed> PoseFeed::open(const std::string& prefix, std::string&
     std::string ignored;
     s.fov = static_cast<float*>(attach(prefix + "display_fov", sizeof(float), false, ignored));
     s.look_ahead = static_cast<float*>(attach(prefix + "look_ahead_cfg", sizeof(float) * 4, false, ignored));
+    s.vsync = static_cast<std::uint32_t*>(attach(prefix + "pose_vsync", 64, false, ignored));
     return feed;
 }
 PoseFeed::~PoseFeed() = default;
@@ -128,6 +132,29 @@ std::optional<float> PoseFeed::display_fov() const {
 std::optional<std::array<float, 4>> PoseFeed::look_ahead_cfg() const {
     if (!impl_->look_ahead) return std::nullopt;
     return std::array<float, 4>{impl_->look_ahead[0], impl_->look_ahead[1], impl_->look_ahead[2], impl_->look_ahead[3]};
+}
+// The reader of luma::write_vsync (vsync.hpp). The words are atomics on the writer's side; atomic_ref on the same 4-byte
+// aligned words here (publish_test checks the two against each other).
+std::optional<VsyncSnapshot> PoseFeed::vsync() const {
+    if (!impl_->vsync) return std::nullopt;
+    auto word = [w = impl_->vsync](std::size_t i, std::memory_order order = std::memory_order_relaxed) {
+        return std::atomic_ref<std::uint32_t>(w[i]).load(order);
+    };
+    for (int attempt = 0; attempt < 4; ++attempt) {  // bounded: a frame must never spin on a stopped writer
+        const std::uint32_t before = word(0, std::memory_order_acquire);
+        if (before & 1u) continue;
+        std::array<std::uint32_t, 14> v;
+        for (std::size_t i = 0; i < v.size(); ++i) v[i] = word(2 + i);
+        const std::uint32_t magic = word(1);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (word(0) != before) continue;
+        if (magic != 0x3153564cu || !(v[8] & 1u)) return std::nullopt;  // "LVS1"; not locked
+        auto u64 = [&](std::size_t i) { return std::uint64_t(v[i]) | std::uint64_t(v[i + 1]) << 32; };
+        VsyncSnapshot out{u64(0), std::bit_cast<double>(u64(2)), std::bit_cast<double>(u64(4)), u64(6), v[9], std::bit_cast<float>(v[10])};
+        if (!(out.period_ns >= 4e6 && out.period_ns <= 50e6)) return std::nullopt;
+        return out;
+    }
+    return std::nullopt;
 }
 namespace {
 std::uint64_t monotonic_ns() {

@@ -7,6 +7,7 @@
 #include "luma/publish.hpp"
 #include "luma/transport.hpp"
 #include "luma/transport_link.hpp"
+#include <algorithm>
 #include <cerrno>
 #include <ctime>
 #include <fcntl.h>
@@ -47,6 +48,7 @@ public:
         publisher_->publish_motion(predictor_.state());
     }
     void set_stale(bool stale) override { if (stale) publisher_->pause(); }  // the next publish clears it
+    void publish_vsync(const VsyncState& state) override { publisher_->publish_vsync(state); }
 private:
     std::unique_ptr<Publisher> publisher_;
     Predictor predictor_;  // a gap longer than PredictConfig::gap_ms starts it over
@@ -63,6 +65,7 @@ public:
         std::fwrite(row, sizeof row, 1, file_);
     }
     void set_stale(bool stale) override { inner_->set_stale(stale); }
+    void publish_vsync(const VsyncState& state) override { inner_->publish_vsync(state); }
 private:
     std::unique_ptr<Sink> inner_;
     std::FILE* file_;
@@ -166,20 +169,41 @@ public:
             return std::nullopt;
         }
         temperature_ = luma_temperature_c(packet);
-        if (tracker_.observe(*sample).verdict == SequenceTracker::Verdict::accepted) return sample;
+        const std::uint32_t ticks = std::uint32_t(sample->t_ns / kLumaTickNs);  // the tracker puts its own time in t_ns
+        if (tracker_.observe(*sample).verdict == SequenceTracker::Verdict::accepted) {
+            device_ns_ = widen(ticks);
+            return sample;
+        }
         repeat_ = true;
         return std::nullopt;
     }
     void new_connection() override {
         tracker_.reset();
         first_of_connection_ = true;
+        have_ticks_ = false;
+        device_ns_.reset();
+    }
+    std::optional<std::uint64_t> device_ns() const override { return device_ns_; }
+    std::optional<std::uint64_t> display_event_ns(std::span<const std::uint8_t> packet) override {
+        const std::optional<DisplayEvent> event = parse_display_event(packet);
+        if (!event) return std::nullopt;
+        return widen(event->ticks);
     }
     std::uint64_t lost_samples() const override { return tracker_.lost_total(); }
     bool last_was_repeat() const override { return repeat_; }
     std::optional<float> temperature_c() const override { return temperature_; }
 private:
+    // The 32-bit 100 us count wraps every five days; IMU and events share it, and arrive within far less than half that apart.
+    std::uint64_t widen(std::uint32_t ticks) {
+        if (!have_ticks_) { have_ticks_ = true; wide_ticks_ = ticks; }
+        else wide_ticks_ += std::uint64_t(std::int64_t(std::int32_t(ticks - std::uint32_t(wide_ticks_))));
+        return wide_ticks_ * kLumaTickNs;
+    }
     SequenceTracker tracker_ = luma_sequence_tracker();
     std::optional<float> temperature_;
+    std::optional<std::uint64_t> device_ns_;
+    std::uint64_t wide_ticks_ = 0;
+    bool have_ticks_ = false;
     bool repeat_ = false, first_of_connection_ = true;
 };
 }
@@ -285,8 +309,11 @@ TransportConfig live_config(const Options& options) {
 }
 
 std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys, Logger log) {
+    const bool events = std::find(config.in_endpoints.begin(), config.in_endpoints.end(), kLumaEventEndpoint) != config.in_endpoints.end();
     auto link = std::make_unique<Live>(std::move(config), std::move(sys));
     link->set_stream_endpoint(kLumaImuEndpoint);
+    if (events)
+        link->add_stream_endpoint(kLumaEventEndpoint);  // --read-events: the display events reach the daemon (vsync.hpp)
     link->set_route([](std::span<const std::uint8_t> bytes) { return !bytes.empty() && bytes[0] == 0xff ? kDataEndpointOut : kMcuEndpointOut; });
     link->set_other_packet_handler([log = std::move(log)](std::uint8_t endpoint, std::span<const std::uint8_t> bytes) {
         if (endpoint == kLumaEventEndpoint || !log) return;  // 120 of these a second say nothing
@@ -299,8 +326,9 @@ std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys
 
 std::unique_ptr<Link> live_link(const Options& options, Logger log) { return link_with(live_config(options), nullptr, std::move(log)); }
 
-std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments) {
+std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments, bool vsync) {
     PublisherOptions options;
+    options.vsync = vsync;
     options.prefix = ipc_prefix;
     options.history_step = history_step_for(1000);
     options.private_segments = private_segments;

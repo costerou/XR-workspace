@@ -105,6 +105,37 @@ private:
     std::array<std::uint64_t, 200> histogram_{};  // 0.25 ms buckets, 0..50 ms
 };
 
+// The driver's scan-out times against what the compositor says (rust-rebuild-plan D5), per presented frame:
+//   horizon error    present - the driver's scan-out nearest it (wp_presentation's clock is CLOCK_MONOTONIC, as is the
+//                    driver's anchor), wrapped into half a period either side. Its mean (as a phase) is the constant between the two:
+//                    the compositor's vblank against the glasses' panel, and the link floor the driver cannot see
+//                    (vsync.hpp). What the gate measures is the spread about that constant: how far a horizon taken from
+//                    the driver's vsync is off, frame by frame.
+//   sensor to vsync  that scan-out on the feed's clock minus the device_ms of the sample the frame drew: how old the pose
+//                    is when the panel shows it, with the driver's own transport floor in it.
+// Only with a locked snapshot whose anchor is under kMaxAnchorAgeNs from the present. The newest kFrames frames are kept.
+struct VsyncSummary {
+    std::uint64_t count = 0, skipped = 0;  // skipped: presented with no usable snapshot
+    double offset_ms = 0;                   // the mean phase of the horizon error: panel and link, a constant
+    double error_p50_ms = 0, error_p95_ms = 0, error_max_ms = 0;  // |horizon error - offset|
+    double sensor_p50_ms = 0, sensor_p95_ms = 0, sensor_max_ms = 0;
+    std::uint64_t sensor_count = 0;
+    double period_ms = 0;  // the newest snapshot's
+};
+class VsyncMeter {
+public:
+    static constexpr std::size_t kFrames = 8192;  // about 70 s at 120 Hz
+    static constexpr double kMaxAnchorAgeNs = 250e6;
+    // sample_ms: the device_ms of the sample drawn; negative: none.
+    void presented(const std::optional<VsyncSnapshot>& vsync, std::uint64_t present_ns, float sample_ms);
+    VsyncSummary summary() const;
+private:
+    std::array<float, kFrames> error_ms_{}, sensor_ms_{};
+    std::size_t errors_ = 0, sensors_ = 0;  // written in all; the newest kFrames are kept
+    std::uint64_t skipped_ = 0;
+    double period_ms_ = 0;
+};
+
 // Horizon (ms from the newest sample) for this frame, or nullopt if prediction cannot be bounded.
 // frametime_ms is used only if no read->present measurement is available yet (driver formula).
 std::optional<float> prediction_horizon(const std::optional<LookAhead>& cfg, std::optional<double> read_to_present_ms,

@@ -15,6 +15,8 @@
 // Beside it, one segment XRLinuxDriver does not have: pose_prediction, the PredictionWire of predict.hpp (64 bytes, magic
 // "LPR1"), with the newest pose and its angular velocity and acceleration from the gyro. No reader uses it yet; the feed above
 // is unchanged by it. See publish_motion.
+// Another of our own, made only with PublisherOptions::vsync:
+//     pose_vsync              64 bytes: when the glasses' panel scans out (vsync.hpp VsyncWire, rust-rebuild-plan D5)
 //
 // The rest of the driver's segments (pose_position, keepalive_date, display_resolution, ...) have no reader here.
 //
@@ -38,6 +40,7 @@
 // Publisher is for one thread. publish() does not allocate.
 #include "luma/predict.hpp"
 #include "luma/types.hpp"
+#include "luma/vsync.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -67,6 +70,7 @@ struct PublisherOptions {
     // fails with "another publisher" while one holds <prefix>writer.lock (released even if it crashes) and with "xrDriver
     // is running" when a live process has that name under this /proc. Checked at open only.
     std::string proc_root = "/proc";
+    bool vsync = false;  // also make pose_vsync, for publish_vsync (the daemon's --read-events)
 };
 
 // src/devices/viture.c viture_apply_imu_rate.
@@ -103,6 +107,9 @@ public:
     // moves as the head does. Never waits, and is written whether or not publish() got the lock. A state that is not valid and
     // calibrated, or whose q is unusable, is written as "no sample", as are open() and pause().
     void publish_motion(const MotionState& state);
+    // The panel's scan-out, with its anchor also on the feed's own t (the clock pose_orientation's ms are on): a reader can
+    // then tell how old the sample it drew is at scan-out. Nothing without PublisherOptions::vsync. Never waits.
+    void publish_vsync(const VsyncState& state);
 
     PublisherStats stats() const;
 private:

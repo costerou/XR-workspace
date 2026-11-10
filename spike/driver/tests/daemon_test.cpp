@@ -2,6 +2,7 @@
 // runs the real binary as a process (argv[1]) on captures in a private folder; it never opens a device or the live feed.
 #include "luma/daemon.hpp"
 #include "luma/latency_log.hpp"
+#include "luma/protocol.hpp"
 #include "luma/transport_link.hpp"
 #include "luma/wiring.hpp"
 #include <algorithm>
@@ -690,6 +691,29 @@ void test_repeats_are_not_junk() {
     CHECK(r.stats.bad_packets == 0);
 }
 
+// The display events' stamps share the IMU's widened clock: across the 32-bit tick wrap (4.97 days), and from zero again on
+// a new connection.
+void test_display_events_ride_the_imu_clock() {
+    const auto decoder = wiring::decoder();
+    const auto event = [&](std::uint32_t ticks) {
+        const auto bytes = encode_luma_display_event({0, ticks});
+        return decoder->display_event_ns(bytes);
+    };
+    CHECK(!decoder->display_event_ns(wiring::stand_in_packet(sample_at(kMs, 1))));  // an IMU packet is not one
+    const std::uint64_t tick = kLumaTickNs, wrap = std::uint64_t(1) << 32;
+    CHECK(!decoder->decode(wiring::stand_in_packet(sample_at((wrap - 30) * tick, 0))));  // a connection's first is skipped
+    CHECK(decoder->decode(wiring::stand_in_packet(sample_at((wrap - 20) * tick, 1))));
+    CHECK(decoder->device_ns() == (wrap - 20) * tick);
+    CHECK(event(std::uint32_t(wrap - 3)) == (wrap - 3) * tick);
+    CHECK(event(5) == (wrap + 5) * tick);  // past the wrap
+    CHECK(decoder->decode(wiring::stand_in_packet(sample_at((wrap + 10) * tick, 2))));
+    CHECK(decoder->device_ns() == (wrap + 10) * tick);
+    CHECK(event(8) == (wrap + 8) * tick);  // a little before the newest sample: not a wrap
+    decoder->new_connection();
+    CHECK(!decoder->device_ns());
+    CHECK(event(100) == 100 * tick);
+}
+
 void test_real_capture_format(const std::filesystem::path& dir) {
     // A hand-made LUMACAP1 file, as tools/luma_capture writes: the reader itself is proven against those in test_cpp_reader.py.
     const auto put = [](std::string& out, auto value) { out.append(reinterpret_cast<const char*>(&value), sizeof value); };
@@ -1162,6 +1186,7 @@ int main(int argc, char** argv) {
     RUN(test_start_sequence_is_spaced_and_stops_when_samples_come);
     RUN(test_listen_only_sends_nothing);
     RUN(test_repeats_are_not_junk);
+    RUN(test_display_events_ride_the_imu_clock);
     RUN(test_real_capture_format, dir);
     RUN(test_bias_store, dir);
     RUN(test_feature_host_refuses_anything_that_sends);

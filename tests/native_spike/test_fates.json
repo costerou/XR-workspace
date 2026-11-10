@@ -2635,7 +2635,7 @@
      "fate": "port",
      "rust_test": null,
      "target": "xr-workspace supervisor::supervisor",
-     "tests": 6
+     "tests": 7
     },
     "StopReasonTests": {
      "fate": "port",

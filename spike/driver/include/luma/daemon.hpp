@@ -36,6 +36,7 @@
 // that is why a kept calibration logs `calibrated restored=1` again after its `reconnected`.
 #include "luma/rt.hpp"
 #include "luma/types.hpp"
+#include "luma/vsync.hpp"
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -95,6 +96,8 @@ public:
     // Stale: readers must not trust the feed (the `disabled` flag of XRLinuxDriver's layout; spike/src/pose.cpp then holds
     // the last good pose).
     virtual void set_stale(bool stale) = 0;
+    // When the panel scans out (vsync.hpp), after every display event while DaemonConfig::vsync is on.
+    virtual void publish_vsync(const VsyncState&) {}
 };
 
 // Bytes to samples. Stateful, because counting lost samples and spotting a restarted device counter needs history.
@@ -108,6 +111,10 @@ public:
     // may be left over from whoever read last.
     virtual bool last_was_repeat() const { return false; }
     virtual std::optional<float> temperature_c() const { return std::nullopt; }  // from the newest packet, when it has one
+    // The device clock, in ns and widened past its 32-bit wrap: of the sample decode() last returned, and of a display event
+    // (protocol.hpp parse_display_event; nullopt: the packet is not one). Both on one count, started again by new_connection.
+    virtual std::optional<std::uint64_t> device_ns() const { return std::nullopt; }
+    virtual std::optional<std::uint64_t> display_event_ns(std::span<const std::uint8_t>) { return std::nullopt; }
 };
 
 using Logger = std::function<void(std::string_view)>;
@@ -129,6 +136,7 @@ struct DaemonConfig {
     milliseconds time_jump{500};             // device time stepping further than this is a new time base
     milliseconds stats_every{60000};
     bool keep_heading = true;                // a new calibration carries on from the last published heading
+    bool vsync = false;                      // the link also brings display events: time the panel's scan-out (vsync.hpp)
 };
 
 struct Stats {
@@ -137,6 +145,7 @@ struct Stats {
     std::uint64_t stale_events = 0, time_jumps = 0, fresh_calibrations = 0;
     std::uint64_t starts_skipped = 0;  // connections that found the stream already on, and sent nothing
     std::uint64_t max_process_ns = 0;  // the slowest packet, bytes in to pose out, since the last stats line
+    std::uint64_t display_events = 0;
 };
 
 struct DaemonParts {
@@ -168,8 +177,9 @@ public:
 private:
     void connect(std::uint64_t now);
     void send_start(std::uint64_t now);
-    void on_packet(std::span<const std::uint8_t> packet, std::uint64_t now);
-    void on_sample(ImuSample sample, std::uint64_t now);
+    void on_packet(std::span<const std::uint8_t> packet, std::uint64_t now, std::uint64_t host_ns);
+    void reset_vsync();
+    void on_sample(ImuSample sample, std::uint64_t now, std::uint64_t host_ns);
     void begin_after_outage(std::uint64_t now);
     ImuSample steady_time(ImuSample sample, std::uint64_t now);
     void carry_heading(PoseOut& pose);
@@ -213,6 +223,7 @@ private:
     bool have_time_ = false, resume_time_ = false;
     std::uint64_t last_raw_ = 0, last_steady_ = 0, last_sample_now_ = 0, offset_ = 0;
     std::uint64_t last_published_t_ = 0;
+    VsyncClock vsync_;               // reset with the time base above
     // A new calibration's heading is the world it happened to face: see carry_heading.
     bool heading_pending_ = false, heading_fixed_ = false, heading_kept_ = false, have_last_q_ = false;
     Quatf heading_fix_{}, last_q_{};
@@ -220,12 +231,13 @@ private:
 };
 
 // A recording to run instead of the glasses. load_capture reads a real capture, .lcap (docs/capture-format.md), keeping one
-// endpoint's data. It also reads the plain "LUMACAP0" container the tests write: little-endian u64 t_ns, u32 size, u8 kind,
+// endpoint's data (with events, also the display events of 0x83). It also reads the plain "LUMACAP0" container the tests write: little-endian u64 t_ns, u32 size, u8 kind,
 // payload.
 enum class CaptureKind : std::uint8_t { from_device = 0, to_device = 1, device_gone = 2, device_back = 3 };
 struct CaptureRecord { std::uint64_t t_ns = 0; CaptureKind kind = CaptureKind::from_device; std::vector<std::uint8_t> payload; };
 inline constexpr std::uint8_t kReplayEndpoint = 0x81;  // protocol.hpp's kLumaImuEndpoint
-std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint = kReplayEndpoint);
+std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint = kReplayEndpoint,
+                                                       bool events = false);
 bool save_capture(const std::string& path, const std::vector<CaptureRecord>& records);
 
 // Plays a capture on a simulated clock (now_ns), so its silences and drops trip the same watchdog as a real one and a
@@ -260,7 +272,7 @@ struct Options {
     // listen: send nothing. stream: FA 55 95 alone. prepared: 97 then 95. full: 0x100B, 97, 95, the order VITURE's own
     // software uses. See spike/driver/docs/live-test-plan.md, the start ladder.
     enum class Start { listen, stream, prepared, full } start = Start::stream;
-    bool read_events = false;    // also read 0x83, and throw it away
+    bool read_events = false;    // also read 0x83: display events, timed and published as pose_vsync (vsync.hpp)
     bool drain_camera = false;   // also read 0x82 and throw it away: 19 MB/s, only if a live test shows the need
     bool no_rt = false;          // leave the thread's scheduling alone
     std::string state_dir;       // where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state

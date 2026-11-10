@@ -556,6 +556,21 @@ void test_stream_packets_that_are_not_imu_are_refused() {
     CHECK(!parse_imu(hex("aa 8f 00 88 3c 15 0f 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00")));
 }
 
+void test_captured_display_event() {
+    // captured on 0x83: seq 0, length 0, device time 0x00011e58 ticks.
+    const auto e = parse_display_event(hex("aa 8f 00 91 00 00 00 00 58 1e 01 00 00 00 00 00"));
+    CHECK(e && e->seq == 0 && e->ticks == 0x00011e58u);
+    CHECK(encode_luma_display_event(*e) == (std::array<std::uint8_t, kLumaDisplayEventSize>{0xaa, 0x8f, 0x00, 0x91, 0, 0, 0, 0, 0x58, 0x1e, 0x01, 0x00}));
+    const auto wrapped = parse_display_event(encode_luma_display_event({7, 0xfffffffeu}));
+    CHECK(wrapped && wrapped->seq == 7 && wrapped->ticks == 0xfffffffeu);
+    // An IMU packet, a camera tile, a cut-short event and a nonzero length field are not events.
+    CHECK(!parse_display_event(hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00")));
+    CHECK(!parse_display_event(hex("aa 8f 00 12 01 00 f4 3f d2 20 01 00 11 0e 14 14 11 0f 10 14 15 0e 11 0d 10 12 0e 13")));
+    const auto good = hex("aa 8f 00 91 00 00 00 00 58 1e 01 00 00 00 00 00");
+    for (std::size_t n = 0; n < good.size(); ++n) CHECK(!parse_display_event(std::span(good).first(n)));
+    CHECK(!parse_display_event(hex("aa 8f 00 91 00 00 10 00 58 1e 01 00 00 00 00 00")));
+}
+
 void test_temperature_word() {
     // captured: 0x06e8 at the start of the session, 0x0a98 after 8 minutes.
     const auto cold = luma_temperature_c(hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00"));
@@ -806,6 +821,7 @@ int main() {
         T(test_captured_mid_session_packets),
         T(test_stream_packets_that_are_not_imu_are_refused),
         T(test_temperature_word),
+        T(test_captured_display_event),
         T(test_luma_encoder_is_the_parser_inverse),
         T(test_captured_envelope_frames_match_our_builder),
         T(test_tracker_widens_the_16_bit_sequence),

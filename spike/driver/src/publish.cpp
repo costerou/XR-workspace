@@ -75,6 +75,7 @@ struct Publisher::Impl {
     pthread_mutex_t* mutex = nullptr;
     bool* disabled = nullptr;
     PredictionWire* wire = nullptr;
+    VsyncWire* vsync = nullptr;
 
     std::vector<Entry> ring;  // 2 * history_step + 1 samples, ring[head] the oldest once full
     std::size_t head = 0, count = 0;
@@ -85,6 +86,7 @@ struct Publisher::Impl {
     ~Impl() {
         if (disabled) set_disabled(true);
         if (wire) write_prediction(*wire, MotionState{});
+        if (vsync) write_vsync(*vsync, VsyncState{}, std::nan(""));  // not locked: a reader stops using it
         for (void* addr : attached) shmdt(addr);
         for (int id : ids) shmctl(id, IPC_RMID, nullptr);
         for (const auto& path : files) unlink(path.c_str());
@@ -210,6 +212,11 @@ std::unique_ptr<Publisher> Publisher::open(const PublisherOptions& options, std:
     if (!wire) return nullptr;
     s.wire = new (wire) PredictionWire();  // one writer (claim), and a reader retries on any change of seq
     write_prediction(*s.wire, MotionState{});
+    if (options.vsync) {
+        s.vsync = static_cast<VsyncWire*>(s.attach("pose_vsync", sizeof(VsyncWire), why));
+        if (!s.vsync) return nullptr;
+        write_vsync(*s.vsync, VsyncState{}, std::nan(""));
+    }
     if (!s.init_mutex()) { why = "cannot initialise the pose mutex"; return nullptr; }
     std::memcpy(s.pose, kResetPose, sizeof kResetPose);
     *fov = options.display_fov_deg;
@@ -267,6 +274,14 @@ void Publisher::publish_motion(const MotionState& state) {
     }
     write_prediction(*s.wire, out);
     ++s.stats.motion;
+}
+
+void Publisher::publish_vsync(const VsyncState& state) {
+    auto& s = *impl_;
+    if (!s.vsync) return;
+    // On the feed's t: the epoch device_ms counts from. Before the first pose there is none.
+    const double feed_ms = s.clock_started ? (double(std::int64_t(state.anchor_steady_ns - s.epoch_ns))) / double(kNsPerMs) : std::nan("");
+    write_vsync(*s.vsync, state, feed_ms);
 }
 PublisherStats Publisher::stats() const { return impl_->stats; }
 }

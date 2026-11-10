@@ -217,13 +217,15 @@ class Supervisor:
                         except ValueError: geometry = None  # never hit-test a stale card; the renderer sends it again
                         if handler is not None: handler(geometry)
                     else:
-                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video','tracking','capture_failure_run'}:
+                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video','tracking','capture_failure_run','vsync_error_ms','sensor_to_vsync_ms'}:
                             raise ValueError('invalid status')
                         for k,v in value.items():
                             if k == 'capture_path': valid = v in ('dmabuf','shm')
                             elif k == 'video': valid = v in ('off','loading','playing','paused','ended','error')  # video.VIDEO_STATES
                             elif k == 'tracking': valid = type(v) is bool
                             elif k in ('missed', 'capture_failure_run'): valid = type(v) is int and v >= 0
+                            # Scan-out minus the drawn sample's time (our driver's vsync, D5): a clock offset can make it negative.
+                            elif k == 'sensor_to_vsync_ms': valid = type(v) in (int,float) and math.isfinite(v)
                             else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
                             if not valid: raise ValueError('invalid measured value')
                         self.status = value

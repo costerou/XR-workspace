@@ -54,6 +54,11 @@ void Daemon::log_stats() {
          (unsigned long long)stats_.starts_skipped, (unsigned long long)stats_.opens, (unsigned long long)stats_.connections,
          (unsigned long long)stats_.disconnects, (unsigned long long)stats_.reconnects, (unsigned long long)stats_.stale_events,
          (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0, double(process_ns_.percentile(0.99)) / 1000.0);
+    if (config_.vsync) {
+        const VsyncState& v = vsync_.state();
+        logf("luma: vsync events=%llu locked=%d hz=%.2f resets=%u fit_us=%.1f", (unsigned long long)stats_.display_events,
+             v.locked ? 1 : 0, v.period_ns > 0 ? 1e9 / v.period_ns : 0.0, v.resets, double(v.fit_rms_us));
+    }
     stats_samples_ = stats_.samples;
     stats_since_ = now;
     stats_.max_process_ns = 0;
@@ -91,7 +96,7 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
             const std::uint64_t work_began = rt::monotonic_raw_ns();  // a real clock: a replay's now_ns is simulated
             switch (r.status) {
             case ReadStatus::data:
-                on_packet(std::span<const std::uint8_t>(buffer_).first(std::min(r.size, buffer_.size())), after);
+                on_packet(std::span<const std::uint8_t>(buffer_).first(std::min(r.size, buffer_.size())), after, r.t_ns ? r.t_ns : after);
                 {
                     const std::uint64_t spent = rt::monotonic_raw_ns() - work_began;
                     stats_.max_process_ns = std::max(stats_.max_process_ns, spent);
@@ -151,6 +156,7 @@ void Daemon::connect(std::uint64_t now) {
     start_at_ = now + ns(device_left_ ? doubled(config_.settle_first, settle_level_, config_.settle_max) : config_.listen_first);
     device_left_ = false;
     parts_.decoder.new_connection();
+    reset_vsync();  // the device clock may start again
     if (!ever_connected_) { ever_connected_ = true; logf("luma: connected"); }
     if (parts_.on_link) parts_.on_link(true, now);
 }
@@ -175,6 +181,7 @@ void Daemon::send_start(std::uint64_t now) {
 void Daemon::go_down(const char* reason, bool silent, std::uint64_t now) {
     parts_.link.close();
     up_ = false;
+    reset_vsync();
     if (parts_.on_link) parts_.on_link(false, now);
     const bool healthy = connection_has_sample_ && watch_from_ - connection_first_sample_ >= ns(config_.healthy_after);
     if (healthy) retries_ = silent_retries_ = settle_level_ = 0;
@@ -210,8 +217,22 @@ void Daemon::watchdog(std::uint64_t now) {
     if (quiet >= ns(config_.silent_reopen_after)) go_down("silent", true, now);
 }
 
-void Daemon::on_packet(std::span<const std::uint8_t> packet, std::uint64_t now) {
-    if (std::optional<ImuSample> sample = parts_.decoder.decode(packet)) on_sample(*sample, now);
+// Readers must stop using a scan-out time the moment it may be wrong, not at the next display event.
+void Daemon::reset_vsync() {
+    const bool was_locked = vsync_.state().locked;
+    vsync_.reset();
+    if (config_.vsync && was_locked) parts_.sink.publish_vsync(vsync_.state());
+}
+
+void Daemon::on_packet(std::span<const std::uint8_t> packet, std::uint64_t now, std::uint64_t host_ns) {
+    if (config_.vsync) {
+        if (const std::optional<std::uint64_t> device = parts_.decoder.display_event_ns(packet)) {
+            ++stats_.display_events;
+            if (vsync_.on_event(*device)) parts_.sink.publish_vsync(vsync_.state());
+            return;
+        }
+    }
+    if (std::optional<ImuSample> sample = parts_.decoder.decode(packet)) on_sample(*sample, now, host_ns);
     else if (parts_.decoder.last_was_repeat()) ++stats_.repeats;
     else ++stats_.bad_packets;
 }
@@ -240,6 +261,7 @@ ImuSample Daemon::steady_time(ImuSample sample, std::uint64_t now) {
         if (resume_time_ || jumped) {
             if (!resume_time_) ++stats_.time_jumps;
             offset_ = last_steady_ + std::max<std::uint64_t>(now - last_sample_now_, 1) - raw;
+            reset_vsync();  // its tie between the feed's clock and the host's moved
         }
     }
     resume_time_ = false;
@@ -266,7 +288,7 @@ void Daemon::carry_heading(PoseOut& pose) {
     if (heading_fixed_) pose.q = multiply(heading_fix_, pose.q);
 }
 
-void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
+void Daemon::on_sample(ImuSample sample, std::uint64_t now, std::uint64_t host_ns) {
     ++stats_.samples;
     const bool was_quiet = stale_ && announced_;
     const std::uint64_t quiet = now - watch_from_;
@@ -277,6 +299,8 @@ void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
     if (announce_calibrating_) { announce_calibrating_ = false; logf("luma: calibrating"); }
 
     const ImuSample steady = steady_time(sample, now);
+    if (config_.vsync)
+        if (const std::optional<std::uint64_t> device = parts_.decoder.device_ns()) vsync_.on_imu(*device, steady.t_ns, host_ns);
     PoseOut pose = estimator_->update(steady);
     if (!pose.calibrated) {
         if (calibrated_) {  // the estimator gave up its calibration (a new one is its call, not ours)
@@ -315,13 +339,13 @@ template <std::size_t N> std::uint64_t little(const unsigned char (&b)[N]) {
 }
 }
 
-std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint) {
+std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint, bool with_events) {
     std::ifstream in(path, std::ios::binary);
     if (!in) { why = "cannot open " + path; return std::nullopt; }
     char magic[sizeof kMagic]{};
     if (!in.read(magic, sizeof magic)) { why = "not a capture: " + path; return std::nullopt; }
     if (std::memcmp(magic, "LUMACAP1", sizeof magic) == 0) {
-        auto events = capture::load_replay(path, &why, endpoint);
+        auto events = capture::load_replay(path, &why, endpoint, with_events ? std::optional<std::uint8_t>(0x83) : std::nullopt);  // protocol.hpp kLumaEventEndpoint
         if (!events) return std::nullopt;
         std::vector<CaptureRecord> records;
         records.reserve(events->size());
@@ -421,7 +445,7 @@ const char* const kUsage =
     "  --no-stop-command        leave the stream on at exit (the Ultra has no known stop, so this changes nothing there yet)\n"
     "  --start MODE             listen: send nothing. stream: the start alone (default). prepared: 0x97 then the start.\n"
     "                           full: 0x100B, 0x97, then the start, as VITURE's own software does\n"
-    "  --read-events            also read endpoint 0x83, and throw it away\n"
+    "  --read-events            also read endpoint 0x83: time the display's vsync, published as pose_vsync\n"
     "  --drain-camera           also read camera endpoint 0x82 and throw it away: 19 MB/s, for a device that stalls without it\n"
     "  --no-rt                  leave scheduling alone\n"
     "  --state-dir PATH         where the gyro bias is kept between runs\n"
@@ -460,7 +484,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--replay-realtime") o.replay_realtime = true;
         else if (arg == "--no-keep-heading") o.config.keep_heading = false;
         else if (arg == "--no-stop-command") o.stop_command = false;
-        else if (arg == "--read-events") o.read_events = true;
+        else if (arg == "--read-events") o.read_events = o.config.vsync = true;
         else if (arg == "--drain-camera") o.drain_camera = true;
         else if (arg == "--no-rt") o.no_rt = true;
         else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }

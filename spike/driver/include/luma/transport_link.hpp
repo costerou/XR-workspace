@@ -7,8 +7,9 @@
 //   wait_for_device()  is read() while down: that is where Transport's sysfs rescan runs, and where Connected arrives
 // Transport never sees a libudev monitor: uevents do not reach the driver's network namespace (see transport.hpp).
 //
-// The glasses talk on more than one endpoint. Set a stream endpoint and the daemon's read() sees only that one; everything
-// else (the MCU's reply to the start, say) goes to the other-packet handler, on the same thread.
+// The glasses talk on more than one endpoint. Set a stream endpoint and the daemon's read() sees only that one (and a second,
+// add_stream_endpoint: the display events); everything else (the MCU's reply to the start, say) goes to the other-packet
+// handler, on the same thread.
 #include "luma/daemon.hpp"
 #include <functional>
 
@@ -28,7 +29,7 @@ public:
         switch (r.status) {
         case Io::Ok:
             if constexpr (requires { r.endpoint; }) {
-                if (stream_endpoint_ && r.endpoint != stream_endpoint_) {
+                if (stream_endpoint_ && r.endpoint != stream_endpoint_ && r.endpoint != second_stream_endpoint_) {
                     if (other_packet_) other_packet_(r.endpoint, into.first(std::min(r.bytes, into.size())));
                     return {ReadStatus::timeout, 0};
                 }
@@ -51,6 +52,7 @@ public:
     bool wait_for_device(milliseconds timeout) override { return pump(timeout); }
     TransportT& transport() { return transport_; }
     void set_stream_endpoint(std::uint8_t endpoint) { stream_endpoint_ = endpoint; }
+    void add_stream_endpoint(std::uint8_t endpoint) { second_stream_endpoint_ = endpoint; }
     void set_other_packet_handler(std::function<void(std::uint8_t, std::span<const std::uint8_t>)> handler) { other_packet_ = std::move(handler); }
     void set_route(std::function<std::uint8_t(std::span<const std::uint8_t>)> route) { route_ = std::move(route); }
 private:
@@ -64,7 +66,7 @@ private:
     }
     TransportT transport_;
     bool started_ = false, link_up_ = false;
-    std::uint8_t stream_endpoint_ = 0;
+    std::uint8_t stream_endpoint_ = 0, second_stream_endpoint_ = 0;
     std::function<void(std::uint8_t, std::span<const std::uint8_t>)> other_packet_;
     std::function<std::uint8_t(std::span<const std::uint8_t>)> route_;
 };

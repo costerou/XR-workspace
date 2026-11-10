@@ -86,7 +86,7 @@ def options_rows(control, scope, monitor, category):
     if category == 'session' and scope == 'workspace':
         out.append(row('session_identity','Session','readonly',control.session))
         measured=getattr(getattr(control,'supervisor',None),'status',{})
-        for key in ('presented_hz','missed','capture_path','pose_age_ms','tracking'):
+        for key in ('presented_hz','missed','capture_path','pose_age_ms','tracking','vsync_error_ms','sensor_to_vsync_ms'):
             out.append(row('status_'+key,key.replace('_',' ').capitalize(),'readonly',measured.get(key,'Not measured')))
     for item in out:
         id = item['id']

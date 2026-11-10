@@ -675,6 +675,88 @@ void publish_does_not_allocate() {
 }
 }
 
+// pose_vsync (rust-rebuild-plan D5): what the driver writes is what the renderer reads, the anchor lands on the feed's own ms
+// clock, and anything not good to use reads as nothing.
+VsyncState locked_vsync(std::uint64_t steady_ns) {
+    VsyncState v;
+    v.locked = true; v.period_ns = 1e9 / 120; v.anchor_host_ns = 7'000'000'123'456ull; v.anchor_steady_ns = steady_ns;
+    v.events = 5'000'000'000ull; v.resets = 3; v.fit_rms_us = 27.5f;
+    return v;
+}
+void vsync_segment_round_trips() {
+    Scratch scratch;
+    PublisherOptions options;
+    options.vsync = true;
+    auto publisher = open_private(scratch, options);
+    const std::string prefix = prefix_of(scratch);
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix, why);
+    CHECK(feed);
+    CHECK(!feed->vsync());  // made unlocked
+    publisher->publish_vsync(locked_vsync(1'000 * kMs));
+    auto early = feed->vsync();
+    CHECK(early && std::isnan(early->anchor_feed_ms));  // no pose yet, so no feed clock
+    for (int i = 0; i < 40; ++i) publisher->publish(pose(i, 1'000 * kMs));
+    const auto sample = feed->read();
+    CHECK(sample);
+    publisher->publish_vsync(locked_vsync(1'000 * kMs + 39 * kMs + 3'500'000));
+    const auto v = feed->vsync();
+    CHECK(v);
+    CHECK(v->anchor_host_ns == 7'000'000'123'456ull && v->period_ns == 1e9 / 120 && v->events == 5'000'000'000ull);
+    CHECK(v->resets == 3 && v->fit_rms_us == 27.5f);
+    CHECK(std::fabs(v->anchor_feed_ms - (double(sample->device_ms) + 3.5)) < 1e-3);
+    VsyncState unlocked = locked_vsync(0);
+    unlocked.locked = false;
+    publisher->publish_vsync(unlocked);
+    CHECK(!feed->vsync());
+    VsyncState wild = locked_vsync(0);
+    wild.period_ns = 1e9;  // 1 Hz: no display
+    publisher->publish_vsync(wild);
+    CHECK(!feed->vsync());
+    publisher->publish_vsync(locked_vsync(0));
+    publisher.reset();  // a writer that goes leaves it unlocked
+    CHECK(!feed->vsync());
+}
+void vsync_segment_is_only_made_when_asked() {
+    Scratch scratch;
+    auto publisher = open_private(scratch);
+    const std::string prefix = prefix_of(scratch);
+    CHECK(!fs::exists(prefix + "pose_vsync"));
+    publisher->publish_vsync(locked_vsync(0));  // nowhere to go, and harmless
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix, why);
+    CHECK(feed && !feed->vsync());
+}
+// The renderer's score against wp_presentation: a constant offset is reported, not counted, also across the half-period
+// wrap; scan-out minus drawn sample is measured on the feed's clock; stale and missing states are skipped.
+void vsync_meter_scores_presents() {
+    const double period = 1e9 / 120;
+    for (const double offset_ms : {0.3, 4.1, -4.1}) {
+        xr::VsyncMeter meter;
+        const xr::VsyncSnapshot snap{1'000'000'000ull, period, 1000.0, 1, 0, 27};
+        for (int k = -20; k < 20; ++k) {
+            const double jitter_ms = ((k + 100) % 5) * 0.05 - 0.1;  // -0.1 to +0.1
+            const double at = 1e9 + k * period + (offset_ms + jitter_ms) * 1e6;
+            const float sample_ms = float(1000.0 + k * period / 1e6 - 12.0);
+            meter.presented(snap, std::uint64_t(at), sample_ms);
+        }
+        const xr::VsyncSummary s = meter.summary();
+        CHECK(s.count == 40 && s.skipped == 0);
+        CHECK(std::fabs(s.offset_ms - offset_ms) < 0.02);
+        CHECK(s.error_max_ms <= 0.12 && s.error_p95_ms <= 0.12);
+        CHECK(s.sensor_count == 40);
+        // Against the scan-out nearest the present, so a phase near half a period may pick the one either side.
+        if (offset_ms == 0.3) CHECK(std::fabs(s.sensor_p50_ms - 12.0) < 1e-3 && std::fabs(s.sensor_max_ms - 12.0) < 1e-3);
+        CHECK(std::fabs(s.period_ms - period / 1e6) < 1e-9);
+    }
+    xr::VsyncMeter meter;
+    meter.presented(std::nullopt, 1'000'000'000ull, 5);
+    meter.presented(xr::VsyncSnapshot{1'000'000'000ull, period, NAN, 1, 0, 27}, 1'300'000'000ull, 5);  // 300 ms old
+    meter.presented(xr::VsyncSnapshot{1'000'000'000ull, period, NAN, 1, 0, 27}, 1'000'100'000ull, 5);  // no feed clock
+    const xr::VsyncSummary s = meter.summary();
+    CHECK(s.count == 1 && s.skipped == 2 && s.sensor_count == 0);
+}
+
 int main() {
     const std::vector<std::pair<const char*, void (*)()>> tests{
 #define T(name) {#name, name}
@@ -690,6 +772,7 @@ int main() {
         T(mount_pitch_is_turned_out_on_the_right), T(fractional_ms_is_the_default_and_keeps_the_fraction),
         T(history_step_is_the_drivers), T(second_publisher_is_refused_until_the_first_is_gone),
         T(running_xrdriver_is_refused_and_a_dead_one_is_not), T(private_feeds_skip_the_writer_checks), T(publish_does_not_allocate),
+        T(vsync_segment_round_trips), T(vsync_segment_is_only_made_when_asked), T(vsync_meter_scores_presents),
 #undef T
     };
     int failed = 0;

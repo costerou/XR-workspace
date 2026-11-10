@@ -344,6 +344,16 @@ class StatusTests(unittest.TestCase):
             w.status_bytes(bad)
             self.assertEqual(w.status, {}, bad)
 
+    def test_vsync_timing_is_a_measured_value(self):
+        # Our driver's scan-out against wp_presentation (rust-rebuild-plan D5); sensor to vsync may go negative, the error not.
+        w = Supervisor(None, None, now=0)
+        w.status_bytes(b'{"presented_hz":120,"vsync_error_ms":0.05,"sensor_to_vsync_ms":-0.4}\n')
+        self.assertEqual(w.status, {'presented_hz': 120, 'vsync_error_ms': 0.05, 'sensor_to_vsync_ms': -0.4})
+        for bad in (b'{"vsync_error_ms":-1}\n', b'{"sensor_to_vsync_ms":NaN}\n', b'{"sensor_to_vsync_ms":"1"}\n'):
+            w = Supervisor(None, None, now=0)
+            w.status_bytes(bad)
+            self.assertEqual(w.status, {}, bad)
+
     def test_heartbeat_channel_still_H_only(self):
         class Child:
             done=False

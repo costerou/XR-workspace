@@ -180,6 +180,21 @@ std::optional<ImuSample> parse_imu_with(std::span<const std::uint8_t> packet, co
 // warm-up); the formula is the one common to this class of sensor, so the absolute value is not proven.
 std::optional<float> luma_temperature_c(std::span<const std::uint8_t> packet) noexcept;
 
+// The Luma Ultra's display event, on 0x83: the same stream framing with type 0x91, 16 bytes, no payload (length 0). One per
+// refresh: 16.7 ms apart at 60 Hz, 8.3 ms at 120 Hz, and none for 1.5 s while the display changes mode (capture of
+// 2026-11-04, docs/capture-findings.md). Its device time is the IMU's clock, 100 us ticks. That the stamp is the panel's vsync
+// is inferred from the spacing; rust-rebuild-plan D5 checks it against wp_presentation on the glasses.
+inline constexpr std::size_t kLumaDisplayEventSize = 16;
+inline constexpr std::uint8_t kLumaDisplayEventType = 0x91;
+struct DisplayEvent {
+    std::uint16_t seq = 0;        // as sent; the capture shows 0 throughout, so nothing relies on it
+    std::uint32_t ticks = 0;      // device time, 100 us per tick
+};
+// Nothing for anything that is not one: another type, a wrong length field, too short. Trailing bytes are ignored. No
+// allocation, never throws.
+std::optional<DisplayEvent> parse_display_event(std::span<const std::uint8_t> packet) noexcept;
+std::array<std::uint8_t, kLumaDisplayEventSize> encode_luma_display_event(const DisplayEvent& event) noexcept;
+
 // The inverse of parse_imu for a Luma Ultra packet, for fixtures and fakes. The
 // sample's body frame goes back to wire axes; values saturate at the i16 range.
 std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& sample, std::uint32_t temperature_raw = 2000) noexcept;

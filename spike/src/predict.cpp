@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <ctime>
+#include <vector>
 
 namespace xr {
 namespace {
@@ -207,5 +208,49 @@ std::optional<float> prediction_horizon(const std::optional<LookAhead>& cfg, std
     const double ahead = read_to_present_ms ? age + *read_to_present_ms + cfg->constant_ms
                                             : cfg->constant_ms + std::max(frametime_ms, 0.0) * cfg->frametime_mult;
     return float(std::min(ahead, double(cfg->cap_ms)) + cfg->scanline_ms / 2);
+}
+
+void VsyncMeter::presented(const std::optional<VsyncSnapshot>& v, std::uint64_t present_ns, float sample_ms) {
+    const double age = v ? double(std::int64_t(present_ns - v->anchor_host_ns)) : 0;
+    if (!v || !(std::fabs(age) < kMaxAnchorAgeNs)) { ++skipped_; return; }
+    const double k = std::round(age / v->period_ns);
+    const double error_ms = (age - k * v->period_ns) / 1e6;
+    error_ms_[errors_++ % kFrames] = float(error_ms);
+    period_ms_ = v->period_ns / 1e6;
+    if (sample_ms >= 0 && std::isfinite(v->anchor_feed_ms)) {
+        const double scanout_ms = v->anchor_feed_ms + k * period_ms_;
+        sensor_ms_[sensors_++ % kFrames] = float(scanout_ms - double(sample_ms));
+    }
+}
+
+VsyncSummary VsyncMeter::summary() const {
+    VsyncSummary out;
+    out.count = errors_;
+    out.skipped = skipped_;
+    out.period_ms = period_ms_;
+    auto at = [](std::vector<float>& v, double q) { return double(v[std::min(v.size() - 1, std::size_t(q * double(v.size())))]); };
+    if (errors_) {
+        // The offset is circular (half a period either way is the same), so it is taken as the mean phase, and the errors
+        // measured about it, wrapped again.
+        std::vector<float> e(error_ms_.begin(), error_ms_.begin() + std::min(errors_, kFrames));
+        const double p = period_ms_ > 0 ? period_ms_ : 1;
+        double c = 0, s = 0;
+        for (float x : e) { c += std::cos(2 * M_PI * x / p); s += std::sin(2 * M_PI * x / p); }
+        out.offset_ms = std::atan2(s, c) * p / (2 * M_PI);
+        for (float& x : e) {
+            double d = double(x) - out.offset_ms;
+            d -= std::round(d / p) * p;
+            x = float(std::fabs(d));
+        }
+        std::sort(e.begin(), e.end());
+        out.error_p50_ms = at(e, 0.5); out.error_p95_ms = at(e, 0.95); out.error_max_ms = e.back();
+    }
+    if (sensors_) {
+        std::vector<float> e(sensor_ms_.begin(), sensor_ms_.begin() + std::min(sensors_, kFrames));
+        std::sort(e.begin(), e.end());
+        out.sensor_count = sensors_;
+        out.sensor_p50_ms = at(e, 0.5); out.sensor_p95_ms = at(e, 0.95); out.sensor_max_ms = e.back();
+    }
+    return out;
 }
 }

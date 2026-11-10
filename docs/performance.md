@@ -299,3 +299,105 @@ A run counts if:
 - `packets` is close to 1,000 per second of the run.
 - `segments` is 1 and `lost` is 0, or each loss is explained by a USB message in `journalctl -k`.
 
+
+## Real glasses: display vsync
+
+`docs/rust-rebuild-plan.md`, D5. The Luma sends a 16-byte display event (`aa 8f 00 91`) on endpoint 0x83 at every panel
+scan-out. The event carries the glasses' own time in 100 µs ticks, on the same clock as the IMU. With `--read-events` the driver
+now uses those events to work out when the panel scans out. It publishes that time, on the host's clock and the IMU's timebase,
+so the renderer can predict to the real scan-out instead of guessing.
+
+### How it works
+
+- **Parsing.** `parse_luma_display_event` (`spike/driver/src/protocol.cpp`) reads the event. The decoder widens its tick count
+  with the IMU's, so a tick wrap or a reconnect treats both alike. Without `--read-events` the events are not read at all, and in a
+  replay they count as `bad_packets`, as before.
+- **The fit.** `VsyncClock` (`spike/driver/src/vsync.cpp`) fits a least-squares line of frame number against device time over the
+  last 120 events. That line gives the period and the phase. It locks after 8 events with an rms under 300 µs and a period of
+  4 to 50 ms. Missed events are bridged by rounding to the nearest frame. Four or more lost in a row, an event more than 15% of a
+  period off the line, or a clock that goes back each start the fit again. That covers a 60 to 120 Hz mode change.
+- **Onto the host clock.** Each IMU packet gives one sample of host time minus device time. The lowest of these over the newest
+  one to two seconds is the link's fastest delivery. It follows a link that gets faster, and drift, within a second. The anchor
+  is the fitted scan-out plus that floor, in `CLOCK_MONOTONIC` and in the feed's steady time.
+- **Publishing.** A `pose_vsync` segment (64 bytes, seqlock, magic `LVS1`) next to the pose feed carries the anchor, the period,
+  the anchor on the feed's IMU timebase, the event and reset counts, and the fit rms. It is only made with `--read-events`. A
+  reconnect, a clock rebase or a lost device publishes "unlocked" at once, so a reader never uses an old anchor.
+  `xr::PoseFeed::vsync()` reads it. It returns nothing when the segment is missing, unlocked, torn or nonsense.
+- **Measuring.** `xr::VsyncMeter` (`spike/src/predict.cpp`) scores every presented frame against its `wp_presentation` time.
+  The horizon error is how far the presentation lies from the nearest predicted scan-out. The meter splits it into:
+  - a constant offset: the circular mean, which is the panel's and the link's fixed delay, reported as `offset_ms`;
+  - the error about that offset, whose p95 is the gate.
+  
+  Sensor-to-vsync is the time from the drawn pose's IMU sample to the scan-out it went out on.
+
+### Where the numbers show
+
+- **Session status.** The renderer's status line carries `vsync_error_ms` (horizon error p95 about the offset) and
+  `sensor_to_vsync_ms` (p50). Options → Session shows them as "Vsync error ms" and "Sensor to vsync ms". Both keys are only
+  sent while the driver publishes `pose_vsync`, so the standard driver's sessions look as before.
+- **Exit report.** The report has `latency.vsync`: `frames`, `skipped`, `period_ms`, `offset_ms`, `horizon_error` (`p50_ms`,
+  `p95_ms`, `max_ms`) and `sensor_to_vsync` (`count`, `p50_ms`, `p95_ms`, `max_ms`).
+- **Driver log.** The driver's periodic stats add
+  `luma: vsync events=N locked=0|1 hz=H resets=N fit_us=R`.
+
+### Offline proof
+
+`luma_vsync_bench` (`spike/driver/tools/vsync_bench.cpp`) builds a recording whose true scan-out times are known. It plays the
+recording through the real daemon and scores what the daemon publishes with `xr::VsyncMeter`, and also against the truth. The
+recording has:
+
+- a device clock 65 ppm fast;
+- 1 kHz IMU;
+- a 60 Hz panel, then a 1.52 s silent mode change to 120 Hz;
+- the glasses dropping off the bus for 400 ms at half time, coming back with a new clock and phase;
+- 0.5% of events lost;
+- bus delay of 150 to 650 µs, plus a tail, plus a 2 to 5 ms stall one time in 200, held back in order.
+
+The bench fakes the renderer: one present at each true scan-out, with 20 µs of jitter.
+
+Results for 60 s, seeds 1 to 3:
+
+| | Value |
+|---|---|
+| Locks | 3 (60 Hz, 120 Hz after the mode change, after the reconnect), 1 reset |
+| Frames scored | about 6,046, 24 without a usable state |
+| Horizon error about offset | p50 0.018 ms, **p95 0.049 to 0.050 ms**, max 0.103 ms or less |
+| Offset | −0.108 ms |
+| Against truth | p95 0.129 to 0.130 ms, max 0.146 ms or less |
+| Final fit | 8.3333 ms period, 27 µs rms |
+
+The tests, in `build/release`:
+
+- `ctest -R luma_vsync` runs:
+  - `luma_vsync`: the unit tests;
+  - `luma_vsync_bench`: 60 s, seed 1;
+  - `luma_vsync_bench_seed2`: 30 s;
+  - `luma_vsync_replay`: writes the bench's recording and plays it through `xr-luma-driver --replay --read-events`, which must
+    print `luma: vsync events=18xx locked=1 hz=120.00 resets=1` with no `bad_packets`.
+- `luma_publish` checks the segment and the meter.
+- `luma_daemon` checks the event clock through the decoder.
+
+### What this does not prove
+
+- **The constant offset.** The panel's own delay from event to light, and the link's fixed delay, cannot be seen offline. The
+  meter reports them as `offset_ms` and leaves them out of the gate. Only real glasses give the number.
+- **The real bus.** The bench's bus is a model. The real latency floor, and how often the Ultra drops events, come from the
+  glasses (see USB latency above).
+- **Nearest scan-out.** Sensor-to-vsync pairs each frame with the scan-out nearest its presentation. That is right while the
+  offset is well under half a period.
+
+### Running it on the glasses
+
+1. Add `--read-events` to `~/.config/viture-workspace/luma-driver-flags` and keep the flags already there. For example:
+   `--start prepared --read-events`.
+2. Start a normal XR session with the Luma driver.
+3. `tail -n 20 "$HOME/.local/state/viture-workspace/luma-driver.log"` must show `luma: vsync ... locked=1 hz=120.00` (or
+   `60.00`) with `resets` steady while the session runs.
+4. Options → Session must show "Vsync error ms" at 1 or less, and a "Sensor to vsync ms" value.
+5. After Stop, the run's exit report (`journalctl --user -u 'viture-xr-*' | grep -o '"vsync":{"frames"[^}]*}[^}]*}}' | tail -n 1`) must have
+   `horizon_error.p95_ms` at 1 or less and `frames` close to the session's presented frames. Record `offset_ms`: it should be
+   the same across runs. Record `sensor_to_vsync.p50_ms` and `p95_ms` here.
+
+| Date | Hz | Frames | Horizon error p95 | Offset | Sensor to vsync p50 | p95 |
+|---|---|---|---|---|---|---|
+| | | | | | | |

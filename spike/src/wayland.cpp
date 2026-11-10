@@ -85,6 +85,7 @@ struct Presentation::Impl : SurfaceRequests {
         struct wp_presentation_feedback* proxy = nullptr;
         std::uint64_t ticket = 0;
         bool selected_output = false, other_output = false;
+        float sample_ms = -1;  // the device_ms of the pose drawn; -1: none (VsyncMeter)
     };
     std::array<Feedback, Metrics::capacity> feedbacks{};
     static void clock_id(void* data, wp_presentation*, uint32_t id) {
@@ -102,7 +103,10 @@ struct Presentation::Impl : SurfaceRequests {
         auto& f = *static_cast<Feedback*>(data);
         f.owner->metrics.presented(f.ticket, hi, lo, ns, refresh, seq_hi, seq_lo, flags,
                                    f.selected_output && !f.other_output);
-        f.owner->latency.presented(f.ticket, ((std::uint64_t(hi) << 32) | lo) * 1'000'000'000ull + ns);
+        const std::uint64_t present_ns = ((std::uint64_t(hi) << 32) | lo) * 1'000'000'000ull + ns;
+        f.owner->latency.presented(f.ticket, present_ns);
+        if (f.owner->latency.clock_ok() && f.owner->pose_feed)  // the driver's vsync is on CLOCK_MONOTONIC
+            f.owner->vsync_meter.presented(f.owner->pose_feed->vsync(), present_ns, f.sample_ms);
         wp_presentation_feedback_destroy(proxy); f = {};
     }
     static void discarded(void* data, struct wp_presentation_feedback* proxy) {
@@ -513,6 +517,7 @@ struct Presentation::Impl : SurfaceRequests {
         latch_start_ns = 0;
     }
     PoseAge pose_age;
+    VsyncMeter vsync_meter;  // only fed while our driver publishes pose_vsync (--read-events)
     bool prediction = false;
     std::uint64_t predicted_frames = 0, unpredicted_frames = 0, wire_frames = 0;  // while enabled and tracking; wire: from PredictionWire
     float last_horizon_ms = 0, last_predicted_deg = 0;
@@ -1103,6 +1108,12 @@ std::string Presentation::status_json(double now_ms) const {
         for (const auto& ptr : impl_->captures) run = std::max(run, ptr->failure_run);
         add("\"capture_failure_run\":" + std::to_string(run));
     }
+    // Our driver's scan-out times against wp_presentation (rust-rebuild-plan D5), over the last kFrames presents: only while it
+    // publishes pose_vsync (--read-events). The horizon error p95, and the median sample age at scan-out.
+    if (const VsyncSummary v = impl_->vsync_meter.summary(); v.count) {
+        add("\"vsync_error_ms\":" + std::to_string(v.error_p95_ms));
+        if (v.sensor_count) add("\"sensor_to_vsync_ms\":" + std::to_string(v.sensor_p50_ms));
+    }
     // PoseAge is relative to an unknown transport floor/device clock offset;
     // it cannot substantiate an absolute pose_age_ms measurement.
     std::string path;
@@ -1203,8 +1214,18 @@ std::string Presentation::capture_report() const {
                        ",\"slack_p50_ms\":" + std::to_string(l.slack_p50_ms) + ",\"draw_p50_ms\":" + std::to_string(l.draw_p50_ms) +
                        ",\"draw_p99_ms\":" + std::to_string(l.draw_p99_ms) +
                        ",\"draw_worst_ms\":" + std::to_string(l.draw_worst_ms);
-            out += "}}";
+            out += "}";
         }
+        {  // the driver's scan-out against wp_presentation (VsyncMeter): only with our driver and --read-events
+            const VsyncSummary v = s.vsync_meter.summary();
+            out += ",\"vsync\":{\"frames\":" + std::to_string(v.count) + ",\"skipped\":" + std::to_string(v.skipped) +
+                   ",\"period_ms\":" + std::to_string(v.period_ms) + ",\"offset_ms\":" + std::to_string(v.offset_ms) +
+                   ",\"horizon_error\":{\"p50_ms\":" + std::to_string(v.error_p50_ms) + ",\"p95_ms\":" + std::to_string(v.error_p95_ms) +
+                   ",\"max_ms\":" + std::to_string(v.error_max_ms) + "},\"sensor_to_vsync\":{\"count\":" + std::to_string(v.sensor_count) +
+                   ",\"p50_ms\":" + std::to_string(v.sensor_p50_ms) + ",\"p95_ms\":" + std::to_string(v.sensor_p95_ms) +
+                   ",\"max_ms\":" + std::to_string(v.sensor_max_ms) + "}}";
+        }
+        out += "}";
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + ",\"placement_updates\":" + std::to_string(impl_->placement_updates) +
@@ -1686,6 +1707,7 @@ Status Presentation::draw_test_pattern() {
         timespec read_ts{};
         clock_gettime(CLOCK_MONOTONIC, &read_ts);  // the wp_presentation clock domain (checked in LatencyTracker)
         const std::uint64_t read_ns = std::uint64_t(read_ts.tv_sec) * 1'000'000'000ull + std::uint64_t(read_ts.tv_nsec);
+        float drawn_ms = -1;  // the device_ms of the sample this frame draws
         if (s.tracking_requested) {  // late sample: just before drawing
             const auto now = monotonic_ms();
             if (!s.pose_feed && now >= s.pose_retry_ms) {
@@ -1698,6 +1720,7 @@ Status Presentation::draw_test_pattern() {
                 s.motion_feed = MotionFeed::open(s.pose_prefix); s.motion_retry_ms = now + 1000;
             }
             const auto sample = s.pose_feed ? s.pose_feed->read() : std::nullopt;
+            if (sample) drawn_ms = sample->device_ms;
             auto stabilized = sample;
             if (stabilized) stabilized->orientation = s.stabilization.update(stabilized->orientation, stabilized->device_ms);
             else s.stabilization.reset();
@@ -1758,7 +1781,7 @@ Status Presentation::draw_test_pattern() {
             if (slot == s.feedbacks.end()) return Error{"feedback", "feedback capacity invariant failed"};
             auto* proxy = wp_presentation_feedback(s.presentation, s.surface);
             if (!proxy) return Error{"feedback", "feedback allocation failed"};
-            *slot = {&s, proxy, *s.metrics.submit(), false, false};
+            *slot = {&s, proxy, *s.metrics.submit(), false, false, drawn_ms};
             s.latency.read(slot->ticket, read_ns);
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();

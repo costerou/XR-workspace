@@ -2,7 +2,7 @@
 # pthreads only, no VITURE SDK. Tests never open a real device.
 find_package(Threads REQUIRED)
 
-add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp src/predict.cpp)
+add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp src/predict.cpp src/vsync.cpp)
 target_compile_features(xr_luma_driver PUBLIC cxx_std_20)
 target_include_directories(xr_luma_driver PUBLIC include)
 target_compile_options(xr_luma_driver PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -22,6 +22,11 @@ add_executable(publish_test tests/publish_test.cpp ../src/pose.cpp ../src/predic
 target_include_directories(publish_test PRIVATE ../include ../tests)
 target_link_libraries(publish_test PRIVATE xr_luma_driver)
 add_test(NAME luma_publish COMMAND publish_test)
+
+add_executable(luma_vsync_test tests/vsync_test.cpp)
+target_compile_options(luma_vsync_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_link_libraries(luma_vsync_test PRIVATE xr_luma_driver)
+add_test(NAME luma_vsync COMMAND luma_vsync_test)
 
 # Each other piece declares its own targets and tests in its own file, so pieces can land in any
 # order. Add one line per piece.

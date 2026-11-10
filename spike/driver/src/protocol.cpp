@@ -210,6 +210,20 @@ std::optional<float> luma_temperature_c(Bytes p) noexcept {
     return float(read_le16(p.data() + 24)) / 132.48f + 25.0f;
 }
 
+std::optional<DisplayEvent> parse_display_event(Bytes p) noexcept {
+    if (p.size() < kLumaDisplayEventSize || p[0] != 0xaa || p[1] != 0x8f || p[2] != 0x00 || p[3] != kLumaDisplayEventType ||
+        read_le16(p.data() + 6) != 0)
+        return std::nullopt;
+    return DisplayEvent{read_le16(p.data() + 4), read_u32(p.data() + 8, false)};
+}
+
+std::array<std::uint8_t, kLumaDisplayEventSize> encode_luma_display_event(const DisplayEvent& e) noexcept {
+    std::array<std::uint8_t, kLumaDisplayEventSize> b{0xaa, 0x8f, 0x00, kLumaDisplayEventType};
+    b[4] = std::uint8_t(e.seq); b[5] = std::uint8_t(e.seq >> 8);
+    for (int i = 0; i < 4; ++i) b[8 + i] = std::uint8_t(e.ticks >> (8 * i));
+    return b;
+}
+
 std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& s, std::uint32_t temperature_raw) noexcept {
     std::array<std::uint8_t, kLumaImuPacketSize> b{0xaa, 0x8f, 0x00, kLumaImuType};
     const auto put16 = [&](std::size_t at, std::uint16_t v) { b[at] = std::uint8_t(v); b[at + 1] = std::uint8_t(v >> 8); };

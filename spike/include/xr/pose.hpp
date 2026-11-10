@@ -28,6 +28,18 @@ std::optional<std::array<float, 2>> project(const Mat3& view, float ndc_x, float
 // unvalidated here; prediction checks them (predict.hpp).
 struct FeedSample { Quat orientation; float device_ms = 0; std::array<Quat, 2> older{}; std::array<float, 2> older_ms{}; };
 
+// When the glasses' panel scans out, from our driver's pose_vsync segment (spike/driver/include/luma/vsync.hpp, written with
+// --read-events; XRLinuxDriver has none). A scan-out is anchor_host_ns + k * period_ns for a whole k; anchor_feed_ms is the
+// same moment on the feed's device_ms clock (NaN until the driver published a pose).
+struct VsyncSnapshot {
+    std::uint64_t anchor_host_ns = 0;  // CLOCK_MONOTONIC
+    double period_ns = 0;
+    double anchor_feed_ms = 0;
+    std::uint64_t events = 0;
+    std::uint32_t resets = 0;
+    float fit_rms_us = 0;
+};
+
 class PoseFeed {
 public:
     // prefix "/tmp/shader_runtime_" in production; tests pass a private prefix.
@@ -41,6 +53,9 @@ public:
     std::optional<FeedSample> read();
     std::optional<float> display_fov() const;  // driver-published diagonal FOV (deg), if sane (10..120)
     std::optional<std::array<float, 4>> look_ahead_cfg() const;  // driver look-ahead config, raw; absent if not published
+    // The driver's scan-out timing when it publishes one and has it locked; nullopt otherwise, also when the driver is
+    // mid-write (a sequence lock, tried a few times, never waited on).
+    std::optional<VsyncSnapshot> vsync() const;
 private:
     PoseFeed() = default;
     struct Impl;

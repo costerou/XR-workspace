@@ -153,9 +153,10 @@ struct ReplayEvent {
 
 // Turns one capture file into events. A failed transfer is deliberately not device_gone: the kernel also fails
 // transfers on a mere SET_CONFIGURATION. Only the recorder's sysfs notes say the device left and came back.
-// Give an endpoint to keep only that one's from_device data. A file cut off mid-record yields what precedes the cut.
+// Give an endpoint to keep only that one's from_device data (and `also`'s). A file cut off mid-record yields what precedes the cut.
 inline std::optional<std::vector<ReplayEvent>> load_replay(const std::string& path, std::string* error = nullptr,
-                                                           std::optional<std::uint8_t> endpoint = std::nullopt) {
+                                                           std::optional<std::uint8_t> endpoint = std::nullopt,
+                                                           std::optional<std::uint8_t> also = std::nullopt) {
   auto reader = Reader::open(path, error);
   if (!reader) return std::nullopt;
   std::vector<ReplayEvent> events;
@@ -168,7 +169,7 @@ inline std::optional<std::vector<ReplayEvent>> load_replay(const std::string& pa
       } else if (text.find("\"type\":\"glasses_back\"") != text.npos) {
         events.push_back({record.t_ns, ReplayKind::device_back, {}});
       }
-    } else if (record.replayable() && (!endpoint || record.ep == *endpoint)) {
+    } else if (record.replayable() && (!endpoint || record.ep == *endpoint || (also && record.ep == *also))) {
       events.push_back({record.t_ns, ReplayKind::from_device, {record.data.begin(), record.data.end()}});
     } else if (record.host_write()) {
       events.push_back({record.t_ns, ReplayKind::to_device, {record.data.begin(), record.data.end()}});

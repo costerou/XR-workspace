@@ -71,3 +71,18 @@ if(TARGET xr_predict)
   target_compile_options(luma_renderer_prediction_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_test(NAME luma_renderer_prediction COMMAND luma_renderer_prediction_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin")
 endif()
+
+# The display vsync bench (rust-rebuild-plan D5): a recording with known scan-outs through the real daemon, scored the way
+# the renderer scores against wp_presentation. Two seeds. Then the shipped binary on such a recording with --read-events.
+if(TARGET xr_predict)
+  add_executable(luma_vsync_bench tools/vsync_bench.cpp)
+  target_link_libraries(luma_vsync_bench PRIVATE xr_luma_daemon xr_predict)
+  target_compile_options(luma_vsync_bench PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME luma_vsync_bench COMMAND luma_vsync_bench --seconds 60 --seed 1 --quiet)
+  add_test(NAME luma_vsync_bench_seed2 COMMAND luma_vsync_bench --seconds 30 --seed 2 --quiet)
+  set_tests_properties(luma_vsync_bench luma_vsync_bench_seed2 PROPERTIES PASS_REGULAR_EXPRESSION "vsync bench: PASS")
+  add_test(NAME luma_vsync_replay COMMAND sh -c "d=$(mktemp -d) || exit 1; \"$1\" --seconds 20 --quiet --write \"$d/v.lcap\" >/dev/null && \"$2\" --replay \"$d/v.lcap\" --ipc-prefix \"$d/feed_\" --read-events; r=$?; rm -rf \"$d\"; exit $r"
+           sh "$<TARGET_FILE:luma_vsync_bench>" "$<TARGET_FILE:xr-luma-driver>")
+  set_tests_properties(luma_vsync_replay PROPERTIES PASS_REGULAR_EXPRESSION "luma: vsync events=18[0-9][0-9] locked=1 hz=120.00 resets=1"
+                       FAIL_REGULAR_EXPRESSION "error|bad_packets=[1-9]")
+endif()
