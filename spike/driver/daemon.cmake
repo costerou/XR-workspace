@@ -45,6 +45,14 @@ add_test(NAME luma_fusion_golden_real COMMAND luma_fusion_golden check plain "${
 add_test(NAME luma_fusion_golden_upside_down COMMAND luma_fusion_golden check plain "${LUMA_FIXTURES}/luma_imu_upside_down.bin" "${LUMA_FUSION_CORPUS}/upside_down.bin")
 add_test(NAME luma_fusion_golden_real_faults COMMAND luma_fusion_golden check faults "${LUMA_FIXTURES}/luma_imu_real.bin" "${LUMA_FUSION_CORPUS}/real_faults.bin")
 
+# D11: Mahony against an error-state Kalman filter, replay only (spike/driver/docs/fusion-eskf-review.md).
+add_executable(luma_fusion_review tools/fusion_review.cpp)
+target_include_directories(luma_fusion_review PRIVATE tests)
+target_link_libraries(luma_fusion_review PRIVATE xr_luma_protocol xr_luma_fusion)
+target_compile_options(luma_fusion_review PRIVATE -Wall -Wextra -Wpedantic -Werror)
+add_test(NAME luma_fusion_review COMMAND luma_fusion_review "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin"
+         "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_upside_down.bin" --quick)
+
 add_executable(luma_latency_report tools/latency_report.cpp)
 target_include_directories(luma_latency_report PRIVATE include)
 target_compile_features(luma_latency_report PRIVATE cxx_std_20)
