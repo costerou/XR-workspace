@@ -7,6 +7,9 @@ import Quickshell.Io
 import qs.Commons as Commons
 import "Model.js" as Model
 
+// The panel window: a fixed 520×660 page under a shared header. Before a session it is Home, Setup (a sub-page of Home),
+// the one-run confirmation, the start's progress or a recovery page (docs/mockups/plugin-prestart); during a session it
+// is the running editor.
 Item {
     id: root
     property alias renderSurface: captureSurface
@@ -15,20 +18,42 @@ Item {
     property bool opened: false
     // Injection is for offline rendering only; production uses the passive socket client.
     property alias socketPath: client.socketPath
+    // The desktop Setup has open (-1 for none). Opening the panel for a desktop (open({desktop:n})) lands on Setup with it.
     property int selectedDesktop: -1
+    property bool setupOpen: false
     property var settings: ({})
     property var pending: null
     property string error: ""
+    property string serviceError: ""
+    property bool serviceTried: false
     property int commandId: 0
     property var queue: []
     property int settingsId: 0
     property bool settingsRefreshPending: false
     readonly property var snapshot: client.snapshot
     readonly property bool busy: commandId !== 0
-    readonly property bool prestart: client.connected && snapshot.state === "idle"
-    function open(payload) { if (payload && Number.isInteger(payload.desktop)) selectedDesktop=payload.desktop; error=""; opened=true; client.send({op:"status"}) }
+    readonly property string state: client.connected ? snapshot.state || "" : "offline"
+    readonly property bool prestart: client.connected && (state === "idle" || state === "no-glasses")
+    // Which page shows: one name per page, so the entrance animation plays once per page and not per update.
+    readonly property string pageName: !client.connected ? "home"
+        : prestart ? (setupOpen && !!snapshot.model && snapshot.model !== "unknown" ? "setup" : "home")
+        : state === "confirming" ? "confirm"
+        : ["starting", "stopping", "failed"].indexOf(state) >= 0 ? "progress"
+        : ["recovery-needed", "cli-recovery", "external-run"].indexOf(state) >= 0 ? "recovery"
+        : state === "running" ? "running" : "home"
+    function open(payload) {
+        const desktop = payload && Number.isInteger(payload.desktop) ? payload.desktop : -1
+        selectedDesktop = desktop
+        setupOpen = desktop >= 0
+        error = ""; opened = true; client.send({op:"status"})
+    }
     function close() { opened=false }
     function dismiss() { if (shell && typeof shell.hide === "function") shell.hide((manifest && manifest.id) || "cody.viture-workspace"); else close() }
+    function back() {
+        if (pageName === "confirm") request({op:"cancel"})
+        else { setupOpen = false; selectedDesktop = -1 }
+    }
+    function startService() { error = ""; serviceError = ""; serviceTried = true; controllerService.running = true }
     function loadSettings() {
         if (!client.connected) return;
         // Keep one read in flight and one refresh after it. A slow controller
@@ -44,17 +69,18 @@ Item {
         queue=messages.slice(1);
         commandId=client.send(messages[0]);
     }
+    onSelectedDesktopChanged: if (selectedDesktop >= 0) setupOpen = true
     Process {
         id: controllerService
         command: ["systemctl", "--user", "restart", "viture-workspace-controller.service"]
         stderr: StdioCollector {
             onStreamFinished: {
-                if (text.trim()) root.error = text.trim().slice(0, 2048)
+                if (text.trim()) root.serviceError = text.trim().slice(0, 2048)
             }
         }
         onExited: function(exitCode, exitStatus) {
             if (exitCode !== 0 || exitStatus !== 0) {
-                if (!root.error) root.error = "Could not start controller. Check the user service logs."
+                if (!root.serviceError) root.serviceError = "systemctl could not start viture-workspace-controller.service."
             }
         }
     }
@@ -65,6 +91,7 @@ Item {
             else if (snapshot.pending) root.pending=snapshot.pending
             if (root.opened) root.loadSettings()
         }
+        onConnectedChanged: if (connected) root.serviceError = ""
         onReplied: function(id, reply) {
             if (id===root.settingsId) {
                 root.settingsId=0
@@ -92,7 +119,9 @@ Item {
         visible:root.opened
         // Also the desktop entry's StartupWMClass and adopt.py PANEL_TITLE: keep the three equal.
         title:"XR Workspace"
-        implicitWidth:700; implicitHeight:860
+        implicitWidth:520; implicitHeight:660
+        minimumSize: Qt.size(520, 660)
+        maximumSize: Qt.size(520, 660)
         color:Commons.Color.background
         onClosed:root.dismiss()
         Pane {
@@ -111,49 +140,34 @@ Item {
             palette.highlight:Commons.Color.accent
             palette.highlightedText:Commons.Color.background
             background:Rectangle { color:Commons.Color.background }
-        Flickable {
-            anchors.fill:parent; anchors.margins:20; clip:true
-            boundsBehavior:Flickable.StopAtBounds
-            contentWidth:width
-            ScrollBar.vertical:ScrollBar {}
-            contentHeight:body.implicitHeight
             ColumnLayout {
-                id:body
-                width:parent.width
-                height:implicitHeight
-                spacing:14
-                RowLayout {
-                    // The pre-start page (Launcher) shows the logo large under this row; every other page has it here.
-                    Logo { size:48; visible:!root.prestart }
-                    Item { Layout.fillWidth:true }
-                    Button { text:"Close"; onClicked:root.dismiss() }
+                anchors.fill: parent
+                spacing: 0
+                PanelHeader {
+                    Layout.fillWidth: true
+                    backVisible: root.pageName === "setup" || root.pageName === "confirm"
+                    title: root.pageName === "setup" ? "Session setup" : root.pageName === "confirm" ? "Confirm" : "XR Workspace"
+                    onBack: root.back()
+                    onClose: root.dismiss()
                 }
-                Label { text:root.error || (client.connected ? root.snapshot.reason || "" : "controller not running"); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
-                Label { text:Model.incidentLine(root.snapshot); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
-                Label { objectName:"trackingInUse"; text:Model.trackingInUseLine(root.snapshot.tracking_in_use); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; horizontalAlignment:Text.AlignHCenter; opacity:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? 1 : 0.65; color:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? "#e7c78a" : palette.windowText }
-                Button {
-                    visible:!client.connected || controllerService.running
-                    text:controllerService.running ? "Starting controller…" : "Start / restart controller"
-                    enabled:!controllerService.running
-                    onClicked: {
-                        root.error = ""
-                        controllerService.running = true
-                    }
+                // A refused request on a page without its own place for it (Home shows it under Start).
+                Note {
+                    objectName: "requestError"
+                    visible: root.error !== "" && root.pageName !== "home"
+                    Layout.leftMargin: 18; Layout.rightMargin: 18; Layout.topMargin: 12
+                    tone: "err"
+                    title: "That did not work"
+                    text: Model.reasonText(root.error) ? [Model.reasonText(root.error).title, Model.reasonText(root.error).text].filter(t => t).join(" ") : ""
+                    dismissible: true
+                    onDismissed: root.error = ""
                 }
                 Loader {
                     id: page
                     objectName: "panelPage"
-                    Layout.fillWidth:true
-                    Layout.preferredHeight:item ? (item as Item).implicitHeight : 0
-                    active:client.connected
-                    sourceComponent: {
-                        switch(root.snapshot.state) {
-                        case "idle": return launcher
-                        case "running": return running
-                        case "confirming": return confirmation
-                        default: return notice
-                        }
-                    }
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    property string shown: root.pageName
+                    sourceComponent: ({home: home, setup: setup, confirm: confirmation, progress: progress, recovery: recovery, running: running})[shown]
                     // A page change animates once; telemetry updates within that page do not replay it.
                     onLoaded: pageEntrance.restart()
                     ParallelAnimation {
@@ -164,32 +178,47 @@ Item {
                 }
             }
         }
-        }
         Shortcut { sequence:"Escape"; onActivated:root.dismiss() }
     }
-    Component { id:launcher; Launcher { selected:root.selectedDesktop; onSelectedChanged:root.selectedDesktop=selected; snapshot:root.snapshot; settings:root.settings; busy:root.busy; onRequest:message => root.request(message) } }
-    Component { id:running; RunningEditor { snapshot:root.snapshot; settings:root.settings; busy:root.busy; onRequest:message => root.request(message) } }
     Component {
-        id:confirmation
-        ColumnLayout {
-            Label { visible:!root.pending; text:"Confirmation scope unavailable. Cancel and begin again."; wrapMode:Text.WordWrap; Layout.fillWidth:true }
-            Button { visible:!root.pending; text:"Cancel"; onClicked:root.request({op:"cancel"}) }
-            Loader {
-                Layout.fillWidth:true; active:!!root.pending
-                sourceComponent: ConfirmDialog {
-                    pending:root.pending; busy:root.busy
-                    onCancel:root.request({op:"cancel"})
-                    onConfirm: function(optional) { const m={op:root.pending.action==="recover" ? "confirm_recover" : "confirm_start",scope_id:root.pending.scope_id}; if(root.pending.action==="start") m.optional=optional; root.request(m) }
-                }
-            }
+        id: home
+        HomePage {
+            snapshot: root.snapshot; settings: root.settings; connected: client.connected; busy: root.busy
+            error: root.error; serviceRunning: controllerService.running; serviceError: root.serviceError; serviceTried: root.serviceTried
+            onRequest: message => root.request(message)
+            onOpenSetup: root.setupOpen = true
+            onStartService: root.startService()
+            onDismissError: root.error = ""
         }
     }
     Component {
-        id:notice
-        SessionNotice {
-            snapshot: root.snapshot
-            busy: root.busy
+        id: setup
+        SetupPage {
+            snapshot: root.snapshot; settings: root.settings; busy: root.busy; selected: root.selectedDesktop
+            onSelect: index => root.selectedDesktop = index
             onRequest: message => root.request(message)
+        }
+    }
+    Component { id: confirmation; ConfirmPage { pending: root.pending; busy: root.busy; onRequest: message => root.request(message) } }
+    Component { id: progress; ProgressPage { snapshot: root.snapshot; busy: root.busy; onRequest: message => root.request(message) } }
+    Component { id: recovery; RecoveryPage { snapshot: root.snapshot; busy: root.busy; onRequest: message => root.request(message) } }
+    // The running session's page is unchanged: the editor, under the driver in use and the controller's reason.
+    Component {
+        id: running
+        Flickable {
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: runningBody.implicitHeight + 36
+            ScrollBar.vertical: ScrollBar {}
+            ColumnLayout {
+                id: runningBody
+                x: 18; y: 18; width: parent.width - 36
+                spacing: 14
+                Label { text: root.snapshot.reason || ""; textFormat: Text.PlainText; visible: text !== ""; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: Tone.warn }
+                Label { objectName:"trackingInUse"; text:Model.trackingInUseLine(root.snapshot.tracking_in_use); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; horizontalAlignment:Text.AlignHCenter; opacity:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? 1 : 0.65; color:Model.trackingInUseWarns(root.snapshot.tracking_in_use) ? Tone.warn : palette.windowText }
+                RunningEditor { Layout.fillWidth: true; snapshot: root.snapshot; settings: root.settings; busy: root.busy; onRequest: message => root.request(message) }
+            }
         }
     }
 }

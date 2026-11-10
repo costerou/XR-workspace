@@ -63,9 +63,23 @@ class Controller:
             names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None,
             tracking_in_use=self._driver_in_use(),
+            **self._start_progress(),
             **self._pro2_snapshot(),
             immersive=self.live.get('immersive') if self.state=='running' else None,
             incident=self.monitor.latest if self.monitor is not None else None))
+
+    def _start_progress(self):
+        """The steps of the start in progress and the one under way, for the panel's progress page. The runner reports a phase as it
+        enters it (runner.py progress), except verify, which it reports once done: no phase yet is verify itself. None at rest."""
+        if self.state!='starting' or not self.run: return dict(start_steps=None,start_phase=None)
+        try: consent=self._consent(self.run)
+        except (OSError,ValueError,KeyError,TypeError): consent=None
+        if consent is not None and consent.get('model')=='pro2': steps=['tracking','desktops']  # its route reports tracking only
+        else: steps=['verify',*(['tracking'] if consent is None or consent['tracking'] is not False else []),'plugin','desktops']
+        phase=self.run.get('phase')
+        if phase is None: phase=steps[0]
+        elif phase=='verify': phase=steps[1]
+        return dict(start_steps=steps,start_phase=phase if phase in steps else None)
 
     def _driver_in_use(self):
         """What the panel shows: which head tracking driver these glasses run, never a choice. A running session's comes from its

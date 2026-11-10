@@ -122,6 +122,7 @@ def execute(consent_path, data_home, progress=None):
         attempted = True
         client.plugin_load(plugin, data_home=data_home)
         if ownership_plugin_count(client.plugins_loaded()) != 1: raise ValueError('plugin load not confirmed by readback')
+        if progress: progress(result['run_id'], 'desktops')  # the mode, the layout and the run: the desktops and the picture
         if consent['mode_switch'] is not False:
             result['phase'] = 'mode'
             client.apply_session_mode(consent['output'])  # raises unless 1920x1200@~120 is read back

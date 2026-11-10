@@ -17,7 +17,7 @@ NAME = 'XR Workspace'
 # Everything a user reads that once said "VITURE Workspace" (tools/native_spike/adopt.py keeps the old title on purpose:
 # see test_the_panel_is_titled_xr_workspace_and_its_old_title_still_stays in tests/native_spike/test_adopt.py).
 USER_VISIBLE = [
-    PLUGIN / 'Panel.qml', PLUGIN / 'Launcher.qml', PLUGIN / 'Logo.qml', PLUGIN / 'BarWidget.qml', PLUGIN / 'restart.sh',
+    PLUGIN / 'Panel.qml', PLUGIN / 'HomePage.qml', PLUGIN / 'PanelHeader.qml', PLUGIN / 'Logo.qml', PLUGIN / 'BarWidget.qml', PLUGIN / 'restart.sh',
     PLUGIN / 'manifest.json', PLUGIN / 'logo-emblem.svg', PLUGIN / 'icon-symbolic.svg',
     REPO / 'packaging' / 'viture-workspace.desktop', REPO / 'packaging' / 'viture-workspace-controller.service',
     REPO / 'assets' / 'logo.svg', REPO / 'assets' / 'icon.svg', REPO / 'README.md', REPO / 'spike' / 'README.md',
@@ -76,7 +76,8 @@ class BrandingTests(unittest.TestCase):
             text = path.read_text()
             for old in ('VITURE Workspace', 'VITURE XR', 'not a VITURE'):
                 self.assertNotIn(old, text, f'{path.relative_to(REPO)} still says {old!r}')
-        self.assertIn('"XR Workspace · "', (PLUGIN / 'BarWidget.qml').read_text())
+        self.assertIn('"XR Workspace · "', (PLUGIN / 'Model.js').read_text())  # the bar tooltip, Model.barTooltip
+        self.assertIn('Model.barTooltip', (PLUGIN / 'BarWidget.qml').read_text())
         self.assertIn("notify-send 'XR Workspace'", (PLUGIN / 'restart.sh').read_text())
 
     def test_docs_and_readme_headings(self):

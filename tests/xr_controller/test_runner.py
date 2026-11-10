@@ -160,6 +160,15 @@ class RunnerTests(unittest.TestCase):
         with mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):
             self.assertEqual(self.main(),0)
 
+    def test_progress_reaches_the_desktops_step_before_the_run(self):
+        self.consent(tracking='xrlinuxdriver')
+        seen=[]
+        def run(*args, **kwargs):
+            seen.append(json.loads((self.state/'run1.progress.json').read_text())['phase']); return self.run_result
+        self.fake_run=run
+        with mock.patch('tools.native_spike.tracking.ensure_ready'): self.assertEqual(self.main(), 0)
+        self.assertEqual(seen, ['desktops'])
+
     def luma_consent(self):
         build = Path(self.tmp.name) / 'build'
         (build / 'xr-luma-driver').write_bytes(b'luma')

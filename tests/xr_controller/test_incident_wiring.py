@@ -220,10 +220,12 @@ class PanelSourceTests(unittest.TestCase):
     PANEL = Path(__file__).resolve().parents[2] / 'omarchy-plugin/cody.viture-workspace'
 
     def test_the_panel_shows_the_line_as_plain_text(self):
-        # It holds log-derived words: never rich text.
-        line = next(l for l in (self.PANEL / 'Panel.qml').read_text().splitlines() if 'incidentLine' in l)
-        self.assertIn('Text.PlainText', line)
-        self.assertIn('Model.incidentLine(root.snapshot)', line)
+        # It holds log-derived words: never rich text. Home shows it in a Note, whose lines are PanelText (plain text).
+        home = (self.PANEL / 'HomePage.qml').read_text()
+        self.assertIn('Model.incidentNote(snapshot)', home)
+        self.assertIn('textFormat: Text.PlainText', (self.PANEL / 'PanelText.qml').read_text())
+        note = (self.PANEL / 'Note.qml').read_text()
+        self.assertEqual(note.count('PanelText {'), 2, 'the note title and text')
 
     def test_the_measured_values_have_names(self):
         text = (self.PANEL / 'RunningEditor.qml').read_text()

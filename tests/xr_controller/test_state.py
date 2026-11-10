@@ -516,6 +516,25 @@ class StateTests(unittest.TestCase):
         self.assertEqual(self.c.state, 'stopping')
         self.assertEqual(stopped, [self.c.run['run_id']])
 
+    def test_start_progress_names_the_steps_and_the_one_under_way(self):
+        self.assertEqual((self.c.snapshot()['start_steps'],self.c.snapshot()['start_phase']),(None,None))
+        self.confirm(); self.units.active=True
+        steps=['verify','tracking','plugin','desktops']
+        for reported,shown in ((None,'verify'),('verify','tracking'),('tracking','tracking'),('plugin','plugin'),('desktops','desktops'),('mode',None)):
+            with self.subTest(reported):
+                self.observation['journals']=[dict(run_id=self.c.run['run_id'],session=None,path=None,operations=[],phase=reported)]
+                self.c.tick(); snap=self.c.snapshot()
+                self.assertEqual((snap['state'],snap['start_steps'],snap['start_phase']),('starting',steps,shown))
+
+    def test_start_progress_skips_tracking_the_user_switched_off(self):
+        r=self.begin(); self.c.request(dict(op='confirm_start',scope_id=r['scope_id'],optional=dict(tracking=False))); self.units.active=True
+        self.observation['journals']=[dict(run_id=self.c.run['run_id'],session=None,path=None,operations=[],phase='verify')]
+        self.c.tick(); snap=self.c.snapshot()
+        self.assertEqual((snap['start_steps'],snap['start_phase']),(['verify','plugin','desktops'],'plugin'))
+        self.units.active=False; self.observation['journals']=[]
+        self.c.state='idle'; self.c.run=None
+        self.assertIsNone(self.c.snapshot()['start_steps'])
+
     def test_lost_control_is_not_reported_as_fresh_startup(self):
         self.journal(); self.units.active=True; self.c.tick()
         self.units.control=lambda *args: False

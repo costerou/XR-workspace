@@ -9,11 +9,8 @@ TestCase {
     when: windowShown
     visible:true
     width:700; height:860
-    Component { id:confirmationComponent; Workspace.ConfirmDialog {} }
-    Component { id:desktopComponent; Workspace.DesktopEditor {} }
     Component { id:placementComponent; Workspace.PlacementEditor {} }
     SignalSpy { id:placementSpy; signalName:"save" }
-    SignalSpy { id:confirmationSpy; signalName:"confirm" }
     function test_release_attestation_validation() {
         const valid = {qa_commit:"a".repeat(40),lead_commit:"b".repeat(40),inventory_rows:116};
         verify(Model.validOptionsEquivalence(valid));
@@ -29,41 +26,6 @@ TestCase {
                 Model.validOptionsEquivalence(Model.OPTIONS_EQUIVALENCE));
         verify(!Model.optionsRuntimeComplete({capabilities:[]}));
         verify(!Model.optionsRuntimeComplete(null));
-    }
-    function test_confirmationControls() {
-        const dialog=createTemporaryObject(confirmationComponent,testCase,{width:640,pending:{action:"start",scope_id:"test",scope:{model:"luma-ultra",output:"DP-2",recovery_output:"DP-1",desktops:[{width:1920,height:1080,scale:1}],tracking:"xrlinuxdriver",mode_switch:{width:1920,height:1200,refresh_hz:120}}}});
-        verify(dialog !== null);
-        verify(waitForRendering(dialog));
-        const tracking=findChild(dialog,"tracking");
-        const mode=findChild(dialog,"mode_switch");
-        verify(tracking.enabled && tracking.checked);
-        verify(mode.enabled && mode.checked);
-        verify(!findChild(dialog,"requiredScope").enabled);
-        confirmationSpy.target=dialog;
-        confirmationSpy.clear();
-        mouseClick(tracking);
-        mouseClick(mode);
-        mouseClick(findChild(dialog,"confirmScope"));
-        compare(confirmationSpy.count,1);
-        compare(confirmationSpy.signalArguments[0][0],{tracking:false,mode_switch:false});
-        dialog.busy=true;
-        verify(!tracking.enabled);
-        verify(!findChild(dialog,"confirmScope").enabled);
-        confirmationSpy.target=null;
-    }
-    function test_desktopControls() {
-        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:3840,height:1080,scale:1}});
-        verify(editor !== null);
-        verify(waitForRendering(editor));
-        verify(!findChild(editor,"scale1.75").enabled);
-        mouseClick(findChild(editor,"scale1.25"));
-        compare(editor.draftScale,1.25);
-        verify(findChild(editor,"scale2.5").enabled);  // 250% and 300% too (the pill's Scale dropdown's steps)
-        mouseClick(findChild(editor,"scale3"));
-        compare(editor.draftScale,3);
-        editor.desktop={width:1920,height:1080,scale:2};
-        compare(editor.draftWidth,1920);
-        compare(editor.draftScale,2);
     }
     function test_scales() {
         compare(Model.validScales(1920, 1080), [1, 1.25, 1.5, 2, 2.5, 3])
@@ -109,11 +71,106 @@ TestCase {
         compare(Model.previewRects(desktops, 10, 400, 20), [])
     }
     function test_colors() {
-        compare(Model.barColorRole("running"), "accent")
-        for (const state of ["recovery-needed", "cli-recovery", "failed"])
-            compare(Model.barColorRole(state), "warning")
-        for (const state of ["idle", "no-glasses", "confirming", "starting", "stopping", "unknown"])
-            compare(Model.barColorRole(state), "muted")
+        for (const state of ["running", "starting", "stopping"]) compare(Model.barColorRole(state, "DP-2"), "accent");
+        for (const state of ["recovery-needed", "cli-recovery", "failed", "external-run"]) compare(Model.barColorRole(state, "DP-2"), "warning");
+        compare(Model.barColorRole("idle", "DP-2"), "foreground");  // glasses seen and ready: no longer the same grey as none
+        compare(Model.barColorRole("idle", null), "muted");
+        for (const state of ["no-glasses", "confirming", "unknown", undefined]) compare(Model.barColorRole(state, "DP-2"), "muted");
+    }
+    function test_barTooltip() {
+        compare(Model.barTooltip(false, {state:"running"}), "XR Workspace · service not running");
+        compare(Model.barTooltip(true, {state:"no-glasses"}), "XR Workspace · no glasses");
+        compare(Model.barTooltip(true, {state:"idle", model:"luma-ultra", output:"DP-2"}), "XR Workspace · Luma Ultra ready");
+        compare(Model.barTooltip(true, {state:"idle", model:"unknown"}), "XR Workspace · cannot start");
+        compare(Model.barTooltip(true, {state:"running", model:"beast"}), "XR Workspace · running");
+        compare(Model.barTooltip(true, {state:"recovery-needed", model:"beast"}), "XR Workspace · recovery needed");
+        compare(Model.barTooltip(true, {state:"cli-recovery", model:"beast"}), "XR Workspace · recovery needed");
+    }
+    function test_glassesName() {
+        compare(Model.glassesName("luma-ultra"), "Luma Ultra");
+        compare(Model.glassesName("beast"), "Beast");
+        compare(Model.glassesName("pro2"), "Pro 2");
+        compare(Model.glassesName("unknown"), "Glasses");
+        compare(Model.glassesName(undefined), "Glasses");
+    }
+    function test_incidentNote() {
+        compare(Model.incidentNote({}), null);
+        compare(Model.incidentNote(undefined), null);
+        compare(Model.incidentNote({incident:null}), null);
+        compare(Model.incidentNote({incident:{kind:"usb-drop"}}), null);
+        const at = new Date(2026, 10, 3, 20, 6, 12);
+        compare(Model.incidentNote({incident:{summary:"the glasses' USB connection dropped and the session ended", at:at.toISOString()}}),
+                {title:"Last problem · Nov 3, 20:06", text:"The glasses' USB connection dropped and the session ended."});
+        compare(Model.incidentNote({incident:{summary:"the XR renderer crashed", at:"not a time"}}), {title:"Last problem", text:"The XR renderer crashed."});
+    }
+    function test_reasonText() {
+        compare(Model.reasonText(null), null);
+        compare(Model.reasonText("multiple VITURE devices").title, "Unplug all but one pair of glasses.");
+        compare(Model.reasonText("XR Luma driver: head tracking driver is not installed"), Model.DRIVER_MISSING);
+        compare(Model.reasonText("busy").text, "XR Workspace is busy with another step. Try again in a moment.");
+        compare(Model.reasonText("something new"), {title:"", text:"something new"});  // shown as it comes
+    }
+    // Start is disabled exactly where begin_start would refuse (tools/xr_controller/state.py).
+    function test_startBlocker() {
+        const ready = {state:"idle", model:"luma-ultra", output:"DP-2", fallback:"DP-1", tracking_in_use:{key:"luma", available:true}};
+        const on = {tracking:true};
+        compare(Model.startBlocker(ready, on), null);
+        const kind = (patch, settings) => (Model.startBlocker(Object.assign({}, ready, patch), settings || on) || {}).kind;
+        compare(kind({state:"no-glasses", model:null, output:null}), "no-glasses");
+        compare(kind({model:"unknown", output:null, reason:"multiple VITURE devices"}), "glasses");
+        compare(kind({model:"pro2"}), "pro2-bridge");
+        compare(kind({model:"pro2", pro2:{projection:46.5}}), undefined);
+        compare(kind({output:null}), "output");
+        compare(kind({fallback:"choose"}), "choose");
+        compare(kind({fallback:null}), "no-fallback");
+        compare(kind({tracking_in_use:{key:"luma", available:false}}), "driver");
+        compare(kind({tracking_in_use:{key:"luma", available:false}}, {tracking:false}), undefined);  // tracking off: nothing missing
+        compare(kind({state:"running"}), undefined);
+    }
+    function test_deviceCard() {
+        compare(Model.deviceCard({}, false).status, "Offline");
+        compare(Model.deviceCard({}, true).title, "No glasses connected");
+        const card = Model.deviceCard({state:"idle", model:"luma-ultra", output:"DP-2", fallback:"DP-1"}, true, {});
+        compare([card.title, card.sub, card.status], ["Luma Ultra", "Connected on DP-2", "Ready"]);
+        compare(Model.deviceCard({state:"idle", model:"luma-ultra", output:"DP-2", fallback:"choose"}, true, {}).status, "One choice needed");
+        compare(Model.deviceCard({state:"running", model:"beast", output:"DP-2"}, true, {}).tone, "accent");
+        compare(Model.deviceCard({state:"idle", model:"pro2"}, true, {}).sub, "Connected · bridge not installed");
+    }
+    function test_sessionRows() {
+        const settings = {desktops:[{width:1920,height:1080,scale:1}], tracking:true, mode_switch:true, stabilization:60};
+        const luma = Model.sessionRows({model:"luma-ultra", fallback:"DP-1", tracking_in_use:{key:"luma", label:"XR Luma driver", available:true}}, settings);
+        compare(luma.map(r => r.key), ["Desktops", "Head tracking", "Refresh rate", "Windows return to", "Stabilization"]);
+        compare(luma.map(r => r.value), ["1 · 1920×1080 · 100%", "On · XR Luma driver", "120 Hz for this session", "DP-1", "Medium · 60%"]);
+        const pro2 = Model.sessionRows({model:"pro2", fallback:"choose", pro2:{projection:46.5}}, settings);
+        compare(pro2.map(r => r.key), ["Desktops", "Head tracking", "Projection", "Windows return to", "Stabilization"]);
+        verify(pro2[3].warn); compare(pro2[3].value, "Not chosen");
+        compare(Model.desktopsSummary([{width:1920,height:1080,scale:1}, {width:3440,height:1440,scale:1.25}]), "2 · 1920×1080, 3440×1440");
+        compare(Model.stabilizationName(0), "Off"); compare(Model.stabilizationName(59), "Light"); compare(Model.stabilizationName(100), "Strong");
+        compare(Model.stabilizationOf({}), 25);
+    }
+    function test_startSteps() {
+        compare(Model.startSteps({}), []);  // an older controller: no list
+        const luma = Model.startSteps({start_steps:["verify","tracking","plugin","desktops"], start_phase:"tracking", tracking_in_use:{key:"luma"}});
+        compare(luma.map(s => s.status), ["done", "now", "todo", "todo"]);
+        compare(luma[1].label, "Calibrating head tracking");
+        compare(luma[1].note, "Keep the glasses still. Up to 30 seconds.");
+        compare(luma[0].note, "");
+        const pro2 = Model.startSteps({model:"pro2", start_steps:["tracking","desktops"], start_phase:"desktops"});
+        compare(pro2.map(s => s.label), ["Starting head tracking", "Creating XR desktops and starting the picture"]);
+        compare(pro2.map(s => s.status), ["done", "now"]);
+        compare(Model.startSteps({start_steps:["verify"], start_phase:null})[0].status, "todo");
+    }
+    function test_confirmGroups() {
+        const scope = {model:"luma-ultra", output:"DP-2", recovery_output:"DP-1", desktops:[{width:1920,height:1080,scale:1}],
+                       tracking:"luma", mode_switch:{width:1920,height:1200,refresh_hz:120}};
+        const groups = Model.confirmGroups(scope, "start");
+        // Every scope line is still there, grouped; only the two real choices are optional.
+        const lines = [].concat.apply([], groups.map(g => g.lines));
+        compare(lines.length, Model.scopeLines(scope, "start").length);
+        compare(lines.filter(l => l.optional).map(l => l.key).sort(), ["mode_switch", "tracking"]);
+        verify(Model.confirmFooter(scope, "start").indexOf("only reduce") >= 0);
+        compare(Model.confirmFooter(Object.assign({}, scope, {model:"pro2", pro2_route:{projection:46.5}}), "start"), "Nothing here is optional for the Pro 2.");
+        compare(Model.confirmFooter(scope, "recover"), "All of these steps are required.");
     }
     function test_warning() {
         verify(Model.largeLayoutWarning([{width:1920,height:1080}, {width:5120,height:1440}, {width:1920,height:1080}]))
@@ -181,18 +238,6 @@ TestCase {
         compare(Model.desktopEdit(1920,1080,2.25), null);
     }
     // Maximize-follow (2026-11-03): the panel says Maximized / Overview, never "zoom"; the overview is always anchored.
-    function test_incidentLine() {
-        compare(Model.incidentLine({}), "");
-        compare(Model.incidentLine(undefined), "");
-        compare(Model.incidentLine({incident:null}), "");
-        const at = new Date(2026, 10, 3, 20, 6, 12);
-        compare(Model.incidentLine({incident:{summary:"the glasses' USB connection dropped and the session ended", at:at.toISOString()}}),
-                "Last problem (Nov 3, 20:06): the glasses' USB connection dropped and the session ended.");
-        compare(Model.incidentLine({incident:{summary:"the XR renderer crashed", at:"not a time"}}), "Last problem: the XR renderer crashed.");
-        compare(Model.incidentLine({incident:{summary:"the XR renderer crashed"}}), "Last problem: the XR renderer crashed.");
-        compare(Model.incidentLine({incident:{kind:"usb-drop"}}), "");
-    }
-
     function test_viewLabels() {
         compare(Model.viewLabel({}), "awaiting measured state");
         compare(Model.viewLabel(undefined), "awaiting measured state");
@@ -459,15 +504,6 @@ TestCase {
         verify(Model.isFlat(placementSpy.signalArguments[1][0]));
         verify(!findChild(editor,"placementReset").enabled);
         placementSpy.target=null;
-    }
-    function test_desktopEditorIsStartupResolutionOnly() {
-        // Placement (and ultrawide, adding and removing desktops) is done in the glasses now: the pre-start editor keeps
-        // only what cannot change once a session runs, the resolution and scale.
-        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:1920,height:1080,scale:1}});
-        verify(waitForRendering(editor));
-        for (const key of ["x","y","distance","curvature"]) compare(findChild(editor,"placement_" + key), null);
-        verify(findChild(editor,"scale1.25") !== null);
-        verify(!("placement" in editor) && !("savePlacement" in editor));
     }
     function test_placementLabels() {
         compare(Model.placementLabel("x"), "Left / right");

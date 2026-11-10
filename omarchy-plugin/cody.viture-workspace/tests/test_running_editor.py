@@ -24,22 +24,6 @@ TestCase {
     visible: true
     width: 900; height: 860
     Component { id: running; Workspace.RunningEditor {} }
-    Component { id: launcher; Workspace.Launcher {} }
-    Component { id: notice; Workspace.SessionNotice {} }
-    function test_recovery_state_gate() {
-        for (const state of ["idle", "running", "starting", "stopping", "failed", "cli-recovery", "external-run", "recovery-needed"]) {
-            const item = createTemporaryObject(notice, testCase, {width:900, snapshot:{state:state,run_id:"run",reason:"fallback unavailable"}});
-            verify(item !== null);
-            const recover = findChild(item, "recoverButton");
-            compare(recover.visible, state === "recovery-needed");
-            if (recover.visible) {
-                const sent = []; item.request.connect(m => sent.push(m));
-                mouseClick(recover); compare(sent, [{op:"begin_recover"}]);
-                item.busy = true; verify(!recover.enabled);
-            }
-            item.destroy();
-        }
-    }
     function test_unverified_runtime_capability_keeps_fallback() {
         const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{state:"running",model:"beast",output:"DP-2",capabilities:["options_menu"],status:{presented_hz:89.5}}, settings:{}});
         verify(editor !== null);
@@ -65,15 +49,6 @@ TestCase {
         verify(stop.visible && stop.enabled);
         mouseClick(stop); compare(sent, [{op:"stop"}]);
         verify(findChild(editor, "runtimeEditors").visible);
-    }
-    function test_stabilization_before_start() {
-        const editor = createTemporaryObject(launcher, testCase, {width:900, snapshot:{}, settings:{stabilization:25}});
-        verify(editor !== null);
-        const sent = []; editor.request.connect(m => sent.push(m));
-        verify(findChild(editor, "stabilization_25").highlighted);
-        findChild(editor, "stabilization_100").clicked();
-        compare(sent[0].settings.stabilization, 100);
-        compare(findChild(editor, "startupOptions").visible, false);
     }
     function test_stabilization() {
         const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{view:{stabilization:60}}, settings:{stabilization:25}});
@@ -150,8 +125,6 @@ TestCase {
     visible: true
     width: 900; height: 860
     Component { id: running; Workspace.RunningEditor {} }
-    Component { id: notice; Workspace.SessionNotice {} }
-    Component { id: launcher; Workspace.Launcher {} }
     function test_approved_surface_and_capability_loss() {
         const editor = createTemporaryObject(running, testCase, {width:900,
             snapshot:{state:"running",model:"beast",output:"DP-2",names:["XR-1"],capabilities:["options_runtime_complete"],status:{presented_hz:89.5}}, settings:{}});
@@ -174,27 +147,6 @@ TestCase {
         verify(stop.visible && stop.enabled);
         mouseClick(stop); compare(sent.length, 2);
     }
-    function test_recover_independent_of_approved_runtime() {
-        const item = createTemporaryObject(notice, testCase, {width:900,snapshot:{state:"recovery-needed",run_id:"run"}});
-        const recover = findChild(item, "recoverButton");
-        verify(recover.visible && recover.enabled);
-        const sent = []; item.request.connect(m => sent.push(m));
-        mouseClick(recover); compare(sent, [{op:"begin_recover"}]);
-        item.snapshot = {state:"running"}; verify(!recover.visible);
-        item.snapshot = {state:"cli-recovery"}; verify(!recover.visible);
-        item.snapshot = {state:"external-run",journal:"/run/journal.json"}; verify(!recover.visible);
-    }
-    function test_startup_preserved_in_approved_build() {
-        const item = createTemporaryObject(launcher, testCase, {width:900,
-            snapshot:{state:"idle",fallback:"DP-1",fallback_candidates:["DP-1"],model:"beast"},settings:{tracking:true,desktops:[]}});
-        const start = findChild(item, "startButton");
-        verify(start.visible && start.enabled);
-        const sent = []; item.request.connect(m => sent.push(m));
-        mouseClick(start); compare(sent, [{op:"begin_start"}]);
-        findChild(item, "startupOptionsToggle").clicked();
-        verify(findChild(item, "startupOptions").visible);
-        verify(findChild(item, "trackingOption").visible);
-    }
 }
 '''
 
@@ -203,10 +155,10 @@ TestCase {
 class RunningEditorTests(unittest.TestCase):
     def test_future_approved_external_surface(self):
         # A reviewed-build fixture in a disposable copy; never changes production approval.
-        self.run_qml(RELEASE_TEST, approved=True, totals=5)
+        self.run_qml(RELEASE_TEST, approved=True, totals=3)
 
     def test_the_3d_row(self):
-        self.run_qml(TEST, approved=False, totals=10)
+        self.run_qml(TEST, approved=False, totals=8)
 
     def run_qml(self, qml, approved, totals):
         with tempfile.TemporaryDirectory() as tmp:

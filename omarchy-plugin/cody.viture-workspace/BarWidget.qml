@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Commons as Commons
@@ -24,6 +23,10 @@ Ui.BarWidget {
         enter: MenuTransition {}
         exit: MenuTransition { entering: false }
         MenuItem {
+            text: "Open XR Workspace"
+            onTriggered: if (root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace")
+        }
+        MenuItem {
             text: "Restart plugin"
             onTriggered: Quickshell.execDetached(["bash", Qt.resolvedUrl("restart.sh").toString().replace(/^file:\/\//, "")])
         }
@@ -36,37 +39,28 @@ Ui.BarWidget {
         labelVisible:false
         hasVisualContent:true
         fixedWidth:Style.space(56)
-        tooltipText:client.connected ? "XR Workspace · " + (client.snapshot.state || "waiting") : "controller not running"
+        tooltipText:Model.barTooltip(client.connected, client.snapshot)
         onPressed: function(mouseButton) {
             if (mouseButton === Qt.RightButton) contextMenu.popup(button, 0, button.height)
             else if (mouseButton === Qt.LeftButton && root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace")
         }
-        // The app mark, tinted by state like the old "XR" label: accent while
-        // running, warning when recovery is needed, muted otherwise.
-        readonly property string role:Model.barColorRole(client.snapshot.state)
-        readonly property color tint:role==="accent" ? Commons.Color.accent : role==="warning" ? "#e7c78a" : Commons.Color.muted
-        Image {
+        // The app mark, tinted by state: full foreground when glasses are ready to start, accent while a session
+        // starts, runs or stops, warning when something needs attention, muted otherwise.
+        readonly property string role:client.connected ? Model.barColorRole(client.snapshot.state, client.snapshot.output) : "muted"
+        readonly property color tint:role==="accent" ? Commons.Color.accent : role==="warning" ? Tone.warn
+            : role==="foreground" ? Commons.Color.foreground : Commons.Color.muted
+        Emblem {
             id:mark
+            objectName:"barMark"
             anchors.centerIn:parent
             height:Style.bar.iconSize+2
             width:Math.round(height*120/84)
-            sourceSize.width:width*2; sourceSize.height:height*2
-            source:Qt.resolvedUrl("icon-symbolic.svg")
-            fillMode:Image.PreserveAspectFit
-            smooth:true
-            visible:false
-            layer.enabled:true
-        }
-        MultiEffect {
-            anchors.fill:mark
-            source:mark
-            colorization:1.0
-            colorizationColor:button.tint
+            color:button.tint
         }
         Rectangle {
             visible:button.role==="warning"
             width:5; height:5; radius:2.5
-            color:"#e7c78a"
+            color:Tone.warn
             anchors.left:mark.right; anchors.top:mark.top
             anchors.leftMargin:-1; anchors.topMargin:-2
         }

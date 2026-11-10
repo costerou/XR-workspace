@@ -72,7 +72,8 @@ session. Placement, resolution, scale and background stay in the desktop's own
 [placement panel](#placing-desktops).
 
 The settings a session *starts* with (each desktop's resolution and scale, head tracking, the Luma Ultra's 120 Hz
-switch, the monitor windows return to) are under **Startup options** in the panel, before you press Start.
+switch, the monitor windows return to) are under **Session setup** in the panel, before you press Start. They are saved as the default; the
+confirm page's switches can turn tracking or the 120 Hz switch off for one session only.
 
 ## Using the mouse in the overview
 

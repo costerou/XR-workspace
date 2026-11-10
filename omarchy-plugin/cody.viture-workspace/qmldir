@@ -2,16 +2,30 @@ module cody.viture-workspace
 ControllerClient 1.0 ControllerClient.qml
 Panel 1.0 Panel.qml
 BarWidget 1.0 BarWidget.qml
-Launcher 1.0 Launcher.qml
 DesktopEditor 1.0 DesktopEditor.qml
 RunningEditor 1.0 RunningEditor.qml
-ConfirmDialog 1.0 ConfirmDialog.qml
 PlacementEditor 1.0 PlacementEditor.qml
 VideoControls 1.0 VideoControls.qml
 Logo 1.0 Logo.qml
 StabilizationControls 1.0 StabilizationControls.qml
-SessionNotice 1.0 SessionNotice.qml
 singleton Motion 1.0 Motion.qml
 MenuTransition 1.0 MenuTransition.qml
-AnimatedComboBox 1.0 AnimatedComboBox.qml
-AnimatedSection 1.0 AnimatedSection.qml
+HomePage 1.0 HomePage.qml
+SetupPage 1.0 SetupPage.qml
+ConfirmPage 1.0 ConfirmPage.qml
+ProgressPage 1.0 ProgressPage.qml
+RecoveryPage 1.0 RecoveryPage.qml
+PanelHeader 1.0 PanelHeader.qml
+PageFrame 1.0 PageFrame.qml
+PageHeading 1.0 PageHeading.qml
+BigButton 1.0 BigButton.qml
+DeviceCard 1.0 DeviceCard.qml
+Note 1.0 Note.qml
+SectionLabel 1.0 SectionLabel.qml
+InfoRows 1.0 InfoRows.qml
+CodeBox 1.0 CodeBox.qml
+PanelText 1.0 PanelText.qml
+Segmented 1.0 Segmented.qml
+StabilizationSlider 1.0 StabilizationSlider.qml
+singleton Tone 1.0 Tone.qml
+Emblem 1.0 Emblem.qml
