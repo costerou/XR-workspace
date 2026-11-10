@@ -2,6 +2,9 @@
 orbit, neighbors, restore_band, bump and edge_pan. The Rust port replays it in
 rust/crates/xr-workspace/src/supervisor/pointer_math_corpus_tests.rs."""
 import json
+from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 import pointer_math_corpus as corpus
@@ -9,7 +12,11 @@ import pointer_math_corpus as corpus
 
 class PointerMathCorpusTests(unittest.TestCase):
     def test_golden_file_matches_the_python(self):
-        made = corpus.dumps(corpus.corpus())
+        # The generator records by running other suites; in a fresh interpreter, since a suite run earlier in this
+        # process (a full discover) can leave module state behind that changes what it records.
+        made = subprocess.run(
+            [sys.executable, '-c', 'import sys, pointer_math_corpus as c; sys.stdout.write(c.dumps(c.corpus()))'],
+            cwd=Path(__file__).resolve().parent, capture_output=True, text=True, check=True).stdout
         self.assertEqual(json.loads(corpus.CORPUS_FILE.read_text()), json.loads(made),
                          'regenerate: tests/native_spike/pointer_math_corpus.py --write')
         self.assertEqual(corpus.CORPUS_FILE.read_text(), made)
