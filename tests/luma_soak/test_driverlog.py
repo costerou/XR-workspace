@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 from tools.luma_soak import driverlog
@@ -57,3 +58,41 @@ class LumaLines(unittest.TestCase):
 
     def test_equals_in_prose_is_not_structured(self):
         self.assertIsNone(driverlog.classify('some value=3'))
+
+
+class CppLumaDriverLines(unittest.TestCase):
+    """What the shipped C++ xr-luma-driver writes today: "luma: <word> key=value ... at=<epoch s>.<ms>" (main.cpp log_line)."""
+
+    def test_disconnect(self):
+        self.assertEqual(driverlog.classify('luma: disconnected reason=gone at=1793700000.123'),
+                         {'kind': 'usb_error', 'cmd': 'disconnected', 'reason': 'gone'})
+
+    def test_stale_is_a_sample_gap(self):
+        self.assertEqual(driverlog.classify('luma: stale ms=250 at=1793700000.123'), {'kind': 'sample_gap', 'ms': 250.0})
+
+    def test_retry_is_a_reconnect(self):
+        self.assertEqual(driverlog.classify('luma: retry attempt=1 reason=silent at=1793700000.123'), {'kind': 'reconnect', 'reason': 'silent'})
+
+    def test_reconnected_carries_its_gap(self):
+        self.assertEqual(driverlog.classify('luma: reconnected gap_ms=4210 calibration=kept at=1793700000.123'),
+                         {'kind': 'state', 'state': 'reconnected', 'ms': 4210.0, 'calibration': 'kept'})
+
+    def test_states(self):
+        for word in ('connected', 'calibrating', 'calibrated', 'waiting', 'fresh', 'stopped'):
+            self.assertEqual(driverlog.classify(f'luma: {word} at=1793700000.123')['state'], word)
+
+    def test_stats_are_kept_but_harmless(self):
+        line = 'luma: stats samples=60000 rate_hz=1000 lost=0 disconnects=0 at=1793700000.123'
+        self.assertEqual(driverlog.classify(line), {'kind': 'other', 'event': 'luma stats'})
+
+    def test_own_clock(self):
+        self.assertEqual(driverlog.line_time('luma: stale ms=250 at=1793700000.123'), 1793700000.123)
+        self.assertIsNone(driverlog.line_time('luma: stale ms=250'))
+
+    def test_every_line_the_cpp_driver_writes_is_understood(self):
+        """A new log line in the driver must not be silently ignored by the soak."""
+        source = Path(__file__).resolve().parents[2] / 'spike/driver/src'
+        words = set(re.findall(r'"luma: ([a-z_]+)', ''.join(p.read_text() for p in source.glob('*.cpp'))))
+        self.assertGreater(len(words), 10)
+        for word in sorted(words):
+            self.assertIsNotNone(driverlog.classify(f'luma: {word} x=1 at=1793700000.123'), word)

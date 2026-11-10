@@ -256,3 +256,32 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual((report['drops'], report['hub_drops'], report['glasses_only_drops']), (54, 54, 0))
         self.assertEqual(len(report['unattributed']), 0)
         self.assertGreaterEqual(len(report['kernel_trouble']), 3)
+
+
+class CppDriverTests(unittest.TestCase):
+    """The shipped C++ xr-luma-driver's own lines, as the 3-hour baseline soak will see them."""
+
+    def setUp(self):
+        self.t = T0 + 100
+        self.records = [start(), *alive(), *drop_at(self.t)]
+
+    def test_a_stall_before_the_drop_is_a_sample_gap_and_a_disconnect_has_no_return_code(self):
+        report = analyze([*self.records, driver(self.t - 1, 'luma: stale ms=250 at=0'), driver(self.t - 0.5, 'luma: disconnected reason=silent at=0'), stop()])
+        window = report['drop_details'][0]['driver']
+        self.assertEqual((window['sample_gaps_ms'], window['usb_return_codes']), ([250.0], {}))
+
+    def test_driver_reconnects_are_summed_over_the_soak(self):
+        lines = [driver(self.t + 0.1, 'luma: disconnected reason=gone at=0'), driver(self.t + 1, 'luma: retry attempt=1 reason=gone at=0'),
+                 driver(self.t + 4.3, 'luma: reconnected gap_ms=4200 calibration=kept at=0'), driver(T0 + 900, 'luma: stale ms=300 at=0'),
+                 driver(T0 + 901, 'luma: reconnected gap_ms=1000 calibration=kept at=0')]
+        events = analyze([*self.records, *lines, stop()])['driver_events']
+        self.assertEqual(events, {'disconnects': 1, 'retries': 1, 'stale': 1, 'reconnected': 2,
+                                  'reconnect_gap_ms': {'count': 2, 'avg': 2600.0, 'max': 4200.0}})
+
+    def test_no_driver_lines_means_no_driver_events(self):
+        self.assertIsNone(analyze([*self.records, stop()])['driver_events'])
+
+    def test_a_saved_cpp_log_is_dated_by_its_own_clock(self):
+        records = records_from_logs([], ['luma: connected at=1793700000.500', 'luma: stale ms=250 at=1793700010.000'])
+        self.assertEqual([r['t'] for r in records], [1793700000.5, 1793700010.0])
+        self.assertNotIn('t_hi', records[0])

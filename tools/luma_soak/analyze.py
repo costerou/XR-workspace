@@ -67,8 +67,8 @@ def _driver_window(lines, start, end):
         elif kind == 'command_failed':
             failed[what.get('cmd', '?')] += 1
             rc[str(what.get('rc'))] += 1
-        elif kind == 'usb_error':
-            rc[str(what.get('rc'))] += 1
+        elif kind == 'usb_error' and 'rc' in what:   # the C++ driver's "disconnected" carries a reason, not a code
+            rc[str(what['rc'])] += 1
         elif kind == 'reconnect':
             reconnects += 1
         elif kind == 'sample_gap':
@@ -100,6 +100,18 @@ def _cpu_window(samples, start, end):
 def _cpu_high(sample):
     return (sample.get('system_pct', 0) >= CPU_HIGH_PCT or sample.get('core_max_pct', 0) >= CORE_HIGH_PCT
             or sample.get('run_delay_ms', 0) >= RUN_DELAY_HIGH_MS)
+
+
+def _driver_events(lines):
+    """The C++ xr-luma-driver's own view of the soak: how often it lost the glasses, and how long each reconnect took."""
+    if not lines:
+        return None
+    count = lambda test: sum(1 for _, _, what, _ in lines if test(what))
+    gaps = [what['ms'] for _, _, what, _ in lines if what.get('state') == 'reconnected' and 'ms' in what]
+    return {'disconnects': count(lambda w: w['kind'] == 'usb_error' and w.get('cmd') == 'disconnected'),
+            'retries': count(lambda w: w['kind'] == 'reconnect'), 'stale': count(lambda w: w['kind'] == 'sample_gap'),
+            'reconnected': count(lambda w: w.get('state') == 'reconnected'),
+            'reconnect_gap_ms': {'count': len(gaps), 'avg': _avg(gaps), 'max': max(gaps)} if gaps else None}
 
 
 def _hints(drop):
@@ -270,6 +282,7 @@ def analyze(records, policy=None):
         'recovery_s': {'count': len(recovered), 'avg': round(sum(recovered) / len(recovered), 2), 'max': max(recovered)} if recovered else None,
         'never_recovered': len(drops) - len(recovered),
         'drop_details': drops,
+        'driver_events': _driver_events(lines),
         'siblings': siblings, 'unattributed': unattributed,
         'kernel_trouble': [{'at': iso(a['t']), 'path': a['path'], 'text': a['text']} for a in trouble],
         'signals': _signals(drops, lines, gaps, samples, trouble, first, last, policy.window_s, bool(gaps or stats), start is None),

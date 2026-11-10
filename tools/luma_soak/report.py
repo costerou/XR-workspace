@@ -19,6 +19,10 @@ def render(report, limit=20):
     if report['recovery_s']:
         recovery = report['recovery_s']
         out.append(f"Back on USB: average {recovery['avg']} s, worst {recovery['max']} s; {report['never_recovered']} drop(s) with no return before the next drop or the end")
+    if events := report.get('driver_events'):
+        gap = events['reconnect_gap_ms']
+        out.append(f"Driver saw: {events['disconnects']} disconnect(s), {events['retries']} retry(s), {events['stale']} stall(s), {events['reconnected']} reconnect(s)"
+                   + (f", reconnect average {gap['avg']} ms, worst {gap['max']} ms" if gap else ''))
     coverage, watch = report['coverage'], report['watch']
     if report['mode'] == 'live':
         out.append(f"Watch: audit {watch['audit']}, glasses at start {watch['glasses_at_start']}, at end {watch['glasses_at_end']}, "

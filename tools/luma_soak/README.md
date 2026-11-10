@@ -64,13 +64,23 @@ The report sets each signal against ordinary windows of the same length, because
 
 ## Logging from xr-luma-driver
 
-To be correlated, the daemon's stderr needs one event per line, JSON or logfmt, with an `event` key:
+The C++ driver writes `luma: <word> key=value ... at=<epoch s>` lines (`spike/driver/src/main.cpp`), and `tracking.py`
+sends them to `~/.local/state/viture-workspace/luma-driver.log`. `stale ms=` is read as a sample gap, `disconnected` as a
+USB error, `retry` as a reconnect attempt and `reconnected gap_ms=` as a finished reconnect, summed in `driver_events`.
+`at=` dates each line, so a saved log can be replayed too. A test checks every `luma:` word in the driver's source is read.
+
+A future driver may instead write one event per line, JSON or logfmt, with an `event` key:
 
     event=cmd_sent cmd=0x15           event=cmd_failed cmd=0x15 rc=-7
     event=sample_gap ms=38.2          event=usb_error rc=-7
     event=reconnect                   event=state state=calibrated
 
 `unix_ms=` on any line gives its own time; without it the line is stamped on arrival. Other events are ignored.
+
+## The C++ driver baseline
+
+`tools/luma_soak/cpp_baseline.sh` runs the 3-hour soak of the C++ `xr-luma-driver` and stores its report in `docs/soak/`.
+Any number of drops is a valid measurement there; see `docs/soak/README.md`.
 
 ## Fixtures
 
