@@ -110,7 +110,7 @@ struct VideoPayload {
     std::uint32_t selected = 0;
 };
 // Overview glass pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..kMaxDesktops-1,"hover":bool,
-// "active":bool,"gear":bool}. visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer,
+// "active":bool[,"gear":bool]} (gear optional, absent = false, so pre-gear supervisors and renderers interoperate). visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer,
 // with active = being dragged, with gear = the pointer is on that desktop's options gear (lit like a hovered pill). Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
 constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
 struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false, gear = false; };

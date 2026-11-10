@@ -368,11 +368,15 @@ bool restore_band(const Json& p, RestoreBandPayload& out) {
     return true;
 }
 bool move_handle(const Json& p, MoveHandlePayload& out) {
-    if (!p.is_object() || p.size() != 5) return false;
-    for (const char* key : {"visible", "hover", "active", "gear"})
+    // "gear" is optional (absent = false): resize.py pill_frame sends it only while true, so the four-key frame stays valid.
+    const bool has_gear = p.is_object() && p.contains("gear");
+    if (!p.is_object() || p.size() != (has_gear ? 5u : 4u)) return false;
+    for (const char* key : {"visible", "hover", "active"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
+    if (has_gear && !p["gear"].is_boolean()) return false;
     if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kMaxDesktops) return false;
-    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>(), p["gear"].get<bool>()};
+    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>(),
+           has_gear && p["gear"].get<bool>()};
     return true;
 }
 // binds_panel.hpp BindPanelState: printable ASCII text of `lo`..`hi` characters.

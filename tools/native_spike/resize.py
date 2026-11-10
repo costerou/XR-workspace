@@ -95,8 +95,12 @@ def pill_frame(run_id, session, request_id, pill):
             or any(type(pill[k]) is not bool for k in ('visible', 'hover', 'active', 'gear'))
             or type(pill['desktop']) is not int or not 0 <= pill['desktop'] < MAX_DESKTOPS):
         raise ValueError('invalid move handle')
+    # `gear` goes on the wire only while true: a renderer built before it refuses any 5-key payload, which dropped every
+    # pill, the gear and the Maximize button live. The four-key frame is what every renderer accepts; only the gear's
+    # hover light needs the newer one.
+    payload = {k: v for k, v in pill.items() if k != 'gear' or v}
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'move_handle',
-                        'payload': dict(pill)}, separators=(',', ':')) + '\n').encode()
+                        'payload': payload}, separators=(',', ':')) + '\n').encode()
 
 
 PILLS_HIDDEN = {'visible': False, 'desktop': 0, 'hover': False, 'active': False, 'gear': False}

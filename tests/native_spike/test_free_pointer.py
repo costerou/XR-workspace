@@ -523,7 +523,7 @@ class ClickTests(PointerBase):
 
     def test_drag_the_pill_moves_the_desktop_live_and_saves_on_release(self):
         out = self.on_pill(0)
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False, 'gear': False})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False})
         out = self.op('resize_press')
         self.assertTrue(last(out, 'overview_pointer')['held'])
         self.assertFalse(self.p.pills['active'])  # held, not moving yet: a release now would be a click
@@ -633,7 +633,7 @@ class ClickTests(PointerBase):
         aim = pointer_for(*direction(fp.place_point(G, G['tiles'][2], far, x + w / 2, y + h / 2)))
         out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
         self.assertEqual(self.p.hover, ('pill', 2))
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 2, 'hover': True, 'active': False, 'gear': False})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 2, 'hover': True, 'active': False})
         self.assertGreater(abs(aim[0] - G['w'] / 2), G['w'] * orbit.REACH / 2)  # past follow / locked mode's reach
         self.op('resize_press')
         self.move_canvas(-40, -60)  # (lifted past the slot's half-degree SNAP, so only the wire's rounding is left)

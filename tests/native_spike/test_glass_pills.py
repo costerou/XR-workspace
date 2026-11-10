@@ -412,7 +412,7 @@ class PillClickTests(Base):
         self.free()
         out = self.to(*pill_centre(T0))
         self.assertEqual(self.p.hover, ('pill', 0))
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False, 'gear': False})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False})
         out = self.press()
         self.assertEqual(self.p.drag['kind'], 'pill'); self.assertFalse(self.p.drag['moved'])
         self.assertEqual(self.p.pills, {'visible': True, 'desktop': 0, 'hover': True, 'active': False, 'gear': False})  # held, not active
@@ -536,7 +536,7 @@ class PillDragTests(Base):
         self.assertFalse(self.p.drag['moved']); self.assertNotIn('placement', ops_of(out))
         out = self.by(0, -1.5)
         self.assertTrue(self.p.drag['moved']); self.assertEqual(self.p.moves, 1)
-        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': True, 'gear': False})
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': True})
         self.assertEqual(self.state.placements[0], DEFAULT_PLACEMENT)  # 1.7 % of the height: snapped back to the slot
         self.by(0, -T0[3] * 1.3)  # lifted clear of the row (no desktop may overlap another)...
         out = self.by(T0[2] * 0.2, 0)  # ...then to the right
@@ -1285,6 +1285,22 @@ class WireTests(unittest.TestCase):
                     {'visible': True, 'desktop': 0, 'hover': False, 'active': False, 'gear': 1},
                     {'visible': True, 'desktop': 0, 'hover': False}):
             with self.subTest(bad), self.assertRaises(ValueError): resize.pill_frame('run', 's', 4, bad)
+
+    def test_move_handle_keeps_the_four_key_frame_unless_the_gear_is_lit(self):
+        # Regression: making `gear` a required fifth key made a renderer built before it refuse every move_handle, so no
+        # pill, gear or Maximize button drew live. Every state without the gear lit must be the original four-key payload.
+        legacy = {'visible', 'desktop', 'hover', 'active'}
+        for visible in (True, False):
+            for hover in (True, False):
+                for active in (True, False):
+                    pill = {'visible': visible, 'desktop': 1, 'hover': hover, 'active': active, 'gear': False}
+                    with self.subTest(pill):
+                        payload = json.loads(resize.pill_frame('run', 's', 4, pill))['payload']
+                        self.assertEqual(set(payload), legacy)
+                        self.assertEqual(payload, {k: pill[k] for k in legacy})
+        self.assertEqual(set(json.loads(resize.pill_frame('run', 's', 4, resize.PILLS_HIDDEN))['payload']), legacy)
+        lit = json.loads(resize.pill_frame('run', 's', 4, {'visible': True, 'desktop': 2, 'hover': False, 'active': False, 'gear': True}))
+        self.assertEqual(lit['payload'], {'visible': True, 'desktop': 2, 'hover': False, 'active': False, 'gear': True})
 
     def test_a_fourth_desktop_gets_its_resize_handle_and_pill(self):
         # 2026-11-03: a run with XR-4 (the pill's Add) ended with 'invalid resize handle' when the pointer reached

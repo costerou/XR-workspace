@@ -87,10 +87,17 @@ int main() {
         auto g = decode_control(pill(R"({"visible":true,"desktop":2,"hover":false,"active":false,"gear":true})"));
         const auto* q = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(g).payload);
         CHECK(q && q->desktop == 2 && q->gear && !q->hover);
+        // Regression: the four-key frame (no "gear") is what resize.py sends whenever the gear is not lit, and what a
+        // pre-gear supervisor sends. Refusing it dropped every pill, the gear and Maximize live.
+        auto legacy = decode_control(pill(R"({"visible":true,"desktop":3,"hover":false,"active":true})"));
+        CHECK(std::holds_alternative<ControlMessage>(legacy));
+        const auto* l = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(legacy).payload);
+        CHECK(l && l->visible && l->desktop == 3 && l->active && !l->hover && !l->gear);
         for (const char* bad : {R"({})", R"({"visible":true,"desktop":4,"hover":false,"active":false,"gear":false})",
                                 R"({"visible":true,"desktop":-1,"hover":false,"active":false,"gear":false})",
                                 R"({"visible":"yes","desktop":0,"hover":false,"active":false,"gear":false})",
-                                R"({"visible":true,"desktop":0,"hover":false,"active":false})",
+                                R"({"visible":true,"desktop":0,"hover":false,"gear":false})",
+                                R"({"visible":true,"desktop":0,"hover":false,"active":false,"x":5})",
                                 R"({"visible":true,"desktop":0,"hover":false,"active":false,"gear":1})",
                                 R"({"visible":true,"desktop":0,"hover":false,"active":false,"gear":false,"x":5})"}) {
             auto e = decode_control(pill(bad));
