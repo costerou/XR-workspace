@@ -68,7 +68,7 @@ pub const STEREO_BISECT_STEPS: i32 = 3;
 pub const STEREO_HOLE_LO: f32 = 0.8;
 pub const STEREO_HOLE_HI: f32 = 1.6;
 
-const PI: f32 = 3.141_592_653_589_79;
+const PI: f32 = std::f32::consts::PI;
 
 /// std::clamp: NaN passes through, and lo > hi never panics.
 fn clamp(v: f32, lo: f32, hi: f32) -> f32 {
@@ -388,8 +388,10 @@ mod tests {
         assert!(f.moving());
         assert_eq!(f.update(150.0, true), 0.5);
         assert_eq!(f.update(400.0, true), 1.0);
+        assert!(f.moving()); // reached 1 on this frame
+        assert_eq!(f.update(450.0, true), 1.0);
         assert!(!f.moving());
-        assert_eq!(f.update(550.0, false), 0.5);
+        assert_eq!(f.update(600.0, false), 0.5);
         assert!(f.moving());
     }
 }

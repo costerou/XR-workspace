@@ -6,6 +6,7 @@
 
 pub mod binds_panel;
 pub mod cfmt;
+pub mod depth;
 pub mod desktops;
 pub mod egl;
 pub mod gl;
@@ -18,5 +19,7 @@ pub mod layout;
 pub mod material;
 pub mod options_geometry;
 pub mod pose;
+pub mod stereo;
+pub mod stereo_gl;
 pub mod video;
 pub mod view;

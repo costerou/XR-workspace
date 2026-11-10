@@ -590,13 +590,7 @@ pub fn depth_anchor(half: &[u16], w: i32, h: i32, pct: f32) -> f32 {
         }
     }
     let n = samples.len();
-    let p = if pct < 0.0 {
-        0.0
-    } else if pct > 100.0 {
-        100.0
-    } else {
-        pct
-    };
+    let p = pct.clamp(0.0, 100.0);
     let rank = (p / 100.0 * (n - 1) as f32) as usize;
     // Non-negative halves order as their bit patterns (NaN above infinity, as nth_element on uint16 sees them).
     let (_, v, _) = samples.select_nth_unstable(rank.min(n - 1));
@@ -653,7 +647,7 @@ mod tests {
         let f = DepthInput::new(300, 256, 1, DepthData::Float(&px));
         assert!(depth_input_valid(&f));
         assert!(!depth_input_valid(&DepthInput { h: 255, ..f }));
-        assert!(!depth_input_valid(&DepthInput { stride: 1200, ..f })); // rows would run past the slice
+        assert!(!depth_input_valid(&DepthInput { stride: 1204, ..f })); // rows would run past the slice
         assert!(!depth_input_valid(&DepthInput { stride: 8, ..f }));
         let half = vec![0u16; 300 * 256];
         assert!(depth_input_valid(&DepthInput::new(300, 256, 1, DepthData::Half(&half))));

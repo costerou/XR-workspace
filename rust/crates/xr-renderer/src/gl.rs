@@ -7,15 +7,19 @@
 //!
 //! Here: the off-screen compositor (a surfaceless context drawing into its own RGBA8 framebuffer; "swap" is a glFlush)
 //! with SHM uploads, the desktops, the highlight glow and border, the glass pills, panels and handles, the free pointer,
-//! the window drag and the head-locked cards. Not yet: the Wayland window surface, dmabuf import, the background
-//! (environment), side-by-side 3D and the VR video scene; their setters are absent rather than ignored.
+//! the window drag, the head-locked cards and global immersive 3D (side-by-side eyes on a 3:1 buffer, each desktop
+//! warped by its depth map through [`crate::stereo_gl`]). Not yet: the Wayland window surface, dmabuf import, the
+//! background (environment) and the VR video scene; their setters are absent rather than ignored.
 
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::rc::Rc;
+use std::sync::OnceLock;
+use std::time::Instant;
 
 use glow::HasContext;
 
+use crate::depth::DepthInput;
 use crate::egl::{Headless, proc_address};
 use crate::glass::{
     AtlasBox, CONTENT_FROM, GLASS_IDLE, GLASS_SHADOW_MARGIN, GLASS_STYLE_VECS, GRABBER_H,
@@ -31,13 +35,20 @@ use crate::options_geometry::{
     options_gear, options_maximize, options_maximize_ray, options_mesh_ray, options_panel,
     options_restore_hit, options_restore_rect, options_step_scale,
 };
-use crate::pose::{Mat3, transpose};
+use crate::pose::{Mat3, apply, transpose};
+use crate::stereo::{
+    STEREO_HALF_BASELINE, STEREO_STALE_MS, StereoBudget, StereoFader, StereoParams, stereo_budget,
+    stereo_clamped, stereo_limits, stereo_plane_disparity, stereo_safe_baseline, stereo_side,
+    stereo_tile_scale,
+};
+use crate::stereo_gl::StereoPass;
+use crate::video::math::{EyeViewport, eye_viewports};
 use crate::view::{
     BORDER_PX, Canvas, FREE_POINTER_HELD_LEVEL, FREE_POINTER_RADIUS_PX, FREE_POINTER_RING_PX,
     FREE_POINTER_SEGMENTS, FRect, GHOST_LEVEL, GHOST_THICKNESS_PX, PanLayers, Placement,
     PointerLook, Size, Vec3, canvas_disc, direction_disc, direction_marks, direction_outline,
-    draw_order, drop_frame, glass_mesh, pan_draw_order, stereo_surface_hit, tile_mesh,
-    zoom_draw_order,
+    draw_order, drop_frame, glass_mesh, pan_draw_order, place_point, stereo_surface_hit,
+    tile_mesh, zoom_draw_order,
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -285,6 +296,10 @@ impl Gl {
         count!(self, other);
         unsafe { self.gl.flush() }
     }
+    pub fn scissor(&self, x: i32, y: i32, w: i32, h: i32) {
+        count!(self, other);
+        unsafe { self.gl.scissor(x, y, w, h) }
+    }
 }
 
 /// Compile and link a program from GLSL sources; the error names the step that failed (the C++ `why`).
@@ -292,6 +307,16 @@ pub fn compile_program(
     gl: &glow::Context,
     vertex: &str,
     fragment: &str,
+) -> Result<glow::Program, &'static str> {
+    compile_program_with(gl, vertex, fragment, &[])
+}
+
+/// [`compile_program`], with attributes bound to locations before the link (negative locations are skipped).
+pub fn compile_program_with(
+    gl: &glow::Context,
+    vertex: &str,
+    fragment: &str,
+    binds: &[(i32, &str)],
 ) -> Result<glow::Program, &'static str> {
     // SAFETY: plain GL calls on the current context; every shader made here is deleted here.
     unsafe {
@@ -323,6 +348,11 @@ pub fn compile_program(
         };
         gl.attach_shader(p, v);
         gl.attach_shader(p, f);
+        for &(loc, name) in binds {
+            if loc >= 0 {
+                gl.bind_attrib_location(p, loc as u32, name);
+            }
+        }
         gl.link_program(p);
         gl.delete_shader(v);
         gl.delete_shader(f);
@@ -349,6 +379,7 @@ macro_rules! xr_project {
         )
     };
 }
+pub(crate) use xr_project;
 const VERTEX: &str = concat!(
     "attribute vec3 pos; attribute vec2 uv; varying vec2 v;\n",
     xr_project!(),
@@ -806,6 +837,92 @@ struct PanelProgram {
     alpha: Option<glow::UniformLocation>,
 }
 
+/// What global immersive 3D does (the C++ StereoSettings): on or off, its look, per-desktop strength (percent, -1: the
+/// global one) and whether each desktop takes part (missing: yes).
+#[derive(Clone, Debug, PartialEq)]
+pub struct StereoSettings {
+    pub enabled: bool,
+    pub params: StereoParams,
+    pub strengths: Vec<i32>,
+    pub desktops: Vec<bool>,
+    /// Of the desktops' real depth (their Placement distance); 0: all on the screen plane.
+    pub half_baseline: f32,
+}
+
+impl Default for StereoSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            params: StereoParams::default(),
+            strengths: Vec::new(),
+            desktops: Vec::new(),
+            half_baseline: STEREO_HALF_BASELINE,
+        }
+    }
+}
+
+/// A desktop's 3D fade and the time of its last depth frame (-1: none yet).
+#[derive(Clone, Copy)]
+struct StereoSource {
+    fader: StereoFader,
+    gain: f32,
+    depth_ms: f64,
+}
+
+impl Default for StereoSource {
+    fn default() -> Self {
+        Self {
+            fader: StereoFader::default(),
+            gain: 0.0,
+            depth_ms: -1.0,
+        }
+    }
+}
+
+/// Global immersive 3D, all empty until set_stereo first turns it on: a 2D run never compiles its shaders.
+#[derive(Default)]
+struct Stereo {
+    pass: Option<StereoPass>,
+    /// The warp program's projection cache (the pass's warp program).
+    warp: Option<Prog>,
+    why: String,
+    set: StereoSettings,
+    sources: Vec<StereoSource>,
+    scene: StereoFader,
+    /// This frame's half baseline.
+    b: f32,
+    frames: u64,
+}
+
+/// Milliseconds on a monotonic clock (the C++ now_us() / 1000).
+fn now_ms() -> f64 {
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_secs_f64() * 1000.0
+}
+
+impl Stereo {
+    /// The 3D budget of desktop `i` this eye: its plane's disparity, its size and its fade.
+    fn tile_budget(
+        &self,
+        i: usize,
+        canvas: &Canvas,
+        tile: &FRect,
+        placement: &Placement,
+        rotation: &Mat3,
+        eye_w: f32,
+    ) -> StereoBudget {
+        let c = place_point(canvas, tile, placement, tile.x + tile.width / 2.0, tile.y + tile.height / 2.0);
+        let plane = stereo_plane_disparity(self.b, apply(rotation, [c.x, c.y, c.z])[2], eye_w, canvas.half_w);
+        let gain = self.sources.get(i).map_or(0.0, |s| s.gain);
+        stereo_budget(
+            &stereo_limits(&self.set.params, eye_w, canvas.half_w),
+            plane,
+            stereo_tile_scale(tile.width, canvas.view_w, placement.distance),
+            gain,
+        )
+    }
+}
+
 pub struct GlCompositor {
     gl: Rc<Gl>,
     progs: Programs,
@@ -845,6 +962,7 @@ pub struct GlCompositor {
     vendor: String,
     renderer: String,
     version: String,
+    stereo: Stereo,
     // Last: the context outlives every object above (Drop deletes them first).
     headless: Headless,
 }
@@ -1012,6 +1130,7 @@ impl GlCompositor {
             vendor,
             renderer,
             version,
+            stereo: Stereo::default(),
             headless,
         };
         // SAFETY: a plain GL query on the current context.
@@ -1120,6 +1239,11 @@ impl GlCompositor {
                 valid: false,
             },
         );
+        if let Some(pass) = &mut self.stereo.pass {
+            pass.insert_source(at);
+        }
+        let sources = &mut self.stereo.sources;
+        sources.insert(at.min(sources.len()), StereoSource::default());
     }
 
     /// Source `at` dropped with its texture (later sources move down).
@@ -1129,10 +1253,218 @@ impl GlCompositor {
             // SAFETY: a texture of the current context.
             unsafe { self.gl.raw().delete_texture(t.id) };
         }
+        if let Some(pass) = &mut self.stereo.pass {
+            pass.remove_source(self.gl.raw(), at);
+        }
+        if at < self.stereo.sources.len() {
+            self.stereo.sources.remove(at);
+        }
     }
 
     pub fn sources(&self) -> usize {
         self.textures.len()
+    }
+
+    /// Turn global immersive 3D on or off and set its look. The first time it is on, its shaders are compiled (now, not
+    /// on a later frame); if that fails, [`GlCompositor::stereo_readback`] says why and the desktops stay flat. A new
+    /// strength rebuilds every desktop's guide from its last depth frame at once, keeping that frame's age.
+    pub fn set_stereo(&mut self, settings: &StereoSettings) {
+        let clamped = stereo_clamped(&settings.params);
+        let st = &mut self.stereo;
+        let strength_changed =
+            st.set.params.strength != clamped.strength || st.set.strengths != settings.strengths;
+        st.set = settings.clone();
+        st.set.params = clamped;
+        st.set.half_baseline = if settings.half_baseline.is_finite() {
+            settings.half_baseline.clamp(0.0, 2.0 * STEREO_HALF_BASELINE)
+        } else {
+            STEREO_HALF_BASELINE
+        };
+        if settings.enabled && strength_changed && st.pass.is_some() {
+            for i in 0..st.sources.len() {
+                let cached = self.stereo.pass.as_ref().and_then(|p| p.cached_frame(i));
+                if let Some(mut frame) = cached {
+                    // A still desktop produces no new inference. Rebuild from its owned raw upload immediately,
+                    // without granting stale depth a new freshness timestamp.
+                    let age = self.stereo.sources[i].depth_ms;
+                    frame.reset_history = true;
+                    self.set_depth(i, &frame);
+                    self.stereo.sources[i].depth_ms = age;
+                }
+            }
+        }
+        let st = &mut self.stereo;
+        if !settings.enabled || st.pass.is_some() || !st.why.is_empty() {
+            return;
+        }
+        let raw = self.gl.raw();
+        let p = &self.progs;
+        match StereoPass::create(raw, p.tile_pos, p.tile_uv, p.color_pos) {
+            Ok(mut pass) => {
+                pass.resize_sources(raw, self.textures.len());
+                st.warp = Some(Prog::new(raw, pass.warp_program()));
+                st.pass = Some(pass);
+            }
+            Err(why) => st.why = why,
+        }
+        self.current = None;
+    }
+
+    /// The 3D shaders compiled (set_stereo has turned 3D on at least once, on a context that has what they need).
+    pub fn stereo_available(&self) -> bool {
+        self.stereo.pass.is_some()
+    }
+
+    /// A depth frame of desktop `source`, for its current picture. False: no 3D, no picture yet, or an invalid frame.
+    pub fn set_depth(&mut self, source: usize, frame: &DepthInput) -> bool {
+        let Some(t) = self.textures.get(source) else {
+            return false;
+        };
+        let st = &mut self.stereo;
+        let Some(pass) = &mut st.pass else {
+            return false;
+        };
+        if st.sources.len() < self.textures.len() {
+            st.sources.resize(self.textures.len(), StereoSource::default());
+        }
+        let (w, h) = (t.width, t.height);
+        if !t.valid || w == 0 || h == 0 {
+            return false;
+        }
+        let state = &mut st.sources[source];
+        let now = now_ms();
+        let mut params = st.set.params;
+        if let Some(&percent) = st.set.strengths.get(source)
+            && percent >= 0
+        {
+            params.strength = percent as f32 / 100.0;
+        }
+        let dt = if !frame.reset_history && state.depth_ms >= 0.0 {
+            (now - state.depth_ms) as f32
+        } else {
+            0.0
+        };
+        let ok = pass.update(
+            self.gl.raw(),
+            source,
+            frame,
+            t.id,
+            w,
+            h,
+            &params,
+            w as f32 / h as f32,
+            dt,
+        );
+        if ok {
+            state.depth_ms = now;
+        }
+        self.current = None;
+        ok
+    }
+
+    /// Desktop `source` did not change, so its depth frame stays fresh without a new one.
+    pub fn keep_depth(&mut self, source: usize) {
+        if let Some(s) = self.stereo.sources.get_mut(source)
+            && s.depth_ms >= 0.0
+        {
+            s.depth_ms = now_ms();
+        }
+    }
+
+    /// Desktop `source`'s current picture: its texture and size (SHM bytes, so B/R swapped). None before its first frame.
+    pub fn source_texture(&self, source: usize) -> Option<(glow::Texture, u32, u32)> {
+        self.textures
+            .get(source)
+            .filter(|t| t.valid)
+            .map(|t| (t.id, t.width, t.height))
+    }
+
+    /// The two eye viewports; none in 2D or until the buffer is 3:1 wide.
+    fn stereo_eyes(&self) -> Vec<EyeViewport> {
+        if self.px_w < 3 * self.px_h {
+            return Vec::new(); // every 2D frame ends here
+        }
+        let mut eyes = eye_viewports(self.px_w, self.px_h);
+        if eyes.len() != 2 {
+            eyes.clear();
+        }
+        eyes
+    }
+
+    /// Once per frame, before the eyes: the fades, then the baseline that keeps every desktop's plane inside the limits.
+    fn stereo_frame(&mut self, tiles: &[FRect], rotation: &Mat3, canvas: &Canvas, eye_w: f32) {
+        let st = &mut self.stereo;
+        if st.sources.len() < self.textures.len() {
+            st.sources.resize(self.textures.len(), StereoSource::default());
+        }
+        let now = now_ms();
+        for (i, state) in st.sources.iter_mut().enumerate() {
+            let wanted = st.set.enabled && st.set.desktops.get(i).copied().unwrap_or(true);
+            let fresh = st.pass.as_ref().is_some_and(|p| p.ready(i))
+                && state.depth_ms >= 0.0
+                && now - state.depth_ms < STEREO_STALE_MS;
+            state.gain = state.fader.update(now, wanted && fresh);
+        }
+        let scene = st.scene.update(now, st.set.enabled);
+        let limits = stereo_limits(&st.set.params, eye_w, canvas.half_w);
+        let depths: Vec<f32> = tiles
+            .iter()
+            .zip(&self.resolved)
+            .map(|(t, pl)| {
+                let c = place_point(canvas, t, pl, t.x + t.width / 2.0, t.y + t.height / 2.0);
+                apply(rotation, [c.x, c.y, c.z])[2]
+            })
+            .collect();
+        st.b = stereo_safe_baseline(
+            scene * st.set.half_baseline,
+            &depths,
+            &limits,
+            eye_w,
+            canvas.half_w,
+        );
+        st.frames += 1;
+    }
+
+    /// The C++ stereo_readback(): what 3D is doing, as JSON.
+    pub fn stereo_readback(&self) -> String {
+        let st = &self.stereo;
+        let p = &st.set.params;
+        let sbs = !self.stereo_eyes().is_empty();
+        let desktops: Vec<serde_json::Value> = (0..self.textures.len())
+            .map(|i| {
+                let configured = st.set.enabled && st.set.desktops.get(i).copied().unwrap_or(true);
+                let ready = st.pass.as_ref().is_some_and(|s| s.ready(i));
+                let gain = st.sources.get(i).map_or(0.0, |s| s.gain);
+                let strength = match st.set.strengths.get(i) {
+                    Some(&percent) if percent >= 0 => percent as f32 / 100.0,
+                    _ => p.strength,
+                };
+                serde_json::json!({
+                    "configured": configured,
+                    "depth_ready": ready,
+                    "gain": gain,
+                    "drawing": sbs && st.pass.is_some() && ready && gain > 0.0,
+                    "strength": strength,
+                })
+            })
+            .collect();
+        serde_json::json!({
+            "available": st.pass.is_some(),
+            "enabled": st.set.enabled,
+            "physical_sbs": sbs,
+            "error": st.why.chars().take(256).collect::<String>(),
+            "frames": st.frames,
+            "depth_updates": st.pass.as_ref().map_or(0, |s| s.updates()),
+            "params": {
+                "strength": p.strength,
+                "convergence": p.convergence,
+                "near_deg": p.near_deg,
+                "far_deg": p.far_deg,
+                "text_keep": p.text_keep,
+            },
+            "desktops": desktops,
+        })
+        .to_string()
     }
 
     /// Status pop-up drawn head-locked over the next frames (None or alpha 0: none); re-uploaded when `generation` changes.
@@ -1247,16 +1579,39 @@ impl GlCompositor {
         half_h: f32,
         pan: Option<&PanLayers>,
     ) -> bool {
-        self.draw_view(
-            tiles,
-            placements,
-            highlight,
-            highlight_alpha,
-            view,
-            half_w,
-            half_h,
-            pan,
-        );
+        let eyes = self.stereo_eyes();
+        if eyes.is_empty() {
+            self.draw_view(
+                tiles,
+                placements,
+                highlight,
+                highlight_alpha,
+                view,
+                half_w,
+                half_h,
+                None,
+                pan,
+            );
+        } else {
+            self.gl.enable(glow::SCISSOR_TEST);
+            for e in &eyes {
+                self.gl
+                    .scissor(e.x as i32, e.y as i32, e.width as i32, e.height as i32);
+                self.draw_view(
+                    tiles,
+                    placements,
+                    highlight,
+                    highlight_alpha,
+                    view,
+                    half_w,
+                    half_h,
+                    Some(e),
+                    pan,
+                );
+            }
+            self.gl.disable(glow::SCISSOR_TEST);
+            self.gl.viewport(0, 0, self.px_w as i32, self.px_h as i32);
+        }
         let ok = self.gl.get_error() == glow::NO_ERROR;
         ok && {
             self.gl.flush();
@@ -1297,11 +1652,13 @@ impl GlCompositor {
         view: &Mat3,
         half_w: f32,
         half_h: f32,
+        eye: Option<&EyeViewport>,
         pan: Option<&PanLayers>,
     ) {
         let gl = self.gl.clone();
         let gl = &*gl;
-        let fp = FrameProjection {
+        // eye_offset: this eye's stereo.x; 0 in 2D, and no program then gets a call for it
+        let mut fp = FrameProjection {
             column_major: transpose(view),
             half: [half_w, half_h],
             eye_offset: 0.0,
@@ -1316,12 +1673,22 @@ impl GlCompositor {
         self.resolved.clear();
         self.resolved
             .extend((0..tiles.len()).map(|i| placements.get(i).copied().unwrap_or_default()));
+        let eye_w = eye.map_or(self.px_w, |e| e.width) as f32;
+        if let Some(e) = eye {
+            if e.eye == 0 {
+                self.stereo_frame(tiles, view, &canvas, eye_w);
+            }
+            fp.eye_offset = stereo_side(e.eye as u32) * self.stereo.b;
+        }
         self.meshes.grow(tiles.len());
         let attrib = |loc: i32, size: i32, stride: i32, offset: i32| {
             gl.buffer_attrib(loc as u32, size, stride, offset);
             gl.enable_attrib(loc as u32);
         };
-        gl.viewport(0, 0, self.px_w as i32, self.px_h as i32);
+        match eye {
+            Some(e) => gl.viewport(e.x as i32, e.y as i32, e.width as i32, e.height as i32),
+            None => gl.viewport(0, 0, self.px_w as i32, self.px_h as i32),
+        }
         let complete = |im: &Option<Rc<HudImage>>| im.clone().filter(|im| im.complete());
         let has_glass_panel = self.progs.glass.is_some() && self.progs.panel.is_some();
         // A new panel image is uploaded before anything is drawn (the driver flushes queued work before a large upload
@@ -1473,6 +1840,7 @@ impl GlCompositor {
         let g = &self.glass;
         let free = self.free;
         let textures = &self.textures;
+        let st = &mut self.stereo;
         let handle_texture = self.handle_texture;
         if handles && let Some(panel) = &mut p.panel {
             // Level bars and corner caps: drawn before every desktop (over the border and glow, back to front), so any
@@ -1591,14 +1959,34 @@ impl GlCompositor {
         program(gl, current, &mut p.tile, &fp);
         gl.active_texture(glow::TEXTURE0); // sampler `tex` = unit 0 (its link-time value)
         let mut swizzle = -1.0; // the value set this frame (-1: none yet)
+        let mut warping = false; // in 3D: this tile goes through the warp program (same attribute locations)
         for &i in &order {
             let Some(t) = textures.get(i) else { continue };
             if !t.valid {
                 continue; // off-screen tiles are clipped by GL (may rotate into view)
             }
+            let warp = match (eye, &st.pass) {
+                (Some(e), Some(pass)) if pass.ready(i) && st.sources.get(i).is_some_and(|s| s.gain > 0.0) => {
+                    Some((e, pass))
+                }
+                _ => None,
+            };
+            if warp.is_some() != warping {
+                warping = warp.is_some();
+                swizzle = -1.0;
+                match &mut st.warp {
+                    Some(w) if warping => program(gl, current, w, &fp),
+                    _ => program(gl, current, &mut p.tile, &fp),
+                }
+            }
             if swizzle != 1.0 {
-                gl.uniform_1f(p.swizzle.as_ref(), 1.0); // SHM bytes: B/R swapped
+                // SHM bytes: B/R swapped
+                gl.uniform_1f(warp.map_or(p.swizzle.as_ref(), |(_, pass)| pass.warp_swizzle()), 1.0);
                 swizzle = 1.0;
+            }
+            if let Some((e, pass)) = warp {
+                let budget = st.tile_budget(i, &canvas, &tiles[i], &resolved[i], view, eye_w);
+                pass.warp_uniforms(gl, i, e.eye as u32, &budget);
             }
             gl.bind_texture(Some(t.id));
             let n = build(
@@ -1769,8 +2157,45 @@ impl GlCompositor {
             if p.tile_uv >= 0 {
                 gl.disable_attrib(p.tile_uv as u32);
             }
-            program(gl, current, &mut p.color, &fp);
-            let dot_color = p.color_value.as_ref();
+            let mut dot_color = p.color_value.as_ref();
+            if let (Some(e), Some(pass)) = (eye, &st.pass) {
+                // In 3D the pointer sits on what it points at, a pixel in front of it: it gets the disparity of the
+                // surface under it, the desktop's plane plus the depth under the dot, and none of its own (it is drawn
+                // at radius 1).
+                let ray = dot_ray(&canvas, &free);
+                let (mut on, mut nearest, mut u, mut v, mut z) = (-1i32, 1e9f32, 0.0, 0.0, -1.0);
+                for i in 0..tiles.len() {
+                    let Some(hit) = stereo_surface_hit(&canvas, &tiles[i], &resolved[i], &ray) else {
+                        continue;
+                    };
+                    let q = apply(view, [hit.world.x, hit.world.y, hit.world.z]);
+                    if -q[2] < nearest {
+                        nearest = -q[2];
+                        on = i as i32;
+                        u = hit.u;
+                        v = hit.v;
+                        z = q[2];
+                    }
+                }
+                let budget = if on >= 0 {
+                    let o = on as usize;
+                    st.tile_budget(o, &canvas, &tiles[o], &resolved[o], view, eye_w)
+                } else {
+                    StereoBudget::default()
+                };
+                let side = stereo_side(e.eye as u32);
+                let shift = side * stereo_plane_disparity(st.b, z, eye_w, half_w) / eye_w + side / eye_w;
+                if *current != Some(pass.pointer_program()) {
+                    gl.use_program(Some(pass.pointer_program()));
+                    *current = Some(pass.pointer_program());
+                }
+                gl.uniform_matrix_3(pass.pointer_view(), &fp.column_major);
+                gl.uniform_2f(pass.pointer_half_fov(), half_w, half_h);
+                pass.pointer_uniforms(gl, on, u, v, e.eye as u32, &budget, eye_w, shift);
+                dot_color = pass.pointer_color();
+            } else {
+                program(gl, current, &mut p.color, &fp);
+            }
             let (x, y, directed, az, el) = (free.x, free.y, free.directed, free.az, free.el);
             if self.ghost_w > 0.0 && self.ghost_h > 0.0 {
                 // window drag: the window's ghost round the dot, under it
@@ -2140,6 +2565,9 @@ impl Drop for GlCompositor {
         self.help_hud = None;
         self.binds_hud = None;
         self.meshes.each(|m| drop_mesh(raw, m));
+        if let Some(pass) = self.stereo.pass.take() {
+            pass.destroy(raw);
+        }
         // SAFETY: every object below was made on this context, which is current until `headless` drops after this.
         unsafe {
             if let Some((fb, rb)) = self.framebuffer.take() {
