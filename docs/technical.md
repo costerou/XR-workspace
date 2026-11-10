@@ -650,6 +650,16 @@ checks as the standard driver. `ensure_ready` restarts a driver that is not the 
 glasses need. A file with anything else fails the start with a reason, which the notification shows. The file changes
 what the driver reads and how it starts the stream; none of these flags can send a frame `Transport` would not pass.
 
+### Motion beside the pose (PredictionWire)
+
+`xr-luma-driver` also writes one segment XRLinuxDriver does not have, `<prefix>pose_prediction` (64 bytes,
+`luma::PredictionWire` in `spike/driver/include/luma/predict.hpp`, magic `LPR1`, a sequence lock). On every sample it holds the
+newest pose, its arrival time on `CLOCK_MONOTONIC`, and the gyro's angular velocity and acceleration from `luma::Predictor`, all
+in the feed's frame (mount pitch applied), so `luma::extrapolate` on it starts from the feed's `q0`. It reads as no sample while
+the feed is disabled. No reader uses it yet: the renderer still differences `q0` and `q1`, and the feed itself is unchanged.
+Checked by ctest `luma_prediction_wire`, which replays `luma_imu_real.bin` through the real daemon: 1,000 writes a second, and at
+17 ms ahead the wire predicts the recording to 0.011° rms while moving, against 0.073° for the renderer's difference.
+
 ### Checks at start, for every driver
 
 A start refuses when the glasses' USB node (`35ca:1104`) cannot be opened, and says to replug them. After a boot with the

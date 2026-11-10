@@ -78,12 +78,20 @@ class Estimator {
 public:
     virtual ~Estimator() = default;
     virtual PoseOut update(const ImuSample& sample) = 0;
+    virtual std::array<float, 3> gyro_bias_rad_s() const { return {}; }  // the bias taken off the gyro just now
+};
+
+// What a pose was made from, for a sink that publishes motion beside it (publish.hpp, the PredictionWire channel).
+struct PoseSource {
+    ImuSample sample;                      // as the estimator saw it: device time made to run forward
+    std::array<float, 3> gyro_bias_rad_s;  // Estimator::gyro_bias_rad_s right after that update
+    std::uint64_t host_ns;                 // CLOCK_MONOTONIC when the sample arrived (the URB was reaped), or the replay's clock
 };
 
 class Sink {
 public:
     virtual ~Sink() = default;
-    virtual void publish(const PoseOut& pose) = 0;
+    virtual void publish(const PoseOut& pose, const PoseSource& source) = 0;
     // Stale: readers must not trust the feed (the `disabled` flag of XRLinuxDriver's layout; spike/src/pose.cpp then holds
     // the last good pose).
     virtual void set_stale(bool stale) = 0;

@@ -10,6 +10,12 @@ target_link_libraries(luma_daemon_test PRIVATE xr_luma_daemon)
 target_compile_options(luma_daemon_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_test(NAME luma_daemon COMMAND luma_daemon_test "$<TARGET_FILE:xr-luma-driver>")
 
+# D3: the gyro's motion on PredictionWire, checked against the real recording through the real daemon.
+add_executable(luma_prediction_wire_test tests/prediction_wire_test.cpp)
+target_link_libraries(luma_prediction_wire_test PRIVATE xr_luma_daemon)
+target_compile_options(luma_prediction_wire_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+add_test(NAME luma_prediction_wire COMMAND luma_prediction_wire_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin")
+
 add_executable(luma_replay_report tools/replay_report.cpp src/predict.cpp)
 target_link_libraries(luma_replay_report PRIVATE xr_luma_protocol xr_luma_fusion)
 target_compile_options(luma_replay_report PRIVATE -Wall -Wextra -Wpedantic -Werror)

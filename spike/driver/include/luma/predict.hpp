@@ -15,7 +15,8 @@
 //      so the renderer's own finite difference yields this predictor's velocity. Behind a flag in the
 //      publisher: PredictConfig::synthesize_feed_history.
 //   2. PredictionWire: a lock-free side channel with velocity and acceleration, for a renderer change
-//      later, which would call extrapolate() with its own horizon.
+//      later, which would call extrapolate() with its own horizon. The driver writes it on every sample
+//      (wiring.cpp PublishSink, publish.hpp Publisher::publish_motion), turned into the feed's frame.
 //
 // Motion is estimated per axis by critically damped alpha-beta filters (the fading-memory polynomial
 // filter), which do not lag on a steady acceleration: a short one for velocity, a longer one for

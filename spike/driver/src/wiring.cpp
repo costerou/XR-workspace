@@ -39,18 +39,25 @@ std::string hex_of(std::span<const std::uint8_t> bytes) {
 class PublishSink final : public Sink {
 public:
     explicit PublishSink(std::unique_ptr<Publisher> publisher) : publisher_(std::move(publisher)) {}
-    void publish(const PoseOut& pose) override { publisher_->publish(pose); }
+    void publish(const PoseOut& pose, const PoseSource& source) override {
+        publisher_->publish(pose);
+        // Every sample, after the pose: the gyro's velocity, one sample old, and its acceleration on PredictionWire.
+        predictor_.set_gyro_bias(source.gyro_bias_rad_s);
+        predictor_.update(pose, source.sample, source.host_ns);
+        publisher_->publish_motion(predictor_.state());
+    }
     void set_stale(bool stale) override { if (stale) publisher_->pause(); }  // the next publish clears it
 private:
     std::unique_ptr<Publisher> publisher_;
+    Predictor predictor_;  // a gap longer than PredictConfig::gap_ms starts it over
 };
 
 class PoseLog final : public Sink {
 public:
     PoseLog(std::unique_ptr<Sink> inner, std::FILE* file, unsigned every) : inner_(std::move(inner)), file_(file), every_(every ? every : 1) {}
     ~PoseLog() override { std::fclose(file_); }
-    void publish(const PoseOut& pose) override {
-        inner_->publish(pose);
+    void publish(const PoseOut& pose, const PoseSource& source) override {
+        inner_->publish(pose, source);
         if (count_++ % every_) return;
         const double row[5] = {double(pose.t_ns), pose.q.w, pose.q.x, pose.q.y, pose.q.z};
         std::fwrite(row, sizeof row, 1, file_);
@@ -125,6 +132,7 @@ class FusionEstimator final : public Estimator {
 public:
     explicit FusionEstimator(FusionConfig config, BiasStore* store = nullptr) : fusion_(config), store_(store) {}
     ~FusionEstimator() override { note_bias(); }
+    std::array<float, 3> gyro_bias_rad_s() const override { return fusion_.status().gyro_bias_rad_s; }
     PoseOut update(const ImuSample& sample) override {
         const PoseOut pose = fusion_.update(sample);
         if (++samples_ % kNoteEvery == 0) note_bias();  // the driver outlives its XR runs, so waiting for the end means never

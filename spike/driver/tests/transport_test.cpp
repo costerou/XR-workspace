@@ -998,7 +998,7 @@ void test_drain_endpoint_reads_and_throws_away() {
 // The closest thing to the first bench run that needs no glasses.
 struct CountingSink final : luma::Sink {
     std::atomic<std::uint64_t> published{0};
-    void publish(const luma::PoseOut&) override { ++published; }
+    void publish(const luma::PoseOut&, const luma::PoseSource&) override { ++published; }
     void set_stale(bool) override {}
 };
 

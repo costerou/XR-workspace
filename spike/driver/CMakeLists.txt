@@ -2,7 +2,7 @@
 # pthreads only, no VITURE SDK. Tests never open a real device.
 find_package(Threads REQUIRED)
 
-add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp)
+add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp src/predict.cpp)
 target_compile_features(xr_luma_driver PUBLIC cxx_std_20)
 target_include_directories(xr_luma_driver PUBLIC include)
 target_compile_options(xr_luma_driver PRIVATE -Wall -Wextra -Wpedantic -Werror)

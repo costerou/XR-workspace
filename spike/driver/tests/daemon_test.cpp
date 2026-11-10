@@ -156,8 +156,9 @@ struct FakeSink final : Sink {
     Quatf last_q{};
     bool backwards = false, stale = false, published_while_stale = false;
     std::vector<bool> changes;
-    void publish(const PoseOut& p) override {
+    void publish(const PoseOut& p, const PoseSource& source) override {
         CHECK(p.calibrated);
+        CHECK(source.sample.seq == p.seq && source.sample.t_ns == p.t_ns);
         if (p.t_ns <= last_t) backwards = true;
         if (stale) published_while_stale = true;
         last_t = p.t_ns; last_q = p.q; ++published;

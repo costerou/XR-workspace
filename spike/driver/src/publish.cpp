@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <new>
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ipc.h>
@@ -36,6 +37,12 @@ bool usable(const Quatf& q) {
 Quatf multiply(const Quatf& a, const Quatf& b) {
     return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
             a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w};
+}
+Quatf conjugate(const Quatf& q) { return {q.w, -q.x, -q.y, -q.z}; }
+// v seen from a frame turned by m: the vector part of conj(m) * v * m.
+Vec3f seen_from(const Quatf& m, const Vec3f& v) {
+    const Quatf r = multiply(multiply(conjugate(m), Quatf{0, v[0], v[1], v[2]}), m);
+    return {r.x, r.y, r.z};
 }
 // A live process named xrDriver under proc_root: its pid, empty if none. In a stat line the name runs to the last ')' and the state
 // follows; a zombie's name stays until it is reaped, and it writes nothing.
@@ -67,6 +74,7 @@ struct Publisher::Impl {
     float* pose = nullptr;
     pthread_mutex_t* mutex = nullptr;
     bool* disabled = nullptr;
+    PredictionWire* wire = nullptr;
 
     std::vector<Entry> ring;  // 2 * history_step + 1 samples, ring[head] the oldest once full
     std::size_t head = 0, count = 0;
@@ -76,6 +84,7 @@ struct Publisher::Impl {
 
     ~Impl() {
         if (disabled) set_disabled(true);
+        if (wire) write_prediction(*wire, MotionState{});
         for (void* addr : attached) shmdt(addr);
         for (int id : ids) shmctl(id, IPC_RMID, nullptr);
         for (const auto& path : files) unlink(path.c_str());
@@ -161,6 +170,7 @@ struct Publisher::Impl {
     }
     void pause() {
         set_disabled(true);
+        write_prediction(*wire, MotionState{});
         live = false;
         head = count = 0;
     }
@@ -196,6 +206,10 @@ std::unique_ptr<Publisher> Publisher::open(const PublisherOptions& options, std:
     if (!fov) return nullptr;
     auto* look_ahead = static_cast<float*>(s.attach("look_ahead_cfg", sizeof(float) * 4, why));
     if (!look_ahead) return nullptr;
+    void* wire = s.attach(kPredictionIpcName, sizeof(PredictionWire), why);
+    if (!wire) return nullptr;
+    s.wire = new (wire) PredictionWire();  // one writer (claim), and a reader retries on any change of seq
+    write_prediction(*s.wire, MotionState{});
     if (!s.init_mutex()) { why = "cannot initialise the pose mutex"; return nullptr; }
     std::memcpy(s.pose, kResetPose, sizeof kResetPose);
     *fov = options.display_fov_deg;
@@ -241,5 +255,18 @@ bool Publisher::publish(const PoseOut& pose) {
 }
 
 void Publisher::pause() { impl_->pause(); }
+
+void Publisher::publish_motion(const MotionState& state) {
+    auto& s = *impl_;
+    if (!state.valid || !state.calibrated || !usable(state.q)) { write_prediction(*s.wire, MotionState{}); return; }
+    MotionState out = state;
+    if (s.mounted) {
+        out.q = multiply(state.q, s.mount);
+        out.omega_rad_s = seen_from(s.mount, state.omega_rad_s);
+        out.alpha_rad_s2 = seen_from(s.mount, state.alpha_rad_s2);
+    }
+    write_prediction(*s.wire, out);
+    ++s.stats.motion;
+}
 PublisherStats Publisher::stats() const { return impl_->stats; }
 }

@@ -12,6 +12,10 @@
 //   is written from the 2 * history_step + 1st on. t are whole milliseconds as floats (exact below 2^24), truncated, from
 //   the first sample, and restart at 0 a second short of 2^24.
 //
+// Beside it, one segment XRLinuxDriver does not have: pose_prediction, the PredictionWire of predict.hpp (64 bytes, magic
+// "LPR1"), with the newest pose and its angular velocity and acceleration from the gyro. No reader uses it yet; the feed above
+// is unchanged by it. See publish_motion.
+//
 // The rest of the driver's segments (pose_position, keepalive_date, display_resolution, ...) have no reader here.
 //
 // Where it differs from the driver on purpose, none of it visible to a reader that works today:
@@ -32,6 +36,7 @@
 //   - open refuses when another writer is running: see PublisherOptions::proc_root.
 //
 // Publisher is for one thread. publish() does not allocate.
+#include "luma/predict.hpp"
 #include "luma/types.hpp"
 #include <array>
 #include <cstdint>
@@ -71,6 +76,7 @@ struct PublisherStats {
     std::uint64_t written = 0;
     std::uint64_t invalid = 0;  // quaternions dropped
     std::uint64_t busy = 0;     // writes skipped on a held lock, their samples kept
+    std::uint64_t motion = 0;   // valid states written to pose_prediction
 };
 
 class Publisher {
@@ -92,6 +98,11 @@ public:
     // The feed is stale or the glasses went away: readers get no sample until the next publish that writes. History starts
     // over, the clock of t is kept. (Daemon's set_stale(true); its set_stale(false) needs nothing, publish clears it.)
     void pause();
+    // The motion of the newest pose on pose_prediction: omega and alpha from the gyro (Predictor::state). q, omega and alpha
+    // are turned by mount_pitch_deg as the feed's q0 is, so extrapolate() on what a reader gets starts from the feed's pose and
+    // moves as the head does. Never waits, and is written whether or not publish() got the lock. A state that is not valid and
+    // calibrated, or whose q is unusable, is written as "no sample", as are open() and pause().
+    void publish_motion(const MotionState& state);
 
     PublisherStats stats() const;
 private:

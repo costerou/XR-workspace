@@ -70,8 +70,9 @@ goal, and anything marked **(not measured)** has no baseline yet.
    `pose_orientation` (16 floats), `pose_orientation_mutex` (process-shared robust
    `pthread_mutex_t`), `disabled`, `display_fov`, `look_ahead_cfg`. Single writer, enforced by
    `flock` on `<prefix>writer.lock`.
-8. **Newer pose channels, published but unused.** Seqlock `/dev/shm/xr-luma-pose` (`PoseRecord`,
-   40 bytes) and `PredictionWire` (64 bytes, magic `0x4c505231`).
+8. **Newer pose channels, unused.** Seqlock `/dev/shm/xr-luma-pose` (`PoseRecord`,
+   40 bytes; only `bench/` writes it so far) and `PredictionWire` (64 bytes, magic `0x4c505231`), which
+   `xr-luma-driver` writes on every sample since D3 as the SysV segment `<prefix>pose_prediction`.
 9. **Depth.** `XRD1` memfd, 4,096-byte header, seqlock, three slots.
 10. **Files on disk.** `journal.json`, consent `<run_id>.json`, `.progress.json`, `.result.json`,
     `.recovery.json`, `installed.json`, the pin files, `profiles.json`, `window-memory.json`.

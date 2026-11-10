@@ -276,7 +276,8 @@ void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
     if (outage_) begin_after_outage(now);
     if (announce_calibrating_) { announce_calibrating_ = false; logf("luma: calibrating"); }
 
-    PoseOut pose = estimator_->update(steady_time(sample, now));
+    const ImuSample steady = steady_time(sample, now);
+    PoseOut pose = estimator_->update(steady);
     if (!pose.calibrated) {
         if (calibrated_) {  // the estimator gave up its calibration (a new one is its call, not ours)
             calibrated_ = announced_ = false;
@@ -296,7 +297,7 @@ void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
         logf("luma: fresh gap_ms=%llu", (unsigned long long)(quiet / kMs));
     }
     set_stale(false);
-    parts_.sink.publish(pose);
+    parts_.sink.publish(pose, PoseSource{steady, estimator_->gyro_bias_rad_s(), now});
     last_published_t_ = pose.t_ns;
     last_q_ = pose.q;
     have_last_q_ = true;
