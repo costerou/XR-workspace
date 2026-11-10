@@ -72,6 +72,7 @@ pub mod neighbors;
 pub mod options_geometry;
 pub mod orbit;
 pub mod overview_pointer;
+pub mod pointer_host;
 pub mod unified_pointer;
 #[cfg(test)]
 mod pointer_math_corpus_tests;

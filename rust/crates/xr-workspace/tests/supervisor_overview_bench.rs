@@ -15,9 +15,10 @@
 //! `Hyprland` in a private runtime directory, and `FAKE_RENDERER` sending 120 Hz heartbeats and reading every frame.
 //! Nothing touches the live compositor: the client is given the fake's instance and runtime directory explicitly.
 //!
-//! The pointer is a stand-in until the overview pointer's port lands: in the overview it turns each sample that moved
-//! the cursor into one `overview_pointer` frame (what `OverviewPointer.feed` and `poll` do for the dot), signalling the
-//! loop's wake fd from `feed`. Its want is constant, so the sampler makes no binds or warps.
+//! The pointer is the real one: an `OverviewPointer` (a `UnifiedPointer` for the unified sampler) on a minimal
+//! `Control` holding the view state, shared by the sampler thread and the run loop through `pointer_host`. In the
+//! overview each sample that moved the dot signals the loop's wake fd and the loop's poll writes its
+//! `overview_pointer` frame; the unified sampler installs its click binds (Lua text to the fake) as the real one does.
 //!
 //! Measured: the whole process's CPU (`getrusage(RUSAGE_SELF)`, user + system) over the window, as % of one core;
 //! per thread from `/proc/self/task/*/schedstat` (the loop thread and `xr-sampler`).
@@ -36,11 +37,15 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use xr_workspace::hyprland;
-use xr_workspace::resize::OutputRect;
+use xr_workspace::geometry::Placement;
+use xr_workspace::supervisor::edge_pan::PanFrame;
+use xr_workspace::supervisor::orbit::Geometry;
+use xr_workspace::supervisor::overview_pointer::{Control, OverviewPointer};
+use xr_workspace::supervisor::pointer_host::{self, PointerHook, SharedPointer};
 use xr_workspace::supervisor::sampler::live::Live;
-use xr_workspace::supervisor::sampler::{
-    Mode, Monotonic, PanPlan, SAMPLE_S, SampledPointer, Sampler, Side, Variant, Want, run,
-};
+use xr_workspace::supervisor::sampler::{Clock, Monotonic, SAMPLE_S, Sampler, Variant, run};
+use xr_workspace::supervisor::unified_pointer::UnifiedPointer;
+use xr_workspace::supervisor::view::{ViewOptions, ViewState};
 use xr_workspace::supervisor::{LoopHook, POLL_INTERVAL, Renderer, Supervisor, WakeFd};
 
 const INSTANCE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_1700000000_1";
@@ -147,6 +152,16 @@ impl Compositor {
     }
 }
 
+/// The fake's `cursorpos` requests so far: one per sample the sampler took.
+fn cursor_requests(socket: &Path) -> u64 {
+    let mut s = UnixStream::connect(socket).unwrap();
+    s.write_all(b"stats").unwrap();
+    let mut data = Vec::new();
+    s.read_to_end(&mut data).unwrap();
+    let stats = serde_json::from_slice::<serde_json::Value>(&data).unwrap();
+    stats["counts"]["j/cursorpos"].as_u64().unwrap_or(0)
+}
+
 impl Drop for Compositor {
     fn drop(&mut self) {
         let _ = self.proc.kill();
@@ -194,146 +209,143 @@ fn start_renderer(out: &Path) -> (UnixStream, Child) {
     (parent, proc)
 }
 
-struct NoPlan;
-
-impl PanPlan for NoPlan {
-    type Frame = ();
-    fn home(&self) -> i64 {
-        0
-    }
-    fn target(&self) -> i64 {
-        0
-    }
-    fn side(&self) -> Side {
-        Side::Left
-    }
-    fn exit(&self) -> f64 {
-        0.0
-    }
-    fn entry(&self) -> f64 {
-        0.0
-    }
-    fn total_px(&self) -> f64 {
-        0.0
-    }
-    fn frame(&self, _: f64) {}
+/// The control the pointer drives, as little of `view.ViewControl` as the overview's dot needs: the bench's three
+/// desktops, overview open (or zoomed in, closed), and no pills, panels or window sender. Its calls send nothing.
+struct BenchControl {
+    state: ViewState,
+    next_id: u64,
 }
 
-type Point = Option<(i64, i64)>;
-
-/// What the stand-in pointer's two sides share.
-#[derive(Default)]
-struct Dot {
-    open: AtomicBool,
-    /// The newest cursor fed that the loop has not drawn yet, and the last one fed.
-    pending: Mutex<(Point, Point)>,
-    fed: AtomicU64,
-    moved: AtomicU64,
-    frames: AtomicU64,
-}
-
-/// The sampler's side: in the overview, a sample that moved the cursor is queued for the loop and signals it.
-struct Pointer {
-    dot: Arc<Dot>,
-    wake: Arc<WakeFd>,
-}
-
-impl SampledPointer for Pointer {
-    type Plan = NoPlan;
-    fn overview(&mut self) -> bool {
-        self.dot.open.load(Ordering::SeqCst)
+impl Control for BenchControl {
+    fn state(&self) -> &ViewState {
+        &self.state
     }
-    fn restore_sampling(&mut self) -> bool {
-        false
+    fn state_mut(&mut self) -> &mut ViewState {
+        &mut self.state
     }
-    fn restore_release(&mut self) {}
-    fn want(&mut self) -> Want {
-        Want {
-            serial: 0,
-            kind: Mode::Away,
-            point: None,
-        }
-    }
-    fn binds_dropped(&mut self) -> bool {
-        false
-    }
-    fn clear_binds_dropped(&mut self) {}
-    fn mode(&mut self) -> Mode {
-        Mode::Away
-    }
-    fn feed(&mut self, cursor: Option<(i64, i64)>, _: (f64, f64), _: &[OutputRect], _: i64) {
-        self.dot.fed.fetch_add(1, Ordering::Relaxed);
-        if !self.dot.open.load(Ordering::SeqCst) || cursor.is_none() {
-            return;
-        }
-        let mut p = self.dot.pending.lock().unwrap();
-        if p.1 != cursor {
-            p.1 = cursor;
-            p.0 = cursor;
-            drop(p);
-            self.dot.moved.fetch_add(1, Ordering::Relaxed);
-            self.wake.signal();
-        }
-    }
-    fn handles_on(&mut self) -> bool {
-        false
-    }
-    fn sync(&mut self) -> i64 {
+    fn reloads(&self) -> i64 {
         0
     }
-    fn shape_gated(&mut self) -> bool {
-        false
+    fn run_id(&self) -> &str {
+        "bench"
     }
-    fn shape_pushed(&mut self) -> bool {
-        false
+    fn session(&self) -> &str {
+        "session"
     }
-    fn shape_serial(&mut self) -> i64 {
-        0
+    fn next_id(&self) -> u64 {
+        self.next_id
     }
-    fn feed_shape(&mut self, _: Option<&str>, _: i64) {}
-    fn set_shape_wired(&mut self, _: bool) {}
-    fn reloads(&mut self) -> i64 {
-        0
+    fn set_next_id(&mut self, id: u64) {
+        self.next_id = id;
     }
-    fn selected(&mut self) -> i64 {
-        0
+    fn set_save_due(&mut self, _: f64) {}
+    fn set_last_input(&mut self, _: f64) {}
+    fn clock(&mut self) -> f64 {
+        Monotonic.now()
     }
-    fn set_pan(&mut self, _: Option<&()>) {}
-    fn request_switch(&mut self, _: i64, _: i64, _: bool) {}
-    fn pan_plan(&mut self, _: i64, _: Side, _: f64, _: &OutputRect) -> Option<NoPlan> {
-        None
+    fn placement_frame(&mut self) -> Vec<u8> {
+        Vec::new()
     }
-    fn neighbour(&mut self, _: Side, _: f64) -> Option<i64> {
-        None
+    fn menu_frame(&mut self) -> Vec<u8> {
+        Vec::new()
     }
-    fn can_switch(&mut self) -> bool {
-        false
+    fn frame(&mut self) -> Vec<u8> {
+        Vec::new()
     }
-    fn can_scroll(&mut self) -> bool {
-        false
+    fn follow_focus(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn flush(&mut self) {}
+    fn select_desktop(&mut self, i: usize, _: Option<bool>) -> Vec<u8> {
+        self.state.selected = i;
+        Vec::new()
+    }
+    fn switch_desktop(&mut self, i: usize, _: bool) -> Vec<u8> {
+        self.state.selected = i;
+        Vec::new()
+    }
+    fn pill_click(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn pill_release(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn pill_close(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn pill_slide(&mut self, _: usize, _: &str, _: f64, _: Option<&Placement>) -> Vec<u8> {
+        Vec::new()
+    }
+    fn panel_keys_on(&mut self) {}
+    fn desktop_press(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn immersive_click(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn immersive_tail_click(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn desktop_action(&mut self, _: usize, _: &str) -> Vec<u8> {
+        Vec::new()
+    }
+    fn help_turn(&mut self, _: i64) -> Vec<u8> {
+        Vec::new()
+    }
+    fn maximize_monitor(&mut self, _: &str) -> Vec<u8> {
+        Vec::new()
+    }
+    fn scale_close(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn resolution_close(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn background_close(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn scale_box(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn scale_pick(&mut self, _: usize, _: i64) -> Vec<u8> {
+        Vec::new()
+    }
+    fn resolution_box(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn resolution_pick(&mut self, _: usize, _: (i64, i64)) -> Vec<u8> {
+        Vec::new()
+    }
+    fn background_box(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn background_pick(&mut self, _: usize, _: &str) -> Vec<u8> {
+        Vec::new()
+    }
+    fn background_switch(&mut self, _: usize) -> Vec<u8> {
+        Vec::new()
+    }
+    fn pan_frame(&mut self, _: Option<&PanFrame>) -> Vec<u8> {
+        Vec::new()
     }
 }
 
-/// The loop's side: one `overview_pointer` frame per queued cursor.
-struct Hook {
-    dot: Arc<Dot>,
-    wake: Arc<WakeFd>,
+/// The renderer's overview layout (`bench_control.GEOMETRY`, tests/native_spike/fixtures/overview_pointer_payloads.json).
+fn layout() -> Geometry {
+    let tile = |x: f64| [x, 435.0, 586.67, 330.0];
+    Geometry {
+        w: 1920,
+        h: 1200,
+        half: [0.36, 0.225],
+        tiles: vec![tile(40.0), tile(666.67), tile(1293.33)],
+    }
 }
 
-impl LoopHook for Hook {
-    fn wake_fd(&self) -> &WakeFd {
-        &self.wake
-    }
-    fn poll(&mut self, _: Instant, out: &mut Vec<u8>) {
-        if let Some((x, y)) = self.dot.pending.lock().unwrap().0.take() {
-            writeln!(
-                out,
-                r#"{{"op":"overview_pointer","payload":{{"x":{x},"y":{y},"visible":true}}}}"#
-            )
-            .unwrap();
-            self.dot.frames.fetch_add(1, Ordering::Relaxed);
-        }
-    }
+/// `overview_pointer` frames in a batch of the loop's.
+fn dot_frames(out: &[u8]) -> u64 {
+    out.split(|&b| b == b'\n')
+        .filter(|line| line.windows(18).any(|w| w == br#""overview_pointer""#))
+        .count() as u64
 }
 
 fn process_cpu() -> Duration {
@@ -404,19 +416,20 @@ fn bench(variant: Variant, open: bool) -> Report {
     let out = scratch.0.join("renderer.json");
     let (parent, renderer) = start_renderer(&out);
 
-    let dot = Arc::new(Dot::default());
-    dot.open.store(open, Ordering::SeqCst);
-    let wake = Arc::new(WakeFd::new().unwrap());
-    let pointer = Pointer {
-        dot: Arc::clone(&dot),
-        wake: Arc::clone(&wake),
+    // The overview is open unless zoomed in (all else off: no video, typing mode or key panel).
+    let mut state = ViewState::new(&NAMES, ViewOptions::default()).unwrap();
+    state.zoomed = !open;
+    let control = BenchControl { state, next_id: 1 };
+    let pointer = match variant {
+        Variant::Unified => SharedPointer::unified(UnifiedPointer::new(control, pointer_host::monotonic()).unwrap()),
+        _ => SharedPointer::overview(OverviewPointer::new(control, pointer_host::monotonic()).unwrap()),
     };
-    let mut hook = Hook {
-        dot: Arc::clone(&dot),
-        wake,
-    };
+    pointer.lock().set_geometry(Some(layout()));
+    let mut hook = pointer.hook();
+    let frames = Arc::new(AtomicU64::new(0));
     let client = hyprland::Client::new(INSTANCE, &scratch.runtime()).unwrap();
-    let bind_args = ["python", "client", "control.sock", "bench", "session"]
+    // Absolute paths, as the bind command's checks need: the click binds are only Lua text to the fake, never run.
+    let bind_args = ["/usr/bin/python3", "/xr-bench/client.py", "/xr-bench/control.sock", "bench", "session"]
         .map(String::from)
         .to_vec();
     let sampler = Sampler::new(
@@ -431,6 +444,7 @@ fn bench(variant: Variant, open: bool) -> Report {
     );
     let handle = run::start(sampler);
     let framed = Arc::new(AtomicU64::new(0));
+    let socket = fake.socket.clone();
 
     let interrupt = Arc::new(AtomicBool::new(false));
     let loop_tid = unsafe { libc::gettid() };
@@ -438,8 +452,8 @@ fn bench(variant: Variant, open: bool) -> Report {
     let mut watchdog = Supervisor::new(Proc(renderer), |_| (), Instant::now());
     let passes = Arc::new(AtomicU64::new(0));
     let timer = {
-        let (interrupt, marks, dot) =
-            (Arc::clone(&interrupt), Arc::clone(&marks), Arc::clone(&dot));
+        let (interrupt, marks, frames) =
+            (Arc::clone(&interrupt), Arc::clone(&marks), Arc::clone(&frames));
         let (framed, passes) = (Arc::clone(&framed), Arc::clone(&passes));
         thread::spawn(move || {
             let sampler_tid = tid_named("xr-sampler").expect("the sampler thread");
@@ -448,26 +462,28 @@ fn bench(variant: Variant, open: bool) -> Report {
                 process: process_cpu(),
                 looping: thread_cpu(loop_tid),
                 sampler: thread_cpu(sampler_tid),
-                samples: dot.fed.load(Ordering::Relaxed),
+                samples: cursor_requests(&socket),
                 passes: passes.load(Ordering::Relaxed),
             };
             thread::sleep(WARMUP);
             let start = mark();
-            let frames0 = dot.frames.load(Ordering::Relaxed);
+            let frames0 = frames.load(Ordering::Relaxed);
             thread::sleep(window());
             let end = mark();
             framed.store(
-                dot.frames.load(Ordering::Relaxed) - frames0,
+                frames.load(Ordering::Relaxed) - frames0,
                 Ordering::Relaxed,
             );
             marks.lock().unwrap().extend([start, end]);
             interrupt.store(true, Ordering::SeqCst);
         })
     };
-    // The loop's pass count is read by the timer thread through `passes`: a small hook wrapper keeps it current.
+    // The loop's pass count and the dot frames sent are read by the timer thread: a small hook wrapper keeps them
+    // current.
     struct Counting<'a> {
-        inner: &'a mut Hook,
+        inner: &'a mut PointerHook<BenchControl>,
         passes: &'a AtomicU64,
+        frames: &'a AtomicU64,
     }
     impl LoopHook for Counting<'_> {
         fn wake_fd(&self) -> &WakeFd {
@@ -476,15 +492,18 @@ fn bench(variant: Variant, open: bool) -> Report {
         fn deadline(&mut self) -> Option<Instant> {
             // Read once per pass, before the wait: counts the passes without changing them.
             self.passes.fetch_add(1, Ordering::Relaxed);
-            None
+            self.inner.deadline()
         }
         fn poll(&mut self, now: Instant, out: &mut Vec<u8>) {
-            self.inner.poll(now, out)
+            let before = out.len();
+            self.inner.poll(now, out);
+            self.frames.fetch_add(dot_frames(&out[before..]), Ordering::Relaxed);
         }
     }
     let mut counting = Counting {
         inner: &mut hook,
         passes: &passes,
+        frames: &frames,
     };
     watchdog
         .run_hosting(&parent, None, &mut counting, &interrupt, POLL_INTERVAL)
@@ -510,13 +529,13 @@ fn bench(variant: Variant, open: bool) -> Report {
         frames_per_s: framed.load(Ordering::Relaxed) as f64 / secs,
         loop_passes_per_s: (b.passes - a.passes) as f64 / secs,
         renderer_frames,
-        frames_sent: dot.frames.load(Ordering::Relaxed),
+        frames_sent: frames.load(Ordering::Relaxed),
         cursor_requests: counts["j/cursorpos"].as_u64().unwrap_or(0),
         other_requests: counts,
     };
     println!(
         "{variant:?} overview {}: process {:.3} % of a core over {:.1} s (loop thread {:.3} %, sampler thread {:.3} %); \
-         {:.1} samples fed/s, {:.1} frames/s, {:.1} loop passes/s; frames sent {} / renderer read {}; sampler {} samples, \
+         {:.1} cursor samples/s, {:.1} frames/s, {:.1} loop passes/s; frames sent {} / renderer read {}; sampler {} samples, \
          {} errors; fake compositor: {} cursorpos requests in all, {}",
         if open { "open" } else { "closed" },
         report.process_pct,
@@ -533,6 +552,7 @@ fn bench(variant: Variant, open: bool) -> Report {
         report.cursor_requests,
         report.other_requests,
     );
+    assert_eq!(sampler.errors, 0, "every sampler call made");
     assert_eq!(
         watchdog.stop_reason,
         Some(xr_workspace::supervisor::StopReason::Interrupted)

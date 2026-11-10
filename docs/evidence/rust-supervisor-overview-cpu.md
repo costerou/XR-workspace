@@ -1,6 +1,6 @@
 # RR-64: supervisor CPU with the overview open (Rust)
 
-Recorded 2026-11-10 for the Rust rebuild's supervisor-CPU gate (`docs/rust-rebuild-plan.md`, section 4: "Supervisor CPU
+Recorded 2026-11-10 (re-run at 14:30 with the real pointer) for the Rust rebuild's supervisor-CPU gate (`docs/rust-rebuild-plan.md`, section 4: "Supervisor CPU
 with overview open", ≤ 1 % of a core; the Python baseline was 3.7 %).
 
 ```sh
@@ -31,7 +31,7 @@ instance signature and runtime directory explicitly.
 | Sampler | The real sampler thread (`sampler::run::start`), `Variant::Unified`, 250 Hz, on `sampler::live::Live` over a real `hyprland::Client`: the one-shot request socket, with each query after the first sent on a `Lane`. |
 | Compositor | `bench_control.FAKE_HYPRLAND` in `oscillate` mode with a 0.02 s period, so the cursor moves 10 px every 20 ms. It runs as its own process, under an interpreter copy named `Hyprland`, in a private 0700 runtime directory under `/tmp`. This is the same fake that `FakeCompositor('oscillate', 0.02)` starts for the Python bench. |
 | Renderer | `bench_control.FAKE_RENDERER` as its own process: it sends 120 Hz heartbeats and reads and counts every frame. |
-| Pointer | A stand-in `SampledPointer` and `LoopHook` pair in the bench file. In the overview, each sample that moved the cursor queues one `overview_pointer` frame and signals the loop's `WakeFd`. The loop's `poll` writes the frame. The want is constant, so the sampler makes no binds or warps. |
+| Pointer | The real `UnifiedPointer` (an `OverviewPointer` for the Locked test), on a minimal `Control` holding a `ViewState` and the bench layout's `Geometry`. `supervisor::pointer_host` shares it between the two threads: the sampler reads and feeds it through `SampledPointer`, one lock per call; the run loop polls it through `PointerHook`, its `LoopHook`. The loop polls only when the pointer's `WakeFd` is signalled or one of its own timers (`pointer_host::due`) is up. The unified sampler installs its click binds as it would live; they are Lua text the fake answers `ok` to. |
 
 CPU is the whole supervisor process: `getrusage(RUSAGE_SELF)`, user plus system time, across the window, as a
 percentage of one core. The fakes are separate processes, so their CPU is not counted. The per-thread split comes from
@@ -43,7 +43,27 @@ desktop was in normal use while the bench ran, at a load average of about 1.5 to
 
 ## Results
 
-Every figure is a percentage of one core. Six runs of the Rust bench, each test 10 s. Run 1 was at 12:18 (load average about 2.9), runs 2 to 4 at 12:48 (about
+Every figure is a percentage of one core.
+
+### The real pointer
+
+Three runs of the Rust bench, each test 10 s, at 14:25 to 14:32 (load average about 1.2). Each cell lists runs 1 to 3.
+
+| Run | Process | Loop thread | Sampler thread |
+|---|---|---|---|
+| Rust, overview open (Unified) | 0.49 / 0.55 / 0.49 | 0.15 / 0.16 / 0.16 | 0.34 / 0.40 / 0.34 |
+| Rust, overview closed, Unified, cursor on XR-1 | 0.47 / 0.40 / 0.44 | 0.07 / 0.06 / 0.07 | 0.40 / 0.34 / 0.37 |
+| Rust, overview closed, Locked sampler (it blocks) | 0.08 / 0.09 / 0.09 | 0.08 / 0.09 / 0.09 | 0.00 |
+
+The same in every run: about 245 `cursorpos` samples a second in both Unified tests and none in the Locked one. With the
+overview open, the pointer was fed 2702 to 2705 samples, and 551 `overview_pointer` frames were sent and all 551 read
+by the renderer (50 a second). Loop passes ran at 170 a second open and 120 a second closed. There were 0 sampler
+errors; the bench now asserts that. The fake saw 5 `/eval` requests with the overview open, the click binds among them.
+
+### The stand-in pointer (earlier runs)
+
+Before the pointer's port landed, the bench used a stand-in pointer. It turned each sample that moved the cursor into one
+frame, and its want never changed, so the sampler made no binds or warps. Six runs of the Rust bench, each test 10 s. Run 1 was at 12:18 (load average about 2.9), runs 2 to 4 at 12:48 (about
 1.8), and runs 5 and 6 at 12:58 (about 2 to 2.6). Each cell lists runs 1 to 6 in order.
 
 | Run | Process | Loop thread | Sampler thread |
@@ -74,7 +94,8 @@ shows `sampler_errors` close to one per sample, which this task did not look int
 
 ## Reading it against the target
 
-**Gate met: 0.46 to 0.81 % of one core with the overview open, against ≤ 1 %. Python was 3.6 to 4.3 % on the same
+**Gate met with the real pointer: 0.49 to 0.55 % of one core with the overview open. With the stand-in it was 0.46 to
+0.81 %, against ≤ 1 %. Python was 3.6 to 4.3 % on the same
 machine, and 3.7 % in the baseline.** The bench asserts the 1 % limit. The margin is real but not wide (the worst run
 was 0.81 %, on a loaded desktop), and almost all of it is the sampler's socket round trips.
 
@@ -93,9 +114,9 @@ was 0.81 %, on a loaded desktop), and almost all of it is the sampler's socket r
   costs only the heartbeat loop. The Unified sampler keeps sampling at 250 Hz outside the overview while the cursor
   is on an XR monitor, to hold the cursor on home and to drive the edge push. Python behaves the same way. In that
   case a closed overview costs about the same as an open one. This bench does not change that behaviour.
-- **The stand-in pointer.** The pointer in this bench is a stand-in until the overview pointer's port lands. It does
-  none of the real pointer's mapping maths, state machine or `ViewControl` work, and its constant want means no binds
-  or warps. The real pointer's per-sample maths is small next to a socket round trip, but it is not measured here.
-  When the real `OverviewPointer` replaces the stand-in, re-run this bench to confirm the gate.
+- **The real pointer.** The real pointer's mapping maths, state machine and frame building cost little next to a
+  socket round trip. With the overview open, the loop thread went from about 0.1 % (stand-in) to about 0.16 %. The
+  sampler thread did not change. The pointer adds no timer wakes of its own while the cursor moves: its due times are
+  the idle close, held presses, a resting pan and the restore band's dwell, and none of them falls due here.
 - **Machine load.** The machine was a working desktop, not idle, and the runs vary. The samples per second come in
   slightly under 250 because each wait is timed from the end of the previous sample.
