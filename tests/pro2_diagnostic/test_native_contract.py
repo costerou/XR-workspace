@@ -16,7 +16,7 @@ class NativeContractTests(unittest.TestCase):
         self.binary=Path(self.tmp.name)/'native-contract'
         subprocess.run(['c++','-std=c++20','-Wall','-Wextra','-Werror','-pthread',
             '-I'+str(ROOT/'spike/include'),'-I'+str(ROOT/'spike/driver/include'),
-            str(Path(__file__).with_name('native_contract.cpp')),str(ROOT/'spike/src/pose.cpp'),
+            str(Path(__file__).with_name('native_contract.cpp')),str(ROOT/'spike/src/pose.cpp'),str(ROOT/'spike/driver/src/rt.cpp'),
             str(ROOT/'spike/driver/src/publish.cpp'),str(ROOT/'spike/driver/src/predict.cpp'),str(ROOT/'spike/driver/src/vsync.cpp'),'-o',str(self.binary)],check=True)
     def run_rows(self,rows):
         adapter=ReplayAdapter(replay_only=True);data=bytearray();first=rows[0]['host_monotonic_ns']

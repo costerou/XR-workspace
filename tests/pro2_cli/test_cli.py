@@ -15,7 +15,7 @@ class FullCliTests(unittest.TestCase):
             sdk=p/'fixture.so';probe=p/'probe';bridge=bundle/'bin/pro2-sdk-bridge'
             for cmd in (
                 ['cc','-shared','-fPIC','-pthread','tests/pro2_runtime_qa/sdk_fixture.c','-o',str(sdk)],
-                ['c++','-std=c++20','-pthread','-Ispike/include','tests/pro2_runtime/probe.cpp','spike/src/pose.cpp','-o',str(probe)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
+                ['c++','-std=c++20','-pthread','-Ispike/include','-Ispike/driver/include','tests/pro2_runtime/probe.cpp','spike/src/pose.cpp','spike/driver/src/rt.cpp','-o',str(probe)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
             build_bridge(bridge)
             (bundle/'bin/xr-native-spike').write_text((HERE/'renderer.py').read_text().replace('#!/usr/bin/env python3','#!'+sys.executable));(bundle/'bin/xr-native-spike').chmod(0o700)
             manifest=json.loads((bundle/'manifest.json').read_text());manifest['sdk_sha256']=hashlib.sha256(sdk.read_bytes()).hexdigest()

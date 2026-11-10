@@ -29,6 +29,7 @@ fn pose_test() -> &'static PathBuf {
             .arg(spike.join("src/pose.cpp"))
             .arg(spike.join("src/motion_feed.cpp"))
             .arg(spike.join("driver/src/predict.cpp"))
+            .arg(spike.join("driver/src/rt.cpp"))
             .arg("-o")
             .arg(&out)
             .status()

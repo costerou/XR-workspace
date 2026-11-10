@@ -59,7 +59,7 @@ class RustBridgeParity(unittest.TestCase):
         cls.sdk = build / 'fixture.so'; cls.probe = build / 'probe'; cls.cpp = build / 'cpp-bridge'
         cls.rust = Path(RUST) / 'synthetic/xr-pro2-bridge'; cls.rust_production = Path(RUST) / 'production/xr-pro2-bridge'
         for cmd in (['cc', '-std=c11', '-shared', '-fPIC', '-pthread', str(HERE / 'sdk_fixture.c'), '-o', str(cls.sdk)],
-                    ['c++', '-std=c++20', '-pthread', '-Ispike/include', str(HERE / 'probe.cpp'), 'spike/src/pose.cpp', '-o', str(cls.probe)],
+                    ['c++', '-std=c++20', '-pthread', '-Ispike/include', '-Ispike/driver/include', str(HERE / 'probe.cpp'), 'spike/src/pose.cpp', 'spike/driver/src/rt.cpp', '-o', str(cls.probe)],
                     cpp_command(cls.cpp)):
             subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True)
         cls.digest = hashlib.sha256(cls.sdk.read_bytes()).hexdigest()

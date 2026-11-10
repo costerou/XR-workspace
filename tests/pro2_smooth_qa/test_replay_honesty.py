@@ -73,7 +73,7 @@ class Replay(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.binary = Path(cls.tmp.name) / 'replay'
-        subprocess.run(['c++', '-std=c++20', '-O1', '-pthread', '-Ispike/include', 'spike/tests/pro2_smooth_replay.cpp', 'spike/src/motion_smooth.cpp', 'spike/src/predict.cpp', 'spike/src/pose.cpp', '-o', str(cls.binary)], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(['c++', '-std=c++20', '-O1', '-pthread', '-Ispike/include', '-Ispike/driver/include', 'spike/tests/pro2_smooth_replay.cpp', 'spike/src/motion_smooth.cpp', 'spike/src/predict.cpp', 'spike/src/pose.cpp', 'spike/driver/src/rt.cpp', '-o', str(cls.binary)], cwd=ROOT, check=True, capture_output=True)
 
     @classmethod
     def tearDownClass(cls): cls.tmp.cleanup()

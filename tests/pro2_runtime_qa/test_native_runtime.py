@@ -35,8 +35,8 @@ class NativeRuntimeQA(unittest.TestCase):
              str(HERE / 'sdk_fixture.c'), '-o', str(cls.sdk)],
             ['cc', '-std=c11', '-shared', '-fPIC', '-pthread',
              '-Dxr_device_provider_close_imu=fixture_missing_close', str(HERE / 'sdk_fixture.c'), '-o', str(cls.missing_sdk)],
-            ['c++', '-std=c++20', '-pthread', '-Ispike/include', str(HERE / 'probe.cpp'),
-             'spike/src/pose.cpp', '-o', str(cls.probe)],
+            ['c++', '-std=c++20', '-pthread', '-Ispike/include', '-Ispike/driver/include', str(HERE / 'probe.cpp'),
+             'spike/src/pose.cpp', 'spike/driver/src/rt.cpp', '-o', str(cls.probe)],
         ):
             subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True)
         build_bridge(cls.binary)

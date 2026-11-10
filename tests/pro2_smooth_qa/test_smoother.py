@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCES = ['tests/pro2_smooth_qa/smoother_cases.cpp', 'spike/src/motion_smooth.cpp', 'spike/src/predict.cpp', 'spike/src/pose.cpp']
+SOURCES = ['tests/pro2_smooth_qa/smoother_cases.cpp', 'spike/src/motion_smooth.cpp', 'spike/src/predict.cpp', 'spike/src/pose.cpp', 'spike/driver/src/rt.cpp']
 
 
 class Smoother(unittest.TestCase):
@@ -13,7 +13,7 @@ class Smoother(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.binary = Path(cls.tmp.name) / 'cases'
-        subprocess.run(['c++', '-std=c++20', '-O1', '-pthread', '-Ispike/include', *SOURCES, '-o', str(cls.binary)], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(['c++', '-std=c++20', '-O1', '-pthread', '-Ispike/include', '-Ispike/driver/include', *SOURCES, '-o', str(cls.binary)], cwd=ROOT, check=True, capture_output=True)
 
     @classmethod
     def tearDownClass(cls): cls.tmp.cleanup()

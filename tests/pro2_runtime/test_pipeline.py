@@ -20,7 +20,7 @@ class PipelineTests(unittest.TestCase):
             sdk=root/'fixture.so';binary=root/'bin/pro2-sdk-bridge';probe=root/'probe'
             for cmd in (
                 ['cc','-shared','-fPIC','-pthread',str(ROOT/'tests/pro2_runtime_qa/sdk_fixture.c'),'-o',str(sdk)],
-                ['c++','-std=c++20','-pthread','-Ispike/include','tests/pro2_runtime/probe.cpp','spike/src/pose.cpp','-o',str(probe)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
+                ['c++','-std=c++20','-pthread','-Ispike/include','-Ispike/driver/include','tests/pro2_runtime/probe.cpp','spike/src/pose.cpp','spike/driver/src/rt.cpp','-o',str(probe)]):subprocess.run(cmd,cwd=ROOT,check=True,capture_output=True)
             build_bridge(binary)
             digest=hashlib.sha256(sdk.read_bytes()).hexdigest()
             for name in ('xr-native-spike','libxr-ownership.so'):(root/'bin'/name).write_bytes(b'fixture')
