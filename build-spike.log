@@ -1,0 +1,75 @@
+-- The C compiler identification is GNU 16.2.1
+-- The CXX compiler identification is GNU 16.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Fast build tools: launcher='' linker='LLD'
+-- Found Python3: /home/cody/.hermes/installs/1df6b54374a86217/environments/40a1c4e358ee4682a3d84e06e0edb34f/venv/bin/python3.14 (found version "3.14.9") found components: Interpreter
+-- Found PkgConfig: /usr/bin/pkg-config (found version "3.0.10")
+-- Checking for module 'wayland-client>=1.22'
+--   Found wayland-client, version 1.26.0
+-- Checking for module 'wayland-protocols'
+--   Found wayland-protocols, version 1.49
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Checking for modules 'freetype2;fontconfig'
+--   Found freetype2, version 26.7.20
+--   Found fontconfig, version 2.18.3
+-- Checking for modules 'egl;glesv2;wayland-egl;gbm;libdrm'
+--   Found egl, version 1.5
+--   Found glesv2, version 3.2
+--   Found wayland-egl, version 18.1.0
+--   Found gbm, version 26.2.5-arch1.1
+--   Found libdrm, version 2.4.134
+-- Found ZLIB: /usr/lib/libz.so (found version "1.3.2")
+-- Checking for module 'mpv>=0.38'
+--   Found mpv, version 2.5.0
+-- Checking for module 'wayland-server>=1.22'
+--   Found wayland-server, version 1.26.0
+-- Checking for modules 'egl;glesv2;gbm'
+--   Found egl, version 1.5
+--   Found glesv2, version 3.2
+--   Found gbm, version 26.2.5-arch1.1
+-- Configuring done (0.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/cody/.t3/worktrees/XR-workspace/rust-p7-renderer-captur-7438c519424d1d19/build/spike
+[  0%] Building CXX object CMakeFiles/xr_capture.dir/src/capture.cpp.o
+[  0%] Linking CXX static library libxr_capture.a
+[  0%] Built target xr_capture
+[ 12%] Generating generated/ext-image-capture-source-v1-server-protocol.h
+[ 12%] Generating generated/ext-image-copy-capture-v1-server-protocol.h
+[ 12%] Generating generated/ext-image-copy-capture-v1-protocol.c
+[ 25%] Generating generated/xdg-shell-protocol.c
+[ 25%] Generating generated/ext-foreign-toplevel-list-v1-protocol.c
+[ 37%] Generating generated/fractional-scale-v1-protocol.c
+[ 50%] Generating generated/fractional-scale-v1-server-protocol.h
+[ 62%] Generating generated/ext-image-capture-source-v1-protocol.c
+[ 62%] Generating generated/linux-dmabuf-v1-server-protocol.h
+[ 62%] Generating generated/linux-dmabuf-v1-protocol.c
+[ 62%] Generating generated/viewporter-protocol.c
+[ 62%] Generating generated/wlr-layer-shell-unstable-v1-protocol.c
+[ 62%] Generating generated/viewporter-server-protocol.h
+[ 62%] Generating generated/presentation-time-protocol.c
+[ 62%] Generating generated/wlr-layer-shell-unstable-v1-server-protocol.h
+[ 62%] Generating generated/presentation-time-server-protocol.h
+[ 62%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/ext-foreign-toplevel-list-v1-protocol.c.o
+[ 75%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/wlr-layer-shell-unstable-v1-protocol.c.o
+[ 75%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/xdg-shell-protocol.c.o
+[ 75%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/presentation-time-protocol.c.o
+[ 75%] Building CXX object CMakeFiles/capture_e2e_bench.dir/bench/loopback_compositor.cpp.o
+[ 75%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/linux-dmabuf-v1-protocol.c.o
+[ 75%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/ext-image-copy-capture-v1-protocol.c.o
+[ 87%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/ext-image-capture-source-v1-protocol.c.o
+[100%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/viewporter-protocol.c.o
+[100%] Building C object CMakeFiles/capture_e2e_bench.dir/generated/fractional-scale-v1-protocol.c.o
+[100%] Linking CXX executable capture_e2e_bench
+[100%] Built target capture_e2e_bench
+EXIT 0
