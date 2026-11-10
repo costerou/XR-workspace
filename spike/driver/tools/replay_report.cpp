@@ -3,11 +3,15 @@
 // device, no feed. A real recording has no heading truth, so "drift at rest" is the slope of heading over windows where
 // the head barely moves: an upper bound, because a resting head also wanders.
 //
-//   luma_replay_report FILE.lcap|FILE.bin [--every SECONDS] [--set name=value ...] [--predict-ms N]
+//   luma_replay_report FILE.lcap|FILE.bin [--every SECONDS] [--set name=value ...] [--predict-ms N[,N...]]
 //
 // FILE.bin is 28-byte packets end to end, the form of tests/fixtures/luma_imu_real.bin. --set overrides a FusionConfig
-// field, for tuning against a recording. --predict-ms N scores pose prediction N ms ahead against where the head really
-// went: nothing, the finite difference the renderer does today from the feed's history, a raw gyro step, and Predictor.
+// field, for tuning against a recording. --predict-ms 10,17,25 is the prediction replay bench (rust-rebuild-plan D3): at
+// each horizon it predicts from every calibrated sample and scores the guess against the pose the recording reaches that
+// many ms later (by device time, the nearest sample). Four ways: nothing, the renderer's finite difference over the
+// feed's q0 and q1 16 samples back ("old", what runs today), a raw gyro step, and luma::Predictor, whose velocity and
+// acceleration are what PredictionWire carries ("new", D3). RMS and p95 per horizon, over all calibrated samples and with
+// the head moving; exit 1 if a horizon scored nothing.
 #include "luma/capture_file.hpp"
 #include "luma/fusion.hpp"
 #include "luma/predict.hpp"
@@ -111,12 +115,43 @@ struct Score {
     double sum_sq = 0;
     std::vector<double> errors;
     void add(double degrees) { sum_sq += degrees * degrees; errors.push_back(degrees); }
-    void print(const char* name) const {
-        const double n = double(std::max<std::size_t>(errors.size(), 1));
-        std::printf("  %-32s rms %6.3f  p99 %6.3f  max %6.3f deg\n", name, std::sqrt(sum_sq / n), percentile(errors, 0.99), percentile(errors, 0.9999));
+    double rms() const { return std::sqrt(sum_sq / double(std::max<std::size_t>(errors.size(), 1))); }
+};
+constexpr int kWays = 4, kOld = 1, kNew = 3;
+constexpr const char* kWayNames[kWays] = {"no prediction", "old: renderer finite diff", "raw gyro step", "new: luma::Predictor"};
+// Who is scored: every calibrated sample, the head moving over 20 deg/s, turning over 60 deg/s.
+constexpr int kGroups = 3;
+constexpr const char* kGroupNames[kGroups] = {"all", "moving >20 deg/s", "turning >60 deg/s"};
+constexpr double kGroupMinDegS[kGroups] = {-1, 20, 60};
+struct Guess { std::uint64_t target_ns; Dq way[kWays]; double rate_deg_s; };
+// One horizon of the bench: guesses waiting for the recording to get there, and how they did.
+struct Horizon {
+    int ms = 0;
+    std::deque<Guess> waiting;
+    Score score[kGroups][kWays];
+    std::uint64_t unscored = 0;  // the recording skipped past the target (lost samples)
+    // Score every guess whose target the sample at t_ns reaches, to the nearest sample at 1 kHz.
+    void reach(std::uint64_t t_ns, const Dq& now) {
+        while (!waiting.empty() && waiting.front().target_ns <= t_ns + 500'000) {
+            const Guess& g = waiting.front();
+            if (t_ns > g.target_ns + 1'500'000) ++unscored;
+            else for (int k = 0; k < kGroups; ++k) if (g.rate_deg_s > kGroupMinDegS[k])
+                for (int w = 0; w < kWays; ++w) score[k][w].add(angle_deg(g.way[w], now));
+            waiting.pop_front();
+        }
+    }
+    void print() const {
+        std::printf("\nprediction %d ms ahead (%llu guesses past a gap, unscored)\n", ms, (unsigned long long)unscored);
+        std::printf("  %-28s", "deg");
+        for (int k = 0; k < kGroups; ++k) std::printf(" | %-17s n %-6zu", kGroupNames[k], score[k][0].errors.size());
+        std::printf("\n");
+        for (int w = 0; w < kWays; ++w) {
+            std::printf("  %-28s", kWayNames[w]);
+            for (int k = 0; k < kGroups; ++k) std::printf(" | rms %6.3f p95 %6.3f      ", score[k][w].rms(), percentile(score[k][w].errors, 0.95));
+            std::printf("\n");
+        }
     }
 };
-struct Guess { Dq none, renderer, gyro, predictor; double rate_deg_s; };
 
 // Mean and spread of one 5 s stretch at rest.
 struct Window {
@@ -134,14 +169,23 @@ struct Window {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) { std::fputs("usage: luma_replay_report FILE [--every SECONDS] [--set name=value ...]\n", stderr); return 2; }
+    if (argc < 2) { std::fputs("usage: luma_replay_report FILE [--every SECONDS] [--set name=value ...] [--predict-ms N[,N...]]\n", stderr); return 2; }
     FusionConfig config;
     double every = 120;
-    int predict_ms = 0;
+    std::vector<Horizon> horizons;
     for (int i = 2; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--every" && i + 1 < argc) every = std::atof(argv[++i]);
-        else if (arg == "--predict-ms" && i + 1 < argc) predict_ms = std::atoi(argv[++i]);
+        else if (arg == "--predict-ms" && i + 1 < argc) {
+            for (const char* p = argv[++i]; *p;) {
+                char* end = nullptr;
+                const long ms = std::strtol(p, &end, 10);
+                if (end == p || ms < 1 || ms > 200 || (*end && *end != ',')) { std::fprintf(stderr, "--predict-ms wants N[,N...], 1..200\n"); return 2; }
+                horizons.push_back({});
+                horizons.back().ms = int(ms);
+                p = *end ? end + 1 : end;
+            }
+        }
         else if (arg == "--set" && i + 1 < argc) {
             if (!apply_setting(config, argv[++i])) { std::fprintf(stderr, "unknown setting %s\n", argv[i]); return 2; }
         } else { std::fprintf(stderr, "unknown option %s\n", arg.c_str()); return 2; }
@@ -156,9 +200,7 @@ int main(int argc, char** argv) {
     Window window;
     std::vector<double> slopes, tilts;
     Predictor predictor;
-    std::deque<Guess> guesses;
-    std::deque<Dq> history;  // newest first, for the renderer's q1 16 samples back
-    Score moving[4], turning[4];
+    std::deque<Dq> history;  // newest first, for the renderer's q1 16 samples back (publish.hpp history_step at 1 kHz)
     std::printf("%8s %6s %-11s %24s %8s %7s %7s\n", "time_s", "temp_C", "quality", "bias_deg_s(f,l,u)", "yaw", "pitch", "roll");
     for (const Packet& p : packets) {
         auto sample = parse_imu(p.bytes);
@@ -172,23 +214,20 @@ int main(int argc, char** argv) {
         if (first_t < 0) first_t = t;
         t -= first_t;
         const FusionStatus status = fusion.status();
-        if (predict_ms > 0 && pose.calibrated) {
+        if (!horizons.empty() && pose.calibrated) {
             predictor.set_gyro_bias(status.gyro_bias_rad_s);
             predictor.update(pose, *sample, sample->t_ns);
             const Dq now = to_d(pose.q);
-            if (guesses.size() >= std::size_t(predict_ms)) {
-                const Guess& g = guesses.front();
-                const double errors[4] = {angle_deg(g.none, now), angle_deg(g.renderer, now), angle_deg(g.gyro, now), angle_deg(g.predictor, now)};
-                if (g.rate_deg_s > 20) for (int k = 0; k < 4; ++k) moving[k].add(errors[k]);
-                if (g.rate_deg_s > 60) for (int k = 0; k < 4; ++k) turning[k].add(errors[k]);
-                guesses.pop_front();
-            }
             history.push_front(now);
             if (history.size() > 17) history.pop_back();
-            const Dq renderer = history.size() > 16 ? extend(history[16], now, double(predict_ms) / 16.0) : now;
             const auto& omega = status.omega_body_rad_s;
-            guesses.push_back({now, renderer, to_d(fusion.predict(float(predict_ms) * 1e-3f)), to_d(predictor.predict(float(predict_ms)).q),
-                               std::hypot(omega[0], omega[1], omega[2]) * kDeg});
+            const double rate = std::hypot(omega[0], omega[1], omega[2]) * kDeg;
+            for (Horizon& h : horizons) {
+                h.reach(sample->t_ns, now);
+                const Dq renderer = history.size() > 16 ? extend(history[16], now, double(h.ms) / 16.0) : now;
+                h.waiting.push_back({sample->t_ns + std::uint64_t(h.ms) * 1'000'000,
+                                     {now, renderer, to_d(fusion.predict(float(h.ms) * 1e-3f)), to_d(predictor.predict(float(h.ms)).q)}, rate});
+            }
         }
         if (status.quality != quality) {
             std::printf("%8.2f quality %s -> %s\n", t, name_of(quality), name_of(status.quality));
@@ -241,12 +280,16 @@ int main(int argc, char** argv) {
     std::printf("at rest: %zu windows of 5 s; heading slope deg/min median %.2f, |median| %.2f, p95 |slope| %.2f; tilt against gravity median %.2f deg, p95 %.2f deg\n",
                 slopes.size(), percentile(slopes, 0.5), percentile(magnitudes, 0.5), percentile(magnitudes, 0.95), percentile(tilts, 0.5), percentile(tilts, 0.95));
     std::printf("net heading change over the run %.1f deg\n", unwrapped * kDeg);
-    if (predict_ms > 0) {
-        const char* names[4] = {"no prediction", "renderer today (finite diff)", "raw gyro step", "luma::Predictor"};
-        std::printf("\nprediction %d ms ahead, head moving over 20 deg/s, %zu samples\n", predict_ms, moving[0].errors.size());
-        for (int k = 0; k < 4; ++k) moving[k].print(names[k]);
-        std::printf("head turning over 60 deg/s, %zu samples\n", turning[0].errors.size());
-        for (int k = 0; k < 4; ++k) turning[k].print(names[k]);
+    bool empty = false;
+    for (const Horizon& h : horizons) { h.print(); empty |= h.score[0][0].errors.empty(); }
+    if (!horizons.empty()) {
+        // The D3 target: new RMS at most half of old, head moving.
+        std::printf("\nold vs new, head moving over 20 deg/s\n");
+        for (const Horizon& h : horizons) {
+            const Score &o = h.score[1][kOld], &n = h.score[1][kNew];
+            std::printf("  %3d ms  old rms %6.3f p95 %6.3f  new rms %6.3f p95 %6.3f  new/old rms %5.2f\n", h.ms, o.rms(),
+                        percentile(o.errors, 0.95), n.rms(), percentile(n.errors, 0.95), o.rms() > 0 ? n.rms() / o.rms() : 0.0);
+        }
     }
-    return bad ? 1 : 0;
+    return bad || empty ? 1 : 0;
 }

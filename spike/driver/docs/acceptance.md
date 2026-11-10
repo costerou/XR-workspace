@@ -81,7 +81,8 @@ Two pieces are merged but deliberately not wired in:
 - **`luma::Predictor`.** Scored on the real session 25 ms ahead, head moving: no prediction 1.35 degrees rms, the renderer's
   existing finite difference 0.195, a raw gyro step 0.128, Predictor 0.115, with a worse tail than the gyro step (2.3 degrees
   against 1.3 at p99.99). That is under 0.1 degrees better than what runs today, and wiring it means changing what the feed's
-  history means. `luma_replay_report --predict-ms 25` reruns this.
+  history means. `luma_replay_report --predict-ms 25` reruns this; `--predict-ms 10,17,25` is the D3 replay bench
+  (`docs/rust-rebuild-plan.md`), RMS and p95 per horizon, run on the fixture by ctest `luma_prediction_bench`.
 - **`rt::Pipeline`, the reader and fusion ring.** The daemon runs inline on one thread. On the real capture, parsing through
   publishing takes 0.12 µs, so a ring has nothing to shed. The thread policy is applied.
 

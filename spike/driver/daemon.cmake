@@ -20,6 +20,13 @@ target_compile_options(luma_real_capture_test PRIVATE -Wall -Wextra -Wpedantic -
 add_test(NAME luma_real_capture COMMAND luma_real_capture_test "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin"
          "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_upside_down.bin")
 add_test(NAME luma_replay_report_smoke COMMAND luma_replay_report "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin" --every 2)
+# The prediction replay bench (rust-rebuild-plan D3): RMS and p95 per horizon for the old and the new predictor, every
+# horizon scored ("n 0 " would mean one scored nothing).
+add_test(NAME luma_prediction_bench COMMAND luma_replay_report "${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/luma_imu_real.bin"
+         --every 100 --predict-ms 10,17,25)
+set_tests_properties(luma_prediction_bench PROPERTIES
+    PASS_REGULAR_EXPRESSION "old vs new[^\n]*\n +10 ms +old rms +[0-9.]+ p95 +[0-9.]+ +new rms +[0-9.]+ p95 +[0-9.]+[^\n]*\n +17 ms [^\n]*\n +25 ms +old rms"
+    FAIL_REGULAR_EXPRESSION "n 0 ")
 
 add_executable(luma_latency_report tools/latency_report.cpp)
 target_include_directories(luma_latency_report PRIVATE include)

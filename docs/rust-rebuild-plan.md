@@ -202,6 +202,7 @@ polls → publisher. 60 Hz by default (60/90/120/240 selectable). Fails closed, 
 | Allocations in the hot path | 0 | same |
 | Fusion cost | 0.12 µs per packet median, 10–70 µs worst | replay |
 | Seqlock reader sees pose after sensor time | 9 µs p50, 30 µs p99 | same |
+| Prediction error, head moving, old (renderer finite difference) against new (`luma::Predictor`, what `PredictionWire` carries) | RMS 0.122 / 0.210 / 0.315° old, 0.004 / 0.011 / 0.026° new at 10 / 17 / 25 ms; p95 0.074 / 0.160 / 0.290° old, 0.008 / 0.023 / 0.052° new | `luma_replay_report --predict-ms 10,17,25` on `luma_imu_real.bin` (ctest `luma_prediction_bench`). The truth is the fusion's own later pose, which integrates the gyro, so gyro-based predictors are favoured; an 8 s fixture |
 | Calibration | 2.60 s while moving (replay), about 1.5 s on a desk | `docs/tracking-3dof-ab.md` |
 | XRLinuxDriver calibration | 11.5 s median, plus about 30 s before tracking starts | same |
 | Tilt error | 0.30° median, 0.66° p95 | same |
