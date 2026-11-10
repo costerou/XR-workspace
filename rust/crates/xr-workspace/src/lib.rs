@@ -10,6 +10,7 @@
 pub mod adopt;
 pub mod control;
 pub mod controller;
+pub mod controller_server;
 pub mod desktops;
 pub mod fit_windows;
 pub mod geometry;

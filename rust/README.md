@@ -382,6 +382,23 @@ cargo test --locked -p xr-workspace -- --ignored adoption_after_restart --nocapt
 
 It starts and removes one short-lived `viture-xr-rstest…` unit and touches no XR session.
 
+### Panel socket
+
+`src/controller_server.rs` ports `tools/xr_controller/server.py`: one `poll(2)` loop with at most
+32 clients, each a same-UID peer (`SO_PEERCRED`). A frame is at most 16 KiB, and each client may
+hold at most 64 KiB of unsent output. A bad or oversize line ends that connection. The controller
+ticks at 1 Hz, and every changed snapshot is pushed as `event: "state"`. The socket is bound
+through the private directory's fd, made 0600, and unlinked on close only while it is still the
+bound inode. Replies go out on the next `POLLOUT`, as in Python. Nothing runs it yet: the service
+binary that wires it to the real host is a later task. `tests/controller_server.rs` holds the cases
+of `test_server.py`, plus the caps. `tests/xr_controller/test_rust_panel_client.py` runs the
+panel's unchanged QML client test against `examples/controller_socket.rs`, which is the Rust
+state machine behind this server with the original test's offline host:
+
+```sh
+TMPDIR=/tmp /usr/bin/python3 -m unittest tests.xr_controller.test_rust_panel_client -v
+```
+
 ### D12: eventfd wake
 
 The C++ bridge's owner thread sleeps 2 ms whenever the ring is empty. The Rust one does not: the
