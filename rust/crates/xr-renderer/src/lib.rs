@@ -7,6 +7,8 @@
 pub mod binds_panel;
 pub mod cfmt;
 pub mod depth;
+pub mod depth_feed;
+pub mod depth_link;
 pub mod desktops;
 pub mod egl;
 pub mod gl;

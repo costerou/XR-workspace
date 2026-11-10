@@ -1145,6 +1145,11 @@ impl GlCompositor {
         &self.gl
     }
 
+    /// The same context, shared: for GL objects kept outside the compositor (the depth link's shrinks).
+    pub fn shared_gl(&self) -> &Rc<Gl> {
+        &self.gl
+    }
+
     /// The GL strings, as the C++ report() gives them.
     pub fn strings(&self) -> (&str, &str, &str) {
         (&self.vendor, &self.renderer, &self.version)
