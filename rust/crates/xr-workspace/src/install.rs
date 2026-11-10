@@ -356,6 +356,7 @@ fn pro2_bundle(
         ))
         .arg(repo.join("tools/pro2_runtime/bridge.cpp"))
         .arg(repo.join("spike/driver/src/publish.cpp"))
+        .arg(repo.join("spike/driver/src/predict.cpp")) // publish.cpp writes PredictionWire
         .args(["-lcrypto", "-ldl", "-o"])
         .arg(bin.join("pro2-sdk-bridge"));
     run(&mut compile, "compiling the Pro 2 bridge")?;
