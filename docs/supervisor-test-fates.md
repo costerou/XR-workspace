@@ -28,7 +28,7 @@ whatever its fate. The fates say what will cover the Rust supervisor.
 
 | port | wire | keep | drop | all |
 |---|---|---|---|---|
-| 2501 | 144 | 23 | 4 | 2672 |
+| 2501 | 146 | 23 | 4 | 2674 |
 
 The `port` count is large because almost every supervisor test imports a Python module and calls it
 directly. Few tests drive the supervisor through a socket or a process the Rust binary would also serve,
@@ -55,6 +55,8 @@ The biggest port targets: `free_pointer` 301, `view` 297, `unified_cursor` 192, 
   Python. The phase 6 parity, cross-recovery and placement gates hold Rust to them.
   `test_keybinds_corpus` (3) does the same for `rust/corpus/supervisor/`, which holds the Rust key bind
   panel, bind check, options text and environment modules.
+  `test_view_corpus` (2) does the same for `rust/corpus/view/view.json`, which holds the Rust view state,
+  layout.json load and save and the frame encoders.
 - **The journal corpus (5 tests).** `test_journal_corpus` keeps `rust/corpus/journal/cases.json` (journals,
   fault-injected recoveries and refusals) true to the Python. `xr-workspace`'s `cross_recovery` test holds the
   Rust journal to it in both directions.

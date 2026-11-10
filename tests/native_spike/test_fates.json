@@ -35,6 +35,10 @@
   "state_file_corpus.py": {
    "fate": "keep",
    "reason": "Writes fixtures/state_files/, the run-file corpus for the cross-recovery gate."
+  },
+  "view_corpus.py": {
+   "fate": "keep",
+   "reason": "Writes rust/corpus/view/view.json, the parity corpus the Rust view state, settings file and frame encoders are held to."
   }
  },
  "tests": {
@@ -3193,6 +3197,16 @@
     }
    },
    "covers": "tools/native_spike/view.py"
+  },
+  "test_view_corpus.py": {
+   "classes": {
+    "ViewCorpusTests": {
+     "tests": 2,
+     "fate": "wire",
+     "via": "rust/corpus/view/view.json",
+     "how": "The phase 6 parity gate: the Rust view state, layout.json load and save and the frame encoders give these results. The Python test keeps the corpus true to the Python."
+    }
+   }
   },
   "test_view_menu_wiring.py": {
    "classes": {
