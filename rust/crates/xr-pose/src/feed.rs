@@ -39,7 +39,7 @@ use std::os::fd::{FromRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, Ordering, fence};
 
 /// The live feed's prefix, shared with XRLinuxDriver and the C++ stack.
 pub const DEFAULT_PREFIX: &str = "/tmp/shader_runtime_";
@@ -49,11 +49,16 @@ const MUTEX: &str = "pose_orientation_mutex";
 const DISABLED: &str = "disabled";
 const FOV: &str = "display_fov";
 const LOOK_AHEAD: &str = "look_ahead_cfg";
+/// The Luma driver's scan-out times (spike/driver/include/luma/vsync.hpp VsyncWire): 16 words.
+const VSYNC: &str = "pose_vsync";
+const VSYNC_BYTES: usize = 64;
 const POSE_BYTES: usize = 16 * size_of::<f32>();
 const LOOK_AHEAD_BYTES: usize = 4 * size_of::<f32>();
 
 /// XRLinuxDriver `src/imu.c pose_orientation_reset_data`: four identities.
-const RESET_POSE: [f32; 16] = [0., 0., 0., 1., 0., 0., 0., 1., 0., 0., 0., 1., 0., 0., 0., 1.];
+const RESET_POSE: [f32; 16] = [
+    0., 0., 0., 1., 0., 0., 0., 1., 0., 0., 0., 1., 0., 0., 0., 1.,
+];
 
 unsafe extern "C" {
     // glibc 2.30+. Not in the libc crate. x86_64 and aarch64 have a 64-bit time_t, so no
@@ -106,20 +111,32 @@ fn ftok(path: &CString) -> Option<libc::key_t> {
 }
 
 fn monotonic_ns() -> u64 {
-    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
     // SAFETY: ts is a valid out pointer.
     unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
     ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
 }
 
 fn timespec_of(ns: u64) -> libc::timespec {
-    libc::timespec { tv_sec: (ns / 1_000_000_000) as libc::time_t, tv_nsec: (ns % 1_000_000_000) as _ }
+    libc::timespec {
+        tv_sec: (ns / 1_000_000_000) as libc::time_t,
+        tv_nsec: (ns % 1_000_000_000) as _,
+    }
 }
 
 /// Lock with a deadline on the monotonic clock, which wall-clock steps cannot stretch. `None` =
 /// an already-passed deadline: no wait, no system call when the lock is free.
 fn clocklock(mutex: *mut libc::pthread_mutex_t, until_ns: Option<u64>) -> c_int {
-    let deadline = until_ns.map_or(libc::timespec { tv_sec: 0, tv_nsec: 0 }, timespec_of);
+    let deadline = until_ns.map_or(
+        libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        },
+        timespec_of,
+    );
     // SAFETY: mutex points into an attached segment of at least pthread_mutex_t's size.
     unsafe { pthread_mutex_clocklock(mutex, libc::CLOCK_MONOTONIC, &deadline) }
 }
@@ -216,10 +233,13 @@ fn running_xrdriver(proc_root: &Path) -> Option<String> {
         if pid.is_empty() || !pid.iter().all(u8::is_ascii_digit) {
             continue;
         }
-        let Ok(line) = fs::read(entry.path().join("stat")) else { continue };
-        let (Some(open), Some(close)) =
-            (line.iter().position(|&c| c == b'('), line.iter().rposition(|&c| c == b')'))
-        else {
+        let Ok(line) = fs::read(entry.path().join("stat")) else {
+            continue;
+        };
+        let (Some(open), Some(close)) = (
+            line.iter().position(|&c| c == b'('),
+            line.iter().rposition(|&c| c == b')'),
+        ) else {
             continue;
         };
         if close < open || close + 2 >= line.len() {
@@ -291,7 +311,9 @@ impl FeedWriter {
         writer.disabled = writer.attach(options, DISABLED, size_of::<bool>())?.cast();
         writer.set_disabled(true);
         writer.pose = writer.attach(options, POSE, POSE_BYTES)?.cast();
-        writer.mutex = writer.attach(options, MUTEX, size_of::<libc::pthread_mutex_t>())?.cast();
+        writer.mutex = writer
+            .attach(options, MUTEX, size_of::<libc::pthread_mutex_t>())?
+            .cast();
         let fov: *mut f32 = writer.attach(options, FOV, size_of::<f32>())?.cast();
         let look_ahead: *mut f32 = writer.attach(options, LOOK_AHEAD, LOOK_AHEAD_BYTES)?.cast();
         // As the C++ publisher: one writer (the claim above), and a reader retries on any change
@@ -313,7 +335,12 @@ impl FeedWriter {
         Ok(writer)
     }
 
-    fn attach(&mut self, options: &WriterOptions, name: &str, size: usize) -> Result<*mut c_void, FeedError> {
+    fn attach(
+        &mut self,
+        options: &WriterOptions,
+        name: &str,
+        size: usize,
+    ) -> Result<*mut c_void, FeedError> {
         let path = format!("{}{name}", options.prefix);
         let cpath = c_path(&path)?;
         let own = options.private_segments;
@@ -326,8 +353,12 @@ impl FeedWriter {
         }
         let fd = match fd {
             Some(fd) => fd,
-            None => open_file(&cpath, libc::O_CREAT | libc::O_RDONLY, if own { 0o600 } else { 0o666 })
-                .or_else(|e| fail(format!("cannot create {path}: {e}")))?,
+            None => open_file(
+                &cpath,
+                libc::O_CREAT | libc::O_RDONLY,
+                if own { 0o600 } else { 0o666 },
+            )
+            .or_else(|e| fail(format!("cannot create {path}: {e}")))?,
         };
         if !own {
             // src/ipc.c sets umask 0 for this; umask is per process, and it may be someone
@@ -337,7 +368,9 @@ impl FeedWriter {
             unsafe { libc::fchmod(fd.as_raw_fd(), 0o666) };
         }
         drop(fd);
-        let Some(key) = ftok(&cpath) else { return fail(format!("ftok failed: {path}")) };
+        let Some(key) = ftok(&cpath) else {
+            return fail(format!("ftok failed: {path}"));
+        };
         // SAFETY (all shmget/shmctl below): plain system calls; results are checked.
         let id = if own {
             let id = unsafe { libc::shmget(key, size, 0o600 | libc::IPC_CREAT | libc::IPC_EXCL) };
@@ -451,6 +484,7 @@ pub struct FeedReader {
     fov: Option<*const f32>,
     look_ahead: Option<*const f32>,
     prediction: Option<*const PredictionWire>,
+    vsync: Option<*const u32>,
     _segments: Vec<Segment>,
     /// Newest valid sample read: served again while the writer holds the lock.
     last: Option<FeedSample>,
@@ -460,12 +494,30 @@ pub struct FeedReader {
     retry_ns: u64,
     backoff_ns: u64,
     timeouts: u32,
+    /// Reads that found the lock held and blocked on it.
+    waits: u64,
+}
+
+/// What one try of the mutex feed gave (`xr::PoseFeed::Impl::read_mutex`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MutexRead {
+    /// A new valid sample.
+    Sample(FeedSample),
+    /// The writer holds the lock, or died holding it: serve the newest sample again.
+    Again,
+    /// An invalid sample, or a lock that is not recoverable.
+    Nothing,
 }
 
 // SAFETY: as for FeedWriter.
 unsafe impl Send for FeedReader {}
 
-fn attach_existing(path: &str, min_size: usize, writable: bool, segments: &mut Vec<Segment>) -> Result<*mut c_void, FeedError> {
+fn attach_existing(
+    path: &str,
+    min_size: usize,
+    writable: bool,
+    segments: &mut Vec<Segment>,
+) -> Result<*mut c_void, FeedError> {
     if fs::metadata(path).is_err() {
         return fail(format!("feed absent: {path}"));
     }
@@ -474,7 +526,10 @@ fn attach_existing(path: &str, min_size: usize, writable: bool, segments: &mut V
     // SAFETY: plain system calls; info is a valid out pointer.
     let id = unsafe { libc::shmget(key, 0, 0) };
     let mut info: libc::shmid_ds = unsafe { std::mem::zeroed() };
-    if id < 0 || unsafe { libc::shmctl(id, libc::IPC_STAT, &mut info) } != 0 || info.shm_segsz < min_size {
+    if id < 0
+        || unsafe { libc::shmctl(id, libc::IPC_STAT, &mut info) } != 0
+        || info.shm_segsz < min_size
+    {
         return Err(invalid());
     }
     let segment = shmat(id, if writable { 0 } else { libc::SHM_RDONLY }, false, path)
@@ -491,12 +546,46 @@ impl FeedReader {
         let mut segments = Vec::new();
         let pose = attach_existing(&format!("{prefix}{POSE}"), POSE_BYTES, false, &mut segments)?;
         // A process-shared mutex must be writable to lock; the pose itself is never written.
-        let mutex = attach_existing(&format!("{prefix}{MUTEX}"), size_of::<libc::pthread_mutex_t>(), true, &mut segments)?;
-        let disabled = attach_existing(&format!("{prefix}{DISABLED}"), size_of::<bool>(), false, &mut segments)?;
-        let fov = attach_existing(&format!("{prefix}{FOV}"), size_of::<f32>(), false, &mut segments).ok();
-        let look_ahead = attach_existing(&format!("{prefix}{LOOK_AHEAD}"), LOOK_AHEAD_BYTES, false, &mut segments).ok();
-        let prediction =
-            attach_existing(&format!("{prefix}{PREDICTION_IPC_NAME}"), size_of::<PredictionWire>(), false, &mut segments).ok();
+        let mutex = attach_existing(
+            &format!("{prefix}{MUTEX}"),
+            size_of::<libc::pthread_mutex_t>(),
+            true,
+            &mut segments,
+        )?;
+        let disabled = attach_existing(
+            &format!("{prefix}{DISABLED}"),
+            size_of::<bool>(),
+            false,
+            &mut segments,
+        )?;
+        let fov = attach_existing(
+            &format!("{prefix}{FOV}"),
+            size_of::<f32>(),
+            false,
+            &mut segments,
+        )
+        .ok();
+        let look_ahead = attach_existing(
+            &format!("{prefix}{LOOK_AHEAD}"),
+            LOOK_AHEAD_BYTES,
+            false,
+            &mut segments,
+        )
+        .ok();
+        let prediction = attach_existing(
+            &format!("{prefix}{PREDICTION_IPC_NAME}"),
+            size_of::<PredictionWire>(),
+            false,
+            &mut segments,
+        )
+        .ok();
+        let vsync = attach_existing(
+            &format!("{prefix}{VSYNC}"),
+            VSYNC_BYTES,
+            false,
+            &mut segments,
+        )
+        .ok();
         Ok(FeedReader {
             pose: pose.cast(),
             mutex: mutex.cast(),
@@ -504,12 +593,48 @@ impl FeedReader {
             fov: fov.map(|p| p.cast_const().cast()),
             look_ahead: look_ahead.map(|p| p.cast_const().cast()),
             prediction: prediction.map(|p| p.cast_const().cast()),
+            vsync: vsync.map(|p| p.cast_const().cast()),
             _segments: segments,
             last: None,
             retry_ns: 0,
             backoff_ns: 0,
             timeouts: 0,
+            waits: 0,
         })
+    }
+
+    /// Reads that found the lock held and blocked on it for up to 2 ms.
+    pub fn waits(&self) -> u64 {
+        self.waits
+    }
+
+    /// One consistent copy of the pose_vsync words 1..16 (the magic, then the 14 payload words), as
+    /// `xr::PoseFeed::vsync` takes them; the caller checks and decodes them. `None`: no segment, or
+    /// the writer was mid-write on each of 4 tries (bounded: a frame must never spin on a stopped
+    /// writer).
+    pub fn vsync_words(&self) -> Option<[u32; 15]> {
+        let w = self.vsync?;
+        // SAFETY: 16 aligned words in an attached segment; the writer stores them atomically.
+        let word = |i: usize, order: Ordering| {
+            unsafe { AtomicU32::from_ptr(w.add(i).cast_mut()) }.load(order)
+        };
+        for _ in 0..4 {
+            let before = word(0, Ordering::Acquire);
+            if before & 1 != 0 {
+                continue;
+            }
+            let mut v = [0u32; 15];
+            for i in 0..14 {
+                v[1 + i] = word(2 + i, Ordering::Relaxed);
+            }
+            v[0] = word(1, Ordering::Relaxed);
+            fence(Ordering::Acquire);
+            if word(0, Ordering::Relaxed) != before {
+                continue;
+            }
+            return Some(v);
+        }
+        None
     }
 
     /// The published diagonal FOV in degrees, if sane (10..=120).
@@ -534,25 +659,49 @@ impl FeedReader {
         Some(std::array::from_fn(|i| unsafe { p.add(i).read_volatile() }))
     }
 
+    /// Whether the driver has disabled the feed. When it has, the sample `read` serves while the
+    /// writer holds the lock is forgotten too, as `read` does.
+    pub fn disabled(&mut self) -> bool {
+        // SAFETY: a byte in an attached segment; the writer stores it atomically.
+        let off = unsafe { AtomicU8::from_ptr(self.disabled) }.load(Ordering::Acquire) != 0;
+        if off {
+            self.last = None;
+        }
+        off
+    }
+
     /// The newest sample. `None` while disabled, for an invalid sample, or when the lock is not
     /// recoverable. While the writer holds the lock, the previous sample again: its device time
     /// is unchanged, so it ages and is predicted like any other (no sample would leave the frame
     /// unpredicted).
     pub fn read(&mut self) -> Option<FeedSample> {
+        if self.disabled() {
+            return None;
+        }
+        match self.read_mutex() {
+            MutexRead::Sample(sample) => {
+                self.last = Some(sample);
+                self.last
+            }
+            MutexRead::Again => self.last,
+            MutexRead::Nothing => None,
+        }
+    }
+
+    /// One try of the lock, without the disabled check or the served-again sample of [`Self::read`]:
+    /// for a caller that keeps its own newest sample (`xr::PoseFeed`, whose seqlock samples are served
+    /// again too).
+    pub fn read_mutex(&mut self) -> MutexRead {
         const WAIT_NS: u64 = 2_000_000;
         const FIRST_BACKOFF_NS: u64 = 50_000_000;
         const MAX_BACKOFF_NS: u64 = 1_000_000_000;
-        // SAFETY: a byte in an attached segment; the writer stores it atomically.
-        if unsafe { AtomicU8::from_ptr(self.disabled) }.load(Ordering::Acquire) != 0 {
-            self.last = None;
-            return None;
-        }
         let mut rc = clocklock(self.mutex, None);
         if rc == libc::ETIMEDOUT {
             let now = monotonic_ns();
             if self.retry_ns != 0 && now < self.retry_ns {
-                return self.last; // backing off: no waiting
+                return MutexRead::Again; // backing off: no waiting
             }
+            self.waits += 1;
             rc = clocklock(self.mutex, Some(now + WAIT_NS));
             if rc == libc::ETIMEDOUT {
                 self.timeouts += 1;
@@ -564,7 +713,7 @@ impl FeedReader {
                     };
                     self.retry_ns = monotonic_ns() + self.backoff_ns;
                 }
-                return self.last;
+                return MutexRead::Again;
             }
         }
         if rc == libc::EOWNERDEAD {
@@ -578,10 +727,10 @@ impl FeedReader {
             }
             self.retry_ns = 0;
             self.timeouts = 0;
-            return self.last;
+            return MutexRead::Again;
         }
         if rc != 0 {
-            return None; // ENOTRECOVERABLE (lock word released by glibc) or not a mutex
+            return MutexRead::Nothing; // ENOTRECOVERABLE (lock word released by glibc) or not a mutex
         }
         self.retry_ns = 0;
         self.timeouts = 0;
@@ -591,16 +740,17 @@ impl FeedReader {
             ptr::copy_nonoverlapping(self.pose, v.as_mut_ptr(), 16);
             libc::pthread_mutex_unlock(self.mutex);
         }
-        let orientation = normalized([v[0], v[1], v[2], v[3]])?;
+        let Some(orientation) = normalized([v[0], v[1], v[2], v[3]]) else {
+            return MutexRead::Nothing;
+        };
         if !v[12].is_finite() {
-            return None;
+            return MutexRead::Nothing;
         }
-        self.last = Some(FeedSample {
+        MutexRead::Sample(FeedSample {
             orientation,
             device_ms: v[12],
             older: [[v[4], v[5], v[6], v[7]], [v[8], v[9], v[10], v[11]]],
             older_ms: [v[13], v[14]],
-        });
-        self.last
+        })
     }
 }

@@ -1578,19 +1578,19 @@ pub struct TargetOptions {
 }
 
 #[derive(Clone, Debug)]
-struct Landing {
-    active: bool,
-    start_ms: f64,
-    left: u32,
-    way_from: f32, // the view's turn: from, settle_curve's v, how long
-    way_speed: f32,
-    way_ms: f32,
-    left_from: f32, // the desktop being left: its zoom's from, v, now
-    left_speed: f32,
-    left_now: f32,
-    until: f32,  // it stays on top until it is down to this
-    border: f32, // what the pan's border had reached; how far it has gone over (0..1)
-    border_now: f32,
+pub(crate) struct Landing {
+    pub(crate) active: bool,
+    pub(crate) start_ms: f64,
+    pub(crate) left: u32,
+    pub(crate) way_from: f32, // the view's turn: from, settle_curve's v, how long
+    pub(crate) way_speed: f32,
+    pub(crate) way_ms: f32,
+    pub(crate) left_from: f32, // the desktop being left: its zoom's from, v, now
+    pub(crate) left_speed: f32,
+    pub(crate) left_now: f32,
+    pub(crate) until: f32,  // it stays on top until it is down to this
+    pub(crate) border: f32, // what the pan's border had reached; how far it has gone over (0..1)
+    pub(crate) border_now: f32,
 }
 
 impl Default for Landing {
@@ -1613,20 +1613,20 @@ impl Default for Landing {
 }
 
 #[derive(Clone, Debug)]
-struct Switch {
-    active: bool,
-    queued: bool,
-    start_ms: f64,
-    zoom: f32,   // the zoom it started from
-    out_ms: f32, // phase 1's length
-    from: u32,
-    to: u32,
-    next: u32,
-    center: bool,
-    next_center: bool,
-    zoom_now: f32,
-    look_now: f32,
-    turn_now: f32,
+pub(crate) struct Switch {
+    pub(crate) active: bool,
+    pub(crate) queued: bool,
+    pub(crate) start_ms: f64,
+    pub(crate) zoom: f32,   // the zoom it started from
+    pub(crate) out_ms: f32, // phase 1's length
+    pub(crate) from: u32,
+    pub(crate) to: u32,
+    pub(crate) next: u32,
+    pub(crate) center: bool,
+    pub(crate) next_center: bool,
+    pub(crate) zoom_now: f32,
+    pub(crate) look_now: f32,
+    pub(crate) turn_now: f32,
 }
 
 impl Default for Switch {
@@ -1691,44 +1691,44 @@ impl Default for Switch {
 /// a cut or another desktop selected ends it; one cut short mid-landing hands the whole turn to the room. switching() is
 /// true throughout, so the pills and the overview's own dot hide while it lasts.
 ///
-/// Clone is the C++ checkpoint (same-build restart state).
+/// Clone is the C++ checkpoint (same-build restart state); continuity.rs writes the fields in its byte layout.
 #[derive(Clone, Debug)]
 pub struct ViewAnimator {
-    duration: f32,
-    turn_ms: f32,
-    pan: EdgePan,
-    pan_on: bool,
-    pan_landing: bool,
-    pan_overview: bool,
-    pan_peek: f32,
-    pan_cross: f32,
-    pan_turn: f32,
-    pan_zoom: f32,
-    pan_zoom_speed: f32, // per ms, falling positive
-    pan_ms: f64,
-    pan_seen_ms: f64,
-    pan_land_ms: f64,
-    land: Landing,
-    start_ms: f64,
-    spacing_start_ms: f64,
-    look_start_ms: f64,
-    t: f32,
-    spacing_t: f32,
-    look_t: f32,
-    from_zoom: f32,
-    to_zoom: f32,
-    from_spacing: f32,
-    to_spacing: f32,
-    from_look: f32,
-    from_turn: f32,
-    landed: Vec<LandedTurn>,
-    serial: u32,
-    turn_centred: bool,
-    to_selected: u32,
-    shown: u32,
-    look_from: u32,
-    look_to: u32,
-    switch: Switch,
+    pub(crate) duration: f32,
+    pub(crate) turn_ms: f32,
+    pub(crate) pan: EdgePan,
+    pub(crate) pan_on: bool,
+    pub(crate) pan_landing: bool,
+    pub(crate) pan_overview: bool,
+    pub(crate) pan_peek: f32,
+    pub(crate) pan_cross: f32,
+    pub(crate) pan_turn: f32,
+    pub(crate) pan_zoom: f32,
+    pub(crate) pan_zoom_speed: f32, // per ms, falling positive
+    pub(crate) pan_ms: f64,
+    pub(crate) pan_seen_ms: f64,
+    pub(crate) pan_land_ms: f64,
+    pub(crate) land: Landing,
+    pub(crate) start_ms: f64,
+    pub(crate) spacing_start_ms: f64,
+    pub(crate) look_start_ms: f64,
+    pub(crate) t: f32,
+    pub(crate) spacing_t: f32,
+    pub(crate) look_t: f32,
+    pub(crate) from_zoom: f32,
+    pub(crate) to_zoom: f32,
+    pub(crate) from_spacing: f32,
+    pub(crate) to_spacing: f32,
+    pub(crate) from_look: f32,
+    pub(crate) from_turn: f32,
+    pub(crate) landed: Vec<LandedTurn>,
+    pub(crate) serial: u32,
+    pub(crate) turn_centred: bool,
+    pub(crate) to_selected: u32,
+    pub(crate) shown: u32,
+    pub(crate) look_from: u32,
+    pub(crate) look_to: u32,
+    pub(crate) switch: Switch,
 }
 
 impl Default for ViewAnimator {

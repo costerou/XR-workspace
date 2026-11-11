@@ -34,6 +34,16 @@ and the plugin's `registry.cpp` (C++23, nlohmann_json headers) and feeds it ever
 `spike/tests/ownership_pair_wire_test.py`, encoded by `xr_wire::plugin`, plus geometry and bounds
 sweeps: the plugin's `parse_request` and the Rust mirror must give the same verdict on each.
 
+`xr_pose::extrapolate` is `luma::extrapolate` (`spike/driver/src/predict.cpp`): the driver's velocity and
+acceleration carried over a horizon, with the stop clamp, the still gate and the `max_deg` limit, in the C++ f32
+order with `std::min` and `std::clamp` mirrored. Its `PredictConfig` holds only the fields `extrapolate` reads;
+`Predictor`'s filters are not ported. `tests/extrapolate.rs` ports the `luma_predict` ctest's extrapolation checks
+on hand-built states, and compares the Rust with `golden/extrapolate.txt` line by line: `golden/extrapolate.cpp`
+links the C++ `predict.cpp` unchanged and prints the IEEE bits of every result over a grid of configs, states
+(still, slow, fast, braking, turning back, NaN, invalid, uncalibrated, a wrapping clock) and horizons (NaN,
+negative, zero, tiny, long). Both match bit for bit. The one gap is `target_ns` for a horizon of 2^64 ns or more,
+undefined in the C++ and saturating in Rust.
+
 `Cargo.lock` is committed. `deny.toml` allows permissive third-party licences only (MIT, Apache-2.0,
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own
 crates are `publish = false` and are skipped by the licence check.
@@ -582,6 +592,46 @@ and placement maths (`view.cpp`), glass pill and panel geometry (`glass.cpp`), t
 tests port every non-raster check of the matching ctests (`layout`, `view`, `hud`, `glass`,
 `binds_panel`, `options_geometry`). The raster parts (atlases, card pixels, fonts) come with the GL
 port.
+
+`late_latch` is `late_latch.cpp` (RR-72): the late-latch schedule, adaptive margin, miss boost and
+summary, with `parse_guard` going through the C library's `strtod` as the C++ does. `tests/late_latch.rs`
+ports every check of the `late_latch` ctest, and checks that a late frame boosts the margin and the
+frame after it is not late too. Wiring it into the shell is a later task.
+
+`predict` is `predict.cpp` (RR-72): the look-ahead config, angular velocity from the feed's two newest samples
+(with the whole-ms timestamp mean), the bounded delta, `LatencyTracker` with its read-phase model, `PoseAge`,
+`VsyncMeter` and `prediction_horizon`, same fields and constants. `tests/predict.rs` ports every check of the
+`predict` ctest but the D3 ones (`motion_delta`, `motion_age_ms`, `MotionFeed::open`), which go with `motion_feed`.
+`VsyncSnapshot` is declared in `pose`, next to `PoseFeed::vsync` as in `pose.hpp`, and re-exported from `predict`.
+
+`motion_smooth` is `motion_smooth.cpp` and `motion_feed` is `motion_feed.cpp` (RR-72): `MotionSmoother` (the Pro 2's
+frame-rate motion) and `MotionFeed` (the driver's `pose_prediction` wire, read through `xr_pose::prediction`, with
+`motion_delta` and `motion_age_ms`). `motion_delta` runs `xr_pose::extrapolate`, as the C++ runs `luma::extrapolate`.
+`tests/motion_smooth.rs` ports every check of the `motion_smooth` ctest, and replays `pro2_smooth_replay.cpp`'s per-frame
+pose path (stabilizer, pose state, pose age, horizon, smoother, view) over `tests/fixtures/pro2_smooth_replay{,_wire}.in`:
+byte-equal with `golden/motion_smooth.txt`, which `golden/motion_smooth.cpp` writes from the C++ replay itself.
+`tests/motion_feed.rs` ports the D3 checks of the `predict` ctest and reads a wire xr-pose's `FeedWriter` publishes.
+It checks `motion_delta` exactly: bit-equal with `golden/motion_feed.txt`, which `golden/motion_feed.cpp` writes from
+the C++ `motion_delta` over a grid of poses, velocities, accelerations, horizons and limits.
+
+`stabilization` is `stabilization.hpp` and `continuity` is `continuity.hpp` (RR-72). `Stabilizer` mirrors libstdc++'s
+three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` ctest and is byte-equal with
+`golden/stabilization_trace.txt`, the C++ `stabilization_trace` output on `tests/fixtures/stabilization_trace.in`.
+`ViewContinuity` encodes, decodes and resumes the C++ blob in its x86-64 GCC byte layout, padding written as zeros.
+`save`/`restore` work over the `--continuity-fd` file, which is consumed once. `tests/continuity.rs` ports the
+`continuity` ctest. It restores `golden/continuity_{mid,end}.bin`, which `golden/continuity.cpp` writes from the C++,
+and matches every byte except padding and the hash. It also keeps `golden/continuity_{mid,end}_rust.bin` current
+(`XR_WRITE_GOLDENS=1`), and `continuity.cpp read` restores those in C++ with the same continuation.
+
+`pose` is `pose.hpp` and `pose.cpp` (RR-72): the quaternion maths, `PoseState` (reference, recentre, level, stale
+tracking), `ModeController` (anchor, follow and locked, with the maximize hold and restore) and `PoseFeed`. `PoseFeed`
+reads the driver's `/xr-luma-pose` seqlock first (100 ms freshness, a 16-entry history and a 16 ms look-back). Otherwise
+it reads xr-pose's mutex `FeedReader`, with the 2 ms lock wait, the backoff and the `EOWNERDEAD` recovery. While the
+lock is held it serves the newest sample of either source again with its device time unchanged, so a feed that stops
+holds the last pose and `PoseState` reports tracking lost. `stats()` gives the C++ `PoseReaderStats`. `retries` counts
+the copies `PoseReader::read_counted` made again because the writer was mid-write, as the C++ counts them. `vsync()`
+decodes the `pose_vsync` segment. `tests/pose.rs` ports every check of the `pose` and `level_reference` ctests and all
+of `focus_center`.
 
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
