@@ -204,6 +204,11 @@ Until tracking is wired every tilt is `null`, as the C++ sends untracked; the me
 from the tracking module. `tests/roll_level.rs` ports every check of the `roll_level` ctest; `level_frame`'s view half
 (the tilts reported for a fixed reference) is in `shell/roll.rs`, its pose half is tracking's.
 
+`handles` is wired: `resize_handle`, `move_handle` and `restore_band` light the corner caps, ease the glass pills' and
+gears' hover levels and fade the Step-Back Band's Restore pill on the maximized desktop, and the exit report carries
+`restore_band`, `resize_handle` and `move_handle` as the C++ does. Its twins are `tests/resize_handle.rs` and
+`tests/restore_band.rs`; its gate is `capture_e2e_rust_restore_band`.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops

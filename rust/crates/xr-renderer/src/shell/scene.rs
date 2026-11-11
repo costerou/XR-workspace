@@ -79,6 +79,8 @@ pub(super) struct Scene {
     /// The view's zoom (0 overview, 1 zoomed in) and its focus (the desktop the zoom is on).
     pub zoom: f32,
     pub focus: usize,
+    /// The view turns from one desktop to another (`View::switching`).
+    pub switching: bool,
     /// Each captured desktop's eased size, capture order.
     pub sizes: Vec<Size>,
 
@@ -132,6 +134,7 @@ impl Scene {
             overview: true,
             zoom: 0.0,
             focus: 0,
+            switching: false,
             sizes: Vec::new(),
             head: IDENTITY,
             world: IDENTITY,
