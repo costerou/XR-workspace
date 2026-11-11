@@ -553,6 +553,11 @@ tests port every non-raster check of the matching ctests (`layout`, `view`, `hud
 `binds_panel`, `options_geometry`). The raster parts (atlases, card pixels, fonts) come with the GL
 port.
 
+`late_latch` is `late_latch.cpp` (RR-72): the late-latch schedule, adaptive margin, miss boost and
+summary, with `parse_guard` going through the C library's `strtod` as the C++ does. `tests/late_latch.rs`
+ports every check of the `late_latch` ctest, and checks that a late frame boosts the margin and the
+frame after it is not late too. Wiring it into the shell is a later task.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
