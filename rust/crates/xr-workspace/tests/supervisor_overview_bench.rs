@@ -26,7 +26,7 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -35,6 +35,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+
+#[path = "support/script.rs"]
+mod script;
 
 use xr_workspace::hyprland;
 use xr_workspace::geometry::Placement;
@@ -113,8 +116,7 @@ impl Compositor {
         let directory = runtime.join("hypr").join(INSTANCE);
         // The client checks the peer's executable is named Hyprland (as FakeCompositor does: an interpreter copy).
         let exe = scratch.0.join("Hyprland");
-        fs::copy(fs::canonicalize(PYTHON).unwrap(), &exe).unwrap();
-        fs::set_permissions(&exe, fs::Permissions::from_mode(0o700)).unwrap();
+        script::copy_executable(&fs::canonicalize(PYTHON).unwrap(), &exe);
         let home = Command::new(PYTHON)
             .args(["-I", "-c", "import sys; print(sys.base_prefix)"])
             .output()

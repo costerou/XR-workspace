@@ -9,6 +9,9 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+#[path = "support/script.rs"]
+mod script;
+
 use xr_workspace::supervisor::luma_watch::{self, End, LumaWatch};
 use xr_workspace::supervisor::survive;
 use xr_workspace::supervisor::tracking::{Error, Kind, Paths, Timing, Tracking, Want};
@@ -54,8 +57,7 @@ impl Tree {
 
     fn driver(&self, name: &str, body: &str) -> PathBuf {
         let p = self.root.join(name);
-        fs::write(&p, format!("#!/bin/sh\n{body}")).unwrap();
-        fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+        script::write_script(&p, &format!("#!/bin/sh\n{body}"));
         p
     }
 

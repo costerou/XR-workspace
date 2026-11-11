@@ -14,7 +14,6 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
-use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -22,6 +21,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+#[path = "support/script.rs"]
+mod script;
 
 use xr_workspace::{control, lua};
 
@@ -142,17 +144,15 @@ impl Fixture {
             let (out, rc) = wanted.cloned().unwrap_or((Vec::new(), 0));
             std::fs::write(dir.join(format!("{name}.out")), out).unwrap();
             let script = tools.join(name);
-            std::fs::write(
+            script::write_script(
                 &script,
-                format!(
+                &format!(
                     "#!/bin/sh\n{{ printf '%s\\0%s\\0' {name} \"$#\"; for a in \"$@\"; do printf '%s\\0' \"$a\"; done; }} >> '{log}'\n\
                      /usr/bin/cat '{out}'\nexit {rc}\n",
                     log = log.display(),
                     out = dir.join(format!("{name}.out")).display(),
                 ),
-            )
-            .unwrap();
-            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            );
         }
         let mut env = HashMap::new();
         env.insert("XDG_RUNTIME_DIR".into(), dir.join("rt").into_os_string());
