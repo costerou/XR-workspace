@@ -10,8 +10,7 @@
 //! Not here yet, so a Rust run is a plain one (rust/README.md): the glasses' view controls (`view_controls`: the
 //! private control socket, the Ctrl+Alt binds, the overview pointer, privacy mode, window sending, 3D, the key bind
 //! panel, VR video), and with them the pills' desktop changes and the window memory's captures; putting remembered
-//! windows back at the start (`WindowTracker.place`); resetting a saved setup the broker refused
-//! (`profiles.discard_unusable`). Each has a stub in [`crate::view_controls`], called here where `_run_owned`,
+//! windows back at the start (`WindowTracker.place`). Each has a stub in [`crate::view_controls`], called here where `_run_owned`,
 //! `keep_renderer` and `_launch` call the Python's (rust/crates/xr-workspace/VIEW_CONTROLS.md).
 
 use std::ffi::OsString;
@@ -833,8 +832,18 @@ impl Host for RealHost<'_> {
     }
 
     fn discard_unusable_setup(&mut self, error: &Error) -> Result<()> {
-        // The runner never asks for it yet (RunOptions::saved_setup); view_controls::setup's port does.
-        setup::discard_unusable(&self.consent.model, error).map_err(err)
+        // `_setup_failed(ProfileStore(profiles_path(), model), desktops)`: the runner's store is the glasses profile.
+        if let Some(path) = setup::profiles_path() {
+            let log = &mut |line: &str| eprintln!("xr-workspace: {line}"); // profiles.log
+            setup::setup_failed(
+                &path,
+                &self.consent.model,
+                &self.consent.desktops,
+                error,
+                log,
+            );
+        }
+        Ok(())
     }
 
     fn desktop_manager(&mut self, _specs: &[Spec]) -> Result<()> {
@@ -1226,7 +1235,11 @@ pub fn run(
         capture: true,
     };
     let mut host = RealHost::new(client, consent, runtime, renderer);
-    let outcome = super::run_managed(&mut host, &order, super::RunOptions::default());
+    // The consent's desktops are the panel's restored setup (profiles.load_setup) unless they are the default three.
+    let options = super::RunOptions {
+        saved_setup: setup::is_saved_setup(&consent.desktops),
+    };
+    let outcome = super::run_managed(&mut host, &order, options);
     let holds = host.holds();
     let mut marks: Vec<(String, i64)> = host
         .renderer_ns
