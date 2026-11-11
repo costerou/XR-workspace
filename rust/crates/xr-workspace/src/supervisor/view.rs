@@ -877,13 +877,16 @@ pub fn validate_stabilization(value: i64) -> Result<i64> {
 /// only lose the field they are in there; here such a file is not JSON and gives the defaults (a file
 /// `save_settings` wrote never has them).
 pub fn load_settings(path: &Path) -> Settings {
-    let mut out = Settings::default();
-    let Some(data) = fs::read_to_string(path)
+    fs::read_to_string(path)
         .ok()
         .and_then(|text| Json::parse(&text).ok())
-    else {
-        return out;
-    };
+        .map_or_else(Settings::default, |data| settings_from(&data))
+}
+
+/// `load_settings` on a parsed object (`profiles._view_part`, a profile's view settings): each setting when valid,
+/// else its default; anything but an object gives the defaults.
+pub fn settings_from(data: &Json) -> Settings {
+    let mut out = Settings::default();
     if data.as_object().is_none() {
         return out;
     }
