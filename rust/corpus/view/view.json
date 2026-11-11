@@ -8015,5 +8015,791 @@
    "refused": "invalid settings",
    "by": "type"
   }
+ ],
+ "controls": [
+  {
+   "name": "keys",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "profile": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 60, \"prediction\": true, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -600, \"y\": 40, \"distance\": 120, \"curvature\": 30}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 1790, \"y\": -900, \"distance\": 10, \"curvature\": 120}], \"rolls\": [0, 3, -2]}}}",
+   "live": null,
+   "border": {
+    "option": "general:col.active_border",
+    "str": "",
+    "gradient": "ee33ccff ee00ff99 45deg",
+    "set": true
+   },
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":3,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120}]}}\n{\"schema\":1,\"request_id\":4,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"style\",\"payload\":{\"border\":[51,204,255]}}\n"
+    },
+    {
+     "status": true,
+     "out": "{\"capabilities\":[\"zoom_in\",\"zoom_out\",\"next\",\"prev\",\"spacing_up\",\"spacing_down\",\"recenter\",\"mode_next\",\"prediction\",\"help\",\"options_runtime_complete\"],\"view\":{\"zoomed\":false,\"selected\":0,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25},\"status\":{},\"placements\":[{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120}],\"names\":[\"XR-1\",\"XR-2\",\"XR-3\"],\"immersive\":{\"setting\":{\"global\":false,\"desktops\":{},\"preset\":\"desktop\",\"strength\":100,\"convergence\":92},\"names\":[],\"button\":\"R1\",\"switching\":false,\"stereo\":false,\"failed\":false,\"phase\":\"off\",\"installed\":false}}"
+    },
+    {
+     "op": "zoom_in",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":0,\"spacing\":60,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":6,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":1,\"spacing\":60,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25,\"cut\":true}}\n"
+    },
+    {
+     "op": "next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":7,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":2,\"spacing\":60,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25,\"cut\":true}}\n"
+    },
+    {
+     "op": "prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":8,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":1,\"spacing\":60,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25,\"cut\":true}}\n"
+    },
+    {
+     "op": "mode_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":9,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":1,\"spacing\":60,\"mode\":\"locked\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":10,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":2,\"spacing\":60,\"mode\":\"locked\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25,\"cut\":true}}\n"
+    },
+    {
+     "op": "prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":11,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":1,\"spacing\":60,\"mode\":\"locked\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25,\"cut\":true}}\n"
+    },
+    {
+     "op": "zoom_out",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":12,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "mode_next",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "spacing_up",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":13,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":80,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "spacing_down",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":14,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "spacing_down",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":15,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "prediction",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":16,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "recenter",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":17,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"recenter\",\"payload\":{}}\n"
+    },
+    {
+     "op": "help",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":18,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "op": "help_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":19,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2],\"turn\":1}}\n"
+    },
+    {
+     "op": "help_prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":20,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2],\"turn\":-1}}\n"
+    },
+    {
+     "op": "help",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":21,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":false,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "op": "help_next",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "typing_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":22,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":false,\"typing\":true,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "send_glasses",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "typing_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":23,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "zoom_in",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":24,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":1,\"spacing\":40,\"mode\":\"locked\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "status": true,
+     "out": "{\"capabilities\":[\"zoom_in\",\"zoom_out\",\"next\",\"prev\",\"spacing_up\",\"spacing_down\",\"recenter\",\"mode_next\",\"prediction\",\"help\",\"options_runtime_complete\"],\"view\":{\"zoomed\":true,\"selected\":1,\"spacing\":40,\"mode\":\"locked\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false,\"stabilization\":25},\"status\":{},\"placements\":[{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120}],\"names\":[\"XR-1\",\"XR-2\",\"XR-3\"],\"immersive\":{\"setting\":{\"global\":false,\"desktops\":{},\"preset\":\"desktop\",\"strength\":100,\"convergence\":92},\"names\":[],\"button\":\"R1\",\"switching\":false,\"stereo\":false,\"failed\":false,\"phase\":\"off\",\"installed\":false}}"
+    },
+    {
+     "poll": 1.0,
+     "out": ""
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": false, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -600, \"y\": 40, \"distance\": 120, \"curvature\": 30}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 1790, \"y\": -900, \"distance\": 10, \"curvature\": 120}], \"rolls\": [0, 3, -2], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [
+    "XR-1",
+    "XR-2",
+    "XR-3",
+    "XR-2",
+    "XR-3",
+    "XR-2",
+    "XR-2"
+   ],
+   "toasts": [
+    "The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts."
+   ]
+  },
+  {
+   "name": "panel",
+   "names": [
+    "XR-1",
+    "XR-2"
+   ],
+   "profile": null,
+   "live": null,
+   "border": {
+    "option": "x",
+    "int": 872375961,
+    "set": true
+   },
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":3,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"style\",\"payload\":{\"border\":[255,102,153]}}\n"
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":4,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_field_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":6,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":2,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":7,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":2,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc_big",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":8,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":102,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":9,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":102,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_dec",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":10,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":11,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "poll": 0.2,
+     "out": ""
+    },
+    {
+     "poll": 1.0,
+     "out": ""
+    },
+    {
+     "op": "menu_desktop_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":12,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":13,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":2,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":14,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":2,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_reset",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":15,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":16,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_reset",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "menu_desktop_prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":17,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"y\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_field_prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":18,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_field_prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":19,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "environment_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":20,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"grid\",\"brightness\":100}}\n{\"schema\":1,\"request_id\":21,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":22,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"grid\",\"brightness\":105}}\n{\"schema\":1,\"request_id\":23,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":105}}\n"
+    },
+    {
+     "op": "menu_inc_big",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":24,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"grid\",\"brightness\":130}}\n{\"schema\":1,\"request_id\":25,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":130}}\n"
+    },
+    {
+     "op": "menu_dec",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":26,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"grid\",\"brightness\":125}}\n{\"schema\":1,\"request_id\":27,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "poll": 1.3,
+     "out": ""
+    },
+    {
+     "poll": 2.0,
+     "out": ""
+    },
+    {
+     "op": "menu_ultrawide",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":28,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":1,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":29,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "prev",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":30,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":31,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "menu_back",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":32,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":false,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "menu_back",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":33,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "zoom_in",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":34,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":false,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":100,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n{\"schema\":1,\"request_id\":35,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":true,\"selected\":0,\"spacing\":40,\"mode\":\"follow\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": -600,
+        "y": 40,
+        "distance": 120,
+        "curvature": 30
+       },
+       {
+        "x": 1790,
+        "y": -900,
+        "distance": 10,
+        "curvature": 120
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": -600,
+        "y": 40,
+        "distance": 120,
+        "curvature": 30
+       },
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 1790,
+        "y": -900,
+        "distance": 10,
+        "curvature": 120
+       },
+       {
+        "x": -600,
+        "y": 40,
+        "distance": 120,
+        "curvature": 30
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "zoom_out",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":36,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":37,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"glide\":240}}\n"
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       },
+       {
+        "x": -600,
+        "y": 40,
+        "distance": 120,
+        "curvature": 30
+       }
+      ]
+     },
+     "out": "{\"schema\":1,\"request_id\":38,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}]}}\n"
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       },
+       {
+        "x": -600,
+        "y": 40,
+        "distance": 120,
+        "curvature": 30
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 1801,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       },
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       }
+      ]
+     },
+     "out": ""
+    },
+    {
+     "op": "placement",
+     "payload": {},
+     "out": ""
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":39,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "placement",
+     "payload": {
+      "desktops": [
+       {
+        "x": 1790,
+        "y": -900,
+        "distance": 10,
+        "curvature": 120
+       },
+       {
+        "x": 0,
+        "y": 0,
+        "distance": 100,
+        "curvature": 0
+       }
+      ]
+     },
+     "out": "{\"schema\":1,\"request_id\":40,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":41,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"grid\",\"brightness\":125}}\n"
+    },
+    {
+     "op": "stabilization",
+     "payload": {
+      "strength": 40
+     },
+     "out": "{\"schema\":1,\"request_id\":42,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":40}}\n"
+    },
+    {
+     "op": "stabilization",
+     "payload": {
+      "strength": 101
+     },
+     "out": ""
+    },
+    {
+     "op": "stabilization",
+     "payload": {
+      "strength": true
+     },
+     "out": ""
+    },
+    {
+     "op": "stabilization",
+     "payload": {
+      "strength": 5,
+      "x": 1
+     },
+     "out": ""
+    },
+    {
+     "op": "environment",
+     "payload": {
+      "background": "smoke",
+      "last": "smoke",
+      "brightness": 50
+     },
+     "out": "{\"schema\":1,\"request_id\":43,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"smoke\",\"brightness\":50}}\n{\"schema\":1,\"request_id\":44,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"smoke\",\"brightness\":50}}\n"
+    },
+    {
+     "op": "environment",
+     "payload": {
+      "background": "fog",
+      "last": "grid",
+      "brightness": 50
+     },
+     "out": ""
+    },
+    {
+     "op": "environment_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":45,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"environment\",\"payload\":{\"background\":\"none\",\"brightness\":50}}\n{\"schema\":1,\"request_id\":46,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"brightness\",\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":50}}\n"
+    },
+    {
+     "events": "configreloaded>>\nopenwindow>>0x1,1,kitty,t\npartial",
+     "out": ""
+    },
+    {
+     "events": ">>\n",
+     "out": ""
+    },
+    {
+     "status": true,
+     "out": "{\"capabilities\":[\"zoom_in\",\"zoom_out\",\"next\",\"prev\",\"spacing_up\",\"spacing_down\",\"recenter\",\"mode_next\",\"prediction\",\"help\",\"options_runtime_complete\"],\"view\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":40},\"status\":{},\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[\"XR-1\",\"XR-2\"],\"immersive\":{\"setting\":{\"global\":false,\"desktops\":{},\"preset\":\"desktop\",\"strength\":100,\"convergence\":92},\"names\":[],\"button\":\"R1\",\"switching\":false,\"stereo\":false,\"failed\":false,\"phase\":\"off\",\"installed\":false}}"
+    },
+    {
+     "flush": true,
+     "out": ""
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 40, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"smoke\", \"brightness\": 50}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 1790, \"y\": -900, \"distance\": 10, \"curvature\": 120}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [
+    "XR-2",
+    "XR-1",
+    "XR-1"
+   ],
+   "toasts": [
+    "Placement change kept: it applies when you go back to the overview."
+   ]
+  },
+  {
+   "name": "idle",
+   "names": [
+    "XR-2",
+    "XR-4"
+   ],
+   "profile": null,
+   "live": null,
+   "border": null,
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "help",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":3,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "poll": 29.9,
+     "out": ""
+    },
+    {
+     "poll": 30.0,
+     "out": "{\"schema\":1,\"request_id\":4,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":false,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "at": 31.0,
+     "out": ""
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[2,4],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":6,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":2,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}]}}\n{\"schema\":1,\"request_id\":7,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":2,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[2,4],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "poll": 31.2,
+     "out": ""
+    },
+    {
+     "poll": 60.9,
+     "out": ""
+    },
+    {
+     "poll": 61.0,
+     "out": "{\"schema\":1,\"request_id\":8,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":false,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":2,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"names\":[2,4],\"wide\":false,\"armed\":false,\"busy\":false,\"background_picker\":false,\"background\":\"none\",\"brightness\":100}}\n"
+    },
+    {
+     "at": 70.0,
+     "out": ""
+    },
+    {
+     "op": "help",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":9,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "at": 99.0,
+     "out": ""
+    },
+    {
+     "op": "help_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":10,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":true,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2],\"turn\":1}}\n"
+    },
+    {
+     "poll": 128.9,
+     "out": ""
+    },
+    {
+     "poll": 129.0,
+     "out": "{\"schema\":1,\"request_id\":11,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"help\",\"payload\":{\"visible\":false,\"rows\":[[\"Ctrl+Alt+Up\",\"Maximize the selected desktop\"],[\"Ctrl+Alt+Down\",\"Overview: any desktop; pills, bar, corners\"],[\"Ctrl+Alt+Left / Right\",\"Previous / next desktop\"],[\"Ctrl+Alt+[ / ]\",\"Less / more space between desktops\"],[\"Ctrl+Alt+Space / R\",\"Recenter / reset to 3 flat desktops\"],[\"Ctrl+Alt+V\",\"Maximized: follow / locked\"],[\"Ctrl+Alt+P\",\"Toggle pose prediction\"],[\"Ctrl+Alt+T\",\"Typing mode: XR keys off / on\"],[\"Ctrl+Alt+D\",\"Privacy: main display off / on\"],[\"Ctrl+Alt+E / I\",\"Background / immersive 3D: on or off\"],[\"Ctrl+Alt+L\",\"Placement pill; R in it resets, levels\"],[\"Ctrl+Alt+O / U / C\",\"VR video: file / web link / hide controls\"],[\"Ctrl+Alt+H / K\",\"Help/binds; Ctrl+Alt+G/B: window to XR/back\"],[\"Ctrl+Alt+PgUp / PgDn\",\"Help: previous / next page\"]],\"sections\":[5,5,2,2]}}\n"
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 2, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [],
+   "toasts": []
+  },
+  {
+   "name": "live",
+   "names": [
+    "XR-1",
+    "XR-2"
+   ],
+   "profile": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 3840, \"height\": 1080, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 1790, \"y\": -900, \"distance\": 10, \"curvature\": 120}, {\"x\": -600, \"y\": 40, \"distance\": 120, \"curvature\": 30}], \"rolls\": [1, 2]}}}",
+   "live": [
+    {
+     "width": 3840,
+     "height": 1080,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    }
+   ],
+   "border": null,
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n{\"schema\":1,\"request_id\":3,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}]}}\n"
+    },
+    {
+     "status": true,
+     "out": "{\"capabilities\":[\"zoom_in\",\"zoom_out\",\"next\",\"prev\",\"spacing_up\",\"spacing_down\",\"recenter\",\"mode_next\",\"prediction\",\"help\",\"options_runtime_complete\"],\"view\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25},\"status\":{},\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[\"XR-1\",\"XR-2\"],\"immersive\":{\"setting\":{\"global\":false,\"desktops\":{},\"preset\":\"desktop\",\"strength\":100,\"convergence\":92},\"names\":[],\"button\":\"R1\",\"switching\":false,\"stereo\":false,\"failed\":false,\"phase\":\"off\",\"installed\":false},\"desktops\":[{\"width\":3840,\"height\":1080,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0}]}"
+    },
+    {
+     "op": "menu_toggle",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":4,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":1790,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[1,2],\"wide\":true,\"armed\":false,\"busy\":false,\"picker\":false,\"resolution_picker\":false,\"background_picker\":false,\"resolution\":[3840,1080],\"background\":\"none\",\"brightness\":100,\"scale\":125,\"scales\":[100,125,150,200,250,300]}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":1792,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}]}}\n{\"schema\":1,\"request_id\":6,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[{\"x\":1792,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[1,2],\"wide\":true,\"armed\":false,\"busy\":false,\"picker\":false,\"resolution_picker\":false,\"background_picker\":false,\"resolution\":[3840,1080],\"background\":\"none\",\"brightness\":100,\"scale\":125,\"scales\":[100,125,150,200,250,300]}}\n"
+    },
+    {
+     "op": "menu_desktop_next",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":7,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"x\",\"placements\":[{\"x\":1792,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-600,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"picker\":false,\"resolution_picker\":false,\"background_picker\":false,\"resolution\":[1920,1080],\"background\":\"none\",\"brightness\":100,\"scale\":100,\"scales\":[100,125,150,200,250,300]}}\n"
+    },
+    {
+     "op": "menu_inc",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":8,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement\",\"payload\":{\"desktops\":[{\"x\":1792,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-598,\"y\":40,\"distance\":120,\"curvature\":30}]}}\n{\"schema\":1,\"request_id\":9,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"placement_menu\",\"payload\":{\"open\":true,\"desktop\":1,\"field\":\"x\",\"placements\":[{\"x\":1792,\"y\":-900,\"distance\":10,\"curvature\":120},{\"x\":-598,\"y\":40,\"distance\":120,\"curvature\":30}],\"names\":[1,2],\"wide\":false,\"armed\":false,\"busy\":false,\"picker\":false,\"resolution_picker\":false,\"background_picker\":false,\"resolution\":[1920,1080],\"background\":\"none\",\"brightness\":100,\"scale\":100,\"scales\":[100,125,150,200,250,300]}}\n"
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 3840, \"height\": 1080, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 1792, \"y\": -900, \"distance\": 10, \"curvature\": 120}, {\"x\": -598, \"y\": 40, \"distance\": 120, \"curvature\": 30}], \"rolls\": [0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [],
+   "toasts": []
+  },
+  {
+   "name": "other desktops",
+   "names": [
+    "XR-1",
+    "XR-2"
+   ],
+   "profile": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 60, \"prediction\": true, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -600, \"y\": 40, \"distance\": 120, \"curvature\": 30}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 1790, \"y\": -900, \"distance\": 10, \"curvature\": 120}], \"rolls\": [0, 3, -2]}}}",
+   "live": [
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    }
+   ],
+   "border": null,
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 60, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [],
+   "toasts": []
+  },
+  {
+   "name": "corrupt",
+   "names": [
+    "XR-1"
+   ],
+   "profile": "not json",
+   "live": null,
+   "border": null,
+   "steps": [
+    {
+     "initial": true,
+     "out": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "op": "spacing_up",
+     "payload": {},
+     "out": "{\"schema\":1,\"request_id\":3,\"run_id\":\"run-1\",\"session\":\"a1b2c3\",\"op\":\"view\",\"payload\":{\"zoomed\":false,\"selected\":0,\"spacing\":60,\"mode\":\"anchor\",\"cursor_follow\":false,\"prediction\":true,\"typing\":false,\"stabilization\":25}}\n"
+    },
+    {
+     "save_setup": true,
+     "out": ""
+    }
+   ],
+   "saved": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 60, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "focused": [],
+   "toasts": []
+  }
  ]
 }

@@ -32,7 +32,10 @@ fn ctrl_alt_d_blanks_the_main_display_and_the_runs_end_wakes_it() {
         "blank, then the exit's wake, then recovery: {:?}",
         run.trace
     );
-    assert!(run.frames.iter().all(|f| !f.contains("privacy")), "the renderer is told nothing");
+    assert!(
+        run.frames.iter().all(|f| !f.contains("privacy")),
+        "the renderer is told nothing"
+    );
 }
 
 /// A run stopped as `stop` is (SIGINT 300 ms after the renderer is up), with DP-1 put DPMS-off before the Stop.

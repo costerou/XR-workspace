@@ -299,21 +299,33 @@ impl ViewControl {
                 run.session.to_owned(),
             )
         });
-        let focus: Option<Focus> = compositor.clone().map(|(instance, runtime, identity, session)| {
-            Arc::new(move |name: &str| {
-                let Ok(command) = vs::focus_command(name) else { return };
-                if let Ok(mut client) =
-                    Client::pinned(&instance, &runtime, identity.clone(), &session)
-                {
-                    let _ = client.mutate(&command); // best effort: the view still changes
-                }
-            }) as Focus
-        });
+        let focus: Option<Focus> =
+            compositor
+                .clone()
+                .map(|(instance, runtime, identity, session)| {
+                    Arc::new(move |name: &str| {
+                        let Ok(command) = vs::focus_command(name) else {
+                            return;
+                        };
+                        if let Ok(mut client) =
+                            Client::pinned(&instance, &runtime, identity.clone(), &session)
+                        {
+                            let _ = client.mutate(&command); // best effort: the view still changes
+                        }
+                    }) as Focus
+                });
         let border: Option<Border> = compositor.map(|(instance, runtime, identity, session)| {
             let mut client = Client::pinned(&instance, &runtime, identity, &session).ok();
             Box::new(move || {
-                let reply = client.as_mut()?.query(Query::ActiveBorder, BORDER_TIMEOUT).ok()?;
-                Json::parse(&xr_wire::json::encode(&reply, xr_wire::json::Style::COMPACT)).ok()
+                let reply = client
+                    .as_mut()?
+                    .query(Query::ActiveBorder, BORDER_TIMEOUT)
+                    .ok()?;
+                Json::parse(&xr_wire::json::encode(
+                    &reply,
+                    xr_wire::json::Style::COMPACT,
+                ))
+                .ok()
             }) as Border
         });
         let mut view = ViewControl::new(
@@ -342,7 +354,9 @@ impl ViewControl {
         clock: Clock,
     ) -> Option<ViewControl> {
         let saved = settings.as_ref().map(Store::load).unwrap_or_default();
-        let restored = settings.as_ref().and_then(|s| restored(s, names, live.as_deref()));
+        let restored = settings
+            .as_ref()
+            .and_then(|s| restored(s, names, live.as_deref()));
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
         let mut state = ViewState::new(
             &refs,
@@ -489,7 +503,12 @@ impl ViewControl {
 
     /// The `finally`'s first block: the options menu closed, its binds removed, the maximize geometry cleared on the
     /// pointer. Nothing while the options menu is not ported.
-    pub fn close_options(&mut self, _run: &mut Run<'_>, _pointer: Option<&mut super::overview_pointer::Pointer>) {}
+    pub fn close_options(
+        &mut self,
+        _run: &mut Run<'_>,
+        _pointer: Option<&mut super::overview_pointer::Pointer>,
+    ) {
+    }
 
     fn now(&self) -> f64 {
         (self.clock)()
@@ -502,7 +521,9 @@ impl ViewControl {
     }
 
     fn tell(&mut self, text: &str) {
-        let Some(notify) = self.notify.clone() else { return };
+        let Some(notify) = self.notify.clone() else {
+            return;
+        };
         let text = text.to_owned();
         self.threads.retain(|t| !t.is_finished());
         if let Ok(t) = std::thread::Builder::new()
@@ -532,14 +553,26 @@ impl ViewControl {
     }
 
     fn placement_frame(&mut self, initial: bool, glide: bool) -> Vec<u8> {
-        if initial && self.state.placements.iter().all(|p| *p == DEFAULT_PLACEMENT) {
+        if initial
+            && self
+                .state
+                .placements
+                .iter()
+                .all(|p| *p == DEFAULT_PLACEMENT)
+        {
             return Vec::new(); // the renderer starts flat
         }
         let id = self.take_id();
         let glide = glide.then_some(GLIDE_MS);
-        vs::placement_frame(&self.run_id, &self.session, id, &self.state.placements, glide)
-            .map(String::into_bytes)
-            .unwrap_or_default()
+        vs::placement_frame(
+            &self.run_id,
+            &self.session,
+            id,
+            &self.state.placements,
+            glide,
+        )
+        .map(String::into_bytes)
+        .unwrap_or_default()
     }
 
     fn menu_frame(&mut self) -> Vec<u8> {
@@ -726,7 +759,9 @@ impl ViewControl {
             self.save_environment();
         }
         // The desktops' result, `_settle` (the pointer's geometry), `_immersive_tick`: their ports.
-        if !self.state.desktops_busy && let Some(windows) = f.windows.as_deref_mut() {
+        if !self.state.desktops_busy
+            && let Some(windows) = f.windows.as_deref_mut()
+        {
             self.publish_context();
             windows.poll(at); // off the loop; never mid-change
         }
@@ -748,8 +783,12 @@ impl ViewControl {
 
     /// `_watch_rolls`: a levelling roll changed (the overview pointer's level bars) is saved like a placement.
     fn watch_rolls(&mut self, now: f64) {
-        let Some(rolls) = self.rolls.clone() else { return };
-        let seen = self.rolls_seen.replace((self.state.names.clone(), rolls.clone()));
+        let Some(rolls) = self.rolls.clone() else {
+            return;
+        };
+        let seen = self
+            .rolls_seen
+            .replace((self.state.names.clone(), rolls.clone()));
         if let Some((names, before)) = seen
             && names == self.state.names
             && before != rolls
@@ -778,7 +817,8 @@ impl ViewControl {
         let Some((path, model)) = self.settings.as_ref().and_then(Store::placements) else {
             return;
         };
-        let _ = setup::store::save_layout(path, model, &self.state.placements, self.rolls.as_deref());
+        let _ =
+            setup::store::save_layout(path, model, &self.state.placements, self.rolls.as_deref());
     }
 
     /// `control.save_setup()`: the whole monitor setup for the next start (profiles.py), best effort.
@@ -802,7 +842,12 @@ impl ViewControl {
         let s = &self.state;
         let mut map = serde_json::Map::new();
         for (i, (name, p)) in s.names.iter().zip(&s.placements).enumerate() {
-            let roll = self.rolls.as_ref().and_then(|r| r.get(i)).copied().unwrap_or(0);
+            let roll = self
+                .rolls
+                .as_ref()
+                .and_then(|r| r.get(i))
+                .copied()
+                .unwrap_or(0);
             map.insert(
                 name.clone(),
                 serde_json::json!({"placement": serde_json::to_value(p).unwrap_or_default(), "roll": roll}),
@@ -820,7 +865,12 @@ impl ViewControl {
     pub fn window_context(&self) -> super::window_memory::Context {
         self.publish_context();
         let context = Arc::clone(&self.context);
-        Arc::new(move || context.lock().unwrap_or_else(PoisonError::into_inner).clone())
+        Arc::new(move || {
+            context
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone()
+        })
     }
 
     /// `_desktops_changed`: the run's desktops changed (the desktops' port calls it); the sender's worker knows them.
@@ -841,7 +891,9 @@ impl ViewControl {
         if !std::mem::take(&mut self.binds_due) && !force {
             return;
         }
-        let Some(binds) = f.binds.as_deref_mut() else { return };
+        let Some(binds) = f.binds.as_deref_mut() else {
+            return;
+        };
         if self.state.typing != self.typing_installed {
             binds.typing_binds(self.state.typing, f.keys.as_deref());
             self.typing_installed = self.state.typing;
@@ -1056,7 +1108,9 @@ impl ViewControl {
         };
         if self.state.zoomed {
             let waiting = !self.state.held.is_empty();
-            if self.state.hold_placements(&placements).is_ok() && !self.state.held.is_empty() && !waiting
+            if self.state.hold_placements(&placements).is_ok()
+                && !self.state.held.is_empty()
+                && !waiting
             {
                 self.tell(PLACE_HELD_TOAST);
             }
@@ -1174,7 +1228,8 @@ impl ViewControl {
     /// `follow_focus`: the selection moved in the overview, so an open panel goes with it.
     fn follow_focus(&mut self) -> Vec<u8> {
         let s = &self.state;
-        if !s.menu_open || s.zoomed || s.typing || self.video_active || s.selected == s.menu_desktop {
+        if !s.menu_open || s.zoomed || s.typing || self.video_active || s.selected == s.menu_desktop
+        {
             return Vec::new();
         }
         self.flush();
@@ -1191,8 +1246,10 @@ impl ViewControl {
             return Vec::new(); // the open panel's desktop row: the desktops' port (`desktop_action`)
         }
         let s = &self.state;
-        if matches!(op, "menu_inc" | "menu_dec" | "menu_inc_big" | "menu_dec_big")
-            && s.menu_open
+        if matches!(
+            op,
+            "menu_inc" | "menu_dec" | "menu_inc_big" | "menu_dec_big"
+        ) && s.menu_open
             && s.menu_field == Field::Brightness
         {
             let step = if op.ends_with("_big") {
@@ -1204,7 +1261,10 @@ impl ViewControl {
             let mut frames = Vec::new();
             let out = self.menu_update(Some(f), |v| {
                 // (apply_menu closes an open list)
-                frames = v.brightness(environment::brightened(&env.to_json(), env.brightness + step));
+                frames = v.brightness(environment::brightened(
+                    &env.to_json(),
+                    env.brightness + step,
+                ));
                 v.state.apply_menu(op).unwrap_or(false)
             });
             frames.extend(out);
@@ -1237,7 +1297,10 @@ impl ViewControl {
         );
         let changed = change(self);
         let mut out = Vec::new();
-        if self.state.menu_open && !was_open && let Some(f) = f {
+        if self.state.menu_open
+            && !was_open
+            && let Some(f) = f
+        {
             out.extend(self.close_keys(f));
         }
         if changed {
@@ -1350,7 +1413,8 @@ fn monotonic() -> f64 {
 
 /// A value as the control wire holds it, in the Python's key order.
 fn wire<T: Serialize + ?Sized>(value: &T) -> xr_wire::json::Value {
-    xr_wire::json::parse_strict(pyjson::compact(value).as_bytes()).unwrap_or(xr_wire::json::Value::Null)
+    xr_wire::json::parse_strict(pyjson::compact(value).as_bytes())
+        .unwrap_or(xr_wire::json::Value::Null)
 }
 
 /// A frame's payload as serde_json holds it.
@@ -1362,7 +1426,9 @@ fn plain(v: &xr_wire::json::Value) -> serde_json::Value {
         W::Number(n) => serde_json::Value::Number(n.clone()),
         W::String(s) => serde_json::Value::String(s.clone()),
         W::Array(a) => serde_json::Value::Array(a.iter().map(plain).collect()),
-        W::Object(o) => serde_json::Value::Object(o.iter().map(|(k, v)| (k.clone(), plain(v))).collect()),
+        W::Object(o) => {
+            serde_json::Value::Object(o.iter().map(|(k, v)| (k.clone(), plain(v))).collect())
+        }
     }
 }
 
