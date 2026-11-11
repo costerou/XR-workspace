@@ -1,0 +1,604 @@
+{
+ "cases": [
+  {
+   "name": "refused outputs reset the saved setup",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "missing readback resets it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "missing readback",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (missing readback); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a geometry mismatch resets it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "actual geometry/workspace mismatch",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (actual geometry/workspace mismatch); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "an unusable output resets it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "unusable output",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (unusable output); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a lost epoch keeps it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "broker epoch lost; preserve journal",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a changed session keeps it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "compositor session changed",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "other desktops by now keep it",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "the default three ask nothing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": false,
+   "log": "",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "nothing saved resets nothing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": null,
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": null
+  },
+  {
+   "name": "a corrupt file resets nothing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, ",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 2, "
+  },
+  {
+   "name": "another schema resets nothing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 1, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}]}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 1, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}]}}}"
+  },
+  {
+   "name": "a float schema is the schema",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2.0, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}]}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"rolls\":[0,0,0,0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "an invalid saved setup resets nothing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"rolls\": [1]}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"rolls\": [1]}}}"
+  },
+  {
+   "name": "a hand-written profile is cleaned, other models kept",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"beast\": {\"odd\": 100000.0, \"name\": \"caf\\u00e9 \\ud83d\\ude00\", \"n\": [1, 2.5, null, true]}, \"zzz\": {\"dropped\": true}, \"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}], \"spacing\": 999, \"mode\": \"follow\", \"prediction\": \"yes\", \"stabilization\": 60, \"video_quality\": \"junk\", \"environment\": {\"background\": \"nowhere\"}, \"immersive\": 7, \"tracking\": false, \"mode_switch\": 1, \"tracking_driver\": \"3dof\", \"fallback\": \"HDMI-A-1\", \"cursor_switch_animate\": true, \"extra\": [1, 2], \"previous_setup\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}], \"rolls\": [12], \"spacing\": 120}}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[0,0,0,0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"beast\": {\"odd\": 100000.0, \"name\": \"caf\\u00e9 \\ud83d\\ude00\", \"n\": [1, 2.5, null, true]}, \"luma-ultra\": {\"spacing\": 40, \"mode\": \"follow\", \"prediction\": true, \"stabilization\": 60, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}], \"rolls\": [12], \"spacing\": 120}, \"tracking\": false, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": \"HDMI-A-1\"}}}"
+  },
+  {
+   "name": "an integer scale matches",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}]}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"rolls\":[0,0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a repeated key keeps its first place",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"beast\": {\"a\": 1}, \"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}]}, \"beast\": {\"a\": 2}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0}],\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"rolls\":[0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"beast\": {\"a\": 2}, \"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "an invalid previous setup is dropped",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"previous_setup\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}], \"spacing\": -1}, \"fallback\": 7, \"rolls\": null, \"placements\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0},{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}],\"rolls\":[0,0,0,0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a pro 2 profile",
+   "model": "pro2",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"pro2\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": false, \"mode_switch\": false, \"tracking_driver\": \"xrdriver\", \"fallback\": null}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"pro2\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": null, \"tracking\": false, \"mode_switch\": false, \"tracking_driver\": \"xrdriver\", \"fallback\": null}}}"
+  },
+  {
+   "name": "a beast profile with our driver",
+   "model": "beast",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "unusable output",
+   "before": "{\"schema\": 2, \"profiles\": {\"beast\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7, \"yaw\": 5, \"pitch\": -3, \"roll\": 1}], \"spacing\": 999, \"mode\": \"follow\", \"prediction\": \"yes\", \"stabilization\": 60, \"video_quality\": \"junk\", \"environment\": {\"background\": \"nowhere\"}, \"immersive\": 7, \"tracking\": false, \"mode_switch\": 1, \"tracking_driver\": \"luma\", \"fallback\": \"HDMI-A-1\", \"cursor_switch_animate\": true, \"extra\": [1, 2], \"previous_setup\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}], \"rolls\": [12], \"spacing\": 120}}}}",
+   "read_only": false,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (unusable output); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[0,0,0,0]}\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"beast\": {\"spacing\": 40, \"mode\": \"follow\", \"prediction\": true, \"stabilization\": 60, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}, {\"x\": 0, \"y\": 0, \"distance\": 100, \"curvature\": 0}], \"rolls\": [0, 0, 0], \"previous_setup\": {\"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}], \"rolls\": [12], \"spacing\": 120}, \"tracking\": false, \"mode_switch\": true, \"tracking_driver\": \"xrdriver\", \"fallback\": \"HDMI-A-1\"}}}"
+  },
+  {
+   "name": "a folder it cannot write logs the reset failing",
+   "model": "luma-ultra",
+   "desktops": [
+    {
+     "width": 2560,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 2560,
+     "height": 1440,
+     "scale": 1.25
+    },
+    {
+     "width": 1920,
+     "height": 1080,
+     "scale": 1.0
+    },
+    {
+     "width": 3840,
+     "height": 2160,
+     "scale": 2.0
+    }
+   ],
+   "error": "creation incomplete",
+   "before": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}",
+   "read_only": true,
+   "asked": true,
+   "log": "xr-workspace: the saved monitor setup could not be created (creation incomplete); the next start uses three flat desktops. It was: {\"desktops\":[{\"width\":2560,\"height\":1080,\"scale\":1.0},{\"width\":2560,\"height\":1440,\"scale\":1.25},{\"width\":1920,\"height\":1080,\"scale\":1.0},{\"width\":3840,\"height\":2160,\"scale\":2.0}],\"placements\":[{\"x\":-450,\"y\":30,\"distance\":80,\"curvature\":40},{\"x\":0,\"y\":-120,\"distance\":140,\"curvature\":0},{\"x\":1800,\"y\":0,\"distance\":100,\"curvature\":120},{\"x\":600,\"y\":900,\"distance\":10,\"curvature\":7}],\"rolls\":[250,-1200,0,9000]}\nxr-workspace: the saved monitor setup could not be reset ([Errno 13] Permission denied: 'DIR/.profiles.TMP.tmp')\n",
+   "after": "{\"schema\": 2, \"profiles\": {\"luma-ultra\": {\"spacing\": 40, \"mode\": \"anchor\", \"prediction\": true, \"stabilization\": 25, \"video_quality\": {\"filter\": \"catmull-rom\", \"deband\": false}, \"environment\": {\"background\": \"none\", \"last\": \"grid\", \"brightness\": 100}, \"immersive\": {\"global\": false, \"desktops\": {}, \"preset\": \"desktop\", \"strength\": 100, \"convergence\": 92}, \"desktops\": [{\"width\": 2560, \"height\": 1080, \"scale\": 1.0}, {\"width\": 2560, \"height\": 1440, \"scale\": 1.25}, {\"width\": 1920, \"height\": 1080, \"scale\": 1.0}, {\"width\": 3840, \"height\": 2160, \"scale\": 2.0}], \"placements\": [{\"x\": -450, \"y\": 30, \"distance\": 80, \"curvature\": 40}, {\"x\": 0, \"y\": -120, \"distance\": 140, \"curvature\": 0}, {\"x\": 1800, \"y\": 0, \"distance\": 100, \"curvature\": 120}, {\"x\": 600, \"y\": 900, \"distance\": 10, \"curvature\": 7}], \"rolls\": [250, -1200, 0, 9000], \"previous_setup\": null, \"tracking\": true, \"mode_switch\": true, \"tracking_driver\": \"luma\", \"fallback\": null}}}"
+  }
+ ]
+}
