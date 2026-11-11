@@ -3,25 +3,28 @@
 //! along the morph; over black the glass alone, and the glass with the panel content composited on top, stays at or
 //! under the 191/255 OLED cap. The same holds in Omarchy theme colours. Port of spike/tests/glass_render_test.cpp.
 //!
-//! The panel images are rendered by code not ported yet (the font): with XR_GL_CARDS set to a `gl_bench --dump`
-//! directory the panel checks draw the C++ ones, else they are skipped (and said so). Exit 77 (skipped) without EGL/GLES.
+//! The open panels are drawn by `glass_raster::render_glass_panel` as the ctest draws them: in the installed
+//! HUD_FONT_FAMILY (the 5x7 pixel font when it is missing) in the default theme, and in the pixel font in each theme
+//! colour. Those images are byte-equal to the C++ (`tests/card_raster.rs`), so every check always runs.
+//! Exit 77 (skipped) without EGL/GLES.
 
-#[path = "support/gl_scenarios.rs"]
-mod gl_scenarios;
-
-use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use glow::HasContext;
 use xr_renderer::egl::Headless;
-use xr_renderer::gl::{Gl, compile_program};
+use xr_renderer::gl::{compile_program, Gl};
 use xr_renderer::glass::{
-    GLASS_ACTIVE, GLASS_HOVER, GLASS_IDLE, GLASS_STYLE_VECS, GlassLook, PANEL_RADIUS,
     glass_fragment_shader, glass_look, glass_morph, glass_panel, glass_radius, glass_shade,
-    glass_style,
+    glass_style, GlassLook, GLASS_ACTIVE, GLASS_HOVER, GLASS_IDLE, GLASS_STYLE_VECS, PANEL_RADIUS,
 };
-use xr_renderer::hud::{CARD_MAX_LEVEL, HudImage};
+use xr_renderer::glass_raster::render_glass_panel;
+use xr_renderer::glass_theme::GLASS_THEME_DEFAULT;
+use xr_renderer::hud::{
+    placement_menu_flat, HudImage, HudTextMetrics, PlacementMenuState, CARD_MAX_LEVEL,
+    HUD_FONT_FAMILY,
+};
+use xr_renderer::hud_font::HudFont;
 use xr_renderer::view::FRect;
 
 static FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -262,11 +265,15 @@ fn main() {
         panel,
         pixels: vec![0; (W * H * 4) as usize],
     };
-    let cards = std::env::var_os("XR_GL_CARDS");
-    let card = |name: &str| {
-        cards.as_ref().map(|d| {
-            gl_scenarios::read_image(&Path::new(d).join(format!("{name}.rgba"))).expect(name)
-        })
+    // The open panel with every desktop flat, `field` selected.
+    let open_state = |field: u32| {
+        let mut st = PlacementMenuState {
+            open: true,
+            field,
+            ..PlacementMenuState::default()
+        };
+        st.placements.fill(placement_menu_flat());
+        st
     };
 
     let tile = FRect {
@@ -305,8 +312,13 @@ fn main() {
         width: 480.0,
         height: 120.0,
     }); // at the top of the framebuffer
-    let mut panels = 0;
-    if let Some(im) = card("glass_panel") {
+    {
+        let font = HudFont::load(HUD_FONT_FAMILY);
+        if let Err(why) = &font {
+            println!("note: {HUD_FONT_FAMILY} not found ({why}), the panel is in the pixel font");
+        }
+        let font = font.as_ref().ok().map(|f| f as &dyn HudTextMetrics);
+        let im = render_glass_panel(&open_state(2), font, GLASS_THEME_DEFAULT);
         ctx.background(0.0);
         ctx.shape(
             &glass_look([1.0, 1.0, 1.0], GLASS_ACTIVE, 1.0),
@@ -318,7 +330,6 @@ fn main() {
         ctx.read();
         let b = ctx.brightest();
         check!((140..=CAP).contains(&b));
-        panels += 1;
     }
     // Theme colours (glass_theme): saturated, pale and deep Omarchy borders, pure blue, white and vantablack grey,
     // dragged (the brightest state): the shader still matches glass_shade, and over black the glass, and the open panel
@@ -352,7 +363,10 @@ fn main() {
             }
             check!(worst <= 3 && brightest <= CAP && brightest > 40);
         }
-        if let Some(im) = card(&format!("glass_panel_{hex:06x}")) {
+        {
+            let mut st = open_state(3);
+            st.placements[0][3] = 60; // a curvature fill next to the selected row's band
+            let im = render_glass_panel(&st, None, accent);
             ctx.background(0.0);
             ctx.shape(
                 &glass_look(accent, GLASS_ACTIVE, 1.0),
@@ -367,18 +381,12 @@ fn main() {
                 eprintln!("theme {hex:06x}: the open panel reaches {b}/255");
             }
             check!((140..=CAP).contains(&b));
-            panels += 1;
         }
     }
     // SAFETY: as in Ctx.
     check!(unsafe { ctx.gl.get_error() } == glow::NO_ERROR);
     drop(headless);
     let failures = FAILURES.load(Ordering::Relaxed);
-    if panels == 0 {
-        println!(
-            "note: XR_GL_CARDS not set, the open-panel checks were skipped (no panel renderer in Rust yet)"
-        );
-    }
     println!(
         "{}",
         if failures > 0 {

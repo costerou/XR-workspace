@@ -154,7 +154,9 @@ the unit tests compare against byte for byte.
 `glass_raster` draws the placement panel (`render_glass_panel`), the options menu (`render_options_panel`), the handle
 atlas (`render_handle_atlas`) and CPU lit glass (`glass_draw`) byte-equal to `spike/src/glass.cpp` in both fonts:
 `golden/glass_cards.cpp` prints the C++ images' FNV-1a hashes for 43 cases per font (`tests/card_raster.rs`; the
-glass ctest's raster checks are in `tests/glass.rs`). The loopback compositor drives the renderer end to end:
+glass ctest's raster checks are in `tests/glass.rs`). `tests/glass_render.rs` ports the `glass_render` ctest: the
+glass shader against `glass_shade` on surfaceless GLES, and the open panels it renders with `render_glass_panel`
+composited over the glass under the 191/255 cap, in the default and seven theme colours. The loopback compositor drives the renderer end to end:
 
 ```sh
 capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \
@@ -188,7 +190,7 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
   `capture_e2e_rust_environment[_smoke]_{gl-shm,gl-dmabuf}`: the maximize and background modes,
   with the C++ tests' arguments. `tests/environment_render.rs` is the Rust twin of
   `environment_render_test.cpp` (all but the VR video sphere, which needs the scene path; the
-  level-bar part needs a C++ handle atlas through `XR_GL_CARDS`, as `glass_render.rs` does).
+  level-bar part needs a C++ handle atlas through `XR_GL_CARDS`).
 - `capture_e2e_rust_malloc_{pattern,cpu,gl-shm,gl-dmabuf}`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
