@@ -416,9 +416,12 @@ impl Shared {
 }
 
 /// `send.WindowSender`: one op, at most one window move, on a worker thread, serialized, stoppable before recovery.
+/// A clone is the same sender (the overview pointer's drags reach it as `control.sender`): its jobs are the same
+/// jobs, and [`WindowSender::close`] on either closes both and waits for all of them.
+#[derive(Clone)]
 pub struct WindowSender {
     shared: Arc<Shared>,
-    threads: Vec<JoinHandle<()>>,
+    threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl WindowSender {
@@ -441,7 +444,7 @@ impl WindowSender {
                 closed: AtomicBool::new(false),
                 moves: AtomicUsize::new(0),
             }),
-            threads: Vec::new(),
+            threads: Arc::default(),
         }
     }
 
@@ -463,8 +466,9 @@ impl WindowSender {
     fn start(&mut self, work: impl FnOnce(&Shared) + Send + 'static) {
         let shared = Arc::clone(&self.shared);
         let thread = thread::spawn(move || work(&shared));
-        self.threads.retain(|t| !t.is_finished());
-        self.threads.push(thread);
+        let mut threads = lock(&self.threads);
+        threads.retain(|t| !t.is_finished());
+        threads.push(thread);
     }
 
     /// From the supervisor loop: never blocks on the compositor. `done(success, detail)`, given, also reads the move
@@ -587,7 +591,8 @@ impl WindowSender {
                 Err(TryLockError::WouldBlock) => break,
             }
         }
-        for thread in std::mem::take(&mut self.threads) {
+        let threads = std::mem::take(&mut *lock(&self.threads));
+        for thread in threads {
             let until = Instant::now() + Duration::from_millis(100);
             while !thread.is_finished() && Instant::now() < until {
                 thread::sleep(Duration::from_millis(2));
@@ -600,7 +605,8 @@ impl WindowSender {
 
     /// Wait for every job started so far (tests compare after each call, as the corpus was recorded).
     pub fn settle(&mut self) {
-        for thread in std::mem::take(&mut self.threads) {
+        let threads = std::mem::take(&mut *lock(&self.threads));
+        for thread in threads {
             let _ = thread.join();
         }
     }
