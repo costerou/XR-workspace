@@ -334,6 +334,11 @@ impl CaptureState {
         self.dirty = true;
     }
 
+    /// The captured desktops' names, capture order.
+    pub(super) fn capture_names(&self) -> impl Iterator<Item = &str> {
+        self.captures.iter().map(|c| c.name.as_str())
+    }
+
     pub(super) fn close(&mut self) {
         let gpu = self.gpu.as_ref();
         for c in &mut self.captures {
@@ -953,7 +958,8 @@ impl Presentation {
         gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &scene.environment_world);
         cs.environment_drawn = level > 0.0;
         scene.apply(&mut gpu.gl);
-        let drawn = match features.video.draw(&mut gpu.gl, &scene) {
+        let video = features.video.draw(&mut gpu.gl, &scene);
+        let drawn = match video {
             Some(drawn) => drawn, // a VR video replaces the desktops
             None => {
                 let pan = view.pan_layers();
@@ -964,6 +970,7 @@ impl Presentation {
         if !drawn {
             return Err(Error::new("gl", "draw failed"));
         }
+        features.menus.drawn(video.is_none());
         let target = &mut gpu.swapchain[k];
         if !gpu.gl.present_into(target.rb) {
             return Err(Error::new("gl", "present into the swapchain failed"));
