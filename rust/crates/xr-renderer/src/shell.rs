@@ -46,7 +46,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 
 mod captures;
 mod scene;
-// One module per feature: its state, its Presentation calls and its share of the frame (scene.rs, SCENE_WIRING.md).
+// One module per feature: its state, its Presentation calls and its share of the frame (scene.rs, rust/README.md).
 mod cards;
 mod continuity_shell;
 mod handles;

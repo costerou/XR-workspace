@@ -113,7 +113,7 @@ fn sent_line(fd: Option<BorrowedFd>, line: &str) -> bool {
 }
 
 /// Routes a delivered frame to its Presentation call, as spike/src/main.cpp's `apply` does. `stop` stops; a `video`
-/// open takes the oldest descriptor. What each call draws is its feature module's (shell/*.rs, SCENE_WIRING.md); one
+/// open takes the oldest descriptor. What each call draws is its feature module's (shell/*.rs, rust/README.md); one
 /// not wired yet logs once that it is not drawn.
 fn apply(m: &Message, p: &mut Presentation, descriptors: &mut Descriptors) {
     match &m.payload {

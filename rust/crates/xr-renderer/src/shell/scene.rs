@@ -5,9 +5,8 @@
 //! The core (`captures.rs` `draw_gpu`) fills the frame's context and defaults (identity camera, default placements, the
 //! view's blended tiles), calls [`Features::contribute`], which calls each feature's `contribute` in the C++ order, and
 //! then applies the scene with [`Scene::apply`]. A feature puts its state on screen by changing its own module only;
-//! see `SCENE_WIRING.md` next to `Cargo.toml` for which module feeds what.
+//! `rust/README.md`'s renderer section says which module feeds what.
 
-use std::collections::HashSet;
 use std::rc::Rc;
 
 use xr_renderer::gl::{GlCompositor, StereoSettings};
@@ -63,7 +62,6 @@ pub(super) struct DragInput {
 
 /// One GPU frame. The context fields are the core's and read only for the features; every `Option` left `None` leaves
 /// that `GlCompositor` input as it was, so a feature that sets one sets it every frame (as the C++ does).
-#[allow(dead_code)] // context the features read once they are wired
 pub(super) struct Scene {
     // ---- Context (the core).
     pub now_ms: f64,
@@ -158,7 +156,6 @@ impl Scene {
     }
 
     /// The glass frame, started from its default the first time a feature touches it this frame.
-    #[allow(dead_code)] // the glass features' first user wires it
     pub(super) fn glass(&mut self) -> &mut GlassInput {
         self.glass.get_or_insert_with(GlassInput::default)
     }
@@ -205,8 +202,6 @@ pub(super) struct Features {
     pub menus: menus::Menus,
     pub video: video_shell::VideoShell,
     pub immersive: immersive::ImmersiveState,
-    /// Ops already logged as not drawn (each once).
-    logged: HashSet<Op>,
 }
 
 impl Features {
@@ -271,17 +266,8 @@ impl Features {
 }
 
 impl Presentation {
-    /// The first time `op` reaches a part that is not drawn yet: one journal line, as the op routing logged before.
-    pub(super) fn not_drawn(&mut self, op: Op) {
-        if self.state.features.logged.insert(op) {
-            eprintln!("control: {} received; not drawn in this build", op.name());
-        }
-    }
-
     /// `select`, `recover` and `status`: receipted only, as spike/src/main.cpp (no Presentation call).
-    pub fn receipted_only(&mut self, op: Op) {
-        self.not_drawn(op);
-    }
+    pub fn receipted_only(&mut self, _op: Op) {}
 
     /// What the presentation adds to a status sample: the capture fields and each feature's.
     pub fn status_extras(&self) -> StatusExtras {

@@ -162,103 +162,127 @@ pass ASCII numbers.
 
 ## Renderer
 
-`xr-renderer` so far is the presentation shell of `spike/src/wayland.cpp` and `main.cpp`: the
-supervised launch (same arguments, descriptor checks and start frame), an overlay layer surface on
-the named output that takes no input, frame-callback pacing, `wp_presentation` feedback and the
-`generated_pattern_presentation_timing` report, and the fractional scale through `wp_viewporter`. It
-draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). `--capture`,
-`--pose-feed`, `--depth-fd` and `--continuity-fd` exit 2 until those parts are ported.
+`xr-renderer` is the complete port of the C++ renderer (`spike/src/wayland.cpp`, `main.cpp` and the files they draw
+with). It takes the same supervised launch (same arguments, descriptor checks and start frame) and every launch flag:
+`--capture`, `--pose-feed xrld`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
+output that takes no input. Frames are paced by the frame callback, with `wp_presentation` feedback, the
+`generated_pattern_presentation_timing` report and the fractional scale through `wp_viewporter`. Without `--capture`
+it draws the generated test pattern (SHM, static or `--animate-pattern-ms`). With it, the managed desktops are composed
+on the GPU (dmabuf, or SHM uploads) or on the CPU. The default renderer stays `xr-native-spike` until RR-82's gate
+(see "Switching runs to the Rust renderer").
 
-The scene wiring has one module per feature under `crates/xr-renderer/src/shell/` (tracking, scene_layout, roll, handles,
-pointer, cards, menus, video_shell, immersive, continuity_shell). Each module holds its state and its `Presentation`
-calls, and puts its share of a GPU frame into one `Scene` (`shell/scene.rs`), which the composition hands to
-`GlCompositor`. Each module also has a hook for its status and exit-report fields. `main.rs` routes every op and launch
-flag to its module, as `spike/src/main.cpp` does. The modules are stubs so far: an op they get is logged once as not
-drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and checked as the C++ does, then refused (exit
-2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
-gate tests and the `GlCompositor` inputs it feeds.
+### Scene wiring
 
-Head tracking (`shell/tracking.rs`) is wired: `--pose-feed xrld` is taken, and a GPU frame reads the pose late (the
-feed and the motion wire opened and retried once a second), stabilizes, predicts and smooths it, and gives the frame its
-camera through `ModeController` (anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode
-view turn). The FOV comes from the driver when it publishes one (46 degrees otherwise). A feed that stops holds the last
-pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and keeps
-presenting. The exit report carries the `tracking` and `latency` sections (software read to present, fed from the
-`wp_presentation` feedback in `shell.rs`). `tests/level_frame_reference.rs` ports the `level_frame` ctest. Gates:
-`capture_e2e_rust_tracked`, `_feed_drop`, `_feed_gone_video_loss`, `_bad_control_fatal` and `_control_closed`.
+Each feature has one module under `crates/xr-renderer/src/shell/`. The module holds the feature's state, its
+`Presentation` calls and its share of a GPU frame. `main.rs` routes every op and launch flag to its module, as
+`spike/src/main.cpp` does. `select`, `recover` and `status` are receipted only, as in the C++.
 
-`scene_layout` is wired: `placement` (each desktop's placement, eased toward the latest at the display's rate or glided
-along one smootherstep, as `view.rs` `step_placements`), `style` (the GL accent, and the exit report's `theme`),
-`edge_pan` (`ViewAnimator::set_pan`, and the hand's dot drawn as the free pointer while it pans, `pan_dot`) and
-`desktops` (captures stop, start and restart; placements follow their desktops; a Ctrl+Alt+R change eases the tiles,
-`TileEase`). The exit report's `view` section lists the placements. Captures key their Wayland proxies by a stable id,
-since `desktops` moves their indices. `pan_dot` is checked frame by frame against `spike/tests/edge_pan_trace.cpp`
-(`tests/fixtures/edge_pan_dot.txt`); `capture_e2e_rust_edge_pan_gl-dmabuf` is its end-to-end gate.
+A GPU frame (`captures.rs` `draw_gpu`) builds one `Scene` (`shell/scene.rs`):
 
-`shell/roll.rs` is wired: the `roll` op sets each desktop's levelling roll (`scene.own[i].roll`) and the level bars,
-hover, segment and active of the glass frame every GPU frame, and `take_roll_geometry` hands the supervisor its
-`roll_geometry` line (rate-limited to `ROLL_GEOMETRY_MS` once measured, never the same line twice, resent after a
-failed send). The line is byte-equal to the C++ for the same inputs: `golden/roll_geometry.cpp` prints the C++ lines
-for fixed references, anchors, layouts and placements (`roll_geometry_lines_match_the_cpp` in `shell/roll.rs`).
-Until tracking is wired every tilt is `null`, as the C++ sends untracked; the measured branch takes its reference
-from the tracking module. `tests/roll_level.rs` ports every check of the `roll_level` ctest; `level_frame`'s view half
-(the tilts reported for a fixed reference) is in `shell/roll.rs`, its pose half is tracking's.
+1. The core fills the context: the time, the canvas, `overview`, `switching`, `zoom`, `focus` and the eased sizes.
+   It also fills the defaults: the identity camera, the view's blended tiles and flat placements.
+2. `Features::contribute` calls each module in wayland.cpp's order: tracking, scene_layout, roll, cards, handles,
+   menus, immersive, pointer. `Tracking::camera` then sets the camera once the placements are in.
+3. The core resolves the zoomed placements (anchor mode's `keep_size`, then the Step-Back Band's step on the maximized
+   desktop). It sets the edge pan's dot in place of the free pointer, writes the maximize geometry and sets the
+   background. Then `Scene::apply` hands the inputs to `GlCompositor`.
+4. A VR video (`video_shell`) draws in place of the desktops. Otherwise the core calls `draw_and_swap`.
 
-`handles` is wired: `resize_handle`, `move_handle` and `restore_band` light the corner caps, ease the glass pills' and
-gears' hover levels and fade the Step-Back Band's Restore pill on the maximized desktop, and the exit report carries
-`restore_band`, `resize_handle` and `move_handle` as the C++ does. Its twins are `tests/resize_handle.rs` and
-`tests/restore_band.rs`; its gate is `capture_e2e_rust_restore_band`.
+An `Option` input that a feature leaves `None` leaves that `GlCompositor` input as it was. Each module's
+`animating(now_ms)` is part of the redraw test, and each module has hooks for its status datagram and exit report
+fields, written in wayland.cpp's order.
 
-`shell/pointer.rs` draws the overview free pointer: the `overview_pointer` op's dot (or, with a direction, the dot turned
-there), its look's marks or the Serif Beam, and a window drag's ghost with its drop target. It is drawn in the overview
-and through the overview pan's landing, and hidden while the view switches. The exit report's `overview_pointer` counts
-how many times it was shown. The edge pan's hand dot, which takes the pointer's place during an edge pan, comes with
-`scene_layout`'s `pan_dot`.
+Where the modules meet, the C++ order is kept:
 
-`shell/cards.rs` is wired: the `help` and `binds` ops and the mode pop-ups of `view` (viewing mode, cursor follow,
-prediction, typing; a maximize or un-maximize changes the mode without a pop-up) are drawn head-locked through
-`GlCompositor::set_popup` / `set_help` / `set_binds`. Each card is rasterised by the ported `hud.rs` /
-`binds_panel.rs` code the first time a frame needs its generation, from the overlay state the C++ draws it from, so its
-pixels are the C++ ones. The fonts load when the GPU composition comes up (one instance per card, as the C++ does) and
-the exit report's `popup_font` names the family or the pixel-font fallback; `help` and `binds` report their counters,
-page and scroll window. The `help_geometry` line goes to the supervisor with the C++ rules: at once on a show or hide,
-then at most every `HELP_GEOMETRY_MS` (40 ms) while the card is up on the overview, null while the FOV split has not
-been worked out since a configure. `tests/native_help.rs` is the `native_help` twin.
+- The levelling roll is part of each desktop's target placement (`SceneLayout::target_placement`), so it eases with the
+  rest of the placement. A roll change ends a placement glide. The menus place a held slider's panel on the target
+  placement, not the eased one.
+- `style` (`set_accent`) recolours the GL accent, the cards and pop-ups, the tracking hint, both panels and the video
+  card.
+- `desktops` (`set_desktops`) changes the captures, closes an options panel whose monitor is gone and restarts the
+  depth channels.
+- The tracking hint takes the pop-ups' place on `scene.popup`. A mode pop-up goes first.
+- A VR video hides the help card and the bind panel, and the help geometry is off while it plays.
+- Continuity carries the view, tracking's pose, stabilization, modes and centre, and roll's rolls.
 
-`menus` is wired: `options_menu` and `placement_menu` open the options panel and the placement panel from the overview's
-glass (`set_options_menu`, `set_placement_menu`, the render path's glass block, `options_overlay.hpp` and
-`options_evidence.hpp`), and the exit report carries `placement_menu` and `options_menu`. Its gates are
-`capture_e2e_rust_options_roundtrip`, `capture_e2e_rust_open_panel` and the `options_evidence` twin (a unit test in
-`shell/menus.rs`).
+### What each module draws
 
-`video_shell` is wired: the eight `video` actions play the file through `video::mode::Mode` (libmpv), made on the
-first open with the GPU compositor's GL context (without GPU composition the file is closed, as in C++). While a video
-is open it is drawn in place of the desktops through `GlCompositor::draw_scene_and_swap`, world-locked by
-`scene.world`, over the background, with the controls card (title, state, time, format, error, the quality menu)
-and the status pop-up head-locked in each eye. The status datagram carries `video` while one is open, the exit report
-has its `video` section, and the owner readback's `video` is the open video's report or the next video's quality
-defaults, keys sorted as nlohmann writes them. `tests/owner_readback.rs` and `tests/video_owner_events.rs` are the
-ctest twins.
+- **`tracking`**: `--pose-feed xrld`. A GPU frame reads the pose late (the feed and the motion wire are opened, and
+  retried once a second), then stabilizes, predicts and smooths it. `ModeController` gives the frame its camera:
+  anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode view turn. The FOV comes from
+  the driver when it publishes one, else from the supervisor's projection, else 46 degrees. A feed that stops holds
+  the last pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and
+  keeps presenting. The exit report carries `tracking` and `latency` (software read to present, from the
+  `wp_presentation` feedback in `shell.rs`).
+- **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
+  as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
+  the hand's dot, `pan_dot`), `desktops` (captures stop, start and restart; placements follow their desktops) and the
+  Ctrl+Alt+R tile ease (`TileEase`). The exit report's `view` section lists the placements. Captures key their Wayland
+  proxies by a stable id, since `desktops` moves their indices.
+- **`roll`**: the `roll` op's levelling rolls and the glass level bars. `take_roll_geometry` hands the supervisor its
+  `roll_geometry` line. It is rate-limited to `ROLL_GEOMETRY_MS` once measured, never sends the same line twice, and
+  is resent after a failed send. A tilt is measured from tracking's level reference in settled anchor mode with no
+  video, on the settled sizes and the target placements; otherwise it is `null`.
+- **`handles`**: `resize_handle`, `move_handle` and `restore_band` light the corner caps and ease the pills' and
+  gears' hover levels. They also fade the Step-Back Band's Restore pill and step the maximized desktop back. The exit
+  report carries `restore_band`, `resize_handle` and `move_handle`.
+- **`pointer`**: the overview free pointer (the dot, or the dot turned to a direction), its look's marks or the Serif
+  Beam, and a window drag's ghost with its drop target. It shows in the overview and through the overview pan's
+  landing, and is hidden while the view switches. The exit report's `overview_pointer` counts the times it was shown.
+- **`cards`**: the `help` and `binds` ops and the mode pop-ups of `view` (viewing mode, cursor follow, prediction,
+  typing; a maximize or un-maximize changes the mode without a pop-up), drawn head-locked. Each card is rasterised by
+  the ported `hud.rs` / `binds_panel.rs` code from the overlay state the C++ draws it from, so its pixels are the C++
+  ones. The exit report's `popup_font` names the font family or the pixel-font fallback. The `help_geometry` line
+  goes to the supervisor at once on a show or hide, then at most every `HELP_GEOMETRY_MS` while the card is up on the
+  overview.
+- **`menus`**: `options_menu` and `placement_menu` open the options panel and the placement panel from the overview's
+  glass (`options_overlay.hpp`, `options_evidence.hpp`). The exit report carries `placement_menu` and `options_menu`.
+- **`video_shell`**: the eight `video` actions play the file through `video::mode::Mode` (libmpv), made on the first
+  open with the compositor's GL context. Without GPU composition the file is closed, as in C++. While a video is
+  open, it is drawn in place of the desktops through `GlCompositor::draw_scene_and_swap`, world-locked, over the
+  background, with the controls card and the status pop-up head-locked in each eye. The status datagram carries
+  `video`, the exit report has its `video` section, and the owner readback's `video` is the open video's report or
+  the next video's quality defaults.
+- **`immersive`**: `set_immersive` lights the 3D buttons and hands the stereo settings to the compositor before the
+  frame is laid out. The depth engine's memory (`--depth-fd`) is linked on the first frame that has a 3D desktop,
+  fed and read each frame after the uploads, and dropped when nothing is 3D. Memory that is not an `XRD1` block of
+  the right size never makes a link: the reason goes to the owner readback's `engine_error`. An engine that stops
+  beating is not fed any more, and its desktops ease flat. Either way the buttons still light. The exit report carries
+  `depth` and the composition report carries `stereo`.
+- **`continuity_shell`**: `--continuity-fd`. The view and the pose are restored after open and saved before close,
+  in `continuity.rs`'s format.
 
-`shell/immersive.rs` is wired: `set_immersive` lights the 3D buttons on the glass and hands the stereo settings to the
-compositor, and `--depth-fd` is taken. The depth engine's memory is linked on the first frame that has a 3D desktop
-(`depth_link.rs`), fed and read each frame after the uploads, and dropped when nothing is 3D. Memory that is not an
-`XRD1` block of the right size never makes a link: the reason goes to the owner readback's `engine_error` and is not
-tried again. An engine that stops beating is not fed any more, and its desktops ease flat. Either way the buttons
-still light. The exit report carries `depth`, the composition report carries `stereo`, and the side-by-side surface is
-drawn at its full width. Gates: `capture_e2e_rust_immersive_{gl-dmabuf,gl-shm}`, `_immersive_scaled` and
-`_immersive_engine_dies`. `tests/immersive.rs` is the `immersive` ctest's twin.
+### Gates
 
-Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
+Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments against the Rust binary, configured with
+`-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
+(`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
+`pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
+`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies` and
+`feed_gone_video_loss`. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
+`tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
+`tests/video_owner_events.rs`, `tests/immersive.rs`, `tests/free_pointer.rs` and the `options_evidence` unit test in
+`shell/menus.rs`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
+`spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
+`golden/roll_geometry.cpp`'s.
+
+Not ported or not covered yet:
+
+- The status fields `vsync_error_ms` and `sensor_to_vsync_ms`.
+- Late latch and the GPU timer query (plan task 6).
+- `desktops` has no end-to-end test: the bench never sends that op.
+- The restore band's wire ctest (the binary's `--dump` read by the Python supervisor) has no twin.
+
+### IPC
+
+The renderer's IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
 on any refusal except a malformed display-only payload, refused frames are logged redacted to
 their protocol words, and the `SCM_RIGHTS` descriptors a `video` open brings are kept (at most two,
-close-on-exec) and handed to its open. `stop`, `view` (overview and maximize, through
-`ViewAnimator`; `ModeController` is not ported yet, so focus aim, prediction and stabilization are
-ignored) and `environment` (the grid and smoke backgrounds, faded as in C++) act; the other ops are
-logged once and a video file is closed unread until the player is wired in. While a desktop is
-maximized the status socket carries the `maximize_geometry` line. `control_wire_check` is the Rust twin
+close-on-exec) and handed to its open. Every op acts as in the C++ (`environment` fades the grid
+and smoke backgrounds). While a desktop is maximized the status socket carries the
+`maximize_geometry` line. `control_wire_check` is the Rust twin
 of `spike/tests/control_wire_check.cpp`; the control suites run against it with
 
     cargo build -p xr-renderer --bins
