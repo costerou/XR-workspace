@@ -106,7 +106,6 @@ because the Rust run has none yet. Not ported, so a Rust run presents the deskto
 
 - the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
   pointer, privacy mode, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
-- the window memory: remembered windows are not put back at the start, and no capture is taken
 - the reset of a saved setup the broker refused (`profiles.discard_unusable`)
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
@@ -116,6 +115,17 @@ Python calls the original, in the Python's order. With every stub off, a run is 
 `crates/xr-workspace/VIEW_CONTROLS.md` is the hand-off for each port: the Python to port, the renderer ops, the parity
 tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
 and a fake-compositor reply function per feature.
+
+Ported: the window memory (`view_controls::window_memory::Tracker`, `window_memory.WindowTracker`). Before adoption the
+windows XR last held go back to their desktops (`place_windows` moves), after it the settling evals run and windows whose
+desktop is missing are parked; a mark (a Super drag's end) is captured a second later on a worker with its own client,
+pinned to the run's compositor; and the run's end takes the last capture into `window-memory.json` before recovery.
+`tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
+recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
+`managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
+Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
+calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
+`Tracker::poll`, `Tracker::deadline`).
 
 ### Switching runs to the Rust supervisor
 

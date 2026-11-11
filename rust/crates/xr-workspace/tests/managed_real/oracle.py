@@ -3,7 +3,8 @@
 `python3 -I oracle.py <repo> runner --consent C --state-dir S`, or `... recover-run --consent C --journal J`.
 
 The change: `managed.view_controls` yields no view control, as the Rust supervisor's managed run has none yet (the glasses'
-Ctrl+Alt controls, the overview pointer, the panel's control socket: rust/README.md). Everything else (the consent, the
+Ctrl+Alt controls, the overview pointer, the panel's control socket: rust/README.md). It keeps one thing of its `finally`,
+the window memory's last capture, which the Rust run has ported. Everything else (the consent, the
 pins, the plugin, the broker, the journal, adoption, the renderer launch and its watchdog, recovery) is the shipped code.
 Which Rust port takes this (and the other, implicit, exclusions) away: tests/managed_real.rs's module doc and
 rust/crates/xr-workspace/VIEW_CONTROLS.md.
@@ -14,8 +15,13 @@ import sys
 
 
 @contextlib.contextmanager
-def no_view_controls(*args, **kwargs):
-    yield None
+def no_view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
+                     **kwargs):
+    """No view control; only the window memory's last capture, as `view_controls`'s `finally` takes it (window_memory port)."""
+    try:
+        yield None
+    finally:
+        if windows is not None: windows.close()
 
 
 # The guard's worker is a multiprocessing spawn of this file: it must not start a run of its own.

@@ -174,8 +174,26 @@ def reply_desktops(wire):
     return None
 
 
+remembered = []  # case `window-memory`: the window memory put workspace 1 back on XR-2
+
+
 def reply_window_memory(wire):
-    """view_controls::window_memory's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::window_memory's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    Case `window-memory`: window-memory.json remembers the window 0x1 on XR-2. Once the placement's eval moves its
+    workspace there whole, the window is on XR-2's workspace 71, at the same place
+    inside it, so the run's last capture finds it there. The placement's moves eval names it as the row `{1,"XR-2",...}`."""
+    if case != 'window-memory':
+        return None
+    if wire.startswith('/eval ') and '{{1,"XR-2",' in wire:
+        remembered.append(wire)
+        return 'ok'
+    if wire == 'j/clients' and remembered:
+        live = [r['observation'] for r in registry.values() if r['state'] == 'live' and r['name'] == 'XR-2']
+        if live:
+            o = live[0]
+            return [dict(CLIENT, at=[o['x'] + 10, o['y'] + 10], workspace=dict(id=o['workspace'], name=str(o['workspace'])),
+                         monitor=11)]
     return None
 
 
