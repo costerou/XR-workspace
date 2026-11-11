@@ -20,13 +20,14 @@
 //!
 //! - `oracle.py`, `managed.view_controls = no_view_controls`: all of `view_controls` (`socket`, `binds`, `view`,
 //!   `overview_pointer`, `send`, `privacy`, `immersive`, `keybinds`, `video`, and the `desktops` and
-//!   `window_memory` wiring with its last capture). It stays whole until `socket`, `view` and `binds` are ported;
-//!   then oracle.py runs the shipped `view_controls` with one patch per feature still stubbed, and each feature's port
+//!   `window_memory` wiring), all but the window memory's last capture. It stays so until `socket`, `view` and
+//!   `binds` are ported; then oracle.py runs the shipped `view_controls` with one patch per feature still stubbed, and each feature's port
 //!   deletes its own patch (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
 //!   asks for a change through the view controls.
-//! - `window_memory`: Python's `tracker_for` gives a tracker (the runner's `ProfileStore`), but no `Session` has a
-//!   `window-memory.json`, so its `place` and `finish` send nothing. The port's cases write one.
+//! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
+//!   `view_controls` does; a `Session` has no `window-memory.json` unless its case writes one
+//!   (`managed_real/cases/window_memory.rs`), so `place` and `finish` send nothing in the other cases.
 //! - `setup`: no `Session` has a saved `profiles.json`, so Python's `_setup_failed` in `create-fail` resets nothing
 //!   (`profiles.discard_unusable` finds nothing saved). The port's case saves a setup and compares the file.
 
