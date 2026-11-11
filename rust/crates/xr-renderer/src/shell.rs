@@ -1,7 +1,8 @@
 //! The Wayland shell: an output-bound overlay layer surface, paced by frame callbacks and measured
 //! by presentation feedback, at the output's fractional scale through the viewporter.
 //!
-//! A port of the presentation-only path of `spike/src/wayland.cpp` (no capture, no GL). Globals:
+//! A port of the presentation path of `spike/src/wayland.cpp`; the managed-output capture and the composition of the
+//! captured desktops are in [`captures`]. Globals:
 //! wl_compositor v4, wl_shm v1, zwlr_layer_shell_v1 (v1..=4), named wl_output v4, and optional
 //! wp_presentation v1, wp_viewporter v1 and wp_fractional_scale_manager_v1 v1. It never binds
 //! wl_seat or any input global, and the surface takes no input. A required global or the selected
@@ -42,6 +43,8 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
     zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
 };
+
+mod captures;
 
 use crate::metrics::{Metrics, Presented};
 use crate::pattern::{
@@ -106,14 +109,49 @@ struct ShmBuffer {
     bytes: usize,
     width: u32,
     height: u32,
+    stride: u32,
     busy: bool,
 }
 
 impl ShmBuffer {
+    /// A `width` x `height` buffer of `format` with rows `stride` bytes apart, in its own memfd named `name`.
+    fn create(
+        shm: &WlShm,
+        qh: &QueueHandle<State>,
+        name: &std::ffi::CStr,
+        (width, height, stride): (u32, u32, u32),
+        format: wl_shm::Format,
+        id: u64,
+    ) -> Result<Self, Error> {
+        let bytes = stride as usize * height as usize;
+        let fd = memfd_create(name, MemfdFlags::CLOEXEC).map_err(|_| Error::new("shm", "memfd failed"))?;
+        ftruncate(&fd, bytes as u64).map_err(|_| Error::new("shm", "resize failed"))?;
+        // SAFETY: a fresh shared mapping of the whole memfd; ShmBuffer owns and unmaps it.
+        let memory = unsafe {
+            mmap(std::ptr::null_mut(), bytes, ProtFlags::READ | ProtFlags::WRITE, MapFlags::SHARED, &fd, 0)
+        }
+        .map_err(|_| Error::new("shm", "map failed"))?;
+        let pool = shm.create_pool(fd.as_fd(), bytes as i32, qh, ());
+        let proxy = pool.create_buffer(0, width as i32, height as i32, stride as i32, format, qh, id);
+        pool.destroy();
+        Ok(Self { proxy, id, memory: memory.cast(), bytes, width, height, stride, busy: false })
+    }
+
     fn pixels(&mut self) -> &mut [u32] {
-        // SAFETY: `memory` maps `bytes` (width * height * 4) bytes for this buffer's whole life, and only
+        // SAFETY: `memory` maps `bytes` (stride * height) bytes for this buffer's whole life, and only
         // a buffer the compositor has released (not busy) is written.
         unsafe { std::slice::from_raw_parts_mut(self.memory, self.bytes / 4) }
+    }
+
+    /// What the buffer holds, read only while no one writes it (a delivered capture frame).
+    fn words(&self) -> &[u32] {
+        // SAFETY: as `pixels`; a capture slot is read only once its frame is ready and before it is captured into again.
+        unsafe { std::slice::from_raw_parts(self.memory, self.bytes / 4) }
+    }
+
+    fn bytes(&self) -> &[u8] {
+        // SAFETY: as `words`.
+        unsafe { std::slice::from_raw_parts(self.memory.cast::<u8>(), self.bytes) }
     }
 }
 
@@ -161,6 +199,8 @@ struct State {
     scale120: u32,
     configured: bool,
     closed: bool,
+    /// Managed-output capture and the composition of the captured desktops (none: the test pattern).
+    capture: captures::CaptureState,
 }
 
 impl State {
@@ -237,7 +277,7 @@ impl Dispatch<WlRegistry, ()> for State {
                     });
                 }
                 // Never wl_seat, virtual input or SDK globals.
-                _ => {}
+                other => s.capture.bind_global(registry, name, other, version, qh),
             },
             wl_registry::Event::GlobalRemove { name } => {
                 if s.selected_output().is_some_and(|o| o.global == name)
@@ -248,6 +288,7 @@ impl Dispatch<WlRegistry, ()> for State {
                 for o in s.outputs.iter_mut().filter(|o| o.global == name) {
                     o.name.clear();
                 }
+                s.capture.output_removed(name);
             }
             _ => {}
         }
@@ -369,6 +410,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for State {
                 s.configured = true;
                 s.cadence.invalidate();
                 s.apply_scale();
+                s.capture.invalidate();
             }
             zwlr_layer_surface_v1::Event::Closed => s.closed = true,
             _ => {}
@@ -389,6 +431,7 @@ impl Dispatch<WpFractionalScaleV1, ()> for State {
             if scale != s.scale120 {
                 s.scale120 = scale;
                 s.apply_scale();
+                s.capture.invalidate();
             }
         }
     }
@@ -428,6 +471,7 @@ impl Dispatch<WlBuffer, u64> for State {
             if let Some(b) = s.buffers.iter_mut().find(|b| b.id == *id) {
                 b.busy = false;
             }
+            s.capture.released(*id);
         }
     }
 }
@@ -452,7 +496,7 @@ pub struct Presentation {
 
 impl Presentation {
     /// Connects over the inherited socket and maps the layer surface on the named output.
-    pub fn open(socket: UnixStream, output_name: &str) -> Result<Self, Error> {
+    pub fn open(socket: UnixStream, output_name: &str, captures: &[String]) -> Result<Self, Error> {
         if !xr_wire::control::is_token(output_name) {
             return Err(Error::new("output", "invalid output name"));
         }
@@ -467,6 +511,7 @@ impl Presentation {
             qh,
             state: State::default(),
         };
+        p.state.capture = captures::CaptureState::new(captures);
         if !p.roundtrip()
             || !p.roundtrip()
             || p.state.compositor.is_none()
@@ -529,6 +574,7 @@ impl Presentation {
         if !p.state.configured || p.state.closed {
             return Err(Error::new("configure", "configure failed or timed out"));
         }
+        p.open_captures()?;
         Ok(p)
     }
 
@@ -636,46 +682,50 @@ impl Presentation {
     fn create_buffer(&mut self) -> Result<usize, Error> {
         let s = &mut self.state;
         let (width, height) = (s.width, s.height);
-        let bytes = width as usize * height as usize * 4;
-        let fd = memfd_create(c"xr-test-pattern", MemfdFlags::CLOEXEC)
-            .map_err(|_| Error::new("shm", "memfd failed"))?;
-        ftruncate(&fd, bytes as u64).map_err(|_| Error::new("shm", "resize failed"))?;
-        // SAFETY: a fresh shared mapping of the whole memfd; ShmBuffer owns and unmaps it.
-        let memory = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                bytes,
-                ProtFlags::READ | ProtFlags::WRITE,
-                MapFlags::SHARED,
-                &fd,
-                0,
-            )
-        }
-        .map_err(|_| Error::new("shm", "map failed"))?;
-        let shm = s.shm.as_ref().expect("bound at open");
-        let pool = shm.create_pool(fd.as_fd(), bytes as i32, &self.qh, ());
         let id = s.next_buffer_id;
         s.next_buffer_id += 1;
-        let proxy = pool.create_buffer(
-            0,
-            width as i32,
-            height as i32,
-            (width * 4) as i32,
-            wl_shm::Format::Xrgb8888,
-            &self.qh,
-            id,
-        );
-        pool.destroy();
-        s.buffers.push(ShmBuffer {
-            proxy,
-            id,
-            memory: memory.cast(),
-            bytes,
-            width,
-            height,
-            busy: false,
-        });
+        let shm = s.shm.as_ref().expect("bound at open");
+        let buffer =
+            ShmBuffer::create(shm, &self.qh, c"xr-test-pattern", (width, height, width * 4), wl_shm::Format::Xrgb8888, id)?;
+        s.buffers.push(buffer);
         Ok(s.buffers.len() - 1)
+    }
+
+    /// Attaches `buffer` (`width` x `height` px), damages all of it, asks for the next frame callback and
+    /// presentation feedback, and commits. Only this commit is counted; a full feedback window holds a draw back
+    /// before it gets here.
+    fn commit(&mut self, buffer: &WlBuffer, width: u32, height: u32) -> Result<(), Error> {
+        let s = &mut self.state;
+        let surface = s.surface.as_ref().expect("mapped at open");
+        surface.attach(Some(buffer), 0, 0);
+        surface.damage_buffer(0, 0, width as i32, height as i32);
+        s.frame = Some(surface.frame(&self.qh, CallbackKind::Frame));
+        if let Some(presentation) = &s.presentation {
+            let slot = s
+                .feedbacks
+                .iter()
+                .position(Option::is_none)
+                .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
+            let ticket = s
+                .metrics
+                .submit()
+                .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
+            let proxy = presentation.feedback(surface, &self.qh, slot);
+            s.feedbacks[slot] = Some(Feedback {
+                proxy,
+                ticket,
+                selected_output: false,
+                other_output: false,
+            });
+        } else {
+            s.metrics.submit();
+        }
+        surface.commit();
+        match self.conn.flush() {
+            Ok(()) => Ok(()),
+            Err(WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
+            Err(_) => Err(Error::new("flush", "connection failed")),
+        }
     }
 
     /// Draws and commits the next pattern frame when the cadence, a free buffer and the feedback
@@ -722,40 +772,10 @@ impl Presentation {
         if s.cadence.finished(monotonic_ms()) {
             return Ok(());
         }
-        let buffer = &mut s.buffers[index];
-        buffer.busy = true;
-        let surface = s.surface.as_ref().expect("mapped at open");
-        surface.attach(Some(&buffer.proxy), 0, 0);
-        surface.damage_buffer(0, 0, width as i32, height as i32);
-        s.frame = Some(surface.frame(&self.qh, CallbackKind::Frame));
-        // Only this commit is counted; a full feedback window held the frame back above.
-        if let Some(presentation) = &s.presentation {
-            let slot = s
-                .feedbacks
-                .iter()
-                .position(Option::is_none)
-                .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
-            let ticket = s
-                .metrics
-                .submit()
-                .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
-            let proxy = presentation.feedback(surface, &self.qh, slot);
-            s.feedbacks[slot] = Some(Feedback {
-                proxy,
-                ticket,
-                selected_output: false,
-                other_output: false,
-            });
-        } else {
-            s.metrics.submit();
-        }
-        surface.commit();
+        s.buffers[index].busy = true;
+        let buffer = s.buffers[index].proxy.clone();
         s.cadence.committed();
-        match self.conn.flush() {
-            Ok(()) => Ok(()),
-            Err(WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
-            Err(_) => Err(Error::new("flush", "connection failed")),
-        }
+        self.commit(&buffer, width, height)
     }
 
     pub fn status_json(&self, now_ms: f64) -> String {
@@ -784,6 +804,7 @@ impl Presentation {
             v.destroy();
         }
         s.frame = None;
+        s.capture.close();
         if let Some(l) = s.layer.take() {
             l.destroy();
         }

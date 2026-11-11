@@ -33,7 +33,7 @@ Optional --status-fd FD: nonblocking measured status JSON, at most once per seco
 Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n\
 Optional --control-errors fatal, for tests: a bad control frame stops the renderer. Otherwise it is logged and dropped.\n\
 Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n\
-Not yet in this build: --capture, --pose-feed, --depth-fd, --continuity-fd. Control ops other than stop are receipted but not drawn.\n\
+Not yet in this build: --pose-feed, --depth-fd, --continuity-fd. Control ops other than stop are receipted but not drawn.\n\
 Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
 
 static STOPPING: AtomicBool = AtomicBool::new(false);
@@ -84,14 +84,15 @@ fn read_start(control: BorrowedFd) -> Option<Vec<u8>> {
 }
 
 fn send_line(fd: Option<BorrowedFd>, line: &str) {
-    if let Some(fd) = fd {
-        // Datagram socketpair: EAGAIN drops a whole line, never part of one.
-        let _ = send(
-            fd,
-            line.as_bytes(),
-            SendFlags::DONTWAIT | SendFlags::NOSIGNAL,
-        );
-    }
+    sent_line(fd, line);
+}
+
+/// Sends one datagram; false when it did not go out whole (the caller sends it again later).
+fn sent_line(fd: Option<BorrowedFd>, line: &str) -> bool {
+    let Some(fd) = fd else { return false };
+    // Datagram socketpair: EAGAIN drops a whole line, never part of one.
+    send(fd, line.as_bytes(), SendFlags::DONTWAIT | SendFlags::NOSIGNAL)
+        .is_ok_and(|n| n == line.len())
 }
 
 /// What a delivered frame does in this build: `stop` stops; a `video` open takes its descriptor,
@@ -151,7 +152,7 @@ fn run(argv: &[String]) -> u8 {
         "--run-id",
         "--session",
     ];
-    const OPTIONAL: [&str; 3] = ["--status-fd", "--control-errors", "--animate-pattern-ms"];
+    const OPTIONAL: [&str; 4] = ["--status-fd", "--control-errors", "--animate-pattern-ms", "--capture"];
     if !REQUIRED.iter().all(|k| args.contains_key(k))
         || !args
             .keys()
@@ -176,6 +177,13 @@ fn run(argv: &[String]) -> u8 {
             None => return 2,
         },
         None => None,
+    };
+    let captures = match args.get("--capture") {
+        Some(v) => match xr_renderer::capture::parse_capture_list(v, args["--output"]) {
+            Some(list) => list,
+            None => return 2,
+        },
+        None => Vec::new(),
     };
     let (Some(control_fd), Some(wayland_fd)) = (
         number(args["--supervised-fd"]),
@@ -220,7 +228,7 @@ fn run(argv: &[String]) -> u8 {
     }
 
     let mut result = 0;
-    let mut presentation = match Presentation::open(UnixStream::from(wayland), args["--output"]) {
+    let mut presentation = match Presentation::open(UnixStream::from(wayland), args["--output"], &captures) {
         Ok(p) => Some(p),
         Err(e) => {
             eprintln!("{e}");
@@ -247,9 +255,8 @@ fn run(argv: &[String]) -> u8 {
     let mut next_status = Instant::now();
     if let Some(p) = &mut presentation {
         while result == 0 && !STOPPING.load(Ordering::Relaxed) && !p.finished() {
-            let ready = match p
-                .draw_test_pattern()
-                .and_then(|()| p.dispatch(50, Some(control.as_fd())))
+            let drawn = if p.capturing() { p.draw_desktops() } else { p.draw_test_pattern() };
+            let ready = match drawn.and_then(|()| p.dispatch(50, Some(control.as_fd())))
             {
                 Ok(ready) => ready,
                 Err(e) => {
@@ -300,11 +307,25 @@ fn run(argv: &[String]) -> u8 {
                     break;
                 }
             }
+            if status.is_some() {
+                // The overview layout for the supervisor's free-pointer hit testing, only when it changes.
+                if let Some(line) = p.take_overview_geometry() {
+                    if !sent_line(status, &format!("{line}\n")) {
+                        p.resend_overview_geometry();
+                    }
+                }
+                if let Some(line) = p.take_owner_readback(monotonic_ms()) {
+                    if !sent_line(status, &format!("{line}\n")) {
+                        p.resend_owner_readback();
+                    }
+                }
+            }
             let now = Instant::now();
             if status.is_some() && now >= next_status {
                 next_status = now + Duration::from_secs(1);
-                let sample =
-                    ipc::status_dict(&p.status_json(monotonic_ms_f64()), &StatusExtras::default());
+                let (capture_failure_run, capture_path) = p.capture_status();
+                let extras = StatusExtras { capture_failure_run, capture_path, ..StatusExtras::default() };
+                let sample = ipc::status_dict(&p.status_json(monotonic_ms_f64()), &extras);
                 send_line(status, &format!("{sample}\n"));
             }
             if let Err(e) = send(&control, b"H", SendFlags::NOSIGNAL | SendFlags::DONTWAIT) {
@@ -315,9 +336,13 @@ fn run(argv: &[String]) -> u8 {
         }
     }
     // Pending feedback becomes abandoned, never an invented discard.
+    let capture_report = presentation.as_ref().filter(|p| p.capturing()).map(Presentation::capture_report);
     let metrics = presentation.map(Presentation::close).unwrap_or_default();
     let mut err = std::io::stderr().lock();
     let _ = writeln!(err, "{}", metrics.report());
+    if let Some(line) = capture_report {
+        let _ = writeln!(err, "{line}");
+    }
     let _ = writeln!(
         err,
         "{{\"kind\":\"control_stream\",\"accepted\":{},\"refused\":{}}}",

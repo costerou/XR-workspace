@@ -1296,22 +1296,30 @@ impl GlCompositor {
         unsafe { self.gl.raw().delete_renderbuffer(rb) };
     }
 
-    /// Draw into `rb` (None: back to the compositor's own renderbuffer). False if the framebuffer is incomplete.
-    pub fn set_target(&mut self, rb: Option<glow::Renderbuffer>) -> bool {
-        let Some((fb, own)) = self.framebuffer else {
+    /// Copy the drawn frame into `rb` (a swapchain buffer the compositor shows). The copy is flipped: the
+    /// framebuffer's first row is the bottom one (GL), a dmabuf's first row is the top one the compositor reads.
+    pub fn present_into(&self, rb: glow::Renderbuffer) -> bool {
+        let Some((fb, _)) = self.framebuffer else {
             return false;
         };
+        let (w, h) = (self.px_w as i32, self.px_h as i32);
         let raw = self.gl.raw();
-        // SAFETY: plain GL calls on the current context.
+        // SAFETY: plain GL calls on the current context; `rb` is a live renderbuffer of this context.
         unsafe {
+            let Ok(dst) = raw.create_framebuffer() else {
+                return false;
+            };
+            raw.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(dst));
+            raw.framebuffer_renderbuffer(glow::DRAW_FRAMEBUFFER, glow::COLOR_ATTACHMENT0, glow::RENDERBUFFER, Some(rb));
+            let complete = raw.check_framebuffer_status(glow::DRAW_FRAMEBUFFER) == glow::FRAMEBUFFER_COMPLETE;
+            if complete {
+                raw.bind_framebuffer(glow::READ_FRAMEBUFFER, Some(fb));
+                raw.disable(glow::SCISSOR_TEST);
+                raw.blit_framebuffer(0, 0, w, h, 0, h, w, 0, glow::COLOR_BUFFER_BIT, glow::NEAREST);
+            }
             raw.bind_framebuffer(glow::FRAMEBUFFER, Some(fb));
-            raw.framebuffer_renderbuffer(
-                glow::FRAMEBUFFER,
-                glow::COLOR_ATTACHMENT0,
-                glow::RENDERBUFFER,
-                Some(rb.unwrap_or(own)),
-            );
-            raw.check_framebuffer_status(glow::FRAMEBUFFER) == glow::FRAMEBUFFER_COMPLETE
+            raw.delete_framebuffer(dst);
+            complete && raw.get_error() == glow::NO_ERROR
         }
     }
 
