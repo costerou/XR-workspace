@@ -24,7 +24,7 @@ use std::process::{Command, ExitCode};
 
 use xr_workspace::install::{self, Options};
 
-const USAGE: &str = "usage: xr-workspace runs | xr-workspace install --build DIR [--repo DIR] | xr-workspace supervisor --consent PATH --state-dir DIR";
+const USAGE: &str = "usage: xr-workspace runs | xr-workspace install --build DIR [--repo DIR] [--rust-renderer PATH] | xr-workspace supervisor --consent PATH --state-dir DIR";
 
 fn main() -> ExitCode {
     // startup.py `runner`: when this process began, before anything else runs.
@@ -99,13 +99,16 @@ fn runs() -> ExitCode {
 }
 
 fn parse_install(args: &[String]) -> Result<Options, String> {
-    let (mut build, mut repo) = (None, None);
+    let (mut build, mut repo, mut rust_renderer) = (None, None, None);
     let mut it = args.iter();
     while let Some(flag) = it.next() {
         let value = it.next().ok_or_else(|| USAGE.to_string())?;
         match flag.as_str() {
             "--build" => build = Some(PathBuf::from(value)),
             "--repo" => repo = Some(PathBuf::from(value)),
+            // The Rust renderer (`cargo build -p xr-renderer`), pinned beside the C++ one; a start runs it only while
+            // the renderer setting says rust.
+            "--rust-renderer" => rust_renderer = Some(PathBuf::from(value)),
             _ => return Err(USAGE.into()),
         }
     }
@@ -127,6 +130,7 @@ fn parse_install(args: &[String]) -> Result<Options, String> {
         data_home: xdg("XDG_DATA_HOME", ".local/share"),
         config_home: xdg("XDG_CONFIG_HOME", ".config"),
         self_exe: env::current_exe().map_err(|e| e.to_string())?,
+        rust_renderer: rust_renderer.map(absolute).transpose()?,
         home,
     })
 }
@@ -142,6 +146,6 @@ fn run_install(o: &Options) -> Result<(), String> {
     if !status.success() {
         return Err(format!("systemctl --user daemon-reload failed: {status}"));
     }
-    println!("{}", report.installed_json().pretty());
+    println!("{}", report.summary_json().pretty());
     Ok(())
 }

@@ -31,8 +31,11 @@ use crate::{monitor_rules, pyjson};
 #[cfg(debug_assertions)]
 pub mod fake;
 pub mod real;
+mod renderer_switch;
 #[cfg(test)]
 mod tests;
+
+pub use renderer_switch::load_rust_renderer;
 
 pub const USAGE: &str = "usage: xr-workspace supervisor --consent CONSENT --state-dir STATE_DIR";
 pub const NOTIFY_SEND: &str = "/usr/bin/notify-send";
@@ -686,7 +689,6 @@ fn run_steps(
     st.run_id = Some(run_id.clone());
     let installed = load_installed(data_home)?;
     let pins = [("plugin", Some(&consent.plugin), Some(&installed.plugin)),
-        ("renderer", Some(&consent.renderer), Some(&installed.renderer)),
         (LUMA_PIN, consent.luma_driver.as_ref(), installed.luma_driver.as_ref())];
     for (key, wanted, pinned) in pins {
         if key == LUMA_PIN && wanted.is_none() {
@@ -697,6 +699,8 @@ fn run_steps(
             _ => return Err(format!("consent {key} is not the pinned install")),
         }
     }
+    // The C++ renderer, or the Rust one when the renderer setting says so (renderer_switch.rs); never the other instead.
+    let renderer = renderer_switch::start_renderer(&consent.renderer, &installed, data_home)?;
     st.installed = Some(installed.clone());
     progress(&run_id, "verify", startup).map_err(|e| e.to_string())?;
     set(result, "plugin");
@@ -748,9 +752,9 @@ fn run_steps(
     set(result, "layout");
     backend.park_presentation(&consent.output)?;
     set(result, "run");
-    verify_pinned(&installed.renderer)?;
+    verify_pinned(&renderer)?;
     st.managed_started = true;
-    let run = backend.run_managed(&consent, runtime, &installed.renderer)?;
+    let run = backend.run_managed(&consent, runtime, &renderer)?;
     result.insert("complete".into(), json!(run.complete));
     result.insert("renderer_returncode".into(), json!(run.renderer_returncode));
     result.insert("remaining".into(), json!(run.remaining));

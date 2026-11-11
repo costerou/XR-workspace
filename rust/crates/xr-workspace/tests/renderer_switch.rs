@@ -284,6 +284,18 @@ fn a_setting_that_cannot_be_trusted_refuses_as_the_python_runner_does() {
         assert_eq!(&error, want, "{text} {mode:o}");
         assert_eq!(t.python(&t.cpp), error, "{text} {mode:o}: the Python runner's words");
     }
+    // A link to a good setting is not followed.
+    let elsewhere = t.root().join("elsewhere.json");
+    private(&elsewhere, br#"{"schema": 1, "renderer": "cpp"}"#);
+    fs::remove_file(&setting).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, &setting).unwrap();
+    let error = t.refused(&t.start(&t.cpp, json!({})));
+    assert_eq!(
+        error,
+        format!("renderer.json unreadable: [Errno 40] Too many levels of symbolic links: '{}'; {BACK}", setting.display())
+    );
+    assert_eq!(t.python(&t.cpp), error, "a link: the Python runner's words");
+    fs::remove_file(&setting).unwrap();
     // Keys in either order, and no file at all, are accepted.
     private(&setting, br#"{"renderer": "cpp", "schema": 1}"#);
     ok(&t.start(&t.cpp, json!({})));
@@ -296,6 +308,11 @@ fn a_setting_that_cannot_be_trusted_refuses_as_the_python_runner_does() {
 fn a_pro2_start_never_reads_the_setting() {
     let t = tree("pro2");
     private(&t.setting(), b"not a setting");
-    let error = t.refused(&t.start(&t.cpp, json!({"model": "pro2", "pro2_route": {}})));
-    assert_eq!(error, PRO2_NOT_PORTED);
+    let out = t.start(&t.cpp, json!({"model": "pro2", "pro2_route": {}}));
+    assert_eq!(out.status.code(), Some(2), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(t.steps().is_empty(), "nothing ran: {:?}", t.steps());
+    // Refused as not ported, in the Pro 2 route's phase (runner.execute_pro2), not as a broken renderer setting.
+    let result = t.result();
+    assert_eq!(result["phase"], "run", "{result}");
+    assert_eq!(result["error"], PRO2_NOT_PORTED);
 }

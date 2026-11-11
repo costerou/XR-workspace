@@ -7,7 +7,8 @@
 //! `{"log": path, "fail": step, "error": text, "plugins": [names], "renderer_returncode": int,
 //!   "recovery": {"complete": bool, "remaining": [..], "reasons": [..]}, "stop_reason": text, "journal": bool}`.
 //! Each step, the runner's and `managed::run_managed`'s, appends its name to `log`; the step named `fail` fails with
-//! `error`. `journal` writes the canonical journal file when the broker opens, as a real run would.
+//! `error`. `journal` writes the canonical journal file when the broker opens, as a real run would. The run's first
+//! step, `renderer.launch <path>`, names the renderer the runner handed it.
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -101,7 +102,8 @@ impl Backend for Fake {
     fn park_presentation(&mut self, output: &str) -> Res<()> {
         self.step(&format!("park {output}"))
     }
-    fn run_managed(&mut self, consent: &PanelConsent, runtime: &Path, _renderer: &Pin) -> Res<Run> {
+    fn run_managed(&mut self, consent: &PanelConsent, runtime: &Path, renderer: &Pin) -> Res<Run> {
+        self.step(&format!("renderer.launch {}", renderer.path.display()))?;
         if self.script["journal"] == true {
             self.journal = Some(runtime.join("xr-workspace-spike").join(&consent.run_id).join("journal.json"));
         }

@@ -41,6 +41,12 @@ pub const SHIM_PIN: &str = "quiet-driver.pin.json";
 pub const LUMA_DRIVER: &str = "xr-luma-driver";
 pub const LUMA_KEY: &str = "luma_driver";
 pub const ENGINE: &str = "xr-depth-engine";
+/// The Rust renderer (rust/crates/xr-renderer), pinned only by `install --rust-renderer`: in the hash folder's `rust/`
+/// folder and in its own pin file, as install.py pins it. installed.json keeps the C++ renderer, where every reader of
+/// it still finds it; only the renderer setting makes a start run the Rust one (runner/renderer_switch.rs).
+pub const RUST_DIR: &str = "rust";
+pub const RUST_RENDERER: &str = "xr-renderer";
+pub const RUST_RENDERER_PIN: &str = "renderer-rust.pin.json";
 pub const PRO2_DIR: &str = "pro2";
 pub const PRO2_PIN: &str = "pro2-bundle.pin.json";
 pub const WORKSPACE_DIR: &str = "workspace";
@@ -106,6 +112,9 @@ pub struct Options {
     pub home: PathBuf,
     /// The `xr-workspace` binary to pin (the running one, for the CLI).
     pub self_exe: PathBuf,
+    /// The Rust renderer's binary (`--rust-renderer`), pinned beside the C++ one when given. Without it any earlier
+    /// Rust renderer pin is removed, so a plain install is also the way back.
+    pub rust_renderer: Option<PathBuf>,
 }
 
 /// One pinned file, as `installed.json` and the pin files name it.
@@ -131,6 +140,8 @@ pub struct Report {
     pub pro2_bundle: PathBuf,
     pub workspace_bundle: PathBuf,
     pub unit: PathBuf,
+    /// The Rust renderer's pin (`RUST_RENDERER_PIN`), when this install was given one.
+    pub rust_renderer: Option<Pin>,
 }
 
 impl Report {
@@ -141,6 +152,20 @@ impl Report {
                 .map(|(k, p)| (k.clone(), p.json()))
                 .collect(),
         )
+    }
+
+    /// What `install` prints: installed.json's pins, then the Rust renderer's, as the Python CLI prints
+    /// `install.install`'s return.
+    pub fn summary_json(&self) -> Json {
+        let mut fields: Vec<(String, Json)> = self
+            .installed
+            .iter()
+            .map(|(k, p)| (k.clone(), p.json()))
+            .collect();
+        if let Some(pin) = &self.rust_renderer {
+            fields.push(("rust_renderer".into(), pin.json()));
+        }
+        Json::Obj(fields)
     }
 }
 
@@ -155,7 +180,14 @@ pub fn install(o: &Options) -> Result<Report> {
     create_dir_mode(&root, true)?;
     let workspace = workspace_bundle(&o.repo, &root, &o.self_exe)?;
     let pro2_bundle = pro2_bundle(&o.build, &o.repo, &root, &o.home, &workspace.path)?;
-    let installed = install_binaries(&o.build, &luma, &root, &o.home, &workspace.path)?;
+    let (installed, rust_renderer) = install_binaries(
+        &o.build,
+        &luma,
+        o.rust_renderer.as_deref(),
+        &root,
+        &o.home,
+        &workspace.path,
+    )?;
     let pin = Json::obj([
         ("schema", Json::Int(1)),
         ("bundle", Json::str(path_str(&workspace.path))),
@@ -168,6 +200,7 @@ pub fn install(o: &Options) -> Result<Report> {
         pro2_bundle,
         workspace_bundle: workspace.path,
         unit,
+        rust_renderer,
     })
 }
 
@@ -185,25 +218,30 @@ pub fn luma_output(build: &Path) -> Option<PathBuf> {
     .find(|p| p.is_file())
 }
 
-/// `install.install`: copy each binary into `bin/<sha12>/` and write `installed.json`.
+/// `install.install`: copy each binary into `bin/<sha12>/`, the Rust renderer into its `rust/`, and write
+/// `installed.json`, then the Rust renderer's pin.
 fn install_binaries(
     build: &Path,
     luma: &Path,
+    rust_renderer: Option<&Path>,
     root: &Path,
     home: &Path,
     workspace: &Path,
-) -> Result<Vec<(String, Pin)>> {
+) -> Result<(Vec<(String, Pin)>, Option<Pin>)> {
     let sources = [
         ("renderer", build.join(RENDERER)),
         ("plugin", build.join(PLUGIN)),
         (LUMA_KEY, luma.to_path_buf()),
     ];
+    let unreadable = |e: Error| Error(format!("build output unreadable: {e}"));
     let mut shas = Vec::new();
     for (_, path) in &sources {
-        shas.push(sha_file(path).map_err(|e| Error(format!("build output unreadable: {e}")))?);
+        shas.push(sha_file(path).map_err(unreadable)?);
     }
-    // The Luma driver joins the hash, so a new driver alone gets its own folder and a running session's pins stay true.
-    let combined = sha_hex(shas.concat().as_bytes());
+    let renderer_sha = rust_renderer.map(sha_file).transpose().map_err(unreadable)?;
+    // The Luma driver and the Rust renderer join the hash, so a new one alone gets its own folder and a running
+    // session's pins stay true. With no Rust renderer the name is what it was before there was one.
+    let combined = sha_hex(format!("{}{}", shas.concat(), renderer_sha.as_deref().unwrap_or("")).as_bytes());
     let target = root.join("bin").join(&combined[..12]);
     create_dir_mode(&root.join("bin"), false)?;
     create_dir_mode(&target, false)?;
@@ -214,6 +252,13 @@ fn install_binaries(
             .ok_or_else(|| Error("build output has no name".into()))?;
         installed.push((key.to_string(), pin_copy(source, &target.join(name), &sha)?));
     }
+    let rust = match (rust_renderer, renderer_sha) {
+        (Some(source), Some(sha)) => {
+            create_dir_mode(&target.join(RUST_DIR), false)?;
+            Some(pin_copy(source, &target.join(RUST_DIR).join(RUST_RENDERER), &sha)?)
+        }
+        _ => None,
+    };
     let shim = build.join(SHIM);
     if shim.exists() {
         let sha = sha_file(&shim)?;
@@ -234,7 +279,13 @@ fn install_binaries(
         entry.pretty().as_bytes(),
         0o600,
     )?;
-    Ok(installed)
+    // After installed.json: the Rust pin never points into a set whose C++ half is not pinned yet.
+    let rust_pin = root.join(RUST_RENDERER_PIN);
+    match &rust {
+        Some(pin) => atomic_write(&rust_pin, pin.json().pretty().as_bytes(), 0o600)?,
+        None => remove_if_present(&rust_pin)?,
+    }
+    Ok((installed, rust))
 }
 
 /// Copy `source` to `dest` read-only, unless identical bytes are already pinned there.

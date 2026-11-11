@@ -6,10 +6,12 @@
 //! a temporary data, config and home folder. Nothing touches the user's install or systemd.
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use xr_workspace::install::{self, Options, Report};
+use xr_workspace::runner;
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -71,6 +73,7 @@ fn setup(name: &str) -> Setup {
         config_home: dir.join("config"),
         home,
         self_exe,
+        rust_renderer: None,
     };
     Setup {
         _scratch: scratch,
@@ -357,4 +360,173 @@ fn a_build_without_the_luma_driver_is_refused_before_anything_is_written() {
     let e = install::install(o).err().expect("refused");
     assert!(e.0.contains("no xr-luma-driver"), "{e}");
     assert!(!root(o).exists());
+}
+
+/// A stand-in for `cargo build`'s xr-renderer, outside the C++ build folder.
+fn rust_renderer(o: &Options, body: &[u8]) -> Options {
+    let cargo = o.build.with_file_name("cargo");
+    fs::create_dir_all(&cargo).unwrap();
+    let binary = cargo.join(install::RUST_RENDERER);
+    fs::write(&binary, body).unwrap();
+    Options {
+        rust_renderer: Some(binary),
+        ..o.clone()
+    }
+}
+
+#[test]
+fn the_rust_renderer_is_pinned_beside_the_cpp_one_in_its_own_file() {
+    let s = setup("rust-renderer");
+    let o = &s.options;
+    let plain = install::install(o).unwrap();
+    assert!(plain.rust_renderer.is_none());
+    let with = rust_renderer(o, b"xr-renderer A");
+    let report = install::install(&with).unwrap();
+    let pin = report.rust_renderer.clone().expect("the Rust renderer is pinned");
+
+    // In the hash folder's rust/ folder, read-only, its bytes the build's; a new folder, since its hash joins the name.
+    let folder = report.installed[0].1.path.parent().unwrap().to_path_buf();
+    assert_eq!(
+        pin.path,
+        folder.join(install::RUST_DIR).join(install::RUST_RENDERER)
+    );
+    assert_ne!(Some(folder.as_path()), plain.installed[0].1.path.parent());
+    assert_eq!(
+        fs::metadata(&pin.path).unwrap().permissions().mode() & 0o777,
+        0o500
+    );
+    assert!(install::verify_pinned(&pin));
+
+    // installed.json is what it always was: every old reader still reads it, and its renderer is the C++ one.
+    check_old_readers(o, &report);
+    let installed = runner::load_installed(&o.data_home).unwrap();
+    assert_eq!(installed.renderer, report.installed[0].1);
+    assert_eq!(installed.renderer.path, folder.join(install::RENDERER));
+    // Both runners' readers find the Rust one in its pin.
+    assert_eq!(
+        runner::load_rust_renderer(&o.data_home).unwrap(),
+        Some(pin.clone())
+    );
+    let out = python(
+        o,
+        &[],
+        "from tools.xr_controller import install, renderer_switch\n\
+           assert install.load_rust_renderer(DATA) == renderer_switch.rust_renderer(DATA)\n\
+           print(json.dumps(install.load_rust_renderer(DATA)))\n",
+    );
+    let theirs: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(theirs["path"], pin.path.to_str().unwrap());
+    assert_eq!(theirs["sha256"], pin.sha256);
+
+    // The Python installer, given the same build and Rust renderer, writes the same files byte for byte, and prints
+    // the same summary `install` prints.
+    let python_data = o.data_home.with_file_name("python-data");
+    let printed = python(
+        o,
+        &[
+            ("BUILD", &o.build),
+            ("PY_DATA", &python_data),
+            ("RUST", with.rust_renderer.as_ref().unwrap()),
+        ],
+        "from tools.xr_controller import install\n\
+           print(json.dumps(install.install(Path(os.environ['BUILD']), Path(os.environ['PY_DATA']), \
+           rust_renderer=Path(os.environ['RUST'])), indent=2))\n",
+    );
+    let ours_data = o.data_home.to_string_lossy().into_owned();
+    let theirs_data = python_data.to_string_lossy().into_owned();
+    assert_eq!(
+        report.summary_json().pretty(),
+        printed.trim_end().replace(&theirs_data, &ours_data)
+    );
+    for name in [
+        "installed.json",
+        install::SHIM_PIN,
+        install::RUST_RENDERER_PIN,
+    ] {
+        let ours = read(&root(o).join(name));
+        let theirs = read(&install::root(&python_data).join(name)).replace(&theirs_data, &ours_data);
+        assert_eq!(ours, theirs, "{name}");
+    }
+    assert_eq!(
+        fs::metadata(root(o).join(install::RUST_RENDERER_PIN))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+
+    // A plain install is the way back: the pin goes, the folder it named stays.
+    let again = install::install(o).unwrap();
+    assert_eq!(again.installed, plain.installed);
+    assert!(again.rust_renderer.is_none());
+    assert!(!root(o).join(install::RUST_RENDERER_PIN).exists());
+    assert!(pin.path.is_file());
+    assert_eq!(runner::load_rust_renderer(&o.data_home).unwrap(), None);
+    // With no Rust renderer, `install` prints installed.json, as it always did.
+    assert_eq!(
+        plain.summary_json().pretty(),
+        plain.installed_json().pretty()
+    );
+}
+
+/// The pin files with the Rust renderer's: `None` for one that is absent, which a rollback restores by removing it.
+fn saved_pins(o: &Options) -> Vec<(PathBuf, Option<Vec<u8>>)> {
+    pin_files(o)
+        .into_iter()
+        .chain([root(o).join(install::RUST_RENDERER_PIN)])
+        .map(|p| {
+            let b = fs::read(&p).ok();
+            (p, b)
+        })
+        .collect()
+}
+
+fn restore(saved: &[(PathBuf, Option<Vec<u8>>)]) {
+    for (path, bytes) in saved {
+        match bytes {
+            Some(b) => fs::write(path, b).unwrap(),
+            None => {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+}
+
+#[test]
+fn restoring_the_previous_pins_rolls_the_rust_renderer_in_and_out() {
+    let s = setup("rust-rollback");
+    let o = &s.options;
+    let plain = install::install(o).unwrap();
+    let before = saved_pins(o);
+    let with = install::install(&rust_renderer(o, b"xr-renderer A")).unwrap();
+    let pin = with.rust_renderer.clone().unwrap();
+    let after = saved_pins(o);
+
+    // Back to the install before the Rust renderer: no pin, and both readers say so.
+    restore(&before);
+    check_old_readers(o, &plain);
+    assert_eq!(runner::load_rust_renderer(&o.data_home).unwrap(), None);
+    assert_eq!(
+        runner::load_installed(&o.data_home).unwrap().renderer,
+        plain.installed[0].1
+    );
+    let status = python(
+        o,
+        &[],
+        "from tools.xr_controller import renderer_switch\n\
+           print(json.dumps(renderer_switch.status(DATA, CONFIG)))\n",
+    );
+    let status: serde_json::Value = serde_json::from_str(&status).unwrap();
+    assert_eq!(status["renderer"], "cpp");
+    assert!(status["rust_renderer"].is_null(), "{status}");
+
+    // And forward again: the Rust pin is back, its folder never left.
+    restore(&after);
+    check_old_readers(o, &with);
+    assert_eq!(
+        runner::load_rust_renderer(&o.data_home).unwrap(),
+        Some(pin.clone())
+    );
+    assert!(install::verify_pinned(&pin));
 }
