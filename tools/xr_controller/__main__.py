@@ -16,7 +16,7 @@ from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
-from . import pro2_route, supervisor_switch
+from . import pro2_route, renderer_switch, supervisor_switch
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
@@ -144,6 +144,9 @@ class Host:
         try: result['config_rules']=monitor_rules.leftovers()  # what Recover would take out; the box says so before the click
         except (OSError,ValueError): result['config_rules']=[]
         return result
+    def scope(self,scope):
+        # The renderer setting, read at every Start (renderer_switch.py): the consent then names the renderer the run launches.
+        return renderer_switch.scope(scope,self.data_home)
     def spawn(self,action,consent,journal,rules=()):
         raw=read_private_json(consent); run_id=token(raw['run_id'])
         # The setting is read at every Start (supervisor_switch.py): Rust when it says so, else the Python runner. Recover is Python always.
@@ -282,6 +285,20 @@ def supervisor_command(args):
         print(f'supervisor failed: {exc}',file=sys.stderr); return 1
 
 
+def renderer_command(args):
+    """The hidden switch between the C++ renderer and the Rust one (renderer_switch.py). Takes effect at the next Start."""
+    try:
+        if args.action=='set':
+            if args.choice is None: raise ValueError('set needs '+' or '.join(renderer_switch.CHOICES))
+            renderer_switch.save_setting(args.choice)
+        elif args.action=='clear': renderer_switch.clear_setting()
+        data=Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')
+        print(json.dumps(renderer_switch.status(data)))
+        return 0
+    except (OSError,ValueError) as exc:
+        print(f'renderer failed: {exc}',file=sys.stderr); return 1
+
+
 def install_unit(config_home):
     target=Path(config_home)/'systemd/user'
     target.mkdir(parents=True,exist_ok=True)
@@ -298,6 +315,7 @@ def main(argv=None):
     ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest='command',required=True)
     sub.add_parser('serve'); p=sub.add_parser('install'); p.add_argument('--build',type=Path,required=True)
     p.add_argument('--rust-driver',type=Path,help='also pin this Rust xr-luma-driver as the Luma Ultra\'s driver (rust/target/release/xr-luma-driver)')
+    p.add_argument('--rust-renderer',type=Path,help='also pin this Rust xr-renderer, which `renderer set rust` then launches (rust/target/release/xr-renderer)')
     p=sub.add_parser('recover-run'); p.add_argument('--consent',required=True); p.add_argument('--journal',required=True)
     p.add_argument('--clear-rule',action='append',default=[],type=monitor_rules.desktop,help='a desktop whose monitors.lua rule the confirm box listed')
     p=sub.add_parser('pro2-route',help='which installed bundle a Pro 2 start runs; the install sets it')
@@ -308,17 +326,20 @@ def main(argv=None):
     p.add_argument('action',choices=('set','clear','status')); p.add_argument('driver',nargs='?',choices=tracking.OVERRIDES)
     p=sub.add_parser('supervisor',help=argparse.SUPPRESS)
     p.add_argument('action',choices=('set','clear','status')); p.add_argument('choice',nargs='?',choices=supervisor_switch.CHOICES)
+    p=sub.add_parser('renderer',help=argparse.SUPPRESS)
+    p.add_argument('action',choices=('set','clear','status')); p.add_argument('choice',nargs='?',choices=renderer_switch.CHOICES)
     args=ap.parse_args(argv)
     if args.command=='pro2-route': return route_command(args)
     if args.command=='pro2-settings': return settings_command(args)
     if args.command=='tracking-override': return override_command(args)
     if args.command=='supervisor': return supervisor_command(args)
+    if args.command=='renderer': return renderer_command(args)
     data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     if args.command=='install':
         try:
             if _luma_output(args.build) is None: raise ValueError('this build has no xr-luma-driver, the Luma Ultra\'s default: build with -DXR_ENABLE_LUMA_DRIVER=ON')
             route=install_pro2_bundle(args.build,data)  # first: a bundle that fails to build leaves the install as it was
-            entry=install(args.build,data,rust_driver=args.rust_driver)
+            entry=install(args.build,data,rust_driver=args.rust_driver,rust_renderer=args.rust_renderer)
             print(f"Pro 2 bundle: {route['bundle']}",file=sys.stderr)
             install_unit(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')
             print(json.dumps(entry,indent=2)); return 0
@@ -336,6 +357,7 @@ def main(argv=None):
         host=Host(runtime,state,data)
         monitor=incident_monitor(runtime,state,os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')
         controller=Controller(time.monotonic,host.probe,host.spawn,Units(runtime),Store(),fd,state,monitor=monitor)
+        controller.scope_transform=host.scope
         socket_path=runtime/'viture-workspace/controller.sock'
         directory=private_dir(socket_path.parent,create=True)
         try:

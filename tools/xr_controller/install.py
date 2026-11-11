@@ -20,6 +20,11 @@ LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
 # `tracking-override set luma-cpp` asks for the C++ one (load_installed). It sits in a `rust/` folder beside the renderer so
 # its file name stays xr-luma-driver, the name tracking._other_drivers looks for.
 RUST_LUMA_PIN, RUST_DIR = 'luma-driver-rust.pin.json', 'rust'
+# The Rust renderer (rust/crates/xr-renderer), pinned only by `install --rust-renderer`, in the same `rust/` folder and for the
+# same reason in its own file: installed.json keeps the C++ renderer, which every reader of it (older controllers, the Pro 2
+# bundle's tools, the Rust readers) still finds where it was. Pinning it changes nothing a start runs: only the renderer
+# setting does (renderer_switch.py), and with that setting on cpp, or no setting, this file is not even read.
+RUST_RENDERER, RUST_RENDERER_PIN = 'xr-renderer', 'renderer-rust.pin.json'
 PRO2_DIR = 'pro2'  # bundles live in <root>/pro2/<manifest hash>; pro2_route.py reads the pin, this writes it
 ENGINE, ENGINE_PYTHON = 'xr-depth-engine', ('.cache', 'viture-depth', 'venv', 'bin', 'python')
 REPO = Path(__file__).resolve().parents[2]
@@ -114,9 +119,11 @@ def load_shim(data_home):
     return entry['path']
 
 
-def install(build_dir, data_home, rust_driver=None):
+def install(build_dir, data_home, rust_driver=None, rust_renderer=None):
     """Pin a build. `rust_driver`, the Rust Luma driver's binary, is pinned too when given and is then what a Luma start runs
-    (RUST_LUMA_PIN); without it any earlier Rust pin is removed, so a plain install is also the way back to the C++ driver."""
+    (RUST_LUMA_PIN); without it any earlier Rust pin is removed, so a plain install is also the way back to the C++ driver.
+    `rust_renderer`, the Rust renderer's binary, is pinned the same way (RUST_RENDERER_PIN), and a plain install removes that pin
+    too; a start runs it only while the renderer setting says rust (renderer_switch.py)."""
     build_dir = Path(build_dir)
     sources = {'renderer': build_dir / RENDERER, 'plugin': build_dir / PLUGIN}
     luma = _luma_output(build_dir)
@@ -124,21 +131,23 @@ def install(build_dir, data_home, rust_driver=None):
     try:
         shas = {key: _sha(path) for key, path in sources.items()}
         rust_sha = _sha(rust_driver) if rust_driver is not None else None
+        renderer_sha = _sha(rust_renderer) if rust_renderer is not None else None
     except OSError as e:
         raise ValueError(f'build output unreadable: {e}') from None
-    # The Luma drivers join the hash, so a new driver alone gets its own folder and a running session's pins stay true. With no
-    # Rust driver the name is what it was before there was one.
-    combined = hashlib.sha256(''.join([*shas.values(), *([rust_sha] if rust_sha else [])]).encode('ascii')).hexdigest()[:12]
+    # The Luma drivers and the Rust renderer join the hash, so a new one alone gets its own folder and a running session's pins
+    # stay true. With neither Rust binary the name is what it was before there was one.
+    extra = [sha for sha in (rust_sha, renderer_sha) if sha]
+    combined = hashlib.sha256(''.join([*shas.values(), *extra]).encode('ascii')).hexdigest()[:12]
     root = _root(data_home)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     (root / 'bin').mkdir(mode=0o700, exist_ok=True)
     target = root / 'bin' / combined
     target.mkdir(mode=0o700, exist_ok=True)
     entry = {key: _copy_pinned(source, target / source.name, shas[key]) for key, source in sources.items()}
-    rust = None
-    if rust_sha:
-        (target / RUST_DIR).mkdir(mode=0o700, exist_ok=True)
-        rust = _copy_pinned(rust_driver, target / RUST_DIR / LUMA_DRIVER, rust_sha)
+    rust = renderer = None
+    if extra: (target / RUST_DIR).mkdir(mode=0o700, exist_ok=True)
+    if rust_sha: rust = _copy_pinned(rust_driver, target / RUST_DIR / LUMA_DRIVER, rust_sha)
+    if renderer_sha: renderer = _copy_pinned(rust_renderer, target / RUST_DIR / RUST_RENDERER, renderer_sha)
     # Its own file: installed.json is read strictly, by whatever worktree a run comes from.
     shim = _pin_shim(build_dir, target)
     if shim is not None: _atomic_write(root / SHIM_PIN, json.dumps(shim, indent=2).encode(), 0o600)
@@ -146,9 +155,10 @@ def install(build_dir, data_home, rust_driver=None):
     _write_engine(target)
     _atomic_write(root / 'installed.json', json.dumps(entry, indent=2).encode(), 0o600)
     # After installed.json: a Rust pin never points into a set whose C++ half is not pinned yet.
-    if rust is not None: _atomic_write(root / RUST_LUMA_PIN, json.dumps(rust, indent=2).encode(), 0o600)
-    else: (root / RUST_LUMA_PIN).unlink(missing_ok=True)
-    return entry if rust is None else dict(entry, rust_luma_driver=rust)
+    for name, pin in ((RUST_LUMA_PIN, rust), (RUST_RENDERER_PIN, renderer)):
+        if pin is not None: _atomic_write(root / name, json.dumps(pin, indent=2).encode(), 0o600)
+        else: (root / name).unlink(missing_ok=True)
+    return dict(entry, **({'rust_luma_driver': rust} if rust else {}), **({'rust_renderer': renderer} if renderer else {}))
 
 
 def install_pro2_bundle(build_dir, data_home, builder=None):
@@ -209,6 +219,17 @@ def load_installed(data_home):
             _check_entry(rust, root / 'bin')
             data[LUMA_KEY] = rust
     return data
+
+
+def load_rust_renderer(data_home):
+    """The Rust renderer's pin (RUST_RENDERER_PIN), checked for shape and place but not hashed, or None when none is installed."""
+    root = _root(data_home)
+    try: pin = json.loads((root / RUST_RENDERER_PIN).read_text())
+    except FileNotFoundError: return None
+    except (OSError, ValueError) as e: raise ValueError(f'{RUST_RENDERER_PIN} unreadable: {e}') from None
+    try: _check_entry(pin, root / 'bin')
+    except ValueError as e: raise ValueError(f'{RUST_RENDERER_PIN}: {e}') from None
+    return pin
 
 
 def verify_pinned(entry):

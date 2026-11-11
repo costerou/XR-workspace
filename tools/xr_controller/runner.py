@@ -21,6 +21,7 @@ from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
 from tools.native_spike.panel_consent import LUMA_PIN, load_panel_consent
 from tools.native_spike.profiles import ProfileStore, log, profiles_path
+from tools.xr_controller import renderer_switch
 from tools.xr_controller.install import load_installed, tracking_driver_path, verify_pinned
 
 from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME as PLUGIN_NAME, ownership_plugin_count
@@ -94,10 +95,12 @@ def execute(consent_path, data_home, progress=None):
         consent = load_panel_consent(consent_path, raw.get('instance'), raw.get('output'))
         if consent['run_id'] != result['run_id']: raise ValueError('consent changed while reading')
         installed = load_installed(data_home)
-        for key in ('plugin', 'renderer', LUMA_PIN):
+        for key in ('plugin', LUMA_PIN):
             if key == LUMA_PIN and key not in consent: continue
             if consent[key] != installed.get(key): raise ValueError(f'consent {key} is not the pinned install')
             verify_pinned(installed[key])
+        # The C++ renderer, or the Rust one when the renderer setting says so (renderer_switch.py); never the other instead.
+        renderer = renderer_switch.start_renderer(consent['renderer'], installed, data_home)
         plugin = installed['plugin']['path']
         if progress: progress(result['run_id'], 'verify')
         result['phase'] = 'plugin'
@@ -138,10 +141,10 @@ def execute(consent_path, data_home, progress=None):
         result['phase'] = 'layout'
         client.park_presentation(consent['output'])
         result['phase'] = 'run'
-        verify_pinned(installed['renderer'])
+        verify_pinned(renderer)
         managed_started = True
         run = run_managed(client, consent, runtime, desktops=consent['desktops'],
-                          store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'], faults=faults)
+                          store=ProfileStore(profiles_path(), consent['model']), renderer=renderer['path'], faults=faults)
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
         if run.get('stop_reason'): result['stop_reason'] = run['stop_reason']
         if run.get('holds'): result['usb_holds'] = run['holds']  # survive.py: drops this run outlived, or waited out
