@@ -1,0 +1,206 @@
+"""A scripted Hyprland and ownership plugin for tests/managed_real.rs: real sockets, no compositor.
+
+Run by a copy of the Python executable named `Hyprland` (the clients check the peer's executable name):
+`Hyprland compositor.py <runtime> <instance> <case>`. It binds `<runtime>/hypr/<instance>/.socket.sock` and
+`.socket2.sock` and `<runtime>/wayland-1`, writes the lock the clients read, then `<runtime>/fake-ready`.
+
+Every request is logged to `<runtime>/wire.jsonl` as `{"pid": caller, "request": text}`, so a test can compare what two
+supervisors sent, request for request. Unknown requests are logged as errors and answered with an error.
+
+The world: DP-1 (the fallback, one window on workspace 1) and DP-2 (the glasses). The broker keeps a registry of the
+run's outputs as the plugin does: `create` makes one live, `inspect` reads it back, `evacuate_remove` makes it dead.
+
+Cases (the third argument):
+- `hello-refused`: the broker's hello is not qualified.
+- `create-fail`: the second output created does not go live.
+- `recovery-stuck`: the first `evacuate_remove` is refused with an error reply.
+- `no-glasses`: DP-2 is not there.
+- anything else: everything works.
+
+`<runtime>/fake-unplug` existing takes DP-1 away (the run's guard then fails).
+"""
+import json
+import os
+import socket
+import struct
+import sys
+import threading
+import time
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve(strict=True)
+instance, case = sys.argv[2], sys.argv[3]
+os.chdir(root)
+directory = root / 'hypr' / instance
+directory.mkdir(parents=True, mode=0o700)
+(directory / 'hyprland.lock').write_text(f'{os.getpid()}\nwayland-1\n')
+(directory / 'hyprland.lock').chmod(0o600)
+trace = root / 'wire.jsonl'
+lock = threading.Lock()
+registry = {}
+plugins = []
+refused = []
+EPOCH = 'epoch-one'
+
+
+def log(event):
+    with open(trace, 'a') as f:
+        f.write(json.dumps(event, sort_keys=True) + '\n')
+
+
+def monitor(name, mid, x, y, model, focused=False):
+    return dict(name=name, id=mid, x=x, y=y, width=1920, height=1080, refreshRate=120.0, scale=1.0, transform=0,
+                disabled=False, dpmsStatus=True, mirrorOf='none', activeWorkspace=dict(id=1 if mid == 0 else 2,
+                name='1' if mid == 0 else '2'), reserved=[0, 0, 0, 0], model=model, description='fixture',
+                availableModes=['1920x1080@120.00Hz', '1920x1080@60.00Hz'], focused=focused, make='fixture',
+                serial='', specialWorkspace=dict(id=0, name=''), vrr=False, solitary='0', activelyTearing=False,
+                directScanoutTo='0', currentFormat='XRGB8888', colorManagementPreset='srgb', sdrBrightness=1.0,
+                sdrSaturation=1.0, sdrMinLuminance=0.2, sdrMaxLuminance=80)
+
+
+physical = [monitor('DP-1', 0, 0, 0, 'ordinary', focused=True)]
+if case != 'no-glasses':
+    physical.append(monitor('DP-2', 1, 1920, 0, 'VITURE'))
+
+
+def monitors():
+    out = [m for m in physical if not (m['name'] == 'DP-1' and (root / 'fake-unplug').exists())]
+    for r in registry.values():
+        if r['state'] == 'live':
+            o = r['observation']
+            m = monitor(r['name'], 10 + len(out), o['x'], o['y'], 'headless')
+            m.update(width=o['width'], height=o['height'], activeWorkspace=dict(id=o['workspace'], name=str(o['workspace'])))
+            out.append(m)
+    return out
+
+
+def workspaces():
+    out = [dict(id=1, name='1', monitor='DP-1', monitorID=0, windows=1, hasfullscreen=False, lastwindow='0x1',
+                lastwindowtitle='t'),
+           dict(id=2, name='2', monitor='DP-2', monitorID=1, windows=0, hasfullscreen=False, lastwindow='0x0',
+                lastwindowtitle='')]
+    for r in registry.values():
+        if r['state'] == 'live':
+            w = r['observation']['workspace']
+            out.append(dict(id=w, name=str(w), monitor=r['name'], monitorID=0, windows=0, hasfullscreen=False,
+                            lastwindow='0x0', lastwindowtitle=''))
+    return out
+
+
+CLIENT = dict(address='0x1', mapped=True, hidden=False, at=[10, 10], size=[800, 600],
+              workspace=dict(id=1, name='1'), floating=False, pseudo=False, monitor=0, **{'class': 'kitty'},
+              title='t', initialClass='kitty', initialTitle='t', pid=4242, xwayland=False, pinned=False,
+              fullscreen=0, fullscreenClient=0, grouped=[], tags=[], swallowing='0x0', focusHistoryID=0,
+              inhibitingIdle=False, xdgTag='', xdgDescription='')
+
+
+def broker(j):
+    p, op = j['payload'], j['op']
+    if op == 'hello':
+        return dict(qualified=case != 'hello-refused', fallback='physical-handle')
+    if op == 'cursor_shape':
+        return dict(shape='')
+    if op == 'create':
+        registry[p['id']] = dict(
+            id=p['id'], name=p['name'], state='live', physical=False, fallback_usable=True,
+            observation=dict(**{k: p[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')},
+                             workspace=61 + 10 * p['index'], enabled=True, dpms=True, mirrored=False, transform=0,
+                             workspaces=[dict(id=61 + 10 * p['index'], name=str(61 + 10 * p['index']), special=False)],
+                             windows=[]))
+        if case == 'create-fail' and p['index'] == 1:
+            registry[p['id']]['state'] = 'failed'
+    if p.get('id') not in registry:
+        return None
+    if op == 'evacuate_remove':
+        if case == 'recovery-stuck' and not refused:
+            refused.append(p['id'])
+            return None
+        registry[p['id']]['state'] = 'dead'
+        registry[p['id']]['observation'] = None
+    return registry[p['id']]
+
+
+def respond(wire):
+    if wire == 'j/cursorpos':
+        return dict(x=100, y=100)
+    if wire in ('j/monitors', 'j/monitors all'):
+        return monitors()
+    if wire == 'j/workspaces':
+        return workspaces()
+    if wire == 'j/clients':
+        return [CLIENT]
+    if wire == 'j/activewindow':
+        return dict(CLIENT)
+    if wire == 'j/binds':
+        return []
+    if wire.startswith('j/getoption'):
+        return dict(option=wire.split()[-1], int=0, float=0.0, str='', set=False)
+    if wire == 'j/plugin list':
+        return [dict(name=p, author='fixture', handle='0x1', version='1', description='') for p in plugins]
+    if wire.startswith('/plugin load '):
+        plugins.append('xr-ownership')
+        return 'ok'
+    if wire.startswith('/plugin unload '):
+        plugins.clear()
+        return 'ok'
+    if wire == '/reload':
+        return 'ok'
+    if wire.startswith('/eval '):
+        import re
+        if 'hl.monitor(' in wire:
+            name = re.search(r'output\s*=\s*"([^"]+)"', wire)
+            pos = re.search(r'position\s*=\s*"(-?\d+)x(-?\d+)"', wire)
+            for m in physical:
+                if name and pos and m['name'] == name[1]:
+                    m['x'], m['y'] = int(pos[1]), int(pos[2])
+        return 'ok'
+    if wire.startswith('j/xrspike '):
+        j = json.loads(wire[len('j/xrspike '):])
+        result = broker(j)
+        if result is None:
+            return dict(error='ownership blocked')
+        return dict(**{k: j[k] for k in ('schema', 'session', 'run_id', 'request_id')}, epoch=EPOCH, result=result)
+    return None
+
+
+def handle(conn, kind):
+    pid = None
+    try:
+        if kind != 'rpc':
+            while conn.recv(1024):
+                pass
+            return
+        pid = struct.unpack('3i', conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[0]
+        data = conn.recv(1 << 20)  # one write of at most 16 KiB arrives whole on a local stream socket
+        wire = data.decode()
+        with lock:
+            log(dict(pid=pid, request=wire, t=round(time.monotonic(), 3)))
+            result = respond(wire)
+            if result is None and not wire.startswith('j/xrspike '):
+                log(dict(pid=pid, error='unhandled request', request=wire[:200]))
+                result = 'unknown request'
+        conn.sendall((result if isinstance(result, str) else json.dumps(result)).encode())
+    except Exception as e:
+        log(dict(pid=pid, error=repr(e)))
+    finally:
+        conn.close()
+
+
+def serve(listener, kind):
+    while True:
+        conn, _ = listener.accept()
+        threading.Thread(target=handle, args=(conn, kind), daemon=True).start()
+
+
+listeners = []
+for path, kind in [(directory / '.socket.sock', 'rpc'), (directory / '.socket2.sock', 'events'),
+                   (root / 'wayland-1', 'wayland')]:
+    s = socket.socket(socket.AF_UNIX)
+    s.bind(str(path.relative_to(root)))
+    s.listen(100)
+    listeners.append((s, kind))
+for listener, kind in listeners:
+    threading.Thread(target=serve, args=(listener, kind), daemon=True).start()
+(root / 'fake-ready').write_text('ready')
+while True:
+    time.sleep(0.1)
