@@ -2,21 +2,27 @@
 //! spike/tests/gl_bench.cpp (ctest gl_frame): every scenario frame drawn by one long-lived compositor, in a mixed order, is
 //! pixel-identical to the same frame drawn by a fresh compositor (no stale caches, uploads or GL state carried between
 //! frames); the dot's looks draw round the dot only and under the cap; the window drag draws its ghost and target frame;
-//! resizing and back matches fresh compositors; level bars and caps ride on their desktop's live placement.
+//! resizing and back matches fresh compositors; the Serif Beam, at the plain and the held level, is exactly its CPU mirror
+//! (support/pointer_raster.rs, within 1 per channel on the shape and its ring, 0 off it); level bars and caps ride on
+//! their desktop's live placement.
 //!
-//! Not ported: the Serif Beam against its CPU mirror (pointer_raster is not in Rust yet). Cards come from XR_GL_CARDS
+//! Cards come from XR_GL_CARDS
 //! (`gl_bench --dump DIR`) when set, else are synthetic. Exit 77 (skipped) without EGL/GLES.
 
 #[path = "support/gl_scenarios.rs"]
 mod gl_scenarios;
+#[path = "support/pointer_raster.rs"]
+mod pointer_raster;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gl_scenarios::*;
-use xr_renderer::glass::{CAP_GAP, CAP_LEG, level_bar_rect, level_bar_scale};
+use pointer_raster::pointer_mask;
+use xr_renderer::glass::{level_bar_rect, level_bar_scale, CAP_GAP, CAP_LEG};
 use xr_renderer::view::{
-    Canvas, FREE_POINTER_LEVEL, FREE_POINTER_RADIUS_PX, FREE_POINTER_RING_PX, POINTER_MARK_GAP_PX,
-    POINTER_MARK_HALF_PX, POINTER_MARK_LEN_PX, Placement, Size, blended_layout, place_point,
+    blended_layout, direction_marks, place_point, Canvas, Placement, PointerLook, Size,
+    FREE_POINTER_HELD_LEVEL, FREE_POINTER_LEVEL, FREE_POINTER_RADIUS_PX, FREE_POINTER_RING_PX,
+    POINTER_MARK_GAP_PX, POINTER_MARK_HALF_PX, POINTER_MARK_LEN_PX,
 };
 
 static FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -108,10 +114,79 @@ fn main() {
             }
             drawn.push(px);
         }
-        // The text beam has no disc (the desktop shows where the dot was), so only that it differs from the others.
+        // The Serif Beam against its CPU mirror (pointer_raster.rs): over a frame with no pointer, the GL paints exactly
+        // the mirror's pixels, grey on the shape, black on its ring, hard edges with nothing in between, no disc under it,
+        // and nothing else; at the plain and the held level, both under the OLED cap.
+        let none = Scenario {
+            pills: true,
+            ..Scenario::new("no_pointer")
+        };
+        check!(draw_frame(&mut gl, &r, &none, 0, w, h, false));
+        let under = gl.read_rgb();
+        let (half_w, half_h) = half_fov(w, h);
+        let canvas = Canvas::new(w as f32, h as f32, half_w, half_h);
+        let wx = (2.0 * f64::from(cx) / f64::from(canvas.view_w) - 1.0) * f64::from(canvas.half_w);
+        let wy = (1.0 - 2.0 * f64::from(cy) / f64::from(canvas.view_h)) * f64::from(canvas.half_h);
+        let az = wx.atan2(1.0) as f32;
+        let el = wy.atan2(wx.hypot(1.0)) as f32;
+        let (x0, y0) = (cx as i32 - 30, cy as i32 - 30);
+        let outline = direction_marks(
+            &canvas,
+            cx,
+            cy,
+            az,
+            el,
+            PointerLook::Text,
+            FREE_POINTER_RING_PX,
+        );
+        let shape = direction_marks(&canvas, cx, cy, az, el, PointerLook::Text, 0.0);
+        let ring_mask = pointer_mask(&canvas, &outline, x0, y0, 60, 60);
+        let ink_mask = pointer_mask(&canvas, &shape, x0, y0, 60, 60);
+        check!(ink_mask.count() > 60 && ring_mask.count() > ink_mask.count());
         for other in &drawn {
             check!(**other != reference[named("look_text")][0]);
         }
+        let mut max_diff = 0;
+        for (name, level) in [
+            ("look_text", FREE_POINTER_LEVEL),
+            ("look_text_held", FREE_POINTER_HELD_LEVEL),
+        ] {
+            let px = &reference[named(name)][0];
+            let grey = (level * 255.0 + 0.5) as i32;
+            check!(grey <= 191);
+            let mut wrong = 0usize;
+            for y in 0..h {
+                for x in 0..w {
+                    // canvas x, y; GL rows run bottom up
+                    let i = (((h - 1 - y) * w + x) * 3) as usize;
+                    let ink = ink_mask.at(x as i32, y as i32);
+                    let ring = ring_mask.at(x as i32, y as i32);
+                    for c in 0..3 {
+                        let want = if ink {
+                            grey
+                        } else if ring {
+                            0
+                        } else {
+                            i32::from(under[i + c])
+                        };
+                        let got = i32::from(px[i + c]);
+                        let diff = (got - want).abs();
+                        max_diff = max_diff.max(diff);
+                        if diff > if ink || ring { 1 } else { 0 } {
+                            if wrong == 0 {
+                                eprintln!("{name}: at ({x},{y}) channel {c} is {got}, not {want}");
+                            }
+                            wrong += 1;
+                        }
+                    }
+                }
+            }
+            if wrong > 0 {
+                eprintln!("{name}: {wrong} channels differ from the CPU mirror");
+                FAILURES.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        println!("serif beam vs CPU mirror: max channel difference {max_diff} (tolerance 1 on the shape, 0 off it)");
     }
 
     // One long-lived compositor: forward, then backward, then interleaved, so every scenario follows several others.

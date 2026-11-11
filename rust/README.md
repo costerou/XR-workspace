@@ -220,6 +220,12 @@ in the installed HUD font (else the pixel font, as the C++ then does). With `XR_
 C++ image byte for byte; `gl_parity` always checks against its fresh dump. `tests/overlay_residue.rs`
 draws the help card the C++ `HelpOverlay` draws for its rows (`render_help_card`, unbounded, page 1).
 
+`tests/gl_frame.rs` ports `gl_bench`'s check mode, including the Serif Beam against its CPU mirror:
+`tests/support/pointer_raster.rs` is `spike/tests/pointer_raster.hpp` (the flat fill rule, the same
+f64 maths in the same order), and the GL beam must match it within 1 per channel on the shape and its
+ring and exactly off it, at both grey levels. `tests/pointer_beam.rs` ports `free_pointer_test`'s
+checks on that mirror (the beam's 14 x 28 px extent, its 2 px stem, its symmetry).
+
 ## Driver real-time layer
 
 `xr-luma-driver`'s `rt` module ports the C++ `luma::rt` pipeline (`spike/driver/include/luma/rt.hpp`):
