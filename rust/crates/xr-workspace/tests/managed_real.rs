@@ -140,6 +140,11 @@ impl Drop for Session {
 }
 
 impl Session {
+    /// A session from the defaults.
+    fn new(case: &'static str, who: Who) -> Session {
+        Session::start(case, who, &Start::default())
+    }
+
     fn start(case: &'static str, who: Who, start: &Start) -> Session {
         // Numbered too: two tests may run the same case at once.
         static SESSIONS: AtomicUsize = AtomicUsize::new(0);
