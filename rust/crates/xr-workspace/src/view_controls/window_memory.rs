@@ -91,7 +91,7 @@ fn lock(memory: &Mutex<Memory>) -> std::sync::MutexGuard<'_, Memory> {
 }
 
 /// A strict reply as serde_json holds it (the window memory reads serde_json).
-fn to_serde(v: &xr_wire::json::Value) -> Value {
+pub(super) fn to_serde(v: &xr_wire::json::Value) -> Value {
     use xr_wire::json::Value as W;
     match v {
         W::Null => Value::Null,

@@ -115,9 +115,7 @@ impl ViewControl {
         }
         // View: MENU_OPS.
         if op == RESET_OP {
-            if let Some(desktops) = f.desktops.as_deref_mut() {
-                desktops.layout_reset(out);
-            }
+            // View: `desktops.layout_reset(self)` once `ViewControl` implements `desktops::View` (the view's port).
             return;
         }
         if RESIZE_OPS.contains(&op) {
