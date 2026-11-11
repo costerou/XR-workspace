@@ -707,9 +707,10 @@ fn fake_feed(options: impl Fn(&str) -> WriterOptions) -> (Scratch, FeedWriter) {
     (scratch, writer)
 }
 
-/// FakeFeed::write: q in all three slots.
+/// FakeFeed::write: q in all three slots. FakeFeed waits on the mutex (pthread_mutex_lock);
+/// FeedWriter::write skips a publish when a reader holds it, so retry until it lands.
 fn write(w: &mut FeedWriter, q: Quat, ms: f32) {
-    assert!(w.write(&[
+    let v = [
         q.x,
         q.y,
         q.z,
@@ -725,8 +726,11 @@ fn write(w: &mut FeedWriter, q: Quat, ms: f32) {
         ms,
         ms - 16.0,
         ms - 32.0,
-        0.0
-    ]));
+        0.0,
+    ];
+    while !w.write(&v) {
+        std::thread::yield_now();
+    }
 }
 
 fn mutex_of(prefix: &str) -> *mut libc::pthread_mutex_t {
