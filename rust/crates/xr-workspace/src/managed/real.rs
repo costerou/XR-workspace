@@ -1001,7 +1001,8 @@ impl Host for RealHost<'_> {
         Ok(())
     }
 
-    /// `keep_renderer`: the renderer, and a new one after a USB drop of the glasses once they are back.
+    /// `keep_renderer`: the renderer, and a new one after a USB drop of the glasses once they are back, or after the
+    /// glasses changed display mode (`switching`: an expected exit, held without an apology or a settle).
     fn keep_renderer(&mut self, capture: bool) -> Result<i32> {
         loop {
             let usb_before = self.usb();
@@ -1018,7 +1019,12 @@ impl Host for RealHost<'_> {
             let Ok(output_ready) = self.output_ok() else {
                 return Ok(code);
             };
-            self.truncate_continuity(); // only a display-mode handover keeps pose continuity
+            // Pose continuity holds only through a display-mode handover with the same tracking reference, never
+            // through an ordinary drop or crash.
+            let mut continuous = expected && usb_before.is_some() && usb_now == usb_before;
+            if !continuous {
+                self.truncate_continuity();
+            }
             if !survive::should_hold(
                 code,
                 self.stop_reason.as_deref(),
@@ -1033,7 +1039,11 @@ impl Host for RealHost<'_> {
                 notify("The glasses keep dropping off USB, so XR stopped. Check the cable.");
                 return Ok(code);
             }
-            notify("The glasses dropped off USB. Your desktops are safe; XR comes back by itself.");
+            notify(if expected {
+                "Switching display mode… Your desktops are safe."
+            } else {
+                "The glasses dropped off USB. Your desktops are safe; XR comes back by itself."
+            });
             let back = {
                 let this = std::cell::RefCell::new(&mut *self);
                 survive::wait_for_glasses(
@@ -1061,7 +1071,8 @@ impl Host for RealHost<'_> {
                         }
                     },
                     survive::HOLD_LIMIT_S,
-                    survive::SETTLE_S,
+                    // A switch the glasses announced needs no settling: they are back when they are there.
+                    if expected { 0.0 } else { survive::SETTLE_S },
                 )
             };
             if INTERRUPT.load(Ordering::SeqCst) {
@@ -1075,11 +1086,14 @@ impl Host for RealHost<'_> {
                 if back { "True" } else { "False" }
             ));
             if back {
-                self.truncate_continuity();
+                continuous = continuous && self.usb() == usb_before;
+                if !continuous {
+                    self.truncate_continuity();
+                }
                 if let Some(controls) = self.controls.as_mut() {
                     controls.renderer_restarted();
                 }
-                if !self.revive() {
+                if !continuous && !self.revive() {
                     notify("XR is back without head tracking: the tracking driver did not start.");
                 }
             }
