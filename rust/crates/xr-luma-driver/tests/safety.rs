@@ -107,6 +107,36 @@ fn wait_running(dir: &Path, child: &mut Child) {
     std::thread::sleep(Duration::from_millis(300));
 }
 
+/// A realtime replay, once it says `luma: connected`: the line it logs once its lock, signal handlers and feed are up, the
+/// one the C++ test waits for. Returns the log so far. ftok keys hold 16 bits of the inode, so a private feed can land on a
+/// key another segment holds and the driver refuses with "key in use"; it removes its files then, so the next start gets
+/// new inodes and new keys (as xr-pose's `open_private` and spike/tests/fake_feed.hpp retry).
+fn start_replay(dir: &Path, cap: &Path) -> (Child, String) {
+    for _ in 0..64 {
+        let mut child = replay(dir, cap, true).spawn().unwrap();
+        let err = child.stderr.as_mut().unwrap();
+        let (mut log, mut line, mut byte) = (String::new(), Vec::new(), [0u8]);
+        // Byte by byte, so nothing after the line is taken from the pipe; it ends at the driver's exit.
+        while err.read(&mut byte).unwrap() == 1 {
+            line.push(byte[0]);
+            if byte[0] == b'\n' {
+                log += &String::from_utf8_lossy(&line);
+                if line.starts_with(b"luma: connected ") {
+                    return (child, log);
+                }
+                line.clear();
+            }
+        }
+        log += &String::from_utf8_lossy(&line);
+        let status = exit_within(&mut child, Duration::from_secs(5));
+        if status.code() == Some(4) && log.contains("reason=feed key in use: ") {
+            continue;
+        }
+        panic!("the driver exited early, {status}: {log}");
+    }
+    panic!("no free SysV keys for a private feed")
+}
+
 fn exit_within(child: &mut Child, timeout: Duration) -> std::process::ExitStatus {
     let until = Instant::now() + timeout;
     loop {
@@ -705,12 +735,11 @@ fn s9_sigterm_stops_cleanly() {
     let dir = scratch("s9");
     let cap = capture(&dir, None);
     for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
-        let mut child = replay(&dir, &cap, true).spawn().unwrap();
-        wait_running(&dir, &mut child);
+        let (mut child, mut log) = start_replay(&dir, &cap);
         let sent = Instant::now();
         signal(&child, sig);
         let status = exit_within(&mut child, Duration::from_secs(1));
-        let log = stderr_of(&mut child);
+        log += &stderr_of(&mut child);
         assert_eq!(status.code(), Some(0), "signal {sig}: {log}");
         assert!(sent.elapsed() < Duration::from_millis(500), "took {:?}", sent.elapsed());
         assert!(!log.contains("luma: error"), "{log}");
