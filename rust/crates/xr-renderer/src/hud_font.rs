@@ -506,4 +506,7 @@ impl HudTextMetrics for HudFont {
     fn measure(&self, utf8: &str, px: u32, bold: bool) -> u32 {
         self.measure_bytes(utf8.as_bytes(), px, bold)
     }
+    fn draw(&self, utf8: &str, px: u32, bold: bool, left: i32, baseline: i32, plot: &mut dyn FnMut(i32, i32, f32)) {
+        self.draw_bytes(utf8.as_bytes(), px, bold, left, baseline, plot);
+    }
 }

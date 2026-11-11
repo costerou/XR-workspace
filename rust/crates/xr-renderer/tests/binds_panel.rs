@@ -1,8 +1,15 @@
-//! `spike/tests/binds_panel_test.cpp` without the raster checks (where it compares rendered card sizes, the fit numbers
-//! are checked instead), plus a dump compared with the C++ one byte for byte.
+//! `spike/tests/binds_panel_test.cpp` in Rust: the fit, the scroll window and the overlay, the raster checks on the
+//! rendered card (in the pixel font and, when fontconfig finds it, the installed font), plus a dump compared with the
+//! C++ one byte for byte. Pixel parity with the C++ card is in `tests/card_raster.rs`.
 
 use xr_renderer::binds_panel::*;
-use xr_renderer::hud::{FontMetrics, HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HELP_RISE_PX, HUD_FIT_MARGIN, HudTextMetrics};
+use xr_renderer::glass_theme::glass_theme_scheme;
+use xr_renderer::hud::{
+    CARD_MAX_LEVEL, FontMetrics, HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HELP_RISE_PX, HUD_FIT_MARGIN, HUD_FONT_FAMILY, HudImage,
+    HudTextMetrics,
+};
+use xr_renderer::hud_font::HudFont;
+use xr_renderer::material::MdRgb;
 
 /// 1920x1200 at scale 1.25, logical px.
 const SURFACE_W: u32 = 1536;
@@ -19,6 +26,7 @@ impl HudTextMetrics for Mono {
     fn measure(&self, utf8: &str, px: u32, bold: bool) -> u32 {
         utf8.chars().count() as u32 * (px * 3 / 5 + u32::from(bold))
     }
+    fn draw(&self, _: &str, _: u32, _: bool, _: i32, _: i32, _: &mut dyn FnMut(i32, i32, f32)) {}
 }
 
 /// The panel as keybinds.py sends it at a start with two conflicts, one custom bind, row 4 picked.
@@ -168,6 +176,92 @@ fn fits_every_scale_in_an_installed_font() {
     check_fits(Some(&Mono), "installed font");
     let s = sample(4, false, true);
     assert_ne!(bind_panel_fit(&s, Some(&Mono), SURFACE_W, SURFACE_H), bind_panel_fit(&s, None, SURFACE_W, SURFACE_H));
+}
+
+// --- Raster checks ---------------------------------------------------------------------------------------------------
+
+const ACCENT: [f32; 3] = [0.48, 0.64, 0.97];
+
+fn px(im: &HudImage, x: u32, y: u32) -> &[u8] {
+    let i = (y as usize * im.width as usize + x as usize) * 4;
+    &im.rgba[i..i + 4]
+}
+/// Pixels of exactly `c` (an opaque fill, +-2 per channel).
+fn count(im: &HudImage, c: MdRgb) -> usize {
+    im.rgba
+        .chunks_exact(4)
+        .filter(|p| p[3] == 255 && (0..3).all(|i| (i32::from(p[i]) - (c[i] * 255.0).round() as i32).abs() <= 2))
+        .count()
+}
+fn check_cap(im: &HudImage, what: &str) {
+    let over = im.rgba.chunks_exact(4).flat_map(|p| p[..3].iter()).filter(|&&c| c > CARD_MAX_LEVEL).count();
+    let unpremultiplied = im.rgba.chunks_exact(4).map(|p| p[..3].iter().filter(|&&c| c > p[3]).count()).sum::<usize>();
+    assert!(over == 0 && unpremultiplied == 0, "{what}: {over} channels over the cap, {unpremultiplied} not premultiplied");
+}
+fn check_fit(im: &HudImage, w: u32, h: u32, what: &str) {
+    let ok = im.width + 2 * HUD_FIT_MARGIN <= w && im.height + 2 * HUD_FIT_MARGIN <= h && im.height + HELP_RISE_PX as u32 <= h;
+    assert!(ok, "{what}: card {}x{} does not fit {w}x{h}", im.width, im.height);
+}
+/// The right padding (inside the card's edge, outside every row) holds nothing but the card's own surface.
+fn check_right_pad(im: &HudImage, what: &str) {
+    let r = px(im, im.width - 12, im.height / 2).to_vec();
+    let mut bad = 0;
+    for y in 40..im.height - 40 {
+        for x in im.width - 28..im.width - 4 {
+            bad += px(im, x, y).iter().zip(&r).filter(|(a, b)| (i32::from(**a) - i32::from(**b)).abs() > 3).count();
+        }
+    }
+    assert_eq!(bad, 0, "{what}: pixels of ink in the right padding");
+}
+
+fn check_raster(f: Option<&dyn HudTextMetrics>, name: &str) {
+    let m = glass_theme_scheme(ACCENT);
+    let s = sample(4, false, true);
+    let fit = bind_panel_fit(&s, f, SURFACE_W, SURFACE_H);
+    let im = render_bind_panel(&s, ACCENT, f, SURFACE_W, SURFACE_H, 0);
+    assert!(fit.fits && fit.slots == BIND_PANEL_SLOTS && fit.width == im.width && fit.height == im.height, "{name}");
+    check_fit(&im, SURFACE_W, SURFACE_H, name);
+    check_cap(&im, name);
+    check_right_pad(&im, name);
+    // Roles: a picked band, error bands for the conflicts in view (row 3; row 19 is scrolled out), a custom chip.
+    assert!(count(&im, m.secondary_container) > 1000, "{name}");
+    assert!(count(&im, m.error_container) > 1000, "{name}");
+    assert!(count(&im, m.primary_container) > 100, "{name}");
+    // Without conflicts there is no error colour at all.
+    let calm = render_bind_panel(&sample(4, false, false), ACCENT, f, SURFACE_W, SURFACE_H, 0);
+    assert_eq!(count(&calm, m.error_container), 0, "{name}");
+    check_cap(&calm, &format!("{name}, no conflicts"));
+    // The picked row and the scroll do not change the size; a scrolled window still draws (row 19's long note: cut).
+    for sel in [0u32, 12, 19, 24] {
+        let first = bind_panel_first(0, sel, 25, fit.slots);
+        let scrolled = render_bind_panel(&sample(sel, false, true), ACCENT, f, SURFACE_W, SURFACE_H, first);
+        assert!(scrolled.width == im.width && scrolled.height == im.height, "{name}, picked {sel}");
+        check_cap(&scrolled, &format!("{name}, picked {sel}"));
+        check_right_pad(&scrolled, &format!("{name}, picked {sel}"));
+    }
+    // Waiting for keys: the chip's primary outline.
+    let capture = render_bind_panel(&sample(2, true, true), ACCENT, f, SURFACE_W, SURFACE_H, 0);
+    assert!(count(&capture, m.primary) > count(&im, m.primary), "{name}");
+    check_cap(&capture, &format!("{name}, capture"));
+    for scale in SCALES {
+        let (w, h) = ((1920.0 / scale) as u32, (1200.0 / scale) as u32);
+        let card = render_bind_panel(&s, ACCENT, f, w, h, 0);
+        check_fit(&card, w, h, &format!("{name} at {w}x{h}"));
+        check_cap(&card, &format!("{name} at scale {scale}"));
+    }
+}
+
+#[test]
+fn rendered_card_in_the_pixel_font() {
+    check_raster(None, "pixel font");
+}
+
+#[test]
+fn rendered_card_in_the_installed_font() {
+    match HudFont::load(HUD_FONT_FAMILY) {
+        Ok(font) => check_raster(Some(&font), "installed font"),
+        Err(why) => eprintln!("note: {HUD_FONT_FAMILY} not available ({why}); real-font raster not checked"),
+    }
 }
 
 // The overlay: shown, unchanged, scrolled, hidden (content kept while it fades), re-laid out, recoloured.

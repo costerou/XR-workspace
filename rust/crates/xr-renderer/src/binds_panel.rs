@@ -1,6 +1,6 @@
-//! Key bind panel logic (`spike/include/xr/binds_panel.hpp`, `spike/src/binds_panel.cpp`) without the rasterisation:
-//! the panel's state, its fit for the output, the text steps and card chrome, the scroll window, the text cut to a
-//! column, and the overlay's fade, scroll and redraw bookkeeping.
+//! Key bind panel (`spike/include/xr/binds_panel.hpp`, `spike/src/binds_panel.cpp`): the panel's state, its fit for the
+//! output, the text steps and card chrome, the scroll window, the text cut to a column, the card's rasteriser
+//! ([`render_bind_panel`], pixel-equal to the C++) and the overlay's fade, scroll and redraw bookkeeping.
 //!
 //! The panel (Ctrl+Alt+K by default; tools/native_spike/keybinds.py) is a head-locked Material Design 3 card listing
 //! every XR Workspace bind with its keys, display only (the supervisor owns the state, the keyboard and the binds).
@@ -24,11 +24,15 @@
 //!
 //! All `u32` sums wrap like the C++ unsigned maths.
 
+use crate::glass_theme::glass_theme_scheme;
 use crate::hud::{
-    CardFade, EM_PER_SCALE, GLYPH_H, HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HELP_RISE_PX, HUD_FIT_MARGIN, HudTextMetrics,
-    LineBox, PIXEL_FONT_ZOOM, hud_text_width,
+    CardFade, EM_PER_SCALE, GLYPH_H, GLYPH_W, HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HELP_RISE_PX, HUD_FIT_MARGIN, HudImage,
+    HudTextMetrics, LineBox, PIXEL_FONT_ZOOM, hud_glyph, hud_text_width,
 };
-use crate::material::{MD_DEFAULT_SEED, MdRgb};
+use crate::material::{
+    MD_DEFAULT_SEED, MD_SHAPE_EXTRA_LARGE, MD_SHAPE_MEDIUM, MD_SHAPE_SMALL, MaterialScheme, MdRgb, clampf,
+};
+use crate::material_draw::{MdIcon, cmax, cmin, md_fill_rounded, md_icon, md_over, md_rounded_distance, md_stroke_rounded};
 
 // --- State ---------------------------------------------------------------------------------------------------------
 
@@ -323,6 +327,201 @@ pub fn bind_panel_place(state: &BindPanelState) -> String {
         return String::new();
     }
     format!("{} / {}", state.selected.min(rows - 1).wrapping_add(1), rows)
+}
+
+// --- Rasteriser ----------------------------------------------------------------------------------------------------
+
+/// `s` with its top-left at (left, top), in `c` (a scheme role: under the OLED cap).
+fn draw_text(im: &mut HudImage, font: Option<&dyn HudTextMetrics>, s: &str, px: u32, bold: bool, left: i32, top: i32, c: MdRgb) {
+    if let Some(font) = font {
+        let m = font.metrics(px, bold);
+        font.draw(s, px, bold, left, top.wrapping_add(m.ascent as i32), &mut |x, y, coverage| md_over(im, x, y, c, coverage));
+        return;
+    }
+    let z = bind_text_zoom(px) as i32;
+    let mut x = left;
+    for ch in s.bytes() {
+        let g = hud_glyph(ch);
+        for row in 0..GLYPH_H as i32 {
+            for col in 0..GLYPH_W as i32 {
+                if g[row as usize] & (0x10u8 >> col) != 0 {
+                    for sy in 0..z {
+                        for sx in 0..z {
+                            md_over(im, x + col * z + sx, top + row * z + sy, c, 1.0);
+                        }
+                    }
+                }
+            }
+        }
+        x += (GLYPH_W as i32 + 1) * z;
+    }
+}
+
+/// The card itself: the help card's surface (hud allocate_card), with the inside filled directly (only the corners and
+/// the edge are evaluated against the rounded shape).
+fn card(im: &mut HudImage, m: &MaterialScheme) {
+    let (w, h, r) = (im.width as f32, im.height as f32, MD_SHAPE_EXTRA_LARGE);
+    let mut fill = [0u8; 4];
+    for i in 0..3 {
+        fill[i] = (m.surface_container_high[i] * BIND_BACKGROUND_ALPHA * 255.0).round() as u8;
+    }
+    fill[3] = (BIND_BACKGROUND_ALPHA * 255.0).round() as u8;
+    for y in 0..im.height {
+        for x in 0..im.width {
+            let (cx, cy) = (x as f32 + 0.5, y as f32 + 0.5);
+            let band = (cx >= r && cx <= w - r) || (cy >= r && cy <= h - r);
+            if band && cmin(cmin(cmin(cx, cy), w - cx), h - cy) >= 1.5 {
+                let i = (y as usize * im.width as usize + x as usize) * 4;
+                im.rgba[i..i + 4].copy_from_slice(&fill);
+                continue;
+            }
+            let d = md_rounded_distance(cx, cy, w / 2.0, h / 2.0, w / 2.0, h / 2.0, r);
+            let outer = clampf(0.5 - d, 0.0, 1.0);
+            let inner = clampf(0.5 - (d + 1.0), 0.0, 1.0);
+            if outer <= 0.0 {
+                continue;
+            }
+            md_over(im, x as i32, y as i32, m.surface_container_high, BIND_BACKGROUND_ALPHA * inner);
+            md_over(im, x as i32, y as i32, m.outline_variant, outer * (1.0 - inner)); // the 1 px edge
+        }
+    }
+}
+
+fn divider(im: &mut HudImage, y: f32, m: &MaterialScheme) {
+    let mut x = BIND_PAD as u32;
+    while x.wrapping_add(BIND_PAD as u32) < im.width {
+        md_over(im, x as i32, y as i32, m.outline_variant, BIND_DIVIDER_ALPHA);
+        x += 1;
+    }
+}
+
+/// "N more" with a drop arrow pointing the way the hidden rows are.
+fn more(im: &mut HudImage, font: Option<&dyn HudTextMetrics>, l: &BindPanelLayout, n: u32, up: bool, top: f32, m: &MaterialScheme) {
+    if n == 0 {
+        return;
+    }
+    let size = l.hint.height() as f32;
+    let left = BIND_PAD + BIND_INSET;
+    let icon = if up { MdIcon::ArrowDropUp } else { MdIcon::ArrowDropDown };
+    md_icon(im, icon, left + size / 2.0, top + size / 2.0, size, m.on_surface_variant, 1.0);
+    draw_text(im, font, &format!("{n} more"), l.style.hint_px, false, (left + size + 4.0) as i32, top as i32, m.on_surface_variant);
+}
+
+/// The card for `s` laid out for an output of `max_width` x `max_height` (0 = unbounded), in `font` or (None) the pixel
+/// font, showing the scroll window from `first` (moved to keep the picked row in view): premultiplied RGBA under the
+/// OLED cap, the [`bind_panel_fit`] size.
+pub fn render_bind_panel(
+    s: &BindPanelState,
+    accent: MdRgb,
+    font: Option<&dyn HudTextMetrics>,
+    max_width: u32,
+    max_height: u32,
+    first: u32,
+) -> HudImage {
+    let m = glass_theme_scheme(accent);
+    let l = bind_panel_layout(s, font, max_width, max_height);
+    let st = l.style;
+    let mut im = HudImage { width: l.width, height: l.height, rgba: vec![0; l.width as usize * l.height as usize * 4] };
+    card(&mut im, &m);
+    let rows = s.rows.len() as u32;
+    let first = bind_panel_first(first, s.selected, rows, l.slots);
+    let w = im.width as f32;
+    let right = w - BIND_PAD;
+    let pad = BIND_PAD as u32;
+    // Headline, and the picked row's place on the right.
+    let mut y = BIND_PAD;
+    let place = bind_panel_place(s);
+    let place_box = bind_measure(font, &place, st.hint_px, false);
+    let title_w = l.width.wrapping_sub(2 * pad).wrapping_sub(place_box.width).wrapping_sub(st.gap);
+    let title = bind_fit_text(font, &s.title, st.title_px, true, title_w);
+    draw_text(&mut im, font, &title, st.title_px, true, BIND_PAD as i32, y as i32, m.on_surface);
+    let place_top = y + l.title.height().wrapping_sub(l.hint.height()) as f32 / 2.0;
+    draw_text(&mut im, font, &place, st.hint_px, false, (right - place_box.width as f32) as i32, place_top as i32, m.on_surface_variant);
+    y += l.title.height().wrapping_add(st.gap) as f32;
+    divider(&mut im, y, &m);
+    y += st.gap as f32;
+    more(&mut im, font, &l, first, true, y, &m);
+    y += l.hint.height().wrapping_add(st.gap / 2) as f32;
+    let list_top = y;
+    let text_left = BIND_PAD + BIND_INSET;
+    let row_inner = w - 2.0 * (BIND_PAD + BIND_INSET);
+    let chip_pad = BIND_CHIP_PAD as u32;
+    for i in first..rows.min(first.wrapping_add(l.slots)) {
+        let r = &s.rows[i as usize];
+        let picked = i == s.selected;
+        let conflict = r.state == BindRowState::Conflict;
+        let note = r.has_note();
+        let h = l.row_h.wrapping_add(if note { l.note_h } else { 0 }) as f32;
+        // M3 list item: the picked one on a secondary-container band, a conflict on an error-container band (picked:
+        // with a primary focus ring).
+        if conflict {
+            md_fill_rounded(&mut im, BIND_PAD, y, right, y + h, MD_SHAPE_MEDIUM, m.error_container, 1.0);
+        } else if picked {
+            md_fill_rounded(&mut im, BIND_PAD, y, right, y + h, MD_SHAPE_MEDIUM, m.secondary_container, 1.0);
+        }
+        if conflict && picked {
+            md_stroke_rounded(&mut im, BIND_PAD, y, right, y + h, MD_SHAPE_MEDIUM, 2.0, m.primary, 1.0);
+        }
+        let text = if conflict {
+            m.on_error_container
+        } else if picked {
+            m.on_secondary_container
+        } else {
+            m.on_surface
+        };
+        // The keys chip, right-aligned: outlined, filled primary-container when not the default, primary-outlined (2
+        // px) while it waits for new keys.
+        let keys = bind_fit_text(font, &r.keys, st.row_px, true, l.keys_w.wrapping_sub(2 * chip_pad));
+        let keys_box = bind_measure(font, &keys, st.row_px, true);
+        let chip_x1 = right - BIND_INSET;
+        let chip_x0 = chip_x1 - keys_box.width as f32 - 2.0 * BIND_CHIP_PAD;
+        let chip_y0 = y + st.row_pad as f32;
+        let chip_y1 = chip_y0 + l.chip_h as f32;
+        let mut chip_text = if picked { m.on_secondary_container } else { m.on_surface_variant };
+        match r.state {
+            BindRowState::Custom => {
+                md_fill_rounded(&mut im, chip_x0, chip_y0, chip_x1, chip_y1, MD_SHAPE_SMALL, m.primary_container, 1.0);
+                chip_text = m.on_primary_container;
+            }
+            BindRowState::Capture => {
+                md_stroke_rounded(&mut im, chip_x0, chip_y0, chip_x1, chip_y1, MD_SHAPE_SMALL, 2.0, m.primary, 1.0);
+                chip_text = m.primary;
+            }
+            BindRowState::Conflict => {
+                md_stroke_rounded(&mut im, chip_x0, chip_y0, chip_x1, chip_y1, MD_SHAPE_SMALL, 1.0, m.on_error_container, 1.0);
+                chip_text = m.on_error_container;
+            }
+            BindRowState::Normal => {
+                md_stroke_rounded(&mut im, chip_x0, chip_y0, chip_x1, chip_y1, MD_SHAPE_SMALL, 1.0, m.outline, 1.0);
+            }
+        }
+        let text_top = (chip_y0 as i32).wrapping_add(BIND_CHIP_PAD_V as i32);
+        draw_text(&mut im, font, &keys, st.row_px, true, (chip_x0 + BIND_CHIP_PAD) as i32, text_top, chip_text);
+        let action_w = cmax(0.0, chip_x0 - text_left - st.gap as f32) as u32;
+        let action = bind_fit_text(font, &r.action, st.row_px, false, action_w);
+        draw_text(&mut im, font, &action, st.row_px, false, text_left as i32, text_top, text);
+        if note {
+            // What it conflicts with, as the item's supporting text.
+            let note_text = bind_fit_text(font, &r.note, st.note_px, false, row_inner as u32);
+            let note_top = y + l.row_h as f32 - st.row_pad as f32 / 2.0;
+            draw_text(&mut im, font, &note_text, st.note_px, false, text_left as i32, note_top as i32, m.on_error_container);
+        }
+        y += h + BIND_ROW_SPACING;
+    }
+    y = list_top + l.list_h.wrapping_add(st.gap / 2) as f32;
+    let below = if rows > first.wrapping_add(l.slots) { rows - first - l.slots } else { 0 };
+    more(&mut im, font, &l, below, false, y, &m);
+    // Footer at the bottom: divider, the key hint, the status line.
+    y = im.height as f32 - BIND_PAD - 2u32.wrapping_mul(l.hint.height()).wrapping_add(st.gap / 2) as f32;
+    divider(&mut im, y - st.gap as f32, &m);
+    let text_w = (w - 2.0 * BIND_PAD) as u32;
+    let hint = bind_fit_text(font, &s.hint, st.hint_px, false, text_w);
+    draw_text(&mut im, font, &hint, st.hint_px, false, BIND_PAD as i32, y as i32, m.outline);
+    y += l.hint.height().wrapping_add(st.gap / 2) as f32;
+    let status = bind_fit_text(font, &s.status, st.hint_px, false, text_w);
+    let status_c = if s.alert { m.on_error_container } else { m.on_surface_variant };
+    draw_text(&mut im, font, &status, st.hint_px, false, BIND_PAD as i32, y as i32, status_c);
+    im
 }
 
 // --- Overlay -------------------------------------------------------------------------------------------------------

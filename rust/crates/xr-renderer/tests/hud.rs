@@ -1,7 +1,10 @@
-//! `spike/tests/hud_test.cpp` without the raster checks, plus a dump compared with the C++ one byte for byte.
+//! `spike/tests/hud_test.cpp`, plus a dump compared with the C++ one byte for byte. The overlays keep state only; where
+//! the C++ checks an overlay's `image()`, these render its lines (or rows) and accent the way the renderer does. Pixel
+//! parity of the cards with the C++ is in `tests/card_raster.rs`.
 
 use xr_renderer::desktops::MAX_DESKTOPS;
 use xr_renderer::hud::*;
+use xr_renderer::hud_font::HudFont;
 use xr_renderer::material::{
     MD_DEFAULT_SEED, MdRgb, md_color, md_contrast, md_elevation, md_hct, md_layer, md_tone, material_scheme,
 };
@@ -12,6 +15,33 @@ fn joined(lines: &[HudLine]) -> String {
 
 fn row(keys: &str, action: &str) -> HelpRow {
     HelpRow::new(keys, action)
+}
+
+fn lit(im: &HudImage, x: u32, y: u32) -> bool {
+    im.rgba[(y as usize * im.width as usize + x as usize) * 4 + 3] != 0
+}
+fn premultiplied(im: &HudImage) -> bool {
+    im.rgba.chunks_exact(4).all(|p| p[..3].iter().all(|&c| c <= p[3]))
+}
+fn brightest(im: &HudImage) -> u8 {
+    im.rgba.chunks_exact(4).flat_map(|p| p[..3].iter().copied()).max().unwrap_or(0)
+}
+/// The C++ `StatusPopups::image()` (pop-ups draw in the pixel font here, as the C++ ones do without `set_font`).
+fn card(p: &StatusPopups) -> HudImage {
+    render_hud_card(p.lines(), p.accent(), None)
+}
+/// The C++ `HelpOverlay::image()` of an overlay without a viewport.
+fn help_image(h: &HelpOverlay, font: Option<&dyn HudTextMetrics>) -> HudImage {
+    render_help_card(h.rows(), h.accent(), font, 0, 0, h.page()).0
+}
+fn installed_font() -> Option<HudFont> {
+    match HudFont::load(HUD_FONT_FAMILY) {
+        Ok(font) => Some(font),
+        Err(why) => {
+            eprintln!("skipped: {why}");
+            None
+        }
+    }
 }
 
 // Every interactive menu uses a quick ease-out on both entrance and exit. A reversal or an unseen interval must preserve
@@ -100,7 +130,7 @@ fn popup_lines_say_what_changed() {
 }
 
 // Pop-up triggers: first update shows the viewing mode; repeats (zoom/select/spacing frames) do not re-show it; a mode
-// change or cursor toggle shows a new card. The C++ compares card image sizes; here the lines the card is drawn from.
+// change or cursor toggle shows a new card.
 #[test]
 fn status_popups_show_only_changes() {
     let mut p = StatusPopups::new();
@@ -108,14 +138,16 @@ fn status_popups_show_only_changes() {
     assert!(p.update(0, false, 1000.0) && p.generation() == 1 && p.active(1000.0));
     assert_eq!(p.alpha(1000.0 + POPUP_FADE_IN_MS), 1.0);
     let mode_card = p.lines().to_vec();
+    let mode_width = card(&p).width;
     assert!(!p.update(0, false, 1200.0) && p.generation() == 1);
     assert!(!p.active(1000.0 + POPUP_TOTAL_MS) && p.alpha(1000.0 + POPUP_TOTAL_MS) == 0.0);
     assert!(p.update(0, true, 5000.0) && p.generation() == 2 && p.lines() != mode_card.as_slice()); // cursor card
+    assert_ne!(card(&p).width, mode_width);
     assert_eq!(joined(p.lines()), joined(&cursor_follow_lines(true)));
     assert_eq!(p.alpha(5000.0 + POPUP_FADE_IN_MS), 1.0);
     assert!(p.update(2, true, 5100.0) && p.generation() == 3 && p.alpha(5100.0 + POPUP_FADE_IN_MS) == 1.0); // restarts
-    let single = p.lines().len();
-    assert!(p.update(1, false, 9000.0) && p.lines().len() > single); // both changed: both sections
+    let single = card(&p).height;
+    assert!(p.update(1, false, 9000.0) && card(&p).height > single); // both changed: both sections
     assert_eq!(p.lines().len(), 9);
     assert_eq!(p.lines()[4], HudLine { text: String::new(), scale: 1, color: CARD_DIM, ..HudLine::default() });
     assert!(!p.update(1, false, 9001.0));
@@ -145,7 +177,7 @@ fn typing_mode_popups() {
     let mut started_typing = StatusPopups::new();
     assert!(started_typing.update_all(0, false, true, true, 0.0));
     // First update in typing mode: mode card plus the typing section.
-    assert!(started_typing.lines().len() > t.lines().len());
+    assert!(card(&started_typing).height > card(&t).height);
 }
 
 // Maximize-follow (2026-11-03): a maximize switches to follow and an un-maximize back to anchor by themselves; only a
@@ -171,18 +203,22 @@ fn accent_changes_redraw_showing_cards() {
     let mut t = StatusPopups::new();
     assert!(!t.set_accent([0.48, 0.64, 0.97], 0.0) && t.generation() == 0); // nothing shown yet
     assert!(t.update(0, false, 1000.0) && t.generation() == 1);
+    let before = card(&t).rgba;
     let a = t.alpha(1000.0 + POPUP_FADE_IN_MS + 100.0);
     assert!(t.set_accent([0.9, 0.55, 0.05], 1000.0 + POPUP_FADE_IN_MS + 100.0) && t.generation() == 2);
+    assert!(card(&t).rgba != before);
     assert_eq!(t.accent(), [0.9, 0.55, 0.05]);
     assert_eq!(t.alpha(1000.0 + POPUP_FADE_IN_MS + 100.0), a);
     assert!(!t.set_accent([0.9, 0.55, 0.05], 1200.0) && t.generation() == 2); // the same colour: nothing
     assert!(!t.set_accent([0.2, 0.8, 0.4], 1000.0 + POPUP_TOTAL_MS) && t.generation() == 2); // gone: not redrawn
-    assert!(t.update(1, false, 9000.0) && t.accent() == [0.2, 0.8, 0.4]);
+    assert!(t.update(1, false, 9000.0) && t.accent() == [0.2, 0.8, 0.4] && card(&t).rgba != before);
     let mut h = HelpOverlay::new();
     let one = [row("Ctrl+Alt+H", "Help")];
     assert!(!h.set_accent([0.9, 0.55, 0.05]) && h.generation() == 0);
     assert!(h.set(true, &one, 0.0, 0) && h.generation() == 1);
+    let help = help_image(&h, None).rgba;
     assert!(h.set_accent([0.2, 0.8, 0.4]) && h.generation() == 2 && h.visible());
+    assert!(help_image(&h, None).rgba != help);
     assert!(!h.set_accent([0.2, 0.8, 0.4]) && h.generation() == 2);
 }
 
@@ -190,14 +226,100 @@ fn help_rows() -> Vec<HelpRow> {
     vec![row("Ctrl+Alt+Up", "Zoom in"), row("Ctrl+Alt+[", "Less space"), row("Ctrl+Alt+H", "Show / hide this help")]
 }
 
-// The help card grows with rows (the C++ compares rendered card sizes).
+// Help card: brackets have real pixel glyphs; the card grows with rows, is premultiplied and rounded, and is the size its
+// fit says.
 #[test]
 fn help_card_grows_with_rows() {
+    assert!(hud_glyph(b'[') != hud_glyph(b'?') && hud_glyph(b']') != hud_glyph(b'?') && hud_glyph(b'%') != hud_glyph(b'?'));
     let rows = help_rows();
-    let all = help_card_fit(&rows, None, 0, 0);
-    let first = help_card_fit(&rows[..1], None, 0, 0);
-    assert!(all.height > first.height && all.width >= first.width);
-    assert!(help_card_fit(&[], None, 0, 0).width > 0);
+    let (hc, controls) = render_help_card(&rows, [0.5, 0.6, 0.9], None, 0, 0, 0);
+    let hc1 = render_help_card(&rows[..1], [0.5, 0.6, 0.9], None, 0, 0, 0).0;
+    assert!(hc.height > hc1.height && hc.width >= hc1.width && premultiplied(&hc) && !lit(&hc, 0, 0));
+    assert!(hc.complete() && controls == HelpCardControls::default()); // one page: nothing to click
+    let fit = help_card_fit(&rows, None, 0, 0);
+    assert!(fit.width == hc.width && fit.height == hc.height);
+    assert!(render_help_card(&[], [1.0, 1.0, 1.0], None, 0, 0, 0).0.width > 0);
+}
+
+// Pixel-font card (1:1 output pixels, font texels doubled): sized to the widest line plus padding, rounded (transparent
+// corners), an opaque outline-variant edge, premultiplied, text present.
+#[test]
+fn pixel_font_card() {
+    let white = [1.0, 1.0, 1.0];
+    let lines = [
+        HudLine { text: "VIEW MODE".into(), scale: 2, color: white, ..HudLine::default() },
+        HudLine { text: "FOLLOW".into(), scale: 4, color: white, ..HudLine::default() },
+    ];
+    let card = render_hud_card(&lines, [0.5, 0.6, 0.9], None);
+    assert!(card.width == hud_text_width("FOLLOW", 8) + 44 && card.height == 7 * 4 + 8 + 7 * 8 + 44);
+    assert!(card.complete());
+    assert!(!lit(&card, 0, 0) && !lit(&card, card.width - 1, card.height - 1));
+    let edge = (card.height / 2) as usize * card.width as usize * 4; // left edge, mid height
+    assert_eq!(card.rgba[edge + 3], 255);
+    assert!(premultiplied(&card));
+    // The edge is the scheme's outline variant (Material Design 3, from the theme colour the card is drawn with).
+    let m = material_scheme([0.5, 0.6, 0.9]);
+    for c in 0..3 {
+        assert!((i32::from(card.rgba[edge + c]) - (m.outline_variant[c] * 255.0).round() as i32).abs() <= 1);
+    }
+    let text_row = |im: &HudImage, y: u32| (22..im.width - 22).any(|x| im.rgba[(y as usize * im.width as usize + x as usize) * 4] > 200);
+    assert!(text_row(&card, 22 + 28 + 8 + 3 * 8)); // a line without a role keeps its own colour (white here)
+    assert_eq!(render_hud_card(&[], white, None).width, 44);
+}
+
+// The installed font (JetBrainsMono Nerd Font), when there is one: anti-aliased (partial coverage), wider than tall,
+// premultiplied. Absent font: reported, not fatal.
+#[test]
+fn installed_font_cards() {
+    let Some(font) = installed_font() else { return };
+    let f: Option<&dyn HudTextMetrics> = Some(&font);
+    assert!(!font.description().is_empty());
+    let fc = render_hud_card(&view_mode_lines(2), [0.5, 0.6, 0.9], f);
+    assert!(fc.width > fc.height && fc.height > 100 && premultiplied(&fc));
+    assert!(fc.rgba.chunks_exact(4).any(|p| p[0] > 30 && p[0] < 200 && p[3] > 200));
+    assert!(font.measure("Follow", 76, true) >= font.measure("Follow", 76, false) && font.measure("", 76, false) == 0);
+    let fh = render_help_card(&help_rows(), [0.5, 0.6, 0.9], f, 0, 0, 0).0;
+    assert!(fh.width > fh.height && premultiplied(&fh));
+}
+
+// Image-retention protection. The help card and every pop-up stay well below full white everywhere (text, edge,
+// dividers: Material roles under the cap), with the pixel font and with the installed font, in any theme colour.
+#[test]
+fn cards_stay_under_the_oled_cap() {
+    let rows = [row("Ctrl+Alt+H", "Show / hide this help"), row("Ctrl+Alt+L", "Placement pill of the selected desktop")];
+    let installed = installed_font();
+    let mut fonts: Vec<Option<&dyn HudTextMetrics>> = vec![None];
+    if let Some(font) = &installed {
+        fonts.push(Some(font));
+    }
+    for font in fonts {
+        let mut help = HelpOverlay::new();
+        help.set(true, &rows, 0.0, 0);
+        let b = brightest(&help_image(&help, font));
+        assert!((140..=CARD_MAX_LEVEL).contains(&b), "help {b}"); // still clearly readable
+        // Typing mode pop-up (Ctrl+Alt+T): a switch alone draws only dimmed card colours, either way.
+        let mut typing = StatusPopups::new();
+        let typing_card = |p: &StatusPopups| render_hud_card(p.lines(), p.accent(), font);
+        assert!(typing.update_all(0, false, true, false, 0.0)); // first: the viewing mode card
+        assert!(typing.update_all(0, false, true, true, 5000.0));
+        let b = brightest(&typing_card(&typing));
+        assert!((140..=CARD_MAX_LEVEL).contains(&b), "typing {b}");
+        assert!(typing.update_all(0, false, true, false, 9000.0));
+        assert!(brightest(&typing_card(&typing)) <= CARD_MAX_LEVEL);
+        for accent in [[1.0, 1.0, 1.0], [0.48, 0.64, 0.97], [1.0, 0.0, 0.0]] {
+            let mut p = StatusPopups::new();
+            p.set_accent(accent, 0.0);
+            assert!(p.update_all(2, true, true, false, 0.0));
+            let b = brightest(&typing_card(&p));
+            assert!((120..=CARD_MAX_LEVEL).contains(&b), "pop-up {accent:?} {b}");
+            let mut themed = HelpOverlay::new(); // the C++ one has no font
+            themed.set_accent(accent);
+            themed.set(true, &rows, 0.0, 0);
+            let b = brightest(&help_image(&themed, None));
+            assert!((140..=CARD_MAX_LEVEL).contains(&b), "help {accent:?} {b}");
+        }
+    }
+    const _: () = assert!(CARD_MAX_LEVEL as f32 <= 0.75 * 255.0);
 }
 
 // Help fade: hidden until shown; eases in, holds while visible, eases out; monotonic both ways; toggling mid-fade
@@ -391,8 +513,10 @@ fn tracking_hint() {
     assert!(hint.update(true, 100.0));
     assert!(!hint.update(true, 110.0));
     assert_eq!(hint.alpha(100.0 + TRACKING_HINT_FADE_IN_MS), 1.0);
-    // One line, shorter than a pop-up card (the C++ compares image heights).
-    assert!(tracking_hint_lines().len() * 2 < view_mode_lines(0).len());
+    // One small line, never mistaken for a pop-up card.
+    let image = render_hud_card(&tracking_hint_lines(), hint.accent(), None);
+    assert!(image.height > 0 && image.complete());
+    assert!(image.height * 2 < render_hud_card(&view_mode_lines(0), MD_DEFAULT_SEED, None).height);
     let mut popups = StatusPopups::new();
     popups.update(0, false, 0.0);
     assert_ne!(hint.generation(), popups.generation()); // they share the renderer's pop-up texture
@@ -428,6 +552,7 @@ fn installed_font_metrics_are_used() {
         fn measure(&self, utf8: &str, px: u32, bold: bool) -> u32 {
             utf8.chars().count() as u32 * (px * 3 / 5 + u32::from(bold))
         }
+        fn draw(&self, _: &str, _: u32, _: bool, _: i32, _: i32, _: &mut dyn FnMut(i32, i32, f32)) {}
     }
     let line = HudLine { text: "Follow".into(), scale: 4, bold: true, ..HudLine::default() };
     assert_eq!(line_box(&line, Some(&Mono)), LineBox { width: 6 * (76 * 3 / 5 + 1), ascent: 57, descent: 19 });
