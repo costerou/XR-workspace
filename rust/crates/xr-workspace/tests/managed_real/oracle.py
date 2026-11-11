@@ -42,18 +42,13 @@ def patch(module, name, value):
 
 
 class Nothing:
-    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {})."""
+    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {}), and
+    a panel of it is never open (`keys_open`, which a VR video's open reads)."""
+    open = False
     def __init__(self, *args, **kwargs): pass
     def bind_kwargs(self): return {}
     def start(self): return self
     def __getattr__(self, name): return lambda *args, **kwargs: None
-
-
-class NoVideo:
-    """`video.VideoControl(control, ...)` with no video: every call the view's, `close` nothing."""
-    def __init__(self, control, **kwargs): self._control = control
-    def close(self): pass
-    def __getattr__(self, name): return getattr(self._control, name)
 
 
 def stub_view(view):
@@ -86,15 +81,15 @@ def stub_binds(managed):
 
 
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video, view
+    from tools.native_spike import immersive, keybinds, managed, unified_cursor, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
-        'binds': lambda: stub_binds(managed),
+        # The video keys go in with the binds' helper command line (`bind_args`), which the Rust run has with `binds`.
+        'binds': lambda: (stub_binds(managed), hide('install_video_binds')),
         'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
         'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
         'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
-        'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
     }
     for stub in STUBS.values(): stub()
