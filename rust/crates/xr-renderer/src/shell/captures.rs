@@ -42,7 +42,7 @@ use xr_wire::status::CapturePath;
 use xr_renderer::options_geometry::json_string;
 use xr_renderer::environment::{ENVIRONMENT_LOOP_S, EnvironmentFade};
 use xr_renderer::hud::{BRIGHTNESS_DEFAULT, Background};
-use xr_renderer::options_geometry::maximize_geometry_json;
+use xr_renderer::options_geometry::{maximize_geometry_json, options_step_scale, options_stepped};
 use xr_renderer::view::{
     Canvas as ViewCanvas, Leaving, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
     overview_geometry_json, overview_layout, zoomed_placements_with,
@@ -1033,7 +1033,7 @@ impl Presentation {
             *f = c.frames;
         }
         let shown = cs.captures.len().min(MAX_DESKTOPS);
-        features.immersive.before_draw(&mut gpu.gl, &cs.names, &frames[..shown], cs.view.focus() as i32);
+        features.immersive.before_draw(&mut gpu.gl, &frames[..shown], cs.view.focus() as i32);
         // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
         // fill the view where it is. The features (scene.rs) then give the frame its placements, cards, glass and
         // pointer, and tracking the camera once the placements are in (Tracking::camera).
@@ -1055,16 +1055,26 @@ impl Presentation {
         let (half_w, half_h) = (scene.half_w, scene.half_h);
         let canvas = ViewCanvas::new(w, h, half_w, half_h);
         let overview = overview_layout(&sizes, w, h, view.spacing());
-        let options = ZoomOptions { leaving, ..ZoomOptions::default() };
+        let options = ZoomOptions { leaving, keep_size: features.tracking.keep_size() };
         let tiles = &scene.tiles;
-        let placements = zoomed_placements_with(&canvas, &overview, tiles, &scene.own, view.zoom(), view.position(), options);
+        let mut placements =
+            zoomed_placements_with(&canvas, &overview, tiles, &scene.own, view.zoom(), view.position(), options);
+        // The Step-Back Band: the maximized desktop eases back about the view's centre; no tile, aim or saved placement
+        // moves (wayland.cpp resolved_placements).
+        let focus = view.focus() as usize;
+        let mut unstepped = None;
+        let e = features.handles.restore_step().value(now);
+        if e > 0.0 && focus < placements.len() && focus < tiles.len() {
+            unstepped = Some(placements[focus]);
+            placements[focus] = options_stepped(placements[focus], options_step_scale(&tiles[focus]), e);
+        }
         // The edge pan's dot (the hand's) in place of the free pointer: the real cursor is hidden and held.
-        if let Some(dot) = features.layout.pan_dot(&canvas, &sizes, view, tiles, &placements) {
+        if let Some(dot) = features.layout.pan_dot(&canvas, &sizes, view, tiles, &placements, &features.roll) {
             scene.pointer = Some(dot);
         }
-        let focus = view.focus() as usize;
         cs.maximize = if view.zoom() >= 0.99 && !view.switching() && focus < tiles.len() {
-            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &scene.head)
+            let placed = unstepped.as_ref().unwrap_or(&placements[focus]);
+            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], placed, &scene.head)
         } else {
             String::from("{\"maximize_geometry\":null}")
         };

@@ -31,7 +31,8 @@ impl Pointer {
         // Overview only; world-locked on the canvas. The overview pan's landing shows it again: the real cursor is on
         // the target.
         let free_pointer = self.visible && (!scene.switching || scene.overview_pan_landing);
-        // The hand's pan dot (scene_layout's pan_dot) takes the pointer's place while the edge pan runs; not wired yet.
+        // The hand's pan dot (scene_layout's pan_dot) takes the pointer's place while the edge pan runs: the core sets it
+        // once the frame's placements are resolved (captures.rs draw_gpu).
         scene.pointer = Some(PointerInput {
             visible: free_pointer,
             x: self.x as f32,
@@ -83,6 +84,8 @@ impl Presentation {
         }
         let shown = p.shown;
         *p = Pointer { visible, x, y, held, directed, az, el, ghost_w, ghost_h, target, look, shown };
+        // A held slider keeps the options panel on the placement it had at the press.
+        self.state.features.menus.set_pointer_held(held);
         self.state.capture.invalidate();
     }
 }

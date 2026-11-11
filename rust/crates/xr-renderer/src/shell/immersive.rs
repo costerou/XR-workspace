@@ -39,8 +39,6 @@ pub(super) struct ImmersiveState {
     depth: Option<DepthLink>,
     /// Why the memory could not be linked (then it is not tried again).
     depth_why: String,
-    /// The desktops the channels mean: a new list restarts them (wayland.cpp set_desktops' `depth->restart()`).
-    names: Vec<String>,
 }
 
 impl Default for ImmersiveState {
@@ -56,7 +54,6 @@ impl Default for ImmersiveState {
             depth_fd: None,
             depth: None,
             depth_why: String::new(),
-            names: Vec::new(),
         }
     }
 }
@@ -76,21 +73,15 @@ impl ImmersiveState {
     }
 
     /// The C++ depth_tick: after the frame's pictures are uploaded and before the pose is read, so 3D's work never ages
-    /// it. `names` are the desktops (set_desktops' list), `frames` each capture's frame count (capture order, the first
-    /// MAX_DESKTOPS) and `focus` the desktop the view is on.
-    pub(super) fn before_draw(&mut self, gl: &mut GlCompositor, names: &[String], frames: &[u64], focus: i32) {
+    /// it. `frames` are each capture's frame count (capture order, the first MAX_DESKTOPS) and `focus` the desktop the
+    /// view is on.
+    pub(super) fn before_draw(&mut self, gl: &mut GlCompositor, frames: &[u64], focus: i32) {
         // Nothing before the first `immersive` frame: no desktop is 3D and the compositor keeps its defaults.
         let Some(params) = self.params else { return };
         if self.changed {
             // Here, with the context current: the first time on compiles the shaders.
             gl.set_stereo(&settings(self.stereo, &self.desktops, &params));
             self.changed = false;
-        }
-        if self.names != names {
-            self.names = names.to_vec();
-            if let Some(d) = &mut self.depth {
-                d.restart(); // every channel now means another desktop
-            }
         }
         let any = self.desktops.iter().any(|&on| on);
         let Some(fd) = self.depth_fd.as_ref().filter(|_| any) else {
@@ -126,6 +117,13 @@ impl ImmersiveState {
             now_ns: monotonic_ns(),
         };
         depth.tick(gl, &t);
+    }
+
+    /// The run's desktops changed (wayland.cpp set_desktops): every depth channel may now mean another desktop.
+    pub(super) fn desktops_changed(&mut self) {
+        if let Some(d) = &mut self.depth {
+            d.restart();
+        }
     }
 
     /// No immersive part animates on its own (the compositor's 3D fade rides on the frames the captures bring).
@@ -284,15 +282,14 @@ mod tests {
     #[test]
     fn memory_that_is_not_xrd1_makes_no_link_and_the_buttons_still_light() {
         let Some(mut gl) = gl() else { return };
-        let names = vec![String::from("XR-1")];
         for bytes in [0, 4096, depth_shm_bytes(&DEPTH_LINK_SHM) + 1] {
             let mut i = on(Some(memfd(bytes)));
             for frame in 1..=3 {
-                i.before_draw(&mut gl, &names, &[frame], 0);
+                i.before_draw(&mut gl, &[frame], 0);
             }
             assert!(i.depth.is_none() && !i.depth_why.is_empty(), "{bytes} bytes: {}", i.depth_why);
             let why = i.depth_why.clone();
-            i.before_draw(&mut gl, &names, &[4], 0);
+            i.before_draw(&mut gl, &[4], 0);
             assert_eq!(i.depth_why, why, "not tried again");
             let mut report = String::new();
             i.report(&mut report);
@@ -314,9 +311,8 @@ mod tests {
     #[test]
     fn a_link_only_while_some_desktop_is_3d() {
         let Some(mut gl) = gl() else { return };
-        let names = vec![String::from("XR-1")];
         let mut i = on(Some(memfd(depth_shm_bytes(&DEPTH_LINK_SHM))));
-        i.before_draw(&mut gl, &names, &[1], 0);
+        i.before_draw(&mut gl, &[1], 0);
         assert!(i.depth.is_some() && i.depth_why.is_empty());
         let r = readback(&i, &gl);
         assert_eq!(r["engine"]["alive"], false, "no heartbeat: not alive");
@@ -325,7 +321,7 @@ mod tests {
         assert!(report.starts_with(",\"depth\":{\"alive\":false,"), "{report}");
         i.desktops = [false; 4];
         i.changed = true;
-        i.before_draw(&mut gl, &names, &[2], 0);
+        i.before_draw(&mut gl, &[2], 0);
         assert!(i.depth.is_none(), "nothing is 3D: no link");
         i.close();
     }
@@ -334,7 +330,7 @@ mod tests {
     fn no_memory_no_link() {
         let Some(mut gl) = gl() else { return };
         let mut i = on(None);
-        i.before_draw(&mut gl, &[String::from("XR-1")], &[1], 0);
+        i.before_draw(&mut gl, &[1], 0);
         assert!(i.depth.is_none() && i.depth_why.is_empty());
         let r = readback(&i, &gl);
         assert!(r["engine"].is_null() && r["engine_error"] == "");

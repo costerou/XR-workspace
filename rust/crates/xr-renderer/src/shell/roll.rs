@@ -66,30 +66,25 @@ impl RollState {
 
     /// The rolls as set, hundredths of a degree (continuity save: `c.rolls = s.rolls`). A change by `set_roll` ends a
     /// placement glide (it aims at the placements it began with, so it eases on from where it got to).
-    #[allow(dead_code)] // continuity and scene_layout's glide read it once wired
     pub(super) fn rolls(&self) -> [i32; MAX_DESKTOPS] {
         self.rolls
     }
 
     /// Continuity restore (`s.rolls = c.rolls`): the rolls alone, a plain assignment. Unlike `set_roll` it neither
     /// resets the glide nor counts an update, and leaves the bars as they are; the restore invalidates the frame.
-    #[allow(dead_code)] // continuity's restore calls it once wired
     pub(super) fn set_rolls(&mut self, rolls: [i32; MAX_DESKTOPS]) {
         self.rolls = rolls;
     }
 
-    #[allow(dead_code)] // scene_layout's `view` report reads it once wired
     pub(super) fn updates(&self) -> u64 {
         self.updates
     }
 
-    /// Each desktop's roll on `scene.own[i].roll`; the bars, hover, segment and active of `scene.glass()`.
+    /// The bars, hover, segment and active of `scene.glass()`. Each desktop's roll is part of its target placement,
+    /// which scene_layout eases (`SceneLayout::target_placement`).
     pub(super) fn contribute(&mut self, scene: &mut Scene) {
         self.canvas = (scene.half_w != 0.0)
             .then(|| Canvas::new(scene.width as f32, scene.height as f32, scene.half_w, scene.half_h));
-        for (i, own) in scene.own.iter_mut().enumerate() {
-            own.roll = self.target_roll(i);
-        }
         let glass = &mut scene.glass().frame;
         for (bar, &on) in glass.bars.iter_mut().zip(&self.bars) {
             *bar = on;
@@ -166,7 +161,11 @@ impl Presentation {
     /// `roll` each desktop's levelling roll (1/100 degree, counter-clockwise); `bars` whose level bars show; `hover` /
     /// `side` the lit segment (-1: none; side -1 none, 0 ccw, 1 level, 2 cw), brightest while `active`.
     pub fn set_roll(&mut self, roll: &[i32; 4], bars: &[bool; 4], hover: i32, side: i8, active: bool) {
-        let r = &mut self.state.features.roll;
+        let f = &mut self.state.features;
+        if f.roll.rolls != *roll {
+            f.layout.end_glide();
+        }
+        let r = &mut f.roll;
         r.rolls = *roll;
         r.bars = *bars;
         r.hover = hover;
@@ -454,7 +453,9 @@ mod tests {
             .iter()
             .map(|&r| r as f32 / 100.0 * std::f32::consts::PI / 180.0)
             .collect();
-        assert_eq!(scene.own.iter().map(|p| p.roll).collect::<Vec<_>>(), want);
+        // The roll is the layout's target placement's, eased with it (wayland.cpp target_placement).
+        let layout = super::super::scene_layout::SceneLayout::default();
+        assert_eq!((0..3).map(|i| layout.target_placement(i, &s).roll).collect::<Vec<_>>(), want);
         let g = &scene.glass.as_ref().unwrap().frame;
         assert_eq!(g.bars, [true, false, true, true]);
         assert_eq!((g.bar_hover, g.bar_segment, g.bar_active), (2, LevelSegment::Cw, true));

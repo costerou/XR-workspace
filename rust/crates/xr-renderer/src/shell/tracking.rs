@@ -482,7 +482,6 @@ impl Tracking {
 
     /// The tracking fields of a continuity snapshot (wayland.cpp save_continuity): the pose, stabilization, viewing
     /// mode, the last maximize, the view last drawn and a centred switch's start.
-    #[allow(dead_code)] // called by continuity_shell
     pub(super) fn save_continuity(&self, c: &mut ViewContinuity) {
         c.pose = self.pose.clone();
         c.stabilization = self.stabilization.clone();
@@ -495,7 +494,6 @@ impl Tracking {
     }
 
     /// The same fields back from a restored snapshot (wayland.cpp restore_continuity).
-    #[allow(dead_code)] // called by continuity_shell
     pub(super) fn restore_continuity(&mut self, c: &ViewContinuity) {
         self.pose = c.pose.clone();
         self.stabilization = c.stabilization.clone();
@@ -503,6 +501,16 @@ impl Tracking {
         self.maximized = c.maximized;
         self.last_drawn = c.last_drawn;
         self.centre = Centre { valid: c.centre_valid, serial: c.centre_serial, dir: c.centre_dir };
+    }
+
+    /// The theme colour of the reconnecting hint (wayland.cpp set_accent).
+    pub(super) fn set_accent(&mut self, seed: [f32; 3]) {
+        self.hint.set_accent(seed);
+    }
+
+    /// zoomed_placements' keep_size: anchor mode and maximized (wayland.cpp resolved_placements).
+    pub(super) fn keep_size(&self) -> bool {
+        self.modes.mode() == ViewMode::Anchor && self.maximized
     }
 
     /// Head tracking redraws on every frame callback.

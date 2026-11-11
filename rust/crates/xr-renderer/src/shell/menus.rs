@@ -282,7 +282,6 @@ impl Menus {
 
     /// The run's desktops (capture order): wayland.cpp set_desktops closes an options panel whose monitor is gone.
     /// True if what is drawn changed.
-    #[allow(dead_code)] // called from set_desktops once scene_layout wires it
     pub(super) fn desktops_changed(&mut self, names: &[String], now_ms: f64) -> bool {
         let mut changed = false;
         if self.options.open && !names.contains(&self.options.monitor) {
@@ -296,7 +295,6 @@ impl Menus {
     }
 
     /// The theme seed (wayland.cpp set_accent): an open placement panel and the options panel are recoloured.
-    #[allow(dead_code)] // called from set_accent once scene_layout wires it
     pub(super) fn set_accent(&mut self, r: u8, g: u8, b: u8) {
         let seed = [f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0];
         self.glass.set_accent(seed);
@@ -305,13 +303,12 @@ impl Menus {
 
     /// The overview free pointer's `held` (set_overview_pointer): a held slider keeps the options panel on the
     /// placement it had at the press.
-    #[allow(dead_code)] // called from set_overview_pointer once pointer wires it
     pub(super) fn set_pointer_held(&mut self, held: bool) {
         self.pointer_held = held;
     }
 
     /// `scene.glass()`: expand, content, top, surface, options fields and the panels' images (the render path's glass
-    /// block, 1858-1895). The desktops' placements are `scene.own` as scene_layout and roll left them.
+    /// block, 1858-1895). The desktops' placements are `scene.targets` (scene_layout's).
     pub(super) fn contribute(&mut self, scene: &mut Scene) {
         let now = scene.now_ms;
         self.zoom = scene.zoom;
@@ -323,7 +320,8 @@ impl Menus {
             let accent = self.glass.accent();
             self.glass_image = Some(Rc::new(render_glass_panel(&state, self.font(), accent)));
         }
-        let own = |i: usize| scene.own.get(i).copied().unwrap_or_default();
+        // wayland.cpp target_placement: the latest placement and roll, not the eased one.
+        let own = |i: usize| scene.targets.get(i).copied().unwrap_or_default();
         let mut surface = frame.surface;
         if let Some(s) = &mut surface
             && let Ok(d) = usize::try_from(frame.surface_desktop)

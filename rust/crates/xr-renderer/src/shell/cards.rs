@@ -176,7 +176,6 @@ impl Cards {
     }
 
     /// The theme colour (Presentation::set_accent's share): the pop-ups and the cards, redrawn if showing.
-    #[allow(dead_code)] // set_accent is scene_layout.rs's
     pub(super) fn set_accent(&mut self, seed: [f32; 3], now_ms: f64) -> bool {
         let popup = self.popups.set_accent(seed, now_ms);
         let help = self.help.set_accent(seed);

@@ -17,40 +17,17 @@ pub fn continuity_fd_supported() -> bool {
     true
 }
 
-#[derive(Default)]
-pub(super) struct ContinuityShell {
-    /// Tracking's and roll's share of the last restored blob, until those modules hold it themselves (see
-    /// [`carry_out`]). Saved back as restored, so a restart without tracking hands the pose on unchanged, as the C++
-    /// does with a pose nothing updated.
-    held: ViewContinuity,
-}
-
 /// Tracking's and roll's state into `c`: `pose`, `stabilization`, `modes`, `maximized`, `last_drawn`, `centre_*`
 /// (tracking) and `rolls` (roll).
-///
-/// At merge this becomes `f.tracking.save_continuity(c)` and `c.rolls = f.roll.rolls()`, with `Tracking` providing
-/// `fn save_continuity(&self, c: &mut ViewContinuity)` (its `PoseState`, `Stabilizer`, `ModeController`, maximized
-/// flag, last drawn `Mat3` and centre valid / serial / dir) and `RollState` providing `fn rolls(&self) -> [i32; 4]`.
-/// `held` then goes.
 fn carry_out(f: &Features, c: &mut ViewContinuity) {
-    let h = &f.continuity.held;
-    c.pose = h.pose.clone();
-    c.stabilization = h.stabilization.clone();
-    c.modes = h.modes.clone();
-    c.maximized = h.maximized;
-    c.last_drawn = h.last_drawn;
-    c.centre_valid = h.centre_valid;
-    c.centre_serial = h.centre_serial;
-    c.centre_dir = h.centre_dir;
-    c.rolls = h.rolls;
+    f.tracking.save_continuity(c);
+    c.rolls = f.roll.rolls();
 }
 
 /// The reverse of [`carry_out`], as the C++ assigns them (no other reset: the roll's glide is not touched).
-///
-/// At merge: `f.tracking.restore_continuity(c)` (`fn restore_continuity(&mut self, c: &ViewContinuity)`, taking the
-/// same fields) and `f.roll.set_rolls(c.rolls)` (`fn set_rolls(&mut self, rolls: [i32; 4])`, a plain assignment).
 fn carry_in(f: &mut Features, c: &ViewContinuity) {
-    f.continuity.held = c.clone();
+    f.tracking.restore_continuity(c);
+    f.roll.set_rolls(c.rolls);
 }
 
 impl Presentation {

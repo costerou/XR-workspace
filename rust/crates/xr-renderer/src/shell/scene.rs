@@ -19,8 +19,7 @@ use xr_renderer::view::{FRect, Placement, PointerLook, Size, ViewAnimator};
 use xr_wire::control::Op;
 
 use super::{
-    Presentation, cards, continuity_shell, handles, immersive, menus, pointer, roll, scene_layout, tracking,
-    video_shell,
+    Presentation, cards, handles, immersive, menus, pointer, roll, scene_layout, tracking, video_shell,
 };
 
 /// A head-locked card (`GlCompositor::set_popup` / `set_help` / `set_binds`): its image, re-uploaded when `generation`
@@ -99,6 +98,8 @@ pub(super) struct Scene {
     pub tiles: Vec<FRect>,
     /// Each desktop's own placement (default: straight ahead), before the zoom grows the focused one.
     pub own: Vec<Placement>,
+    /// Each desktop's target placement (wayland.cpp target_placement: the latest placement and roll, not eased).
+    pub targets: Vec<Placement>,
     /// `set_accent`, when the theme changed.
     pub accent: Option<[u8; 3]>,
 
@@ -144,6 +145,7 @@ impl Scene {
             environment_world: IDENTITY,
             tiles,
             own,
+            targets: Vec::new(),
             accent: None,
             popup: None,
             help: None,
@@ -203,7 +205,6 @@ pub(super) struct Features {
     pub menus: menus::Menus,
     pub video: video_shell::VideoShell,
     pub immersive: immersive::ImmersiveState,
-    pub continuity: continuity_shell::ContinuityShell,
     /// Ops already logged as not drawn (each once).
     logged: HashSet<Op>,
 }
@@ -213,7 +214,7 @@ impl Features {
     /// layout and its roll, the cards, the glass (handles, menus, immersive) and the pointer.
     pub(super) fn contribute(&mut self, scene: &mut Scene) {
         self.tracking.contribute(scene);
-        self.layout.contribute(scene);
+        self.layout.contribute(scene, &self.roll);
         self.roll.contribute(scene);
         self.cards.contribute(scene);
         self.handles.contribute(scene);
@@ -225,7 +226,7 @@ impl Features {
     /// Whether any feature still moves (a fade, an ease): the frame is drawn again even when nothing else changed.
     pub(super) fn animating(&self, now_ms: f64) -> bool {
         self.tracking.animating(now_ms)
-            || self.layout.animating(now_ms)
+            || self.layout.animating(now_ms, &self.roll)
             || self.roll.animating(now_ms)
             || self.cards.animating(now_ms)
             || self.handles.animating(now_ms)

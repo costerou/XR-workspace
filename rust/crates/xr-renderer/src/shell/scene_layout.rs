@@ -75,30 +75,40 @@ fn edge_pan_from_wire(m: &EdgePanMove) -> EdgePan {
 }
 
 impl SceneLayout {
-    /// Desktop `i`'s latest placement (wayland.cpp target_placement, without the roll: `roll` sets that on
-    /// `scene.own`).
-    fn target_placement(&self, i: usize) -> Placement {
-        self.placements.get(i).map_or_else(Placement::default, placement_from_wire)
+    /// Desktop `i`'s latest placement with its levelling roll (wayland.cpp target_placement): the roll is part of
+    /// the target, so it eases with the rest of the placement.
+    pub(super) fn target_placement(&self, i: usize, roll: &RollState) -> Placement {
+        let mut p = self.placements.get(i).map_or_else(Placement::default, placement_from_wire);
+        if i < MAX_DESKTOPS {
+            p.roll = roll.target_roll(i);
+        }
+        p
     }
 
     /// One step of the drawn placements toward the latest ones, `n` desktops (wayland.cpp ease_placements).
-    fn ease_placements(&mut self, n: usize, now_ms: f64) {
+    fn ease_placements(&mut self, targets: &[Placement], now_ms: f64) {
         let dt = if self.eased_ms < 0.0 { 1e9 } else { (now_ms - self.eased_ms) as f32 };
         self.eased_ms = now_ms;
-        let targets: Vec<Placement> = (0..n).map(|i| self.target_placement(i)).collect();
-        self.eased.resize(n, Placement::default()); // eased in from flat
-        step_placements(&mut self.eased, &targets, dt, now_ms, &mut self.glide);
+        self.eased.resize(targets.len(), Placement::default()); // eased in from flat
+        step_placements(&mut self.eased, targets, dt, now_ms, &mut self.glide);
     }
 
-    fn placements_easing(&self) -> bool {
-        self.eased.iter().enumerate().any(|(i, e)| !same_placement(e, &self.target_placement(i)))
+    fn placements_easing(&self, roll: &RollState) -> bool {
+        self.eased.iter().enumerate().any(|(i, e)| !same_placement(e, &self.target_placement(i, roll)))
     }
 
-    /// `scene.own` (each desktop's eased placement), `scene.tiles` (on their way through a tile ease) and
-    /// `scene.accent`.
-    pub(super) fn contribute(&mut self, scene: &mut Scene) {
+    /// A change of roll ends a glide (wayland.cpp set_roll): a glide aims at the placements it began with, so it eases
+    /// on from where it got to.
+    pub(super) fn end_glide(&mut self) {
+        self.glide.ms = 0.0;
+    }
+
+    /// `scene.own` (each desktop's eased placement, its roll included), `scene.targets`, `scene.tiles` (on their way
+    /// through a tile ease) and `scene.accent`.
+    pub(super) fn contribute(&mut self, scene: &mut Scene, roll: &RollState) {
         let n = scene.sizes.len();
-        self.ease_placements(n, scene.now_ms);
+        scene.targets = (0..n).map(|i| self.target_placement(i, roll)).collect();
+        self.ease_placements(&scene.targets, scene.now_ms);
         scene.own = self.eased.clone();
         self.draw_tiles.clone_from(&scene.tiles);
         let tiles = self.tile_ease.tiles(&scene.sizes, &self.draw_tiles, scene.overview, scene.now_ms);
@@ -108,8 +118,8 @@ impl SceneLayout {
         scene.accent = Some(self.accent);
     }
 
-    pub(super) fn animating(&self, _now_ms: f64) -> bool {
-        self.placements_easing() || self.tile_ease.active()
+    pub(super) fn animating(&self, _now_ms: f64, roll: &RollState) -> bool {
+        self.placements_easing(roll) || self.tile_ease.active()
     }
 
     /// The dot of an edge pan as the free pointer, directed {azimuth, elevation} in degrees: on the desktop's edge as
@@ -123,6 +133,7 @@ impl SceneLayout {
         view: &ViewAnimator,
         tiles: &[FRect],
         drawn: &[Placement],
+        roll: &RollState,
     ) -> Option<PointerInput> {
         if !view.pan_active() || view.pan_landing() || c.half_w == 0.0 {
             return None;
@@ -130,7 +141,7 @@ impl SceneLayout {
         let overview = overview_layout(sizes, c.view_w, c.view_h, view.spacing());
         let n = sizes.len().min(MAX_DESKTOPS);
         let placed: Vec<Placement> =
-            (0..n).map(|i| self.eased.get(i).copied().unwrap_or_else(|| self.target_placement(i))).collect();
+            (0..n).map(|i| self.eased.get(i).copied().unwrap_or_else(|| self.target_placement(i, roll))).collect();
         let path = edge_pan_path(c, sizes, view.spacing(), &overview, &placed, view.pan());
         let p = view.pan();
         let from = p.from as usize;
@@ -180,12 +191,6 @@ impl SceneLayout {
         }
     }
 
-    /// The theme border colour, for the parts that draw with it (the seed of their M3 scheme).
-    #[allow(dead_code)] // read by the cards, menus and video once they are wired
-    pub(super) fn accent(&self) -> [u8; 3] {
-        self.accent
-    }
-
     /// The exit report's `theme` section.
     pub(super) fn report_theme(&self, out: &mut String) {
         let [r, g, b] = self.accent;
@@ -230,7 +235,15 @@ impl Presentation {
         if !self.state.capture.gpu() {
             return;
         }
-        let l = &mut self.state.features.layout;
+        // The seed of the M3 scheme (material.hpp) of the parts drawn with it: the cards and pop-ups, redrawn if
+        // showing, the tracking hint, the open panels (recoloured live, a closing one included). The GL accent and the
+        // video card take `scene.accent` on the next frame.
+        let seed = [f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0];
+        let f = &mut self.state.features;
+        f.cards.set_accent(seed, monotonic_ms_f64());
+        f.tracking.set_accent(seed);
+        f.menus.set_accent(r, g, b);
+        let l = &mut f.layout;
         if l.accent != [r, g, b] {
             l.accent = [r, g, b];
             l.accent_updates += 1;
@@ -248,6 +261,12 @@ impl Presentation {
     /// The run's managed desktops changed: captures not in `outputs` stop, new ones start, `renew` restart.
     pub fn set_desktops(&mut self, outputs: &[String], renew: &[String]) {
         self.state.features.layout.glide.ms = 0.0; // a glide is per desktop index: eased on from where it got to
+        self.change_desktops(outputs, renew);
+        self.state.features.immersive.desktops_changed(); // so is a depth channel
+    }
+
+    /// wayland.cpp Impl::set_desktops.
+    fn change_desktops(&mut self, outputs: &[String], renew: &[String]) {
         let own = self.state.selected.map_or("", |i| self.state.outputs[i].name.as_str());
         let Some(names) = parse_capture_list(&outputs.join(","), own) else {
             return;
@@ -256,6 +275,8 @@ impl Presentation {
         let Some(was) = self.state.change_captures(&names, renew, &qh) else {
             return;
         };
+        // An options panel whose monitor is gone closes (change_captures has the frame drawn again).
+        self.state.features.menus.desktops_changed(&names, monotonic_ms_f64());
         let l = &mut self.state.features.layout;
         if l.tile_ease.armed(monotonic_ms_f64()) {
             // the tiles of an eased change follow their desktops by name
@@ -318,17 +339,17 @@ mod tests {
         let tiles = vec![FRect::default(); 2];
         let mut l = SceneLayout::default();
         let mut s = scene(1000.0, &sizes, tiles.clone());
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert_eq!(s.own, vec![Placement::default(); 2]); // nothing set: flat, straight ahead
         assert!(!l.animating(1000.0));
         l.placements = vec![[300, 0, 150, 0]];
         let target = placement_from_wire(&[300, 0, 150, 0]);
         let mut s = scene(1000.0 + f64::from(PLACEMENT_EASE), &sizes, tiles.clone());
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert!(s.own[0].x > 0.0 && s.own[0].x < target.x && l.animating(0.0)); // on its way
         assert_eq!(s.own[1], Placement::default()); // an absent entry is flat
         let mut s = scene(1e6, &sizes, tiles);
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert!(same_placement(&s.own[0], &target) && !l.animating(0.0)); // lands exactly
     }
     const PLACEMENT_EASE: f32 = xr_renderer::view::PLACEMENT_EASE_MS;
@@ -337,15 +358,15 @@ mod tests {
     fn glide_takes_every_desktop_along_one_curve() {
         let sizes = [Size { w: 1920.0, h: 1080.0 }];
         let mut l = SceneLayout::default();
-        l.contribute(&mut scene(0.0, &sizes, vec![FRect::default()]));
+        l.contribute(&mut scene(0.0, &sizes, vec![FRect::default()]), &RollState::default());
         let from = l.eased.clone();
         start_glide(&mut l.glide, &l.eased, 100.0, 200);
         l.placements = vec![[-600, 100, 80, 30]];
         let to = placement_from_wire(&l.placements[0]);
         let mut s = scene(200.0, &sizes, vec![FRect::default()]);
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert_eq!(s.own[0], glide_toward(&from[0], &to, 0.5));
-        l.contribute(&mut scene(300.0, &sizes, vec![FRect::default()]));
+        l.contribute(&mut scene(300.0, &sizes, vec![FRect::default()]), &RollState::default());
         assert!(same_placement(&l.eased[0], &to) && l.glide.ms == 0.0); // landed: the glide ends
     }
 
@@ -371,15 +392,15 @@ mod tests {
         let before = vec![FRect::new(0.0, 0.0, 100.0, 50.0)];
         let after = vec![FRect::new(0.0, 0.0, 50.0, 25.0), FRect::new(60.0, 0.0, 50.0, 25.0)];
         let mut l = SceneLayout::default();
-        l.contribute(&mut scene(0.0, &one, before.clone()));
+        l.contribute(&mut scene(0.0, &one, before.clone()), &RollState::default());
         l.tile_ease.arm(&one, &l.draw_tiles, 10.0);
         l.tile_ease.reindex(&[0, -1]); // a desktop went in after the first
         let mut s = scene(20.0, &two, after.clone());
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert_eq!(s.tiles[0], before[0]); // the ease starts from where it was drawn
         assert!(l.animating(20.0));
         let mut s = scene(20.0 + f64::from(xr_renderer::view::TILE_EASE_MS), &two, after.clone());
-        l.contribute(&mut s);
+        l.contribute(&mut s, &RollState::default());
         assert_eq!(s.tiles, after);
         assert!(!l.tile_ease.active());
     }
@@ -440,7 +461,7 @@ mod tests {
             let overview = overview_layout(&sizes, 1920.0, 1080.0, view.spacing());
             let options = ZoomOptions { leaving, ..ZoomOptions::default() };
             let drawn = zoomed_placements_with(&c, &overview, &tiles, &l.eased, view.zoom(), view.position(), options);
-            let dot = l.pan_dot(&c, &sizes, view, &tiles, &drawn);
+            let dot = l.pan_dot(&c, &sizes, view, &tiles, &drawn, &RollState::default());
             let rad = (180.0 / std::f64::consts::PI) as f32;
             frames.push(match dot {
                 Some(d) => format!("{} {:.6} {:.6}", t, f64::from(d.az / rad), f64::from(d.el / rad)),

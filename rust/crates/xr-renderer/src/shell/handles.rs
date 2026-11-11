@@ -95,7 +95,6 @@ impl Handles {
     }
 
     /// The Step-Back Band's ease, for the maximized desktop's step back (wayland.cpp resolved_placements).
-    #[allow(dead_code)] // read by the layout's resolved placements once they are wired
     pub(super) fn restore_step(&self) -> &RestoreStep {
         &self.restore_step
     }
