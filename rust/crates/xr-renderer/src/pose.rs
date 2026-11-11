@@ -17,7 +17,12 @@ pub struct Quat {
 
 impl Default for Quat {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        }
     }
 }
 
@@ -41,7 +46,12 @@ pub fn quat_mul(a: Quat, b: Quat) -> Quat {
 }
 
 pub fn quat_conj(q: Quat) -> Quat {
-    Quat { x: -q.x, y: -q.y, z: -q.z, w: q.w }
+    Quat {
+        x: -q.x,
+        y: -q.y,
+        z: -q.z,
+        w: q.w,
+    }
 }
 
 /// `None` if non-finite or near zero length.
@@ -50,7 +60,12 @@ pub fn quat_normalized(q: Quat) -> Option<Quat> {
     if !n.is_finite() || n < 1e-6 {
         return None;
     }
-    Some(Quat { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n })
+    Some(Quat {
+        x: q.x / n,
+        y: q.y / n,
+        z: q.z / n,
+        w: q.w / n,
+    })
 }
 
 pub fn quat_to_mat3(q: Quat) -> Mat3 {
@@ -74,16 +89,36 @@ pub fn mat3_to_quat(m: &Mat3) -> Quat {
     let tr = m[0] + m[4] + m[8];
     let q = if tr > 0.0 {
         let s = (tr + 1.0).sqrt() * 2.0;
-        Quat { x: (m[7] - m[5]) / s, y: (m[2] - m[6]) / s, z: (m[3] - m[1]) / s, w: s / 4.0 }
+        Quat {
+            x: (m[7] - m[5]) / s,
+            y: (m[2] - m[6]) / s,
+            z: (m[3] - m[1]) / s,
+            w: s / 4.0,
+        }
     } else if m[0] > m[4] && m[0] > m[8] {
         let s = (1.0 + m[0] - m[4] - m[8]).sqrt() * 2.0;
-        Quat { x: s / 4.0, y: (m[1] + m[3]) / s, z: (m[2] + m[6]) / s, w: (m[7] - m[5]) / s }
+        Quat {
+            x: s / 4.0,
+            y: (m[1] + m[3]) / s,
+            z: (m[2] + m[6]) / s,
+            w: (m[7] - m[5]) / s,
+        }
     } else if m[4] > m[8] {
         let s = (1.0 + m[4] - m[0] - m[8]).sqrt() * 2.0;
-        Quat { x: (m[1] + m[3]) / s, y: s / 4.0, z: (m[5] + m[7]) / s, w: (m[2] - m[6]) / s }
+        Quat {
+            x: (m[1] + m[3]) / s,
+            y: s / 4.0,
+            z: (m[5] + m[7]) / s,
+            w: (m[2] - m[6]) / s,
+        }
     } else {
         let s = (1.0 + m[8] - m[0] - m[4]).sqrt() * 2.0;
-        Quat { x: (m[2] + m[6]) / s, y: (m[5] + m[7]) / s, z: s / 4.0, w: (m[3] - m[1]) / s }
+        Quat {
+            x: (m[2] + m[6]) / s,
+            y: (m[5] + m[7]) / s,
+            z: s / 4.0,
+            w: (m[3] - m[1]) / s,
+        }
     };
     quat_normalized(q).unwrap_or_default()
 }
@@ -128,7 +163,12 @@ pub fn project(view: &Mat3, ndc_x: f32, ndc_y: f32, hw: f32, hh: f32) -> Option<
 pub fn quat_slerp(a: Quat, mut b: Quat, t: f32) -> Quat {
     let mut d = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
     if d < 0.0 {
-        b = Quat { x: -b.x, y: -b.y, z: -b.z, w: -b.w };
+        b = Quat {
+            x: -b.x,
+            y: -b.y,
+            z: -b.z,
+            w: -b.w,
+        };
         d = -d;
     }
     let (mut wa, mut wb) = (1.0 - t, t);
@@ -158,18 +198,34 @@ pub fn level(q: Quat) -> Quat {
     let f = apply(&quat_to_mat3(q), [1.0, 0.0, 0.0]); // forward (x) in the reference frame; z up
     let yaw = f[1].atan2(f[0]);
     let pitch = f[2].clamp(-1.0, 1.0).asin();
-    let qy = Quat { x: 0.0, y: 0.0, z: (yaw / 2.0).sin(), w: (yaw / 2.0).cos() };
-    let qp = Quat { x: 0.0, y: (-pitch / 2.0).sin(), z: 0.0, w: (-pitch / 2.0).cos() }; // +pitch tips forward toward +z
+    let qy = Quat {
+        x: 0.0,
+        y: 0.0,
+        z: (yaw / 2.0).sin(),
+        w: (yaw / 2.0).cos(),
+    };
+    let qp = Quat {
+        x: 0.0,
+        y: (-pitch / 2.0).sin(),
+        z: 0.0,
+        w: (-pitch / 2.0).cos(),
+    }; // +pitch tips forward toward +z
     quat_mul(qy, qp)
 }
 
 /// Render rotation for a canvas anchored at `anchor`.
 pub fn view_from(head: Quat, anchor: Quat) -> Mat3 {
-    transpose(&driver_to_gl(&quat_to_mat3(quat_mul(quat_conj(anchor), head))))
+    transpose(&driver_to_gl(&quat_to_mat3(quat_mul(
+        quat_conj(anchor),
+        head,
+    ))))
 }
 
 pub fn canvas_up(reference: Quat, anchor: Quat) -> [f32; 3] {
-    let v = apply(&transpose(&quat_to_mat3(quat_mul(reference, anchor))), [0.0, 0.0, 1.0]);
+    let v = apply(
+        &transpose(&quat_to_mat3(quat_mul(reference, anchor))),
+        [0.0, 0.0, 1.0],
+    );
     apply(&DRIVER_TO_GL, v)
 }
 
@@ -177,19 +233,38 @@ pub fn aim_rotation(az: f32, el: f32) -> Quat {
     // GL: the view must apply R^T = El(el)^T . Az(az)^T (place_point's R = Az(az) . El(el)); in the driver frame
     // (x forward, y left, z up) that is a pitch of el about +y after a yaw of az about +z.
     quat_mul(
-        Quat { x: 0.0, y: (el / 2.0).sin(), z: 0.0, w: (el / 2.0).cos() },
-        Quat { x: 0.0, y: 0.0, z: (az / 2.0).sin(), w: (az / 2.0).cos() },
+        Quat {
+            x: 0.0,
+            y: (el / 2.0).sin(),
+            z: 0.0,
+            w: (el / 2.0).cos(),
+        },
+        Quat {
+            x: 0.0,
+            y: 0.0,
+            z: (az / 2.0).sin(),
+            w: (az / 2.0).cos(),
+        },
     )
 }
 
 pub fn aim_along(from: Quat, to: Quat, way: f32, turned: f32, side: u8) -> Quat {
-    let s = if way > 0.0 { (turned / way).clamp(0.0, 1.0) } else { 1.0 };
+    let s = if way > 0.0 {
+        (turned / way).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
     if way < PI - HALF_TURN_SLACK {
         return quat_slerp(from, to, s);
     }
     let mut d = quat_mul(quat_conj(from), to);
     if d.w < 0.0 {
-        d = Quat { x: -d.x, y: -d.y, z: -d.z, w: -d.w };
+        d = Quat {
+            x: -d.x,
+            y: -d.y,
+            z: -d.z,
+            w: -d.w,
+        };
     }
     let sn = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
     #[allow(clippy::neg_cmp_op_on_partial_ord)] // true for NaN too, as in the C++
@@ -198,7 +273,12 @@ pub fn aim_along(from: Quat, to: Quat, way: f32, turned: f32, side: u8) -> Quat 
     }
     // The push as a turn of the canvas: right about -y, left about +y, up about +x, down about -x
     // (GL frame, one quarter of `from`'s view).
-    const PUSH: [[f32; 3]; 4] = [[0.0, -1.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]];
+    const PUSH: [[f32; 3]; 4] = [
+        [0.0, -1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+    ];
     let push = apply(&transpose(&DRIVER_TO_GL), PUSH[usize::from(side.min(3))]);
     let mut axis = [d.x / sn, d.y / sn, d.z / sn];
     let mut angle = 2.0 * sn.atan2(d.w);
@@ -211,7 +291,16 @@ pub fn aim_along(from: Quat, to: Quat, way: f32, turned: f32, side: u8) -> Quat 
     }
     let half = s * angle / 2.0;
     let k = half.sin();
-    quat_normalized(quat_mul(from, Quat { x: axis[0] * k, y: axis[1] * k, z: axis[2] * k, w: half.cos() })).unwrap_or(to)
+    quat_normalized(quat_mul(
+        from,
+        Quat {
+            x: axis[0] * k,
+            y: axis[1] * k,
+            z: axis[2] * k,
+            w: half.cos(),
+        },
+    ))
+    .unwrap_or(to)
 }
 
 /// One read of the feed (`xr::FeedSample`). `older` and `older_ms` are the feed's history; `sample_ns` is the seqlock
@@ -739,11 +828,111 @@ struct Past {
 
 const PAST_LEN: usize = 16;
 
+/// How [`PoseFeed::read`] has gone (`xr::PoseReaderStats`). Times in ns, from the histograms; ages are read time minus
+/// sample time, seqlock reads only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PoseReaderStats {
+    pub seqlock_attached: bool,
+    /// The newest sample came from the channel (so last_age_ns is its age).
+    pub seqlock_source: bool,
+    /// Reads that returned a sample, by source.
+    pub seqlock_reads: u64,
+    pub mutex_reads: u64,
+    /// Seqlock reads that met the writer mid-write and copied again. Always 0 here: xr-pose's seqlock reader spins
+    /// inside its load and does not say how often.
+    pub retries: u64,
+    /// Mutex reads that found the lock held and blocked on it.
+    pub waits: u64,
+    /// The source changed between two samples.
+    pub switches: u64,
+    pub age_count: u64,
+    pub age_p50_ns: u64,
+    pub age_p95_ns: u64,
+    pub age_p99_ns: u64,
+    pub age_max_ns: u64,
+    pub last_age_ns: u64,
+    /// How long read() took, every call.
+    pub read_p99_ns: u64,
+    pub read_max_ns: u64,
+}
+
+/// `rt::LatencyHistogram` (spike/driver/include/luma/rt.hpp), the part PoseFeed uses: values below 64 have a bucket
+/// each; above that every power of two is split into 32 buckets, and a percentile is the top of the bucket holding it.
+/// The same as xr-luma-driver's, which the renderer does not depend on.
+#[derive(Clone)]
+struct LatencyHistogram {
+    buckets: [u64; Self::BUCKETS],
+    count: u64,
+    max: u64,
+}
+
+impl LatencyHistogram {
+    const LINEAR: usize = 64;
+    const SUB: usize = 32;
+    const BUCKETS: usize = Self::LINEAR + (64 - 6) * Self::SUB;
+
+    fn new() -> Self {
+        Self {
+            buckets: [0; Self::BUCKETS],
+            count: 0,
+            max: 0,
+        }
+    }
+
+    fn record(&mut self, ns: u64) {
+        self.buckets[Self::index(ns)] += 1;
+        self.count += 1;
+        self.max = self.max.max(ns);
+    }
+
+    fn percentile(&self, p: f64) -> u64 {
+        if self.count == 0 {
+            return 0;
+        }
+        let target = ((self.count as f64 * p / 100.0).ceil() as u64).max(1);
+        let mut seen = 0;
+        for (i, n) in self.buckets.iter().enumerate() {
+            seen += n;
+            if seen >= target {
+                return Self::bucket_top(i).min(self.max);
+            }
+        }
+        self.max
+    }
+
+    fn index(v: u64) -> usize {
+        if v < Self::LINEAR as u64 {
+            return v as usize;
+        }
+        let msb = 63 - v.leading_zeros() as usize;
+        Self::LINEAR + (msb - 6) * Self::SUB + ((v >> (msb - 5)) as usize - Self::SUB)
+    }
+
+    fn bucket_top(i: usize) -> u64 {
+        if i < Self::LINEAR {
+            return i as u64;
+        }
+        let octave = (i - Self::LINEAR) / Self::SUB;
+        let sub = (i - Self::LINEAR) % Self::SUB;
+        let msb = octave + 6;
+        (((sub + Self::SUB) as u64 + 1) << (msb - 5)).wrapping_sub(1)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Source {
+    None,
+    Seqlock,
+    Mutex,
+}
+
 /// The pose feed (`xr::PoseFeed`): the seqlock channel when it holds a fresh calibrated pose, the SysV mutex feed
-/// otherwise. Unlike the C++, a sample from the seqlock is not what the mutex feed serves again while its lock is held:
-/// xr-pose's FeedReader keeps its own last sample. Not ported: stats(), vsync() and the read-time histograms.
+/// otherwise. While the mutex feed's writer holds its lock (or stopped holding it) the newest sample of either source is
+/// served again, its device time unchanged, so it ages and tracking is reported lost after [`PoseState`]'s stale_ms.
 pub struct PoseFeed {
     feed: xr_pose::feed::FeedReader,
+    /// Newest valid sample read: served again while the driver holds the lock.
+    last: Option<FeedSample>,
     seqlock_name: String,
     seqlock: Option<xr_pose::seqlock::PoseReader>,
     seqlock_retry_ns: u64,
@@ -752,6 +941,10 @@ pub struct PoseFeed {
     past_n: usize,
     past_head: usize,
     epoch_ns: u64,
+    source: Source,
+    counts: PoseReaderStats,
+    age: LatencyHistogram,
+    read_time: LatencyHistogram,
 }
 
 pub fn monotonic_ns() -> u64 {
@@ -776,6 +969,7 @@ impl PoseFeed {
         let feed = xr_pose::feed::FeedReader::open(prefix).map_err(|e| e.0)?;
         Ok(Self {
             feed,
+            last: None,
             seqlock_name: seqlock_name.to_owned(),
             seqlock: None,
             seqlock_retry_ns: 0,
@@ -784,6 +978,10 @@ impl PoseFeed {
             past_n: 0,
             past_head: 0,
             epoch_ns: 0,
+            source: Source::None,
+            counts: PoseReaderStats::default(),
+            age: LatencyHistogram::new(),
+            read_time: LatencyHistogram::new(),
         })
     }
 
@@ -795,28 +993,97 @@ impl PoseFeed {
         self.feed.look_ahead_cfg()
     }
 
+    /// When the glasses' panel scans out, from the Luma driver's pose_vsync segment (written with --read-events;
+    /// XRLinuxDriver has none). `None`: no segment, not locked, mid-write on every try, or a period outside 4..50 ms.
+    pub fn vsync(&self) -> Option<crate::predict::VsyncSnapshot> {
+        let v = self.feed.vsync_words()?;
+        let (magic, v) = (v[0], &v[1..]);
+        if magic != 0x3153_564c || v[8] & 1 == 0 {
+            return None; // "LVS1"; not locked
+        }
+        let u64_at = |i: usize| u64::from(v[i]) | u64::from(v[i + 1]) << 32;
+        let out = crate::predict::VsyncSnapshot {
+            anchor_host_ns: u64_at(0),
+            period_ns: f64::from_bits(u64_at(2)),
+            anchor_feed_ms: f64::from_bits(u64_at(4)),
+            events: u64_at(6),
+            resets: v[9],
+            fit_rms_us: f32::from_bits(v[10]),
+        };
+        (out.period_ns >= 4e6 && out.period_ns <= 50e6).then_some(out)
+    }
+
+    pub fn stats(&self) -> PoseReaderStats {
+        let mut r = self.counts;
+        r.waits = self.feed.waits();
+        r.seqlock_attached = self.seqlock.is_some();
+        r.seqlock_source = self.source == Source::Seqlock;
+        r.age_count = self.age.count;
+        r.age_p50_ns = self.age.percentile(50.0);
+        r.age_p95_ns = self.age.percentile(95.0);
+        r.age_p99_ns = self.age.percentile(99.0);
+        r.age_max_ns = self.age.max;
+        r.read_p99_ns = self.read_time.percentile(99.0);
+        r.read_max_ns = self.read_time.max;
+        r
+    }
+
+    /// The newest sample. `None` while disabled (and the served-again sample is forgotten), for an invalid sample, or
+    /// when the lock is not recoverable.
     pub fn read(&mut self) -> Option<FeedSample> {
+        let start = monotonic_ns();
+        let mut out = None;
         if self.feed.disabled() {
+            self.last = None;
             self.past_n = 0;
-            return None;
+            self.source = Source::None;
+        } else {
+            out = self.read_seqlock(start);
+            if out.is_some() {
+                if self.source == Source::Mutex {
+                    self.counts.switches += 1;
+                }
+                self.source = Source::Seqlock;
+                self.counts.seqlock_reads += 1;
+                self.last = out;
+            } else {
+                out = self.read_mutex();
+                if out.is_some() {
+                    if self.source == Source::Seqlock {
+                        self.counts.switches += 1;
+                    }
+                    self.source = Source::Mutex;
+                    self.counts.mutex_reads += 1;
+                } else {
+                    self.source = Source::None;
+                }
+            }
         }
-        if let Some(s) = self.read_seqlock(monotonic_ns()) {
-            return Some(s);
-        }
-        let s = self.feed.read()?;
+        self.read_time.record(monotonic_ns().wrapping_sub(start));
+        out
+    }
+
+    fn read_mutex(&mut self) -> Option<FeedSample> {
+        use xr_pose::feed::MutexRead;
+        let s = match self.feed.read_mutex() {
+            MutexRead::Sample(s) => s,
+            MutexRead::Again => return self.last,
+            MutexRead::Nothing => return None,
+        };
         let q = |v: [f32; 4]| Quat {
             x: v[0],
             y: v[1],
             z: v[2],
             w: v[3],
         };
-        Some(FeedSample {
+        self.last = Some(FeedSample {
             orientation: q(s.orientation),
             device_ms: s.device_ms,
             older: [q(s.older[0]), q(s.older[1])],
             older_ms: s.older_ms,
             sample_ns: 0,
-        })
+        });
+        self.last
     }
 
     fn read_seqlock(&mut self, mut now: u64) -> Option<FeedSample> {
@@ -894,6 +1161,9 @@ impl PoseFeed {
                 break;
             }
         }
+        let age_ns = if now > t { now - t } else { 0 };
+        self.age.record(age_ns);
+        self.counts.last_age_ns = age_ns;
         Some(f)
     }
 }
@@ -904,7 +1174,13 @@ mod tests {
 
     #[test]
     fn mat3_round_trips_a_quat() {
-        let q = quat_normalized(Quat { x: 0.1, y: -0.3, z: 0.2, w: 0.9 }).unwrap();
+        let q = quat_normalized(Quat {
+            x: 0.1,
+            y: -0.3,
+            z: 0.2,
+            w: 0.9,
+        })
+        .unwrap();
         let back = mat3_to_quat(&quat_to_mat3(q));
         assert!(quat_angle(q, back) < 1e-3);
     }

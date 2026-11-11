@@ -581,6 +581,15 @@ three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` 
 and matches every byte except padding and the hash. It also keeps `golden/continuity_{mid,end}_rust.bin` current
 (`XR_WRITE_GOLDENS=1`), and `continuity.cpp read` restores those in C++ with the same continuation.
 
+`pose` is `pose.hpp` and `pose.cpp` (RR-72): the quaternion maths, `PoseState` (reference, recentre, level, stale
+tracking), `ModeController` (anchor, follow and locked, with the maximize hold and restore) and `PoseFeed`. `PoseFeed`
+reads the driver's `/xr-luma-pose` seqlock first (100 ms freshness, a 16-entry history and a 16 ms look-back). Otherwise
+it reads xr-pose's mutex `FeedReader`, with the 2 ms lock wait, the backoff and the `EOWNERDEAD` recovery. While the
+lock is held it serves the newest sample of either source again with its device time unchanged, so a feed that stops
+holds the last pose and `PoseState` reports tracking lost. `stats()` gives the C++ `PoseReaderStats`. `retries` stays 0,
+because `xr_pose::seqlock` does not count them. `vsync()` decodes the `pose_vsync` segment. `tests/pose.rs` ports every
+check of the `pose` and `level_reference` ctests and all of `focus_center`.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
