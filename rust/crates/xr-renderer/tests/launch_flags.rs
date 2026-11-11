@@ -28,7 +28,11 @@ fn depth_fd_is_refused_until_immersive_is_wired() {
     assert_eq!(exit_code(&["--depth-fd", "5"]), Some(2));
 }
 
+/// `--continuity-fd` is taken (tests/continuity_launch.rs runs it); a value spike/src/main.cpp refuses still exits 2
+/// before any descriptor is touched: not a number, or another flag's descriptor.
 #[test]
-fn continuity_fd_is_refused_until_continuity_is_wired() {
-    assert_eq!(exit_code(&["--continuity-fd", "5"]), Some(2));
+fn continuity_fd_refuses_what_the_cpp_refuses() {
+    assert_eq!(exit_code(&["--continuity-fd", "x"]), Some(2));
+    assert_eq!(exit_code(&["--continuity-fd", "3"]), Some(2));
+    assert_eq!(exit_code(&["--continuity-fd", "4"]), Some(2));
 }

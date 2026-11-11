@@ -660,6 +660,15 @@ three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` 
 and matches every byte except padding and the hash. It also keeps `golden/continuity_{mid,end}_rust.bin` current
 (`XR_WRITE_GOLDENS=1`), and `continuity.cpp read` restores those in C++ with the same continuation.
 
+The renderer takes `--continuity-fd` (`shell/continuity_shell.rs`, wayland.cpp `restore_continuity` and
+`save_continuity`). After open it restores the file once, resumed at the integer monotonic clock. It puts the view into
+the capture's `ViewAnimator`, and the pose, stabilization, modes, maximized flag, last drawn head, landed-turn centre
+and rolls into tracking's and roll's state. At an orderly exit it saves them back. Until tracking and roll hold that
+state, the shell keeps it and saves it unchanged. `tests/continuity_launch.rs` ports the real-renderer case of
+`tests/native_spike/test_continuity.py`, both ways. With `XR_CPP_BUILD` set to a `spike/` build, the C++ loopback bench
+runs the Rust renderer on a memfd holding `golden/continuity_end.bin`. The renderer restores the blob and saves the
+same state. The C++ renderer then restores the saved blob. Without `XR_CPP_BUILD` the test says so and passes.
+
 `pose` is `pose.hpp` and `pose.cpp` (RR-72): the quaternion maths, `PoseState` (reference, recentre, level, stale
 tracking), `ModeController` (anchor, follow and locked, with the maximize hold and restore) and `PoseFeed`. `PoseFeed`
 reads the driver's `/xr-luma-pose` seqlock first (100 ms freshness, a 16-entry history and a 16 ms look-back). Otherwise
