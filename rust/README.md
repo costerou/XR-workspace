@@ -572,6 +572,15 @@ pose path (stabilizer, pose state, pose age, horizon, smoother, view) over `test
 byte-equal with `golden/motion_smooth.txt`, which `golden/motion_smooth.cpp` writes from the C++ replay itself.
 `tests/motion_feed.rs` ports the D3 checks of the `predict` ctest and reads a wire xr-pose's `FeedWriter` publishes.
 
+`stabilization` is `stabilization.hpp` and `continuity` is `continuity.hpp` (RR-72). `Stabilizer` mirrors libstdc++'s
+three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` ctest and is byte-equal with
+`golden/stabilization_trace.txt`, the C++ `stabilization_trace` output on `tests/fixtures/stabilization_trace.in`.
+`ViewContinuity` encodes, decodes and resumes the C++ blob in its x86-64 GCC byte layout, padding written as zeros.
+`save`/`restore` work over the `--continuity-fd` file, which is consumed once. `tests/continuity.rs` ports the
+`continuity` ctest. It restores `golden/continuity_{mid,end}.bin`, which `golden/continuity.cpp` writes from the C++,
+and matches every byte except padding and the hash. It also keeps `golden/continuity_{mid,end}_rust.bin` current
+(`XR_WRITE_GOLDENS=1`), and `continuity.cpp read` restores those in C++ with the same continuation.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
