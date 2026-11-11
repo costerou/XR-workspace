@@ -193,16 +193,6 @@ fn status_of(s: State) -> Video {
     }
 }
 
-/// The diagonal FOV whose canvas half extents are `half_w` x `half_h` (wayland.cpp update_fov, inverted); the
-/// fallback without one.
-fn diagonal_fov_deg(half_w: f32, half_h: f32) -> f32 {
-    let d = f64::from(half_w).hypot(f64::from(half_h));
-    if d > 0.0 {
-        (d.atan() * 360.0 / std::f64::consts::PI) as f32
-    } else {
-        FOV_FALLBACK_DEG
-    }
-}
 
 /// At most `max` bytes of `s`, cut at a character.
 fn clip(s: &str, max: usize) -> String {
@@ -346,7 +336,7 @@ impl VideoShell {
         let alpha = self.card.alpha(now);
         let card = (alpha > 0.0).then(|| self.card.image.clone());
         let generation = self.card.generation;
-        let fov = diagonal_fov_deg(scene.half_w, scene.half_h);
+        let fov = if scene.fov_deg > 0.0 { scene.fov_deg } else { FOV_FALLBACK_DEG };
         let world = scene.world;
         let mode = self.mode.as_mut()?;
         let ok = gl.draw_scene_and_swap(
@@ -567,14 +557,6 @@ mod tests {
 
     #[test]
     fn fov_and_wire_types() {
-        let d = (46.0f64 * std::f64::consts::PI / 360.0).tan();
-        let a = 1920.0 / 1200.0f64;
-        let (w, h) = (
-            (d * a / (1.0 + a * a).sqrt()) as f32,
-            (d / (1.0 + a * a).sqrt()) as f32,
-        );
-        assert!((diagonal_fov_deg(w, h) - 46.0).abs() < 1e-4);
-        assert_eq!(diagonal_fov_deg(0.0, 0.0), FOV_FALLBACK_DEG);
         let f = VideoFormat {
             projection: wire::Projection::Fisheye,
             stereo: wire::Stereo::Tb,

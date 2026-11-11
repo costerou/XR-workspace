@@ -71,6 +71,8 @@ pub(super) struct Scene {
     /// tan of the half FOV at the centre pose.
     pub half_w: f32,
     pub half_h: f32,
+    /// The diagonal FOV those come from, degrees (tracking's; 0: not known).
+    pub fov_deg: f32,
     /// The overview, settled (zoom < 0.01 and not switching): pills, caps, pointer and panels show only here.
     pub overview: bool,
     /// The view is switching (a zoom between desktops, a pan or a landing), and the overview pan is landing (the
@@ -132,6 +134,7 @@ impl Scene {
             height,
             half_w,
             half_h,
+            fov_deg: 0.0,
             overview: true,
             switching: false,
             overview_pan_landing: false,

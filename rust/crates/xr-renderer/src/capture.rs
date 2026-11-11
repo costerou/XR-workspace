@@ -427,7 +427,7 @@ pub fn clip_quad(r: Rect, width: u32, height: u32) -> [f32; 4] {
 }
 
 /// The owner-readback line limiter: send at most every 50 ms, an identical line at most once per
-/// second; a short send forgets the last line so it is sent again.
+/// second; a short send forgets the last line and when it went, so it is sent again at once (owner_readback.hpp).
 #[derive(Default)]
 pub struct ReadbackLimiter {
     sent_ms: Option<u64>,
@@ -456,6 +456,7 @@ impl ReadbackLimiter {
     }
     pub fn resend(&mut self) {
         self.last.clear();
+        self.sent_ms = None;
     }
 }
 
@@ -614,8 +615,9 @@ mod tests {
         assert!(l.due("b", 50));
         assert!(!l.due("a", 999));
         assert!(l.due("a", 1000));
+        l.sent("a", 1000);
         l.resend();
-        assert!(l.due("a", 60));
+        assert!(l.due("a", 1001), "a short send is sent again at once");
         assert!(!l.due(&"x".repeat(16384), 5000));
     }
 }

@@ -226,6 +226,7 @@ impl Tracking {
         }
         self.read = Some((read_ns, drawn_ms));
         (scene.half_w, scene.half_h) = self.fov(scene.width, scene.height);
+        scene.fov_deg = self.fov_deg;
         // The hint takes the pop-ups' place; a mode pop-up (cards) goes first and replaces it there.
         if self.requested {
             let alpha = self.hint.alpha(monotonic_ms() as f64);
