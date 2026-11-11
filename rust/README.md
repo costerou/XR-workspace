@@ -101,12 +101,22 @@ case, Python's `recover-run` then finishes the run the Rust supervisor started. 
 and the descriptor numbers are normalized. When a renderer exits on its own, `renderer-closed` against no stop reason is
 a race in both supervisors, so it is not compared.
 
-The Python side (`tests/managed_real/oracle.py`) is the shipped runner with one change: it takes the view controls out,
-because the Rust run has none yet. Not ported, so a Rust run presents the desktops without these:
+The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included, with one
+stand-in per view-controls feature the Rust run does not have yet (its `STUBS`); each port deletes its own.
 
-- the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
-  pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key bind
-  panel are ported (below) but reach a run only once the control socket and the view are.
+The private control socket is ported (`view_controls::socket`, `ipc.PrivateServer` with `control_request` and
+`serve_without_renderer`): `$XDG_RUNTIME_DIR/xr-workspace-spike/<run_id>/control.sock`, one frame per same-UID
+connection, a `status` answered on it, any other op handed to the view controls, while the renderer runs and during a
+hold. `tests/control_server_corpus.rs` replays the Python serving every run frame case of `corpus/sockets/frames.json`
+and the socket's own (`corpus/sockets/server.json`, from `tests/native_spike/control_server_corpus.py`): the same
+verdict, request id and reply bytes. `managed_real`'s socket cases ask the status during a run and a hold, and send a
+key through each run's own key helper. Until the view is ported the reply is its four header keys on both sides.
+
+Not ported, so a Rust run presents the desktops without these:
+
+- the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
+  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
+  bind panel are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and

@@ -2,10 +2,10 @@
 //!
 //! Each case starts a fake Hyprland with its ownership plugin (`compositor.py`, real sockets, every request logged with
 //! its sender's pid) and a fake renderer (`renderer.py`, the supervised protocol only), then runs the run unit twice in
-//! fresh folders: the Python runner (`oracle.py`, which only takes the view controls out, as the Rust run has none yet)
-//! and `xr-workspace supervisor` on its real backend. The two must send the same requests in the same order from the
-//! run's own process, leave the same journal, the same layout snapshot and the same result, and launch the renderer
-//! with the same arguments. The guard worker's own requests (another process, on its own clock) are left out of the
+//! fresh folders: the Python runner (`oracle.py`, with a stand-in for each view-controls feature the Rust run does not
+//! have yet) and `xr-workspace supervisor` on its real backend. The two must send the same requests in the same order
+//! from the run's own process, leave the same journal, the same layout snapshot and the same result, launch the
+//! renderer with the same arguments, and send it the same frames after its start frame. The guard worker's own requests (another process, on its own clock) are left out of the
 //! comparison; that it ran and inspected is checked.
 //!
 //! The cases are the start, the stop and each failure point a compositor can cause: a renderer that ends by itself,
@@ -13,16 +13,27 @@
 //! refuses (then Python's Recover finishes the run the Rust supervisor started); the glasses missing at the start and
 //! the fallback monitor lost mid-run.
 //!
+//! # The helpers a feature's case uses (`cases/<module>.rs`)
+//!
+//! - [`parity_acting`]`(case, Some(act))`: [`parity`] with `act(session, who)` called on each run once its renderer
+//!   is up (before the case's Stop); what each gave back is returned, Python's first, for the case to compare.
+//! - [`Session::control`]`(who, op, args)`: one op as a bound key sends it, through `who`'s own key helper (Python's
+//!   `xr_control.py`, the Rust `xr-control`). [`Session::status`]: the panel's `status` on the control socket.
+//! - [`Observed::frames`]: what the renderers got after their start frame (`renderer.py` records each, with the
+//!   descriptors that came with it), compared by [`parity`].
+//! - `hold`: a case in which the first renderer ends as a USB drop ends it and the glasses go until the case removes
+//!   `run/fake-glasses-gone`; a new renderer follows (`cases/socket.rs`). Its trace counts a run of glasses reads as
+//!   one, and a hold's length is not compared.
+//!
 //! # What the Python side leaves out, and whose port takes each exclusion away
 //!
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`, `managed.view_controls = no_view_controls`: all of `view_controls` (`socket`, `binds`, `view`,
-//!   `overview_pointer`, `send`, `privacy`, `immersive`, `keybinds`, `video`, and the `desktops` and
-//!   `window_memory` wiring), all but the window memory's last capture. It stays so until `socket`, `view` and
-//!   `binds` are ported; then oracle.py runs the shipped `view_controls` with one patch per feature still stubbed, and each feature's port
-//!   deletes its own patch (VIEW_CONTROLS.md, "Narrowing the oracle").
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `binds`, `overview_pointer`, `immersive`,
+//!   `keybinds`, which needs `binds`'s helper command line, `video`, and the `desktops` wiring). The shipped
+//!   `view_controls` runs around them, with the ported socket, window sending, privacy mode and the window memory's
+//!   tracker. Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
 //!   asks for a change through the view controls.
 //! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
@@ -262,12 +273,19 @@ impl Session {
         }
     }
 
-    /// The run, with the case's action once the renderer is up: Stop (SIGINT) or the fallback unplugged.
-    fn run(&self, who: Who) -> (i32, String) {
+    /// The run, with the case's action once the renderer is up: Stop (SIGINT) or the fallback unplugged. `act`, if
+    /// any, runs first, once the renderer is up (before Stop); what it gives back is returned with the result.
+    fn run(&self, who: Who, act: Option<Act>) -> (i32, String, Value) {
         let child = self.runner(who).spawn().unwrap();
         let started = self.root.join("run/renderer-started");
+        let mut acted = Value::Null;
+        if let Some(act) = act
+            && wait_for(&started, Duration::from_secs(20))
+        {
+            acted = act(self, who);
+        }
         match self.case {
-            "stop" | "recovery-stuck" => {
+            "stop" | "recovery-stuck" | "hold" => {
                 if wait_for(&started, Duration::from_secs(20)) {
                     std::thread::sleep(Duration::from_millis(300));
                     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
@@ -285,7 +303,92 @@ impl Session {
         (
             out.status.code().unwrap_or(-1),
             String::from_utf8_lossy(&out.stderr).into_owned(),
+            acted,
         )
+    }
+
+    /// The run's private control socket (`view_controls::socket`).
+    fn control_socket(&self) -> PathBuf {
+        self.root.join("run/xr-workspace-spike/r1/control.sock")
+    }
+
+    /// The run's session (the journal's), once the run has written it.
+    fn session_id(&self) -> String {
+        let end = Instant::now() + Duration::from_secs(10);
+        loop {
+            let text = fs::read_to_string(self.journal_path()).unwrap_or_default();
+            if let Some(s) = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|j| j["session"].as_str().map(str::to_owned))
+            {
+                return s;
+            }
+            assert!(Instant::now() < end, "no session in the journal");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// One op sent to the run as a bound key sends it: through `who`'s own key helper (the Python's
+    /// `xr_control.py`, the Rust's `xr-control`), `args` after the op (`binds_key`'s modmask and keycode, ...). The
+    /// helper's exit status: 0 sent, 1 no run listening.
+    fn control(&self, who: Who, op: &str, args: &[&str]) -> i32 {
+        let mut cmd = match who {
+            Who::Python => {
+                let mut cmd = self.command(Path::new("/usr/bin/python3"));
+                cmd.arg("-I")
+                    .arg(repo().join("tools/native_spike/xr_control.py"));
+                cmd
+            }
+            Who::Rust => self.command(Path::new(env!("CARGO_BIN_EXE_xr-control"))),
+        };
+        cmd.arg(self.control_socket())
+            .args(["r1", &self.session_id(), op])
+            .args(args);
+        let out = wait_bounded(cmd.spawn().unwrap(), Duration::from_secs(10));
+        out.status.code().unwrap_or(-1)
+    }
+
+    /// The panel's `status` on the run's control socket, as the controller asks it (`xr_wire::run_control`): the
+    /// reply (checked to answer the request), its request id taken out (a clock reading) and its session named
+    /// `SESSION` (as [`Normal`] names it). Tried for up to `limit` while nothing answers.
+    fn status(&self, limit: Duration) -> Option<Value> {
+        use std::io::{Read, Write};
+        let session = self.session_id();
+        let end = Instant::now() + limit;
+        loop {
+            let id = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64;
+            let frame = xr_wire::run_control::Frame {
+                request_id: id,
+                run_id: "r1".into(),
+                session: session.clone(),
+                op: "status".into(),
+                payload: xr_wire::json::Value::Object(Vec::new()),
+            };
+            let reply =
+                std::os::unix::net::UnixStream::connect(self.control_socket()).and_then(|mut c| {
+                    c.set_read_timeout(Some(Duration::from_secs(2)))?;
+                    c.write_all(frame.encode(true).as_bytes())?;
+                    let mut got = String::new();
+                    c.read_to_string(&mut got)?;
+                    Ok(got)
+                });
+            if let Ok(text) = reply
+                && let Ok(reply) = xr_wire::run_control::StatusReply::decode(text.as_bytes())
+            {
+                assert!(reply.answers(&frame), "{text}");
+                let mut v: Value = serde_json::from_str(&text).unwrap();
+                v.as_object_mut().unwrap().remove("request_id");
+                v["session"] = json!("SESSION");
+                return Some(v);
+            }
+            if Instant::now() >= end {
+                return None;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     fn recover(&self) -> (i32, String) {
@@ -380,6 +483,10 @@ impl Normal {
     }
 }
 
+/// What a case does once the renderer is up (`Session::run`), on either run: send ops (`Session::control`), ask the
+/// status (`Session::status`), change the world. What it gives back is compared between the two runs by the case.
+type Act = fn(&Session, Who) -> Value;
+
 /// What one run left, normalized.
 #[derive(Debug, PartialEq)]
 struct Observed {
@@ -389,6 +496,8 @@ struct Observed {
     result: Value,
     renderers: Vec<String>,
     marks: Vec<String>,
+    /// Every frame the renderers got after their start frame (`renderer.py`): `<launch> <frame> <descriptors>`.
+    frames: Vec<String>,
     /// The `Start`'s files as the run left them.
     files: Vec<Option<String>>,
 }
@@ -413,6 +522,12 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
         .filter(|e| e["pid"].as_i64() == main && e.get("request").is_some())
         .map(|e| n.text(e["request"].as_str().unwrap()))
         .collect();
+    let mut trace = trace;
+    if s.case == "hold" {
+        // A hold polls the glasses' output every survive.POLL_S until they have been back survive.SETTLE_S: how many
+        // reads that takes is the clock's. One read stands for a run of them.
+        trace.dedup_by(|a, b| a == b && a.starts_with("j/monitors"));
+    }
     let others: Vec<Value> = wire
         .iter()
         .filter(|e| e["pid"].as_i64() != main)
@@ -449,6 +564,13 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
             fault["traceback"] = json!(message);
         }
     }
+    if let Some(holds) = result.get_mut("usb_holds").and_then(Value::as_array_mut) {
+        // How long a hold lasted is the clock's (survive.Holds.finish): that it lasted is compared.
+        for hold in holds {
+            let seconds = hold["seconds"].as_f64().unwrap_or(-1.0);
+            hold["seconds"] = json!(seconds > 0.0);
+        }
+    }
     let result: Value = serde_json::from_str(&n.text(&result.to_string())).unwrap();
     let renderers = fs::read_to_string(s.root.join("run/renderer.jsonl"))
         .unwrap_or_default()
@@ -461,6 +583,15 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
                 out.push(if fd { "FD".to_owned() } else { n.text(a) });
             }
             out.join(" ")
+        })
+        .collect();
+    let frames = fs::read_to_string(s.root.join("run/renderer-frames.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| {
+            let v: Value = serde_json::from_str(l).unwrap();
+            let text = n.text(v["frame"].as_str().unwrap());
+            format!("{} {text} {}", v["launch"], v["fds"])
         })
         .collect();
     let files = s
@@ -476,6 +607,7 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
             result,
             renderers,
             marks,
+            frames,
             files,
         },
         others,
@@ -504,12 +636,27 @@ fn parity(case: &'static str) -> (Observed, Session) {
 
 /// `parity` from `start`.
 fn parity_from(case: &'static str, start: &Start) -> (Observed, Session) {
+    let (run, session, _) = parity_run(case, start, None);
+    (run, session)
+}
+
+/// [`parity`] with `act` on both runs once the renderer is up; what it gave back on each, Python's first.
+fn parity_acting(case: &'static str, act: Option<Act>) -> (Observed, Session, [Value; 2]) {
+    parity_run(case, &Start::default(), act)
+}
+
+/// [`parity_from`] with `act` (as [`parity_acting`]).
+fn parity_run(
+    case: &'static str,
+    start: &Start,
+    act: Option<Act>,
+) -> (Observed, Session, [Value; 2]) {
     let py = Session::start(case, Who::Python, start);
-    let (py_code, py_err) = py.run(Who::Python);
+    let (py_code, py_err, py_acted) = py.run(Who::Python, act);
     let (python, _) = observe(&py);
     drop(py);
     let rs = Session::start(case, Who::Rust, start);
-    let (rs_code, rs_err) = rs.run(Who::Rust);
+    let (rs_code, rs_err, rs_acted) = rs.run(Who::Rust, act);
     let (rust, others) = observe(&rs);
     assert_eq!(
         python.trace,
@@ -527,6 +674,12 @@ fn parity_from(case: &'static str, start: &Start) -> (Observed, Session) {
     );
     assert_eq!(python.marks, rust.marks, "start-up marks: {context}");
     assert_eq!(
+        python.frames,
+        rust.frames,
+        "renderer frames: {}\n{context}",
+        diff(&python.frames, &rust.frames)
+    );
+    assert_eq!(
         python.files, rust.files,
         "the files it started with: {context}"
     );
@@ -543,7 +696,7 @@ fn parity_from(case: &'static str, start: &Start) -> (Observed, Session) {
             "{case}: no guard inspected the outputs: {others:?}"
         );
     }
-    (rust, rs)
+    (rust, rs, [py_acted, rs_acted])
 }
 
 fn journal_states(text: &str) -> Vec<String> {

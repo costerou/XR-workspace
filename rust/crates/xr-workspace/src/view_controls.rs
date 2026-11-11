@@ -116,7 +116,7 @@ impl ViewControls {
             video: None,
         };
         // `store.load()`, then the private control socket (`PrivateServer`).
-        controls.socket = socket::Server::open(run);
+        controls.socket = socket::Server::open(run)?;
         // bind_args, the session mode, after_reload / menu_binds / typing_binds.
         controls.binds = binds::Binds::open(run, controls.socket.as_ref());
         // The placements the last session left (`_restored`, `_initial_placements`), then `ViewControl`.
@@ -259,8 +259,9 @@ impl ViewControls {
 
     /// `supervisor.serve_without_renderer`: a hold's wait. The panel still gets its status; a view op is dropped.
     pub fn serve_without_renderer(&mut self, seconds: Duration) {
+        let view = self.view.as_ref();
         match self.socket.as_mut() {
-            Some(socket) => socket.serve_without_renderer(self.view.as_mut(), seconds),
+            Some(socket) => socket.serve_without_renderer(seconds, || status_reply(view, true)),
             None => std::thread::sleep(seconds),
         }
     }
@@ -274,6 +275,12 @@ impl ViewControls {
     pub fn depth_fd(&self) -> Option<std::os::fd::BorrowedFd<'_>> {
         self.immersive.as_ref().and_then(|i| i.depth_fd())
     }
+}
+
+/// A `status` answer's body: the view's (`control.status_reply(status)`); `held`: during a hold, which has no
+/// measured status (`serve_without_renderer`'s `{}`). Without a view, the four header keys alone.
+fn status_reply(view: Option<&view::ViewControl>, held: bool) -> socket::Body {
+    view.map(|v| v.status_reply(held)).unwrap_or_default()
 }
 
 /// The order of [`LoopHook::sources`]: the control socket, then the event stream (the Python's `selector.register`).
@@ -321,10 +328,11 @@ impl LoopHook for ViewControls {
         let socket_first = self.socket.is_some();
         let mut frames = Frames::default();
         let keep = if socket_first && index == SOURCE_SOCKET {
+            let view = self.view.as_ref();
             let request = self
                 .socket
                 .as_mut()
-                .and_then(|s| s.control_request(self.view.as_ref()));
+                .and_then(|s| s.control_request(|| status_reply(view, false)));
             if let Some(message) = request {
                 self.on_message(&message, &mut frames);
             }
