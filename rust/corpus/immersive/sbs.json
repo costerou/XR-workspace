@@ -1,0 +1,3839 @@
+{
+ "modes": [
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": null,
+   "offered": [],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1200@90.00Hz",
+     "1920x1200@60.00Hz",
+     "1920x1080@90.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1200,
+     120.0
+    ],
+    [
+     1920,
+     1200,
+     90.0
+    ],
+    [
+     1920,
+     1200,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     90.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": 90,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 90
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": 90.0,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1200@90.00Hz",
+     "3840x1200@60.00Hz",
+     "3840x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1200,
+     90.0
+    ],
+    [
+     3840,
+     1200,
+     60.0
+    ],
+    [
+     3840,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": 60.0,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": 90.0,
+    "is_wide": true,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1200@90.00Hz",
+     "3840x1200@60.00Hz",
+     "3840x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 90.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 3840,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1200,
+     90.0
+    ],
+    [
+     3840,
+     1200,
+     60.0
+    ],
+    [
+     3840,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": 60.0,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": 60.0,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1200@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1200,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1200@120.00Hz",
+     "3840x1200@30.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1200,
+     120.0
+    ],
+    [
+     3840,
+     1200,
+     30.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": 60.0,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": 90.0,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": [
+     "garbage",
+     3,
+     null,
+     "3840x1200@90.00Hz",
+     "1920x1200@120.00Hz extra",
+     "3840x1200@90Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1200,
+     90.0
+    ],
+    [
+     3840,
+     1200,
+     90.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 119.6
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1200@90.00Hz",
+     "1920x1200@60.00Hz",
+     "1920x1080@90.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 119.6,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1200,
+     120.0
+    ],
+    [
+     1920,
+     1200,
+     90.0
+    ],
+    [
+     1920,
+     1200,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     90.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": 90,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 90
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1200@90.00Hz",
+     "1920x1200@60.00Hz",
+     "1920x1080@90.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 90.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1200,
+     120.0
+    ],
+    [
+     1920,
+     1200,
+     90.0
+    ],
+    [
+     1920,
+     1200,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     90.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": 90,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 90
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@60.00Hz",
+     "1920x1200@120.00Hz",
+     "1920x1200@90.00Hz",
+     "1920x1200@60.00Hz",
+     "1920x1080@90.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 60.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1200,
+     120.0
+    ],
+    [
+     1920,
+     1200,
+     90.0
+    ],
+    [
+     1920,
+     1200,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     90.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 60.0
+   },
+   "pro2_2d_rate": {
+    "144.0": 60.0,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 60.0
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@120.00Hz",
+     "1920x1080@90.00Hz",
+     "1920x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     120.0
+    ],
+    [
+     1920,
+     1080,
+     90.0
+    ],
+    [
+     1920,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "pro2_2d_rate": {
+    "144.0": 120.0,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 120.0
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1080@60.00Hz",
+     "1920x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": 60.0,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "3840x1080@60.00Hz",
+     "1920x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 60.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 3840,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     3840,
+     1080,
+     60.0
+    ],
+    [
+     1920,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": 60.0,
+    "is_wide": true,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@90.00Hz",
+     "1920x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 90.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     90.0
+    ],
+    [
+     1920,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 90.0
+   },
+   "pro2_2d_rate": {
+    "144.0": 90.0,
+    "60.0": 60.0,
+    "90.0": 90.0,
+    "None": 90.0
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "monitor": {
+    "availableModes": [
+     "1920x1080@60.00Hz"
+    ],
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1080,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 144.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [
+    [
+     1920,
+     1080,
+     60.0
+    ]
+   ],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": 60,
+    "60.0": 60.0,
+    "90.0": 60,
+    "None": 60
+   }
+  },
+  {
+   "luma-ultra": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": 120.0
+   },
+   "monitor": {
+    "availableModes": null,
+    "disabled": false,
+    "dpmsStatus": true,
+    "height": 1200,
+    "id": 1,
+    "mirrorOf": "none",
+    "name": "DP-2",
+    "refreshRate": 120.0,
+    "scale": 1.25,
+    "transform": 0,
+    "width": 1920,
+    "x": -3000,
+    "y": 9000
+   },
+   "offered": [],
+   "other": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2": {
+    "best_wide": null,
+    "is_wide": false,
+    "narrow_rate": null
+   },
+   "pro2_2d_rate": {
+    "144.0": null,
+    "60.0": null,
+    "90.0": null,
+    "None": null
+   }
+  }
+ ],
+ "scenarios": [
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 2.0,
+   "enter_wait": 2,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.no_press",
+   "results": [
+    {
+     "error": "the glasses never offered 3840x1200: was R1 held?"
+    },
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.5,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.follows_the_press",
+   "results": [
+    true,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 1.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.output_away_a_while",
+   "results": [
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    null,
+    null,
+    null,
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 1.0,
+   "enter_wait": 1,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.broken_replies",
+   "results": [
+    {
+     "error": "the glasses never offered 3840x1200: was R1 held?"
+    }
+   ],
+   "script": [
+    "error"
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.already_offered",
+   "results": [
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.already_driven",
+   "results": [
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.driven_wide_at_60",
+   "results": [
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.75,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.cancelled",
+   "results": [
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     3
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 2.0,
+   "enter_wait": 2,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.only_the_wrong_mode",
+   "results": [
+    {
+     "error": "they offered only 3840x1080, and 3D here needs 3840x1200"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 2.0,
+   "enter_wait": 2,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.wrong_then_away",
+   "results": [
+    {
+     "error": "they offered only 3840x1080, and 3D here needs 3840x1200"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    null
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "apply_wide_mode": "not observed"
+   },
+   "model": "luma-ultra",
+   "name": "enter.mode_will_not_take",
+   "results": [
+    {
+     "error": "not observed"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "apply_wide_mode": ""
+   },
+   "model": "luma-ultra",
+   "name": "enter.mode_error_without_text",
+   "results": [
+    {
+     "error": "ValueError"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "park_presentation": "no place"
+   },
+   "model": "luma-ultra",
+   "name": "enter.park_refused",
+   "results": [
+    {
+     "error": "no place"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 21.25,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.expect_window",
+   "results": [
+    false,
+    true,
+    true,
+    null,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "switching"
+    ],
+    [
+     "enter",
+     null
+    ],
+    [
+     "switching"
+    ],
+    [
+     "advance",
+     21.0
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     90.0,
+     "luma-ultra"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.25,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "enter.narrow_rate_kept",
+   "results": [
+    true,
+    null,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ],
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to switch them to 3D.",
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.asks_once",
+   "results": [
+    null,
+    null,
+    true,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "leave"
+    ],
+    [
+     "parked"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.nothing_to_leave",
+   "results": [
+    null,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.offered_not_driven",
+   "results": [
+    null,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.output_away",
+   "results": [
+    null,
+    false
+   ],
+   "script": [
+    null
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_session_mode",
+     "DP-2"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 45.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.120_comes_back",
+   "results": [
+    null,
+    false,
+    true,
+    false,
+    true,
+    null,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ],
+    [
+     "switching"
+    ],
+    [
+     "advance",
+     45.0
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_session_mode",
+     "DP-2"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.park_order",
+   "results": [
+    null,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_session_mode",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "apply_session_mode": "no"
+   },
+   "model": "luma-ultra",
+   "name": "leave.session_mode_refused",
+   "results": [
+    null,
+    true,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.output_away_on_settle",
+   "results": [
+    null,
+    false,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    null
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.enter_again_before_the_press",
+   "results": [
+    null,
+    true,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "enter",
+     null
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 46.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "leave.parked_window_ends",
+   "results": [
+    null,
+    null,
+    false,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "advance",
+     46.0
+    ],
+    [
+     "switching"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "left_by_hand.2d",
+   "results": [
+    true,
+    true,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ],
+    [
+     "parked"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "left_by_hand.wide",
+   "results": [
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "left_by_hand.away",
+   "results": [
+    false
+   ],
+   "script": [
+    null
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "left_by_hand.2d_at_90",
+   "results": [
+    true,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 21.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "follow.hand_wide",
+   "results": [
+    null,
+    false,
+    null,
+    true,
+    null,
+    null,
+    null,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ],
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ],
+    [
+     "follow_by_hand"
+    ],
+    [
+     "advance",
+     21.0
+    ],
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "The glasses are in 3D. Click 3D to enable desktop depth."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "follow.away",
+   "results": [
+    null,
+    false
+   ],
+   "script": [
+    null
+   ],
+   "steps": [
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "follow.neither",
+   "results": [
+    null,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1200@90.00Hz",
+      "1920x1200@60.00Hz",
+      "1920x1080@90.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "follow.while_switching",
+   "results": [
+    null,
+    null
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "follow_by_hand"
+    ]
+   ],
+   "told": [
+    "Hold R1 on the glasses to go back to 2D and 120 Hz."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "luma-ultra",
+   "name": "follow.then_enter",
+   "results": [
+    null,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "3840x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1200,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "follow_by_hand"
+    ],
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "The glasses are in 3D. Click 3D to enable desktop depth."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     60.0,
+     "pro2"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.25,
+   "enter_wait": 2,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.enter",
+   "results": [
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 1.0,
+   "enter_wait": 1,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.no_press",
+   "results": [
+    {
+     "error": "the glasses never offered 3840x1080: was L1 held?"
+    }
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to switch them to 3D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_wide_mode",
+     "DP-2",
+     60.0,
+     "pro2"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_pro2_mode",
+     "DP-2",
+     120.0
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.25,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.leave_and_settle",
+   "results": [
+    true,
+    null,
+    false,
+    true,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "enter",
+     null
+    ],
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to switch them to 3D.",
+    "Hold L1 on the glasses to go back to 2D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.settle_already_driven",
+   "results": [
+    null,
+    true,
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 90.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to go back to 2D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "apply_pro2_mode",
+     "DP-2",
+     120
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "apply_pro2_mode": "not observed"
+   },
+   "model": "pro2",
+   "name": "pro2.settle_rule_refused",
+   "results": [
+    null,
+    false,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to go back to 2D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ],
+    [
+     "park_presentation",
+     "DP-2"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {
+    "park_presentation": "no place"
+   },
+   "model": "pro2",
+   "name": "pro2.settle_park_refused",
+   "results": [
+    null,
+    {
+     "error": "no place"
+    },
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "leave"
+    ],
+    [
+     "settle"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": [
+    "Hold L1 on the glasses to go back to 2D."
+   ]
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.left_by_hand",
+   "results": [
+    true,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ],
+    [
+     "parked"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.left_by_hand_still_wide",
+   "results": [
+    false
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "left_by_hand"
+    ]
+   ],
+   "told": []
+  },
+  {
+   "calls": [
+    [
+     "query"
+    ],
+    [
+     "query"
+    ]
+   ],
+   "clock": 0.0,
+   "enter_wait": 45,
+   "fail": {},
+   "model": "pro2",
+   "name": "pro2.follow",
+   "results": [
+    null,
+    null,
+    true
+   ],
+   "script": [
+    {
+     "availableModes": [
+      "1920x1080@120.00Hz",
+      "1920x1080@90.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 120.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 1920,
+     "x": -3000,
+     "y": 9000
+    },
+    {
+     "availableModes": [
+      "3840x1080@60.00Hz",
+      "1920x1080@60.00Hz"
+     ],
+     "disabled": false,
+     "dpmsStatus": true,
+     "height": 1080,
+     "id": 1,
+     "mirrorOf": "none",
+     "name": "DP-2",
+     "refreshRate": 60.0,
+     "scale": 1.25,
+     "transform": 0,
+     "width": 3840,
+     "x": -3000,
+     "y": 9000
+    }
+   ],
+   "steps": [
+    [
+     "follow_by_hand"
+    ],
+    [
+     "follow_by_hand"
+    ],
+    [
+     "switching"
+    ]
+   ],
+   "told": [
+    "The glasses are in 3D. Click 3D to enable desktop depth."
+   ]
+  }
+ ]
+}
