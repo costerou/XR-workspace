@@ -115,6 +115,8 @@ struct Feedback {
     ticket: u64,
     selected_output: bool,
     other_output: bool,
+    /// The device time of the pose the frame drew; -1: none (tracking's VsyncMeter).
+    sample_ms: f32,
 }
 
 /// One XRGB8888 shared-memory buffer. Its pixels are written only while the compositor does not hold it.
@@ -243,6 +245,7 @@ impl State {
             *f = None; // the proxy is dropped; its late events find no slot
         }
         self.metrics.abandon();
+        self.features.tracking.abandon();
     }
 }
 
@@ -341,6 +344,7 @@ impl Dispatch<WpPresentation, ()> for State {
     ) {
         if let wp_presentation::Event::ClockId { clk_id } = event {
             s.metrics.clock(clk_id);
+            s.features.tracking.clock(clk_id);
         }
     }
 }
@@ -379,7 +383,7 @@ impl Dispatch<WpPresentationFeedback, usize> for State {
                     WEnum::Value(k) => k.bits(),
                     WEnum::Unknown(raw) => raw,
                 };
-                let (ticket, on_selected) = (f.ticket, f.selected_output && !f.other_output);
+                let (ticket, on_selected, sample_ms) = (f.ticket, f.selected_output && !f.other_output, f.sample_ms);
                 s.feedbacks[*slot] = None;
                 let p = Presented {
                     sec_hi: tv_sec_hi,
@@ -391,11 +395,17 @@ impl Dispatch<WpPresentationFeedback, usize> for State {
                     flags,
                 };
                 s.metrics.presented(ticket, p, on_selected);
+                let present_ns = ((u64::from(tv_sec_hi) << 32) | u64::from(tv_sec_lo))
+                    .wrapping_mul(1_000_000_000)
+                    .wrapping_add(u64::from(tv_nsec));
+                let refresh = s.metrics.snapshot().last_refresh_prediction_ns;
+                s.features.tracking.presented(ticket, present_ns, refresh, sample_ms);
             }
             wp_presentation_feedback::Event::Discarded => {
                 let ticket = f.ticket;
                 s.feedbacks[*slot] = None;
                 s.metrics.discarded(ticket);
+                s.features.tracking.discarded(ticket);
             }
             _ => {}
         }
@@ -729,14 +739,22 @@ impl Presentation {
                 .submit()
                 .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
             let proxy = presentation.feedback(surface, &self.qh, slot);
+            // A GPU frame's pose read time, for the software latency (tracking.rs).
+            let mut sample_ms = -1.0;
+            if let Some((read_ns, drawn_ms)) = s.features.tracking.take_read() {
+                s.features.tracking.read(ticket, read_ns);
+                sample_ms = drawn_ms;
+            }
             s.feedbacks[slot] = Some(Feedback {
                 proxy,
                 ticket,
                 selected_output: false,
                 other_output: false,
+                sample_ms,
             });
         } else {
             s.metrics.submit();
+            s.features.tracking.take_read(); // no feedback: no latency sample
         }
         surface.commit();
         match self.conn.flush() {

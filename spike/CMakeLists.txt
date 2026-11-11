@@ -772,6 +772,22 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
           PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
+      # rust: tracking
+      add_test(NAME capture_e2e_rust_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
+        --tracking --renderer "${XR_RUST_RENDERER}")
+      # capture_e2e_rust_bad_control waits for menus: its good frame after the bad ones opens the placement panel.
+      add_test(NAME capture_e2e_rust_bad_control_fatal COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --bad-control --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_control_closed COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --close-control --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_tracked capture_e2e_rust_bad_control_fatal
+        capture_e2e_rust_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      add_test(NAME capture_e2e_rust_feed_drop COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 25 --warmup 1
+        --feed-drop 20 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_feed_drop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90)
+      add_test(NAME capture_e2e_rust_feed_gone_video_loss COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 8
+        --warmup 1 --video-loss 5 --feed-drop 1000 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_feed_gone_video_loss PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
