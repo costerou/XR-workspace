@@ -132,8 +132,11 @@ Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket ha
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
 on any refusal except a malformed display-only payload, refused frames are logged redacted to
 their protocol words, and the `SCM_RIGHTS` descriptors a `video` open brings are kept (at most two,
-close-on-exec) and handed to its open. Only `stop` acts so far; the other ops are logged once and
-a video file is closed unread until the player is wired in. `control_wire_check` is the Rust twin
+close-on-exec) and handed to its open. `stop`, `view` (overview and maximize, through
+`ViewAnimator`; `ModeController` is not ported yet, so focus aim, prediction and stabilization are
+ignored) and `environment` (the grid and smoke backgrounds, faded as in C++) act; the other ops are
+logged once and a video file is closed unread until the player is wired in. While a desktop is
+maximized the status socket carries the `maximize_geometry` line. `control_wire_check` is the Rust twin
 of `spike/tests/control_wire_check.cpp`; the control suites run against it with
 
     cargo build -p xr-renderer --bins
@@ -174,6 +177,11 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
   dmabuf`); `gl-dmabuf` imports dmabuf captures (`gles2-dmabuf-import`). Both GL modes present
   through a three-buffer GBM swapchain wrapped as zwp_linux_dmabuf_v1 buffers (no wayland-egl).
   Each output's `fallback` in the exit `managed_output_capture` line is the C++ reason string.
+- `capture_e2e_rust_maximize_{1,2,3,4}_gl-dmabuf`, `capture_e2e_rust_maximize_4_gl-shm` and
+  `capture_e2e_rust_environment[_smoke]_{gl-shm,gl-dmabuf}`: the maximize and background modes,
+  with the C++ tests' arguments. `tests/environment_render.rs` is the Rust twin of
+  `environment_render_test.cpp` (all but the VR video sphere, which needs the scene path; the
+  level-bar part needs a C++ handle atlas through `XR_GL_CARDS`, as `glass_render.rs` does).
 - `capture_e2e_rust_malloc_{pattern,cpu,gl-shm,gl-dmabuf}`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
