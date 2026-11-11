@@ -71,17 +71,24 @@ impl Tree {
 
     /// Processes started from this tree.
     fn running(&self) -> Vec<i32> {
-        let mine = self.root.as_os_str().as_encoded_bytes();
         let mut found = Vec::new();
         for entry in fs::read_dir("/proc").unwrap().flatten() {
             let Some(pid) = entry.file_name().to_str().and_then(|n| n.parse::<i32>().ok()) else { continue };
-            let Ok(cmd) = fs::read(entry.path().join("cmdline")) else { continue };
-            let zombie = fs::read_to_string(entry.path().join("stat")).is_ok_and(|s| s.rsplit_once(") ").is_some_and(|(_, r)| r.starts_with('Z')));
-            if !zombie && cmd.split(|&b| b == 0).any(|a| a.starts_with(mine)) {
+            if self.started(pid) {
                 found.push(pid);
             }
         }
         found
+    }
+
+    /// Whether `pid` is live and has an argument that is the root or a path under it. A bare
+    /// prefix would also match a sibling run's `-{pid}N` root, and Drop would SIGKILL its drivers.
+    fn started(&self, pid: i32) -> bool {
+        let mine = self.root.as_os_str().as_encoded_bytes();
+        let inside = |a: &[u8]| a.strip_prefix(mine).is_some_and(|rest| rest.is_empty() || rest[0] == b'/');
+        let Ok(cmd) = fs::read(format!("/proc/{pid}/cmdline")) else { return false };
+        let zombie = fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|s| s.rsplit_once(") ").is_some_and(|(_, r)| r.starts_with('Z')));
+        !zombie && cmd.split(|&b| b == 0).any(inside)
     }
 }
 
@@ -91,7 +98,12 @@ impl Drop for Tree {
         let _ = self.tracking.stop();
         let left = self.running();
         for &pid in &left {
-            unsafe { libc::kill(pid, libc::SIGKILL) };
+            // Signal through a pidfd checked again after it is open: a listed driver that exited
+            // since may have handed its pid to another run's process.
+            let Some(fd) = rustix::process::Pid::from_raw(pid).and_then(|p| rustix::process::pidfd_open(p, rustix::process::PidfdFlags::empty()).ok()) else { continue };
+            if self.started(pid) {
+                let _ = rustix::process::pidfd_send_signal(&fd, rustix::process::Signal::KILL);
+            }
         }
         let _ = fs::remove_dir_all(&self.root);
         if !std::thread::panicking() {
