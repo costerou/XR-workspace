@@ -117,10 +117,14 @@ enum Who {
 }
 
 /// What a case starts from besides its compositor script: the consent's desktops, and files (relative to the
-/// session's folder) written before the run. `parity` compares each file as the run left it.
+/// session's folder) written before the run. `parity` compares each file as the run left it. `beside_renderer`:
+/// executables written next to the pinned renderer (a fake `xr-depth-engine`), not compared. `consent`: keys put
+/// into the consent over the defaults (`mode_switch`, `sbs_mode`).
 struct Start {
     desktops: Value,
     files: Vec<(&'static str, String)>,
+    beside_renderer: Vec<(&'static str, String)>,
+    consent: Value,
 }
 
 impl Default for Start {
@@ -129,6 +133,8 @@ impl Default for Start {
         Start {
             desktops: json!([desktop, desktop]),
             files: Vec::new(),
+            beside_renderer: Vec::new(),
+            consent: json!({}),
         }
     }
 }
@@ -180,6 +186,9 @@ impl Session {
         fs::write(bin.join("libxr-ownership.so"), plugin_body).unwrap();
         let renderer = fs::read_to_string(here().join("renderer.py")).unwrap();
         write_script(&bin.join("xr-native-spike"), &renderer);
+        for (file, body) in &start.beside_renderer {
+            write_script(&bin.join(file), body);
+        }
         let pin =
             |file: &str, body: &[u8]| json!({"path": bin.join(file), "sha256": sha_hex(body)});
         let pins = json!({"plugin": pin("libxr-ownership.so", plugin_body),
@@ -194,12 +203,15 @@ impl Session {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, body).unwrap();
         }
-        let consent = json!({
+        let mut consent = json!({
             "schema": 1, "gate": "P2-panel", "run_id": "r1", "instance": INSTANCE, "output": "DP-2",
             "recovery_output": "DP-1", "model": "luma-ultra", "allow": ["headless-outputs", "capture-managed-outputs"],
             "capture": "managed-outputs", "tracking": false, "mode_switch": false, "plugin": pins["plugin"],
             "renderer": pins["renderer"], "desktops": start.desktops, "input": false, "sdk": false,
         });
+        for (key, value) in start.consent.as_object().unwrap() {
+            consent[key] = value.clone();
+        }
         let consent_path = root.join("consents/r1.json");
         private(&consent_path, consent.to_string().as_bytes());
         let hyprland = root.join("Hyprland");
@@ -285,7 +297,7 @@ impl Session {
             acted = act(self, who);
         }
         match self.case {
-            "stop" | "recovery-stuck" | "hold" => {
+            "stop" | "recovery-stuck" | "hold" | "switch" => {
                 if wait_for(&started, Duration::from_secs(20)) {
                     std::thread::sleep(Duration::from_millis(300));
                     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };

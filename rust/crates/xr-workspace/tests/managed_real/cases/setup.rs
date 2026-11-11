@@ -36,6 +36,7 @@ fn a_saved_setup_the_broker_refused_goes_back_to_the_default_and_the_default_sta
     let start = Start {
         desktops: four(),
         files: vec![(PROFILES, saved(&four()))],
+        ..Start::default()
     };
     let (run, _) = parity_from("create-fail", &start);
     assert_eq!(
@@ -68,6 +69,7 @@ fn a_saved_setup_the_broker_refused_goes_back_to_the_default_and_the_default_sta
     let start = Start {
         desktops: three.clone(),
         files: vec![(PROFILES, saved(&three))],
+        ..Start::default()
     };
     let (run, _) = parity_from("create-fail", &start);
     assert_eq!(run.files[0].as_deref(), Some(saved(&three).as_str()));
