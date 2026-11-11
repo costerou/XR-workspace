@@ -12,6 +12,7 @@ use xr_wire::json;
 use super::{CallError, SamplerClient};
 use crate::hyprland::{self, Lane, Query};
 use crate::lua::BindCommand;
+use crate::py::to_serde;
 use crate::supervisor::columns::ColumnsClient;
 use crate::supervisor::overview_cursor::CursorClient;
 
@@ -61,19 +62,6 @@ fn command(bind_args: &[String]) -> Result<BindCommand<'_>, CallError> {
             session,
         }),
         _ => Err(CallError::Failed),
-    }
-}
-
-/// A strict reply as serde_json holds it (the layout code reads serde_json).
-fn to_serde(v: &json::Value) -> serde_json::Value {
-    use serde_json::Value as S;
-    match v {
-        json::Value::Null => S::Null,
-        json::Value::Bool(b) => S::Bool(*b),
-        json::Value::Number(n) => S::Number(n.clone()),
-        json::Value::String(s) => S::String(s.clone()),
-        json::Value::Array(a) => S::Array(a.iter().map(to_serde).collect()),
-        json::Value::Object(o) => S::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
     }
 }
 

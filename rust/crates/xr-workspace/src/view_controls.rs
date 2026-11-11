@@ -122,10 +122,13 @@ impl ViewControls {
         // The placements the last session left (`_restored`, `_initial_placements`), then `ViewControl`.
         controls.view = view::ViewControl::open(run);
         // The overview free pointer and its sampler (`UnifiedPointer`, `UnifiedSampler`).
-        controls.pointer =
-            overview_pointer::Pointer::open(run, controls.view.as_mut(), cursor_shape);
-        // `WindowSender` (Ctrl+Alt+G, 1-4, B).
+        let bind_args = controls.binds.as_ref().map(binds::Binds::bind_args);
+        controls.pointer = overview_pointer::Pointer::open(run, bind_args, cursor_shape);
+        // `WindowSender` (Ctrl+Alt+G, 1-4, B), which the pointer's window drags reach as `control.sender`.
         controls.send = send::Sender::open(run);
+        if let Some(pointer) = controls.pointer.as_mut() {
+            pointer.attach_sender(controls.send.as_mut().and_then(send::Sender::worker).map(|w| &*w));
+        }
         // `PrivacyDisplay` (Ctrl+Alt+D).
         controls.privacy = privacy::Privacy::open(run);
         // The pills' `DesktopManager`, given to the view.

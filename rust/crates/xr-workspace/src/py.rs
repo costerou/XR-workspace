@@ -8,6 +8,20 @@
 use serde_json::Value;
 use std::cmp::Ordering;
 
+/// A strict reply (`xr_wire::json`, as the compositor and the broker clients parse it) as serde_json holds it, for the
+/// readers here that take serde_json.
+pub(crate) fn to_serde(v: &xr_wire::json::Value) -> Value {
+    use xr_wire::json::Value as W;
+    match v {
+        W::Null => Value::Null,
+        W::Bool(b) => Value::Bool(*b),
+        W::Number(n) => Value::Number(n.clone()),
+        W::String(s) => Value::String(s.clone()),
+        W::Array(a) => Value::Array(a.iter().map(to_serde).collect()),
+        W::Object(o) => Value::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
+    }
+}
+
 /// `type(v) is int`: an integer JSON number, never a bool or a float.
 pub(crate) fn int(v: Option<&Value>) -> Option<i64> {
     match v {

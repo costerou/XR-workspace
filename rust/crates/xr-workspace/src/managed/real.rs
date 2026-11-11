@@ -34,6 +34,7 @@ use crate::journal::{Journal, ManagedOwner};
 use crate::monitor_rules;
 use crate::ownership::{self, Broker, BrokerRecovery};
 use crate::private_file::read_private_json;
+use crate::py::to_serde;
 use crate::recovery;
 use crate::restore::{self, Snapshot};
 use crate::runner::PanelConsent;
@@ -75,17 +76,6 @@ pub fn catch_interrupt() {
 
 fn err(e: impl std::fmt::Display) -> Error {
     Error(e.to_string())
-}
-
-fn to_serde(v: &Value) -> Json {
-    match v {
-        Value::Null => Json::Null,
-        Value::Bool(b) => Json::Bool(*b),
-        Value::Number(n) => Json::Number(n.clone()),
-        Value::String(s) => Json::String(s.clone()),
-        Value::Array(a) => Json::Array(a.iter().map(to_serde).collect()),
-        Value::Object(o) => Json::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
-    }
 }
 
 fn wire_spec(spec: &OutputSpec) -> Json {
