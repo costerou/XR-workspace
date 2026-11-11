@@ -933,6 +933,7 @@ impl Presentation {
         let mut scene = Scene::new(now, (width, height), (half_w, half_h), tiles);
         scene.overview = view.zoom() < 0.01 && !view.switching();
         scene.zoom = view.zoom();
+        scene.switching = view.switching();
         scene.focus = view.focus() as usize;
         scene.sizes.clone_from(&sizes);
         features.contribute(&mut scene);
