@@ -1,0 +1,7 @@
+{}
+{}
+{"vsync_error_ms":0.460858}
+{"vsync_error_ms":0.476935,"sensor_to_vsync_ms":12.250000}
+{"vsync_error_ms":0.476935,"sensor_to_vsync_ms":-3.500000}
+{"vsync_error_ms":0.460858}
+{"vsync_error_ms":0.000000,"sensor_to_vsync_ms":30.000000}

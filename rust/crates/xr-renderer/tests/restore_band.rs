@@ -134,3 +134,24 @@ fn real_sizes_in_the_16_10_view() {
         assert_eq!(options_step_scale(&tiles[0]), want, "{w}x{h}");
     }
 }
+
+/// The `restore_band_wire` ctest's twin: `restore_band_dump --dump` read by the Python supervisor
+/// (spike/tests/restore_band_wire_test.py), each of the 216 shapes rested on, pointed into the band and Restored.
+#[test]
+fn the_dump_restores_through_the_python_supervisor() {
+    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../..");
+    let out = std::process::Command::new("/usr/bin/python3")
+        .arg(format!("{root}/spike/tests/restore_band_wire_test.py"))
+        .arg(env!("CARGO_BIN_EXE_restore_band_dump"))
+        .current_dir(root)
+        .output()
+        .expect("run /usr/bin/python3");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{}\n{stdout}{}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(stdout.starts_with("216 native-exported Step-Back Band routes passed"), "{stdout}");
+}

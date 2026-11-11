@@ -124,8 +124,14 @@ struct Options {
     // --d4-gate, with a guard: --check also holds the run to the D4 numbers, read_to_present p50 <= 9 ms and p95 <= 11 ms
     // with no late-latch miss. For a quiet machine; the real gate is a 30-minute run on the glasses (tools.latency_baseline).
     bool d4_gate = false;
+    // --desktops-change (GL modes, 2+ outputs): a third of the way into the measured window the supervisor's `desktops`
+    // frame drops XR-2, as a pill's Remove does, and two thirds in a second one brings it back (Add). --check: once each
+    // change has settled, XR-2 has no capture session while it is out and one again once it is back, the desktops that
+    // stayed keep their first session, and every frame's tiles show exactly the listed desktops' captures, in order.
+    bool desktops_change = false;
 };
 constexpr double kChurnMs = 150;
+constexpr double kDesktopsSettleMs = 700;  // --desktops-change: past the new layout's ease and the new capture's first frame
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
 constexpr double kEdgePanLandedMs = 2000;  // --edge-pan: the maximize, the hand's frames and the landing (0.74 s at most)
 using Stamps = std::array<std::uint32_t, xr::kMaxDesktops>;  // which capture frame each tile of a buffer shows
@@ -359,6 +365,15 @@ struct Server {
     std::uint64_t readback_failures = 0;
     std::uint64_t blank_frames = 0, churn_events = 0, constraint_failures = 0;  // blank: a tile that had shown a frame shows none
     std::int32_t buffer_w = 0, buffer_h = 0, dest_w = -1, dest_h = -1;  // the last committed buffer; the viewport destination
+    // --desktops-change: the phase (0 all, 1 without XR-2, 2 all again; -1 not started), when it has settled, the outputs
+    // (0-based XR-n) its tiles must show in order, the frames that did and did not, sessions made per output (outputs[]
+    // index), and loop passes after settling that found XR-2's session there while it was out or missing once it was back.
+    int desktops_phase = -1;
+    std::int64_t desktops_settled_ns = 0;
+    std::vector<int> desktops_want;
+    std::array<std::uint64_t, 3> desktops_frames{}, desktops_wrong{};
+    std::array<std::uint64_t, 1 + xr::kMaxDesktops> session_creates{};
+    std::uint64_t removed_session_ticks = 0, missing_session_ticks = 0;
 
     StampInfo* lookup(std::uint32_t stamp) {
         auto& s = stamps[stamp & 0xffff];
@@ -402,11 +417,20 @@ struct Server {
         return true;
     }
     void account_shown(const Stamps& got, std::int64_t at_ns, Dist& dist, bool count_shown) {
+        const bool unsettled = desktops_phase >= 0 && at_ns < desktops_settled_ns;  // the tiles are changing under the reads
         for (std::size_t i = 0; i < tiles.size() && i < got.size(); ++i) {
-            if (!got[i] && last_shown[i] && count_shown && measuring) ++blank_frames;
+            if (!got[i] && last_shown[i] && count_shown && measuring && !unsettled) ++blank_frames;
             if (!got[i] || got[i] == last_shown[i]) continue;
             if (const auto* info = lookup(got[i]); info && measuring) dist.add(double(at_ns - info->ready_ns) / 1e6);
             if (count_shown) { last_shown[i] = got[i]; if (measuring) ++shown_frames[i]; }
+        }
+        if (count_shown && measuring && desktops_phase >= 0 && !unsettled) {
+            bool ok = tiles.size() == desktops_want.size();
+            for (std::size_t i = 0; ok && i < tiles.size() && i < got.size(); ++i) {
+                const auto* info = lookup(got[i]);
+                ok = info && info->output == desktops_want[i];
+            }
+            ++(ok ? desktops_frames : desktops_wrong)[std::size_t(desktops_phase)];
         }
         if (count_shown && measuring && maximized_ns && at_ns >= maximized_ns) {
             const auto* info = lookup(got[0]);
@@ -632,6 +656,7 @@ void manager_create_session(wl_client* client, wl_resource* r, std::uint32_t id,
     auto* s = new CapSession(); s->res = res; s->output = int(reinterpret_cast<std::intptr_t>(wl_resource_get_user_data(source)));
     wl_resource_set_implementation(res, &session_impl, s, session_destroyed);
     g->sessions.push_back(s);
+    if (s->output >= 0 && std::size_t(s->output) < g->session_creates.size()) ++g->session_creates[std::size_t(s->output)];
     send_constraints(s, s->w, s->h);
 }
 void send_constraints(CapSession* s, std::uint32_t w, std::uint32_t h) {
@@ -906,7 +931,8 @@ void usage() {
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
                          "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--options-roundtrip] [--restore-band] [--close-control] [--control-errors fatal|log]\n"
-                         "                  [--present-lag 0..3] [--late-latch-guard-ms G (with --tracking)] [--d4-gate]\n");
+                         "                  [--present-lag 0..3] [--late-latch-guard-ms G (with --tracking)] [--d4-gate]\n"
+                         "                  [--desktops-change]\n");
 }
 }  // namespace
 
@@ -946,6 +972,7 @@ int main(int argc, char** argv) {
         else if (a == "--present-lag") opt.present_lag = std::stoi(next());
         else if (a == "--late-latch-guard-ms") opt.late_latch_guard = next();
         else if (a == "--d4-gate") opt.d4_gate = true;
+        else if (a == "--desktops-change") opt.desktops_change = true;
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -955,6 +982,8 @@ int main(int argc, char** argv) {
     if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > int(xr::kMaxDesktops) || !(opt.hz > 1) || opt.capture_hz < 0 ||
         opt.maximize < 0 || opt.maximize > opt.outputs || (opt.maximize && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
+    if (opt.desktops_change && (opt.outputs < 2 || (opt.mode != "gl-shm" && opt.mode != "gl-dmabuf") || opt.maximize ||
+                                !opt.churn.empty() || opt.immersive || opt.options_roundtrip || opt.seconds < 3)) { usage(); return 2; }
     if(opt.options_roundtrip && (opt.outputs<2 || (opt.mode!="gl-shm"&&opt.mode!="gl-dmabuf") || opt.bad_control || opt.open_panel || opt.maximize || opt.immersive || opt.control_errors!="log")){usage();return 2;}
     // The renderer's animation is at most 60 s and must outlast the measured window.
     const double pattern_ms = (opt.warmup + opt.seconds + 5) * 1000;
@@ -1263,6 +1292,26 @@ int main(int argc, char** argv) {
                 }
             }
         }
+        if (opt.desktops_change && server.measuring && !stop_sent) {
+            const int phase = t >= measure_at + std::int64_t(opt.seconds * 2e9 / 3) ? 2 : t >= measure_at + std::int64_t(opt.seconds * 1e9 / 3) ? 1 : 0;
+            if (phase != server.desktops_phase) {
+                server.desktops_want.clear();
+                std::string names;
+                for (int i = 0; i < opt.outputs; ++i) {
+                    if (phase == 1 && i == 1) continue;
+                    server.desktops_want.push_back(i);
+                    names += std::string(names.empty() ? "" : ",") + "\"XR-" + std::to_string(i + 1) + "\"";
+                }
+                if (phase > 0) send_frame(next_request++, "desktops", "{\"outputs\":[" + names + "]}");
+                server.desktops_phase = phase;
+                server.desktops_settled_ns = phase ? t + std::int64_t(kDesktopsSettleMs * 1e6) : t;
+                server.last_shown = {};  // tile i may be another desktop from here on
+            } else if (t >= server.desktops_settled_ns && phase > 0) {
+                const bool has = std::any_of(server.sessions.begin(), server.sessions.end(), [](const CapSession* c) { return c->output == 2; });
+                if (phase == 1 && has) ++server.removed_session_ticks;
+                if (phase == 2 && !has) ++server.missing_session_ticks;
+            }
+        }
         if (opt.restore_band && server.maximized_ns && !stop_sent) {
             if (band_stage == 0 && t >= server.maximized_ns) { send_frame(next_request++, "restore_band", "{\"open\":true}"); band_stage = 1; }
             else if (band_stage == 1 && t >= server.maximized_ns + 500'000'000) { send_frame(next_request++, "restore_band", "{\"open\":false}"); band_stage = 2; }
@@ -1382,6 +1431,11 @@ int main(int argc, char** argv) {
         if (opt.maximize) { out["maximize"] = opt.maximize; out["centre_frames"] = server.centre_frames; out["centre_none"] = server.centre_none; }
         out["readback_failures"] = server.readback_failures;
         out["blank_frames"] = server.blank_frames;
+        if (opt.desktops_change) {
+            std::vector<std::uint64_t> creates(server.session_creates.begin() + 1, server.session_creates.begin() + 1 + opt.outputs);
+            out["desktops_change"] = {{"frames", server.desktops_frames}, {"wrong_frames", server.desktops_wrong}, {"session_creates", creates},
+                                      {"removed_session_ticks", server.removed_session_ticks}, {"missing_session_ticks", server.missing_session_ticks}};
+        }
         if (!opt.churn.empty()) {
             out["constraint_churn"] = opt.churn; out["churn_events"] = server.churn_events;
             out["constraint_failures"] = server.constraint_failures;
@@ -1602,6 +1656,17 @@ int main(int argc, char** argv) {
             if (server.centre_none) fail("a frame had no desktop's frame in the middle of the view");
         }
         if (opt.open_panel && !out.value("panel_open", false)) fail("the placement panel did not open");
+        if (opt.desktops_change) {  // the captures and the GL sources follow the `desktops` frames
+            if (server.desktops_phase != 2) fail("the desktops were not removed and added back");
+            for (std::size_t p = 0; p < 3; ++p) {
+                if (!server.desktops_frames[p]) fail("a desktops phase never showed its desktops' frames");
+                if (server.desktops_wrong[p]) fail("a frame's tiles were not the listed desktops' captures in order");
+            }
+            if (server.removed_session_ticks) fail("the removed desktop's capture session outlived its removal");
+            if (server.missing_session_ticks) fail("the desktop added back has no capture session");
+            for (int i = 0; i < opt.outputs; ++i)
+                if (server.session_creates[std::size_t(i + 1)] != (i == 1 ? 2u : 1u)) fail("capture sessions were not made once per desktop's time in the list");
+        }
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {
             if (!out.contains("capture_paths")) fail("no capture report");

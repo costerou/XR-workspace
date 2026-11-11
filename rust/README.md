@@ -291,7 +291,9 @@ Where the modules meet, the C++ order is kept:
   anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode view turn. The FOV comes from
   the driver when it publishes one, else from the supervisor's projection, else 46 degrees. A feed that stops holds
   the last pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and
-  keeps presenting. The exit report carries `tracking` and `latency` (software read to present, from the
+  keeps presenting. With the Luma driver's `--read-events`, the status datagram also carries `vsync_error_ms` and
+  `sensor_to_vsync_ms` (the C++ text, compared with `golden/status_vsync.cpp`'s, and read by `xr_wire::status`). The
+  exit report carries `tracking` and `latency` (software read to present, from the
   `wp_presentation` feedback in `shell.rs`).
 - **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
   as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
@@ -333,24 +335,24 @@ Where the modules meet, the C++ order is kept:
 
 ### Gates
 
-Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments against the Rust binary, configured with
+Every `capture_e2e_rust_*` ctest (44) runs the C++ test's bench arguments against the Rust binary, configured with
 `-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
 (`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
 `pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
-`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies` and
-`feed_gone_video_loss`. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
+`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies`,
+`feed_gone_video_loss` and `desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
+(XR-2 removed, then added back), as the C++ `capture_e2e_desktops_change_*` does: XR-2's capture session goes and comes
+back, the others keep theirs, and every settled frame's tiles show the listed desktops' captures in order. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
 `tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
 `tests/video_owner_events.rs`, `tests/immersive.rs`, `tests/free_pointer.rs` and the `options_evidence` unit test in
-`shell/menus.rs`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
+`shell/menus.rs`. `restore_band_wire`'s twin is in `tests/restore_band.rs`: `restore_band_dump --dump` (byte-equal to
+`restore_band_test --dump`, `cpp_parity.sh`) read by `spike/tests/restore_band_wire_test.py`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
 `spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
 `golden/roll_geometry.cpp`'s.
 
 Not ported or not covered yet:
 
-- The status fields `vsync_error_ms` and `sensor_to_vsync_ms`.
 - Late latch and the GPU timer query (plan task 6).
-- `desktops` has no end-to-end test: the bench never sends that op.
-- The restore band's wire ctest (the binary's `--dump` read by the Python supervisor) has no twin.
 
 ### IPC
 
