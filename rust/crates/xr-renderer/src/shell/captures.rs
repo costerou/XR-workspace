@@ -201,6 +201,55 @@ struct Gpu {
     swap_size: (u32, u32),
     imported_frames: u64,
     uploaded_bytes: u64,
+    /// The frames' GPU time (GL_EXT_disjoint_timer_query): the whole run (exit report) and since the last status
+    /// sample.
+    gpu_run: GpuTimes,
+    gpu_window: GpuTimes,
+}
+
+/// GPU time per frame in 0.01 ms buckets up to 20 ms (more lands in the last bucket), and the exact maximum.
+#[derive(Clone)]
+struct GpuTimes {
+    buckets: Vec<u64>,
+    count: u64,
+    max_ns: u64,
+}
+
+impl Default for GpuTimes {
+    fn default() -> Self {
+        Self { buckets: vec![0; Self::BUCKETS], count: 0, max_ns: 0 }
+    }
+}
+
+impl GpuTimes {
+    const BUCKET_MS: f64 = 0.01;
+    const BUCKETS: usize = 2000;
+
+    fn add(&mut self, ns: u64) {
+        let i = ((ns as f64 / 1e6 / Self::BUCKET_MS) as usize).min(Self::BUCKETS - 1);
+        self.buckets[i] += 1;
+        self.count += 1;
+        self.max_ns = self.max_ns.max(ns);
+    }
+
+    /// Nearest rank, the bucket's centre, never above the maximum.
+    fn percentile_ms(&self, q: f64) -> f64 {
+        let rank = ((q * self.count as f64).ceil() as u64).max(1);
+        let mut seen = 0;
+        let max_ms = self.max_ns as f64 / 1e6;
+        for (i, &n) in self.buckets.iter().enumerate() {
+            seen += n;
+            if seen >= rank {
+                return ((i as f64 + 0.5) * Self::BUCKET_MS).min(max_ms);
+            }
+        }
+        max_ms
+    }
+
+    /// (p50, p95, max) in ms; None before the first timed frame.
+    fn summary(&self) -> Option<(f64, f64, f64)> {
+        (self.count != 0).then(|| (self.percentile_ms(0.50), self.percentile_ms(0.95), self.max_ns as f64 / 1e6))
+    }
 }
 
 #[derive(Default)]
@@ -876,6 +925,8 @@ impl Presentation {
                     swap_size: (0, 0),
                     imported_frames: 0,
                     uploaded_bytes: 0,
+                    gpu_run: GpuTimes::default(),
+                    gpu_window: GpuTimes::default(),
                 });
                 s.features.cards.load_fonts(); // the cards' text font; the built-in pixel font is the reported fallback
             }
@@ -913,7 +964,15 @@ impl Presentation {
         if s.frame.is_some() || !s.metrics.can_submit() || !(s.capture.dirty || animating) {
             return Ok(());
         }
-        if self.state.capture.gpu.is_some() { self.draw_gpu() } else { self.draw_cpu() }
+        if self.state.capture.gpu.is_none() {
+            return self.draw_cpu();
+        }
+        // D4: a head-tracked frame starts toward the compositor's next latch; pump wakes for it, the main loop calls
+        // back in.
+        if self.state.features.tracking.latch_wait() {
+            return Ok(());
+        }
+        self.draw_gpu()
     }
 
     fn draw_cpu(&mut self) -> Result<(), Error> {
@@ -1001,6 +1060,7 @@ impl Presentation {
             return Ok(()); // all three on screen or queued: wait for a release
         };
         gpu.gl.resize(width, height, size.0, size.1);
+        gpu.gl.begin_gpu_time(); // the frame's GPU work: uploads, depth, the draw and the copy into the swapchain
         let now = monotonic_ms_f64();
         let mut sizes = Vec::with_capacity(cs.captures.len());
         for (i, c) in cs.captures.iter_mut().enumerate() {
@@ -1107,13 +1167,26 @@ impl Presentation {
         if !gpu.gl.present_into(target.rb) {
             return Err(Error::new("gl", "present into the swapchain failed"));
         }
+        gpu.gl.end_gpu_time();
         gpu.gl.finish();
         target.busy = true;
+        if let Some(ns) = gpu.gl.take_gpu_ns() {
+            gpu.gpu_run.add(ns);
+            gpu.gpu_window.add(ns);
+        }
         let proxy = target.proxy.clone();
         let settled = overview_layout(&cs.settled_sizes(), w, h, cs.view.target_spacing());
         cs.geometry = overview_geometry_json(&settled, width, height, half_w, half_h);
         cs.dirty = false;
         self.commit(&proxy, size.0, size.1)
+    }
+
+    /// The frames' GPU time since the last call, (p50, p95, max) ms, for the status datagram: None without
+    /// GL_EXT_disjoint_timer_query or a timed frame since.
+    pub(super) fn take_gpu_time(&mut self) -> Option<(f64, f64, f64)> {
+        let gpu = self.state.capture.gpu.as_mut()?;
+        let window = std::mem::take(&mut gpu.gpu_window);
+        window.summary()
     }
 
     /// `capture_failure_run` and `capture_path` for the status datagram (None, None without captures).
@@ -1303,6 +1376,15 @@ impl Presentation {
                     json_string(&mut out, renderer);
                     out.push_str(",\"version\":");
                     json_string(&mut out, version);
+                    // The frames' GPU time (GL_EXT_disjoint_timer_query); left out without the extension.
+                    if g.gl.gpu_timer() {
+                        let (p50, p95, max) = g.gpu_run.summary().unwrap_or_default();
+                        out.push_str(&format!(
+                            ",\"gpu_time\":{{\"frames\":{},\"p50_ms\":{p50:.3},\"p95_ms\":{p95:.3},\
+                             \"max_ms\":{max:.3}}}",
+                            g.gpu_run.count
+                        ));
+                    }
                     if let Some(stereo) = g.gl.stereo_report() {
                         out.push_str(",\"stereo\":");
                         out.push_str(&stereo);
@@ -1459,3 +1541,25 @@ delegate_noop!(State: ExtOutputImageCaptureSourceManagerV1);
 delegate_noop!(State: ExtImageCopyCaptureManagerV1);
 delegate_noop!(State: ignore ExtImageCaptureSourceV1);
 
+
+#[cfg(test)]
+mod tests {
+    use super::GpuTimes;
+
+    #[test]
+    fn gpu_times_give_nearest_rank_bucket_centres_and_the_exact_max() {
+        let mut t = GpuTimes::default();
+        assert_eq!(t.summary(), None);
+        for us in 1..=100u64 {
+            t.add(us * 10_000); // 0.01 .. 1.00 ms
+        }
+        t.add(30_000_000); // 30 ms: the last bucket, and the max
+        let (p50, p95, max) = t.summary().unwrap();
+        assert!((p50 - 0.515).abs() < 1e-9, "{p50}"); // rank 51 of 101: 0.51 ms, bucket centre
+        assert!((p95 - 0.965).abs() < 1e-9, "{p95}"); // rank 96: 0.96 ms
+        assert_eq!(max, 30.0);
+        let mut one = GpuTimes::default();
+        one.add(400_000);
+        assert_eq!(one.summary(), Some((0.4, 0.4, 0.4))); // never above the max
+    }
+}

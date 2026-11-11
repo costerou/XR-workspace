@@ -253,7 +253,7 @@ pass ASCII numbers.
 
 `xr-renderer` is the complete port of the C++ renderer (`spike/src/wayland.cpp`, `main.cpp` and the files they draw
 with). It takes the same supervised launch (same arguments, descriptor checks and start frame) and every launch flag:
-`--capture`, `--pose-feed xrld`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
+`--capture`, `--pose-feed xrld`, `--late-latch-guard-ms`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
 output that takes no input. Frames are paced by the frame callback, with `wp_presentation` feedback, the
 `generated_pattern_presentation_timing` report and the fractional scale through `wp_viewporter`. Without `--capture`
 it draws the generated test pattern (SHM, static or `--animate-pattern-ms`). With it, the managed desktops are composed
@@ -304,7 +304,17 @@ Where the modules meet, the C++ order is kept:
   keeps presenting. With the Luma driver's `--read-events`, the status datagram also carries `vsync_error_ms` and
   `sensor_to_vsync_ms` (the C++ text, compared with `golden/status_vsync.cpp`'s, and read by `xr_wire::status`). The
   exit report carries `tracking` and `latency` (software read to present, from the
-  `wp_presentation` feedback in `shell.rs`).
+  `wp_presentation` feedback in `shell.rs`). With `--late-latch-guard-ms G` (the `renderer-flags` D4 trial, off by
+  default, only with the feed) a head-tracked frame is drawn from `late_latch::LateLatch`, as wayland.cpp does: the
+  frame callback scores it, `draw_desktops` waits for its start (`Presentation::pump` wakes for it to the
+  nanosecond) and the commit ends its measured draw. `latency.late_latch` reports it, `{"enabled":false}` without the
+  flag. The draw it measures includes the swapchain's `glFinish`, which the C++ (`eglSwapBuffers`) does not wait for, so
+  the margin is about 1.5 ms wider than the C++ one (`docs/technical.md`, "Renderer trial flags").
+- **GPU time**: `GL_EXT_disjoint_timer_query` around each GPU frame (`GlCompositor::begin_gpu_time` to
+  `take_gpu_ns`, first upload to the copy into the swapchain). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
+  and `gpu_max_ms` for the frames since the last sample, and the exit report's `composition.gpu_time` the run's
+  frames, p50, p95 and max. Both are left out without the extension. The C++ renderer has neither; `xr_wire::status`
+  and the Python supervisor accept the three keys.
 - **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
   as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
   the hand's dot, `pan_dot`), `desktops` (captures stop, start and restart; placements follow their desktops) and the
@@ -345,12 +355,13 @@ Where the modules meet, the C++ order is kept:
 
 ### Gates
 
-Every `capture_e2e_rust_*` ctest (44) runs the C++ test's bench arguments against the Rust binary, configured with
+Every `capture_e2e_rust_*` ctest (45) runs the C++ test's bench arguments against the Rust binary, configured with
 `-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
 (`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
 `pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
 `open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies`,
-`feed_gone_video_loss` and `desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
+`feed_gone_video_loss`, `late_latch` (D4: frames drawn on the late-latch schedule, as `capture_e2e_late_latch`) and
+`desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
 (XR-2 removed, then added back), as the C++ `capture_e2e_desktops_change_*` does: XR-2's capture session goes and comes
 back, the others keep theirs, and every settled frame's tiles show the listed desktops' captures in order. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
 `tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
@@ -362,7 +373,6 @@ back, the others keep theirs, and every settled frame's tiles show the listed de
 
 Not ported or not covered yet:
 
-- Late latch and the GPU timer query (plan task 6).
 
 ### IPC
 
@@ -819,7 +829,7 @@ port.
 `late_latch` is `late_latch.cpp` (RR-72): the late-latch schedule, adaptive margin, miss boost and
 summary, with `parse_guard` going through the C library's `strtod` as the C++ does. `tests/late_latch.rs`
 ports every check of the `late_latch` ctest, and checks that a late frame boosts the margin and the
-frame after it is not late too. Wiring it into the shell is a later task.
+frame after it is not late too. The shell's tracking module drives it (`--late-latch-guard-ms`, above).
 
 `predict` is `predict.cpp` (RR-72): the look-ahead config, angular velocity from the feed's two newest samples
 (with the whole-ms timestamp mean), the bounded delta, `LatencyTracker` with its read-phase model, `PoseAge`,

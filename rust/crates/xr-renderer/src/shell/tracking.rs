@@ -16,6 +16,7 @@ use xr_renderer::environment::environment_view;
 use xr_renderer::hud::{HUD_FONT_FAMILY, HudImage, HudTextMetrics, TrackingHint, render_hud_card, tracking_hint_lines};
 use xr_renderer::hud_font::HudFont;
 use xr_renderer::ipc::StatusExtras;
+use xr_renderer::late_latch::LateLatch;
 use xr_renderer::motion_feed::{MotionFeed, motion_age_ms, motion_delta};
 use xr_renderer::motion_smooth::{MotionSmoother, motion_smooth_params};
 use xr_renderer::pose::{
@@ -112,6 +113,11 @@ pub(super) struct Tracking {
     read: Option<(u64, f32)>,
     /// The newest presented frame's refresh prediction (wp_presentation), as Metrics keeps it.
     refresh_ns: u32,
+    /// D4 late latch (late_latch.rs), only with --late-latch-guard-ms: a head-tracked frame waits until `latch_wake_ns`
+    /// (pump wakes for it), then reads the pose and draws; `latch_start_ns` is when that draw started, for its cost.
+    late_latch: LateLatch,
+    latch_wake_ns: u64,
+    latch_start_ns: u64,
     /// The view the desktops were last drawn with (turned), and the head before the switch's turn.
     last_drawn: Mat3,
     last_head: Mat3,
@@ -160,6 +166,9 @@ impl Default for Tracking {
             now_ms: 0.0,
             read: None,
             refresh_ns: 0,
+            late_latch: LateLatch::default(),
+            latch_wake_ns: 0,
+            latch_start_ns: 0,
             last_drawn: IDENTITY,
             last_head: IDENTITY,
             centre: Centre::default(),
@@ -559,6 +568,42 @@ impl Tracking {
         }
     }
 
+    /// A frame callback (wayland.cpp frame_done): scores the late-latched frame it belongs to.
+    pub(super) fn latch_frame_done(&mut self) {
+        if self.late_latch.enabled() {
+            self.late_latch.frame_done(monotonic_ns(), u64::from(self.refresh_ns));
+        }
+    }
+
+    /// About to draw a GPU frame (wayland.cpp draw_test_pattern): true when a head-tracked frame is to wait for its
+    /// late-latch start (`latch_wake_ns`; pump wakes for it and the main loop calls back in), false to draw now.
+    pub(super) fn latch_wait(&mut self) -> bool {
+        if !self.requested || !self.late_latch.enabled() {
+            return false;
+        }
+        let now = monotonic_ns();
+        if let Some(at) = self.late_latch.schedule(now, u64::from(self.refresh_ns)) {
+            self.latch_wake_ns = at;
+            return true;
+        }
+        self.latch_wake_ns = 0;
+        self.latch_start_ns = now;
+        false
+    }
+
+    /// The late-latched frame waiting to be drawn: its start time (CLOCK_MONOTONIC ns), 0 none.
+    pub(super) fn latch_wake_ns(&self) -> u64 {
+        self.latch_wake_ns
+    }
+
+    /// A GPU frame was committed: the cost of the late-latched one.
+    pub(super) fn latch_committed(&mut self) {
+        if self.latch_start_ns != 0 {
+            self.late_latch.committed(self.latch_start_ns, monotonic_ns());
+        }
+        self.latch_start_ns = 0;
+    }
+
     pub(super) fn discarded(&mut self, ticket: u64) {
         self.latency.discarded(ticket);
     }
@@ -624,7 +669,7 @@ impl Tracking {
     }
 
     /// The exit report's `latency` section: software read -> present, the pose ages and reader, prediction (and the
-    /// smoother), late latch (off: task 6) and the driver's vsync.
+    /// smoother), late latch and the driver's vsync.
     pub(super) fn report_latency(&self, out: &mut String) {
         let feed = self.pose_feed.as_ref();
         let cfg_json = match feed.and_then(PoseFeed::look_ahead_cfg) {
@@ -694,8 +739,31 @@ impl Tracking {
             ));
         }
         out.push('}');
-        // D4 late latch (plan task 6): off in this build, as the C++ without --late-latch-guard-ms.
-        out.push_str(",\"late_latch\":{\"enabled\":false}");
+        // D4 late latch (late_latch.rs): {"enabled":false} unless --late-latch-guard-ms.
+        let l = self.late_latch.summary(u64::from(self.refresh_ns));
+        out.push_str(&format!(",\"late_latch\":{{\"enabled\":{}", l.enabled));
+        if l.enabled {
+            out.push_str(&format!(
+                ",\"guard_ms\":{},\"margin_ms\":{},\"draw_max_ms\":{},\"boost_ms\":{},\"scheduled\":{},\
+                 \"waited\":{},\"latched\":{},\"missed\":{},\"immediate\":{},\"slack_p5_ms\":{},\"slack_p50_ms\":{},\
+                 \"draw_p50_ms\":{},\"draw_p99_ms\":{},\"draw_worst_ms\":{}",
+                f6(l.guard_ms),
+                f6(l.margin_ms),
+                f6(l.draw_max_ms),
+                f6(l.boost_ms),
+                l.scheduled,
+                l.waited,
+                l.latched,
+                l.missed,
+                l.immediate,
+                f6(l.slack_p5_ms),
+                f6(l.slack_p50_ms),
+                f6(l.draw_p50_ms),
+                f6(l.draw_p99_ms),
+                f6(l.draw_worst_ms),
+            ));
+        }
+        out.push('}');
         // The driver's scan-out against wp_presentation: only with our driver and --read-events.
         let v = self.vsync_meter.summary();
         out.push_str(&format!(
@@ -744,6 +812,16 @@ impl Presentation {
         t.hint.font_changed();
         self.state.capture.invalidate();
         self.state.cadence.invalidate();
+    }
+
+    /// D4 late latch: head-tracked GPU frames are drawn toward the compositor's next latch with this guard (ms,
+    /// LateLatch::parse_guard). Off unless called, and only after enable_tracking (wayland.cpp enable_late_latch).
+    pub fn enable_late_latch(&mut self, guard_ms: f64) {
+        let t = &mut self.state.features.tracking;
+        if !self.state.capture.gpu_composition() || !t.requested {
+            return; // head-tracked GPU frames only
+        }
+        t.late_latch = LateLatch::new(guard_ms); // the wait is a poll (pump): the default timer slack is fine
     }
 
     pub fn recenter(&mut self) {
