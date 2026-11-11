@@ -1243,7 +1243,7 @@ impl GlCompositor {
         let out = Self {
             gl: gl.clone(),
             progs,
-            accent: [0x8d as f32 / 255.0; 3],
+            accent: crate::material::MD_DEFAULT_SEED,
             textures,
             panel_tex,
             options_tex,

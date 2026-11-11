@@ -10,7 +10,7 @@ use crate::hud::{BACKGROUND_COUNT, Background};
 use crate::pose::{Mat3, Quat, apply, quat_conj, quat_mul, quat_normalized, quat_to_mat3, transpose, view_from};
 
 /// The OLED cap: no channel of the pass is brighter.
-pub const ENVIRONMENT_CAP: f32 = 191.0 / 255.0;
+pub const ENVIRONMENT_CAP: f32 = crate::ui_tokens::LEVEL_CAP_UNIT;
 /// The brightest channel of a near-black theme colour is lifted to this.
 pub const ENVIRONMENT_FLOOR: f32 = 72.0 / 255.0;
 /// On / off fade.

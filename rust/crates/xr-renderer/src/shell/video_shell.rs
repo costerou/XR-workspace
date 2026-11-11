@@ -25,7 +25,7 @@ use super::scene::Scene;
 use super::{Presentation, monotonic_ms_f64};
 
 /// The theme colour before the first `style` (wayland.cpp Impl::accent).
-const ACCENT_DEFAULT: [u8; 3] = [0x8d, 0x8d, 0x8d];
+const ACCENT_DEFAULT: [u8; 3] = xr_renderer::material::MD_DEFAULT_SEED_U8;
 /// The diagonal FOV when none is known (wayland.cpp's video branch: `s.fov_deg > 0 ? s.fov_deg : 46`).
 const FOV_FALLBACK_DEG: f32 = 46.0;
 /// The card's error line, bytes (video_mode.cpp prepare).

@@ -35,5 +35,6 @@ pub mod predict;
 pub mod stabilization;
 pub mod stereo;
 pub mod stereo_gl;
+pub mod ui_tokens;
 pub mod video;
 pub mod view;
