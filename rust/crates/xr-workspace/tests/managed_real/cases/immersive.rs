@@ -43,14 +43,21 @@ fn an_installed_depth_engine_gives_every_renderer_the_depth_memory() {
 #[test]
 fn no_engine_no_depth_memory() {
     let (run, _) = super::parity("stop");
-    assert!(!run.renderers[0].contains("--depth-fd"), "{:?}", run.renderers);
+    assert!(
+        !run.renderers[0].contains("--depth-fd"),
+        "{:?}",
+        run.renderers
+    );
 }
 
 /// The first renderer ends as the glasses go wide; the next one comes up; a second later (so the next look at the
 /// glasses' mode is due on both clocks), the case's Stop.
 fn through_the_switch(s: &Session, _: Who) -> Value {
     let run = s.root.join("run");
-    assert!(wait_for(&run.join("fake-glasses-wide"), Duration::from_secs(10)));
+    assert!(wait_for(
+        &run.join("fake-glasses-wide"),
+        Duration::from_secs(10)
+    ));
     fs::remove_file(run.join("renderer-started")).unwrap();
     let back = wait_for(&run.join("renderer-started"), Duration::from_secs(20));
     std::thread::sleep(Duration::from_millis(1200));
@@ -68,11 +75,16 @@ fn a_renderer_ending_as_the_glasses_switch_mode_is_held_as_expected() {
     assert_eq!(python, rust);
     assert_eq!(rust["back"], true);
     assert_eq!(run.renderers.len(), 2, "a second renderer after the switch");
-    assert_eq!(run.result["usb_holds"], json!([{"seconds": true, "resumed": true}]));
+    assert_eq!(
+        run.result["usb_holds"],
+        json!([{"seconds": true, "resumed": true}])
+    );
     assert_eq!(run.result["stop_reason"], "interrupted");
     // The wide mode put back for the next renderer (`_restore_output`), not the session mode.
     assert!(
-        run.trace.iter().any(|r| r.contains("mode = \"3840x1200@90\"")),
+        run.trace
+            .iter()
+            .any(|r| r.contains("mode = \"3840x1200@90\"")),
         "{:#?}",
         run.trace
     );

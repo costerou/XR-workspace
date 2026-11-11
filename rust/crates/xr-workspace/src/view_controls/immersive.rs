@@ -31,8 +31,8 @@ use xr_wire::run_control::Frame;
 use super::{Frames, Run};
 use crate::hyprland::Client;
 use crate::supervisor::immersive::{
-    self as im, CLOSE_WAIT, DepthMemory, Done, Event, ImmersiveRun, MAX_DESKTOPS, NoDeviceSbs, Params,
-    ProcessEngine, SET_OP, Sbs, Setting, TOGGLE_OP,
+    self as im, CLOSE_WAIT, DepthMemory, Done, Event, ImmersiveRun, MAX_DESKTOPS, NoDeviceSbs,
+    Params, ProcessEngine, SET_OP, Sbs, Setting, TOGGLE_OP,
 };
 
 /// What the run's 3D worker does, so the view's side can be driven without one (`ImmersiveRun`'s methods).
@@ -154,7 +154,10 @@ impl Immersive {
     /// builds it: without an engine, a press falls back to 2D with a toast.
     pub fn open(run: &Run<'_>) -> Option<Immersive> {
         let binary = im::find_engine(Some(run.renderer));
-        let memory = binary.as_ref().and_then(|_| DepthMemory::new().ok()).map(Arc::new);
+        let memory = binary
+            .as_ref()
+            .and_then(|_| DepthMemory::new().ok())
+            .map(Arc::new);
         let installed = binary.is_some();
         let engine = Arc::new(ProcessEngine::new(binary, memory.clone()));
         let sbs = make_sbs(run, notify());
@@ -168,7 +171,12 @@ impl Immersive {
     }
 
     /// A run's 3D on `worker`, with nothing installed and the R1 button (the corpus replay's stand-in run).
-    pub fn with_worker(worker: Box<dyn Worker>, run_id: &str, session: &str, tell: Tell) -> Immersive {
+    pub fn with_worker(
+        worker: Box<dyn Worker>,
+        run_id: &str,
+        session: &str,
+        tell: Tell,
+    ) -> Immersive {
         Immersive {
             worker,
             memory: None,
@@ -314,7 +322,11 @@ impl Immersive {
 
     /// `set_immersive`: every way of changing 3D comes here, applied live (and saved by the view). Any press is a
     /// new try after a failure, even with the setting unchanged. An invalid setting changes nothing.
-    pub fn set(&mut self, setting: &Value, view: &mut Shown<'_>) -> crate::supervisor::error::Result<Vec<u8>> {
+    pub fn set(
+        &mut self,
+        setting: &Value,
+        view: &mut Shown<'_>,
+    ) -> crate::supervisor::error::Result<Vec<u8>> {
         let setting = im::validate(setting)?;
         Ok(self.apply(setting, view))
     }
@@ -346,7 +358,10 @@ impl Immersive {
     }
 
     fn stale(&self, desktop: i64, view: &Shown<'_>) -> bool {
-        !(0..view.names.len() as i64).contains(&desktop) || view.zoomed || view.typing || view.video_active
+        !(0..view.names.len() as i64).contains(&desktop)
+            || view.zoomed
+            || view.typing
+            || view.video_active
     }
 
     /// `immersive_click`: a free-pointer press on `desktop`'s 3D button: that desktop on or off; after a failure, a
@@ -454,7 +469,12 @@ fn make_sbs(run: &Run<'_>, tell: sbs::Tell) -> Arc<dyn Sbs> {
         return Arc::new(NoDeviceSbs);
     }
     let client = match run.client.identity() {
-        Some(identity) => Client::pinned(run.client.instance(), run.runtime, identity.clone(), run.session),
+        Some(identity) => Client::pinned(
+            run.client.instance(),
+            run.runtime,
+            identity.clone(),
+            run.session,
+        ),
         None => Client::new(run.client.instance(), run.runtime),
     };
     let Ok(client) = client else {
@@ -465,4 +485,3 @@ fn make_sbs(run: &Run<'_>, tell: sbs::Tell) -> Arc<dyn Sbs> {
         None => Arc::new(NoDeviceSbs),
     }
 }
-

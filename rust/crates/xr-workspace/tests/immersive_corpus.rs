@@ -21,8 +21,14 @@ use xr_workspace::view_controls::Frames;
 use xr_workspace::view_controls::immersive::sbs::{self, ButtonSbs, Display};
 use xr_workspace::view_controls::immersive::{Immersive, Shown, Worker};
 
-const SBS: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../corpus/immersive/sbs.json"));
-const VIEW: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../corpus/immersive/view.json"));
+const SBS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../corpus/immersive/sbs.json"
+));
+const VIEW: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../corpus/immersive/view.json"
+));
 
 fn dp1() -> Value {
     json!({"name": "DP-1", "id": 2, "width": 1920, "height": 1200, "x": -3000, "y": 9000, "scale": 1.25,
@@ -41,7 +47,11 @@ fn one(m: &Value) -> Option<Monitor> {
     if m.is_null() {
         return None;
     }
-    Some(checked(&json!([m])).expect("a corpus monitor the client accepts").remove(0))
+    Some(
+        checked(&json!([m]))
+            .expect("a corpus monitor the client accepts")
+            .remove(0),
+    )
 }
 
 /// The stand-in client: the scenario's monitor answers in turn (the last for ever), each call recorded.
@@ -66,7 +76,11 @@ impl Script {
 impl Display for Script {
     fn monitors(&mut self) -> Option<Vec<Monitor>> {
         self.calls.lock().unwrap().push(json!(["query"]));
-        let now = if self.answers.len() > 1 { self.answers.remove(0) } else { self.answers[0].clone() };
+        let now = if self.answers.len() > 1 {
+            self.answers.remove(0)
+        } else {
+            self.answers[0].clone()
+        };
         if now == "error" {
             return None;
         }
@@ -110,16 +124,29 @@ fn the_mode_helpers_read_monitors_as_the_python_does() {
     for row in corpus["modes"].as_array().unwrap() {
         let m = one(&row["monitor"]);
         let m = m.as_ref();
-        let offered: Vec<Value> = sbs::offered(m).into_iter().map(|(w, h, hz)| json!([w, h, hz])).collect();
+        let offered: Vec<Value> = sbs::offered(m)
+            .into_iter()
+            .map(|(w, h, hz)| json!([w, h, hz]))
+            .collect();
         assert_eq!(Value::Array(offered), row["offered"], "{}", row["monitor"]);
         for model in ["luma-ultra", "pro2", "other"] {
             let got = json!({"best_wide": sbs::best_wide(m, model), "is_wide": sbs::is_wide(m, model),
                              "narrow_rate": sbs::narrow_rate(m, model)});
             assert_eq!(got, row[model], "{model} {}", row["monitor"]);
         }
-        for (key, prefer) in [("None", None), ("60.0", Some(60.0)), ("90.0", Some(90.0)), ("144.0", Some(144.0))] {
+        for (key, prefer) in [
+            ("None", None),
+            ("60.0", Some(60.0)),
+            ("90.0", Some(90.0)),
+            ("144.0", Some(144.0)),
+        ] {
             let got = json!(sbs::pro2_2d_rate(m, prefer));
-            assert_eq!(floats(&got), floats(&row["pro2_2d_rate"][key]), "{key} {}", row["monitor"]);
+            assert_eq!(
+                floats(&got),
+                floats(&row["pro2_2d_rate"][key]),
+                "{key} {}",
+                row["monitor"]
+            );
         }
     }
 }
@@ -202,7 +229,11 @@ struct FakeWorker(Arc<Mutex<Run3d>>);
 impl Worker for FakeWorker {
     fn request(&self, desktops: &[String], _done: Option<Done>, setting: Option<&Setting>) {
         let setting = setting.map_or(Value::Null, Setting::to_value);
-        self.0.lock().unwrap().requests.push(json!([desktops, setting]));
+        self.0
+            .lock()
+            .unwrap()
+            .requests
+            .push(json!([desktops, setting]));
     }
     fn reassert(&self) {}
     fn take_events(&self) -> Vec<Event> {
@@ -238,16 +269,25 @@ fn event(e: &Value) -> Event {
 }
 
 fn phase(name: &str) -> &'static str {
-    ["off", "engine", "glasses", "on"].into_iter().find(|p| *p == name).unwrap()
+    ["off", "engine", "glasses", "on"]
+        .into_iter()
+        .find(|p| *p == name)
+        .unwrap()
 }
 
 #[test]
 fn the_views_3d_matches_the_python() {
     let corpus: Value = serde_json::from_str(VIEW).unwrap();
-    let (run_id, session) = (corpus["run_id"].as_str().unwrap(), corpus["session"].as_str().unwrap());
+    let (run_id, session) = (
+        corpus["run_id"].as_str().unwrap(),
+        corpus["session"].as_str().unwrap(),
+    );
     for s in corpus["scenarios"].as_array().unwrap() {
         let name = s["name"].as_str().unwrap();
-        let run3d = Arc::new(Mutex::new(Run3d { phase: "off", ..Run3d::default() }));
+        let run3d = Arc::new(Mutex::new(Run3d {
+            phase: "off",
+            ..Run3d::default()
+        }));
         let toasts = Arc::new(Mutex::new(Vec::<String>::new()));
         let t = toasts.clone();
         let mut immersive = Immersive::with_worker(
@@ -261,7 +301,13 @@ fn the_views_3d_matches_the_python() {
         let (mut video, mut zoomed, mut typing) = (false, false, false);
         let mut next_id = corpus["first_request_id"].as_i64().unwrap();
         let mut last_input = 0.0;
-        for (i, (step, want)) in s["steps"].as_array().unwrap().iter().zip(s["results"].as_array().unwrap()).enumerate() {
+        for (i, (step, want)) in s["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(s["results"].as_array().unwrap())
+            .enumerate()
+        {
             let now = (i + 1) as f64;
             let before = run3d.lock().unwrap().requests.len();
             let toasted = toasts.lock().unwrap().len();
@@ -281,7 +327,8 @@ fn the_views_3d_matches_the_python() {
             let frames = match step[0].as_str().unwrap() {
                 "sync" => immersive.sync(&mut view),
                 "tick" => {
-                    run3d.lock().unwrap().pending = step[1].as_array().unwrap().iter().map(event).collect();
+                    run3d.lock().unwrap().pending =
+                        step[1].as_array().unwrap().iter().map(event).collect();
                     immersive.tick(&mut view)
                 }
                 "toggle" => immersive.toggle(&mut view),
@@ -330,9 +377,18 @@ fn the_views_3d_matches_the_python() {
 /// The view's two ops reach the 3D methods through `on_message` (the panel's `immersive` absolute, a bad one dropped).
 #[test]
 fn the_ops_reach_it() {
-    let run3d = Arc::new(Mutex::new(Run3d { phase: "off", ..Run3d::default() }));
-    let mut immersive = Immersive::with_worker(Box::new(FakeWorker(run3d.clone())), "r1", "s", Box::new(|_| {}));
-    let (mut setting, names, mut next_id, mut last) = (Setting::default(), vec!["XR-1".to_owned()], 2, 0.0);
+    let run3d = Arc::new(Mutex::new(Run3d {
+        phase: "off",
+        ..Run3d::default()
+    }));
+    let mut immersive = Immersive::with_worker(
+        Box::new(FakeWorker(run3d.clone())),
+        "r1",
+        "s",
+        Box::new(|_| {}),
+    );
+    let (mut setting, names, mut next_id, mut last) =
+        (Setting::default(), vec!["XR-1".to_owned()], 2, 0.0);
     let frame = |op: &str, payload: &str| Frame {
         request_id: 1,
         run_id: "r1".into(),
@@ -358,11 +414,18 @@ fn the_ops_reach_it() {
     };
     assert!(send(frame(im::TOGGLE_OP, "{}"), &mut setting, &mut out));
     assert!(setting.global && out.bytes.ends_with(b"\n"));
-    let bad = r#"{"global": 0, "desktops": {}, "preset": "desktop", "strength": 100, "convergence": 92}"#;
+    let bad =
+        r#"{"global": 0, "desktops": {}, "preset": "desktop", "strength": 100, "convergence": 92}"#;
     assert!(!send(frame(im::SET_OP, bad), &mut setting, &mut out));
     let off = r#"{"global": false, "desktops": {}, "preset": "desktop", "strength": 100, "convergence": 92}"#;
     assert!(send(frame(im::SET_OP, off), &mut setting, &mut out));
     assert_eq!(setting, Setting::default());
-    let asked: Vec<Value> = run3d.lock().unwrap().requests.iter().map(|r| r[0].clone()).collect();
+    let asked: Vec<Value> = run3d
+        .lock()
+        .unwrap()
+        .requests
+        .iter()
+        .map(|r| r[0].clone())
+        .collect();
     assert_eq!(asked, [json!(["XR-1"]), json!([])]);
 }

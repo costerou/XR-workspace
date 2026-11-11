@@ -96,7 +96,9 @@ impl Display for Client {
 
 /// `sbs.offered`: every (width, height, hz) Hyprland lists for this monitor (`MODE`: `WxH@RHz`, whole string).
 pub fn offered(monitor: Option<&Monitor>) -> Vec<(u64, u64, f64)> {
-    let Some(xr_wire::json::Value::Array(modes)) = monitor.and_then(|m| m.raw.get("availableModes")) else {
+    let Some(xr_wire::json::Value::Array(modes)) =
+        monitor.and_then(|m| m.raw.get("availableModes"))
+    else {
         return Vec::new();
     };
     let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
@@ -108,7 +110,11 @@ pub fn offered(monitor: Option<&Monitor>) -> Vec<(u64, u64, f64)> {
         let Some((w, h)) = size.split_once('x') else {
             continue;
         };
-        if !digits(w) || !digits(h) || hz.is_empty() || !hz.bytes().all(|b| b.is_ascii_digit() || b == b'.') {
+        if !digits(w)
+            || !digits(h)
+            || hz.is_empty()
+            || !hz.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+        {
             continue;
         }
         if let (Ok(w), Ok(h), Ok(hz)) = (w.parse(), h.parse(), hz.parse()) {
@@ -234,7 +240,12 @@ pub fn monotonic() -> f64 {
 impl ButtonSbs {
     /// `ButtonSbs(client, output, tell, model=model)` on the real clock. `None` for a model with no 3D mode (the
     /// Python's `ValueError`).
-    pub fn new(display: Box<dyn Display>, output: &str, tell: Tell, model: &str) -> Option<ButtonSbs> {
+    pub fn new(
+        display: Box<dyn Display>,
+        output: &str,
+        tell: Tell,
+        model: &str,
+    ) -> Option<ButtonSbs> {
         ButtonSbs::with_clock(
             display,
             output,
@@ -290,8 +301,17 @@ impl ButtonSbs {
 
     /// `_apply`: the wide rule, read back, then parked.
     fn apply(&self, rate: f64) -> Result<(), SbsError> {
-        trace(&format!("enter: wide rule {}x{}@{}", self.wide.0, self.wide.1, g(rate)));
-        let model = if self.model == "pro2" { "pro2" } else { "luma-ultra" };
+        trace(&format!(
+            "enter: wide rule {}x{}@{}",
+            self.wide.0,
+            self.wide.1,
+            g(rate)
+        ));
+        let model = if self.model == "pro2" {
+            "pro2"
+        } else {
+            "luma-ultra"
+        };
         let applied = lock(&self.display).apply_wide_mode(&self.output, rate, model);
         applied.map_err(SbsError)?;
         trace("enter: wide mode read back");
@@ -318,7 +338,10 @@ impl ButtonSbs {
             };
             let current = narrow_rate(m, &self.model);
             let shown = current.map_or_else(|| "None".to_owned(), crate::pyjson::float_repr);
-            trace(&format!("settle: 2D offered, driven {shown}, want {}", g(rate)));
+            trace(&format!(
+                "settle: 2D offered, driven {shown}, want {}",
+                g(rate)
+            ));
             if current.is_none_or(|c| (c - rate).abs() >= 0.5) {
                 let applied = lock(&self.display).apply_pro2_mode(&self.output, rate);
                 if let Err(e) = applied {
@@ -356,7 +379,10 @@ impl Sbs for ButtonSbs {
         }
         let mut rate = best_wide(monitor.as_ref(), &self.model);
         if rate.is_none() {
-            (self.tell)(&format!("Hold {} on the glasses to switch them to 3D.", self.button));
+            (self.tell)(&format!(
+                "Hold {} on the glasses to switch them to 3D.",
+                self.button
+            ));
             self.expect();
             let deadline = (self.clock)() + self.enter_wait;
             let mut narrow: Vec<(u64, u64)> = Vec::new();
@@ -367,10 +393,17 @@ impl Sbs for ButtonSbs {
                 if (self.clock)() >= deadline {
                     let shape = format!("{}x{}", self.wide.0, self.wide.1);
                     return Err(SbsError(if narrow.is_empty() {
-                        format!("the glasses never offered {shape}: was {} held?", self.button)
+                        format!(
+                            "the glasses never offered {shape}: was {} held?",
+                            self.button
+                        )
                     } else {
-                        let list: Vec<String> = narrow.iter().map(|(w, h)| format!("{w}x{h}")).collect();
-                        format!("they offered only {}, and 3D here needs {shape}", list.join(", "))
+                        let list: Vec<String> =
+                            narrow.iter().map(|(w, h)| format!("{w}x{h}")).collect();
+                        format!(
+                            "they offered only {}, and 3D here needs {shape}",
+                            list.join(", ")
+                        )
                     }));
                 }
                 (self.sleep)(POLL_S);
@@ -406,7 +439,9 @@ impl Sbs for ButtonSbs {
     /// nothing.
     fn leave(&self) -> Result<(), SbsError> {
         let monitor = self.monitor();
-        if best_wide(monitor.as_ref(), &self.model).is_none() && !is_wide(monitor.as_ref(), &self.model) {
+        if best_wide(monitor.as_ref(), &self.model).is_none()
+            && !is_wide(monitor.as_ref(), &self.model)
+        {
             return Ok(());
         }
         let ask = {
@@ -418,7 +453,11 @@ impl Sbs for ButtonSbs {
             ask
         };
         if ask {
-            (self.tell)(if self.model == "pro2" { PRO2_PROMPT_OFF } else { PROMPT_OFF });
+            (self.tell)(if self.model == "pro2" {
+                PRO2_PROMPT_OFF
+            } else {
+                PROMPT_OFF
+            });
         }
         self.expect();
         Ok(())
