@@ -932,6 +932,8 @@ impl Presentation {
         let (half_w, half_h) = half_extents(width, height);
         let mut scene = Scene::new(now, (width, height), (half_w, half_h), tiles);
         scene.overview = view.zoom() < 0.01 && !view.switching();
+        scene.switching = view.switching();
+        scene.overview_pan_landing = view.pan_overview() && view.pan_landing();
         scene.zoom = view.zoom();
         scene.focus = view.focus() as usize;
         scene.sizes.clone_from(&sizes);
