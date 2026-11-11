@@ -197,7 +197,6 @@ pub(super) struct Features {
     pub menus: menus::Menus,
     pub video: video_shell::VideoShell,
     pub immersive: immersive::ImmersiveState,
-    #[allow(dead_code)] // read once continuity is wired
     pub continuity: continuity_shell::ContinuityShell,
     /// Ops already logged as not drawn (each once).
     logged: HashSet<Op>,

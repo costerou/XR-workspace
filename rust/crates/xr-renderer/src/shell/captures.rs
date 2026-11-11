@@ -221,7 +221,7 @@ pub(super) struct CaptureState {
     geometry_sent: String,
     readback: ReadbackLimiter,
     /// The `view` op's zoom, selection and spacing (maximize is a zoomed view), eased.
-    view: ViewAnimator,
+    pub(super) view: ViewAnimator,
     /// The `environment` op: the background's fade, the one drawn (None's fade-out keeps the last), its brightness.
     environment: EnvironmentFade,
     background: Background,
