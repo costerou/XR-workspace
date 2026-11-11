@@ -61,8 +61,6 @@ const SHM_SLOTS: usize = 2;
 const SWAPCHAIN: usize = 3;
 /// The layout's size of a desktop with no frame yet.
 const PLACEHOLDER: Size = Size { w: 1920.0, h: 1080.0 };
-/// The diagonal field of view filled at the centre pose when nothing else sets it, in degrees.
-const FOV_DEG: f32 = 46.0;
 /// Buffer ids at or above this are capture buffers: the compositor never releases them as surface buffers.
 const CAPTURE_BUFFER_ID: u64 = u64::MAX;
 
@@ -267,14 +265,6 @@ fn plane(buf: &Dmabuf) -> DmabufPlane {
     }
 }
 
-/// The view's half extents at the centre pose for a `width` x `height` canvas filling the diagonal FOV.
-fn half_extents(width: u32, height: u32) -> (f32, f32) {
-    let d = (FOV_DEG * std::f32::consts::PI / 360.0).tan();
-    let a = width as f32 / height.max(1) as f32;
-    let n = (1.0 + a * a).sqrt();
-    (d * a / n, d / n)
-}
-
 impl CaptureState {
     pub(super) fn new(names: &[String]) -> Self {
         Self {
@@ -332,6 +322,11 @@ impl CaptureState {
     /// The surface's size or scale changed: draw again.
     pub(super) fn invalidate(&mut self) {
         self.dirty = true;
+    }
+
+    /// The desktops are composed on the GPU (head tracking needs it).
+    pub(super) fn gpu_composition(&self) -> bool {
+        self.gpu.is_some()
     }
 
     pub(super) fn close(&mut self) {
@@ -921,21 +916,22 @@ impl Presentation {
             sizes.push(c.shape.value().unwrap_or(PLACEHOLDER));
         }
         // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
-        // fill the view where it is. The features (scene.rs) then give the frame its camera, placements, cards, glass
-        // and pointer; until they are wired every desktop is at its default placement and the camera is the identity
-        // (the untracked view; ModeController's focus aim is not ported).
+        // fill the view where it is. The features (scene.rs) then give the frame its placements, cards, glass and
+        // pointer, and tracking the camera once the placements are in (Tracking::camera).
         let view = &mut cs.view;
         view.advance(now);
         let (w, h) = (width as f32, height as f32);
         let leaving = Leaving { zoom: view.left_zoom(), index: view.left() as usize };
         let tiles = blended_layout_leaving(&sizes, w, h, view.spacing(), view.zoom(), view.position(), leaving);
-        let (half_w, half_h) = half_extents(width, height);
-        let mut scene = Scene::new(now, (width, height), (half_w, half_h), tiles);
+        let fov = features.tracking.fov(width, height);
+        let mut scene = Scene::new(now, (width, height), fov, tiles);
         scene.overview = view.zoom() < 0.01 && !view.switching();
         scene.zoom = view.zoom();
         scene.focus = view.focus() as usize;
         scene.sizes.clone_from(&sizes);
         features.contribute(&mut scene);
+        features.tracking.camera(&mut scene, view);
+        let (half_w, half_h) = (scene.half_w, scene.half_h);
         let canvas = ViewCanvas::new(w, h, half_w, half_h);
         let overview = overview_layout(&sizes, w, h, view.spacing());
         let options = ZoomOptions { leaving, ..ZoomOptions::default() };
@@ -1305,15 +1301,3 @@ delegate_noop!(State: ExtOutputImageCaptureSourceManagerV1);
 delegate_noop!(State: ExtImageCopyCaptureManagerV1);
 delegate_noop!(State: ignore ExtImageCaptureSourceV1);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn half_extents_fill_the_diagonal() {
-        let (w, h) = half_extents(1920, 1200);
-        let d = (23.0f32).to_radians().tan();
-        assert!(((w * w + h * h).sqrt() - d).abs() < 1e-6);
-        assert!((w / h - 1.6).abs() < 1e-5);
-    }
-}
