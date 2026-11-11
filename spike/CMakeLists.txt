@@ -772,6 +772,18 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
           PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
+      # rust: immersive
+      foreach(MODE gl-dmabuf gl-shm)
+        add_test(NAME capture_e2e_rust_immersive_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1
+          --immersive --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_immersive_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
+      add_test(NAME capture_e2e_rust_immersive_scaled COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 2 --warmup 1
+        --immersive --fractional-scale 150 --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_immersive_engine_dies COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 4
+        --warmup 1 --engine-dies 1.5 --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_immersive_scaled capture_e2e_rust_immersive_engine_dies
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).

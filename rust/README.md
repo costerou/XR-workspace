@@ -178,6 +178,15 @@ drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and chec
 2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
 gate tests and the `GlCompositor` inputs it feeds.
 
+`shell/immersive.rs` is wired: `set_immersive` lights the 3D buttons on the glass and hands the stereo settings to the
+compositor, and `--depth-fd` is taken. The depth engine's memory is linked on the first frame that has a 3D desktop
+(`depth_link.rs`), fed and read each frame after the uploads, and dropped when nothing is 3D. Memory that is not an
+`XRD1` block of the right size never makes a link: the reason goes to the owner readback's `engine_error` and is not
+tried again. An engine that stops beating is not fed any more, and its desktops ease flat. Either way the buttons
+still light. The exit report carries `depth`, the composition report carries `stereo`, and the side-by-side surface is
+drawn at its full width. Gates: `capture_e2e_rust_immersive_{gl-dmabuf,gl-shm}`, `_immersive_scaled` and
+`_immersive_engine_dies`. `tests/immersive.rs` is the `immersive` ctest's twin.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops

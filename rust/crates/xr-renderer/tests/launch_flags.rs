@@ -23,9 +23,14 @@ fn pose_feed_is_refused_until_tracking_is_wired() {
     assert_eq!(exit_code(&["--pose-feed", "xrld"]), Some(2));
 }
 
+/// `--depth-fd` is taken (shell/immersive.rs), checked as spike/src/main.cpp checks it: a number, and none of the other
+/// descriptors. Whether the memory is a valid XRD1 block is the depth link's to find out, at the first 3D frame.
 #[test]
-fn depth_fd_is_refused_until_immersive_is_wired() {
-    assert_eq!(exit_code(&["--depth-fd", "5"]), Some(2));
+fn depth_fd_must_be_a_descriptor_of_its_own() {
+    assert_eq!(exit_code(&["--depth-fd", "x"]), Some(2));
+    assert_eq!(exit_code(&["--depth-fd", "-1"]), Some(2));
+    assert_eq!(exit_code(&["--depth-fd", "3"]), Some(2)); // the control socket
+    assert_eq!(exit_code(&["--depth-fd", "4"]), Some(2)); // the Wayland socket
 }
 
 #[test]
