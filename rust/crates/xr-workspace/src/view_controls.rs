@@ -43,6 +43,8 @@ pub struct Run<'a> {
     pub session: &'a str,
     /// The run's desktops (`capture`): the XR outputs' names.
     pub capture: &'a [String],
+    /// Their outputs as the broker created them (`manager.specs`); empty before the create.
+    pub specs: &'a [xr_wire::plugin::OutputSpec],
     /// The glasses' output (`output`) and the physical recovery output (`fallback`).
     pub output: &'a str,
     pub fallback: &'a str,
@@ -82,6 +84,7 @@ pub struct Features<'a> {
     pub immersive: Option<&'a mut immersive::Immersive>,
     pub windows: Option<&'a mut window_memory::Tracker>,
     pub keys: Option<&'a mut keybinds::Keys>,
+    pub binds: Option<&'a mut binds::Binds>,
 }
 
 /// Frames for the renderer and the descriptors that travel with them (`video.FdFrame`).
@@ -134,6 +137,10 @@ impl ViewControls {
         controls.immersive = immersive::Immersive::open(run);
         // The window memory's tracker, given to the view.
         controls.windows = windows.and_then(|w| w.attach(controls.view.as_mut()));
+        // `windows.context = control.window_context`.
+        if let (Some(windows), Some(view)) = (controls.windows.as_mut(), controls.view.as_ref()) {
+            windows.set_context(view.window_context());
+        }
         // `client.event_stream()` (config reloads, window changes, `xrcursor`).
         if let Some(view) = controls.view.as_mut() {
             view.open_events(run);
@@ -219,6 +226,7 @@ impl ViewControls {
                 immersive: self.immersive.as_mut(),
                 windows: self.windows.as_mut(),
                 keys: self.keys.as_mut(),
+                binds: self.binds.as_mut(),
             },
         )
     }
@@ -304,9 +312,8 @@ impl LoopHook for ViewControls {
     }
 
     fn deadline(&mut self) -> Option<Instant> {
-        self.view
-            .as_mut()
-            .and_then(|v| v.deadline(self.pointer.as_mut()))
+        let (view, mut features) = self.features();
+        view.and_then(|v| v.deadline(&mut features))
     }
 
     /// `control.poll(now)`: the free pointer, the debounced panel save, the overlay's idle close.
