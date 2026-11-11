@@ -147,7 +147,10 @@ of `spike/tests/control_wire_check.cpp`; the control suites run against it with
 C++ build; the Rust tool gives the corpus's `rust` column.)
 
 `golden/metrics.cpp` and `golden/pattern.cpp` print the C++ timing reports and pattern frame hashes
-the unit tests compare against byte for byte. The loopback compositor drives it end to end:
+the unit tests compare against byte for byte.
+`binds_panel::render_bind_panel` draws the key bind panel's card byte-equal to the C++ in the built-in
+5x7 font and the installed font: `golden/binds_panel.cpp` prints the C++ cards' FNV-1a hashes
+(`tests/binds_panel.rs`; the installed-font lines come from this machine's font file). The loopback compositor drives it end to end:
 
 ```sh
 capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \

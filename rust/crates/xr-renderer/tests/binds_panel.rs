@@ -1,6 +1,6 @@
 //! `spike/tests/binds_panel_test.cpp` in Rust: the fit, the scroll window and the overlay, the raster checks on the
-//! rendered card (in the pixel font and, when fontconfig finds it, the installed font), plus a dump compared with the
-//! C++ one byte for byte. Pixel parity with the C++ card is in `tests/card_raster.rs`.
+//! rendered card (in the pixel font and, when fontconfig finds it, the installed font), plus dumps compared with the
+//! C++ ones byte for byte: the layout, text cut, scroll and overlay, and every card of `golden/binds_panel.cpp`.
 
 use xr_renderer::binds_panel::*;
 use xr_renderer::glass_theme::glass_theme_scheme;
@@ -9,7 +9,7 @@ use xr_renderer::hud::{
     HudTextMetrics,
 };
 use xr_renderer::hud_font::HudFont;
-use xr_renderer::material::MdRgb;
+use xr_renderer::material::{MD_DEFAULT_SEED, MdRgb};
 
 /// 1920x1200 at scale 1.25, logical px.
 const SURFACE_W: u32 = 1536;
@@ -488,4 +488,122 @@ fn layout_text_scroll_and_overlay_match_cpp() {
         h = h.wrapping_mul(0x0100_0000_01b3);
     }
     assert_eq!((format!("{h:016x}"), dump.len()), ("2d701882a52626dd".to_string(), 67_774));
+}
+
+// --- Pixel parity with the C++ card ----------------------------------------------------------------------------------
+
+fn fnv(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
+}
+
+/// The cases of `golden/binds_panel.cpp`, in its order, for one font: (case, state, accent, max w, max h, first).
+fn golden_cases() -> Vec<(String, BindPanelState, MdRgb, u32, u32, u32)> {
+    let mut v = Vec::new();
+    let accents: [MdRgb; 5] = [ACCENT, MD_DEFAULT_SEED, [0.9, 0.4, 0.3], [0.0; 3], [1.0; 3]];
+    for (a, accent) in accents.into_iter().enumerate() {
+        v.push((
+            format!("accent{a}"),
+            sample(4, false, true),
+            accent,
+            1536,
+            960,
+            0,
+        ));
+    }
+    let sizes = [
+        [1536, 960],
+        [1920, 1200],
+        [1097, 685],
+        [960, 600],
+        [0, 0],
+        [300, 200],
+    ];
+    let samples = [
+        (4, false, true),
+        (4, false, false),
+        (0, false, true),
+        (12, false, true),
+        (19, false, true),
+        (24, false, true),
+        (2, true, true),
+    ];
+    for (sel, capture, conflicts) in samples {
+        for [w, h] in sizes {
+            let what = format!(
+                "sample{sel}{}{}@{w}x{h}",
+                if capture { "c" } else { "" },
+                if conflicts { "x" } else { "" }
+            );
+            v.push((what, sample(sel, capture, conflicts), ACCENT, w, h, sel));
+        }
+    }
+    let mut long = sample(4, false, true);
+    long.title = "W".repeat(48);
+    long.status.clear();
+    long.alert = false;
+    v.push(("long-title".into(), long, ACCENT, 1536, 960, 0));
+    for n in [0u32, 1, 4, 11, 25, 64] {
+        for c in [0, 1, 3, 7] {
+            for [w, h] in [[0u32, 0], [1536, 960], [900, 470]] {
+                for first in [0, n / 2] {
+                    v.push((
+                        format!("parity{n}c{c}@{w}x{h}f{first}"),
+                        parity_sample(n, n / 2, c == 1, c),
+                        ACCENT,
+                        w,
+                        h,
+                        first,
+                    ));
+                }
+            }
+        }
+    }
+    v
+}
+
+fn check_golden(font_name: &str, font: Option<&dyn HudTextMetrics>) {
+    let golden: Vec<&str> = include_str!("../golden/binds_panel.txt")
+        .lines()
+        .filter(|l| l.starts_with(&format!("{font_name} ")))
+        .collect();
+    let cases = golden_cases();
+    assert_eq!(golden.len(), cases.len(), "{font_name}: golden lines");
+    let mut bad = Vec::new();
+    for (line, (what, s, accent, w, h, first)) in golden.iter().zip(cases) {
+        let im = render_bind_panel(&s, accent, font, w, h, first);
+        let got = format!(
+            "{font_name} {what} {} {} {:016x}",
+            im.width,
+            im.height,
+            fnv(&im.rgba)
+        );
+        if got != *line {
+            bad.push(format!("want {line}\n got {got}"));
+        }
+    }
+    assert!(
+        bad.is_empty(),
+        "{font_name}: {} of {} cards differ from the C++:\n{}",
+        bad.len(),
+        golden.len(),
+        bad.join("\n")
+    );
+}
+
+#[test]
+fn pixel_parity_with_cpp_in_the_pixel_font() {
+    check_golden("pixel", None);
+}
+
+/// The "font" golden lines come from this machine's font file: regenerate them (golden/binds_panel.cpp) when it changes.
+#[test]
+fn pixel_parity_with_cpp_in_the_installed_font() {
+    match HudFont::load(HUD_FONT_FAMILY) {
+        Ok(font) => check_golden("font", Some(&font)),
+        Err(why) => {
+            eprintln!("note: {HUD_FONT_FAMILY} not available ({why}); real-font parity not checked")
+        }
+    }
 }
