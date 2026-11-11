@@ -86,13 +86,12 @@ def stub_binds(managed):
 
 
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video, view
+    from tools.native_spike import keybinds, managed, unified_cursor, video, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
         'binds': lambda: stub_binds(managed),
         'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
-        'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
         'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
         'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
