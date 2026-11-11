@@ -450,3 +450,33 @@ impl Pointer {
         p.close();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn a_lookup_answer_reaches_the_pointer_as_python_reads_it() {
+        let got = Arc::new(Mutex::new(None));
+        let mine = Arc::clone(&got);
+        let found = found_json(Box::new(move |j: Json| *mine.lock().unwrap() = Some(j)));
+        found(serde_json::json!({"address": "0x1", "at": [3, 4.5], "floating": true}));
+        let j = got.lock().unwrap().take().unwrap();
+        assert_eq!(j.get("address").and_then(Json::as_str), Some("0x1"));
+        assert_eq!(j.get("at"), Some(&Json::Array(vec![Json::Int(3), Json::Float(4.5)])));
+        assert_eq!(j.get("floating"), Some(&Json::Bool(true)));
+        let mine = Arc::clone(&got);
+        found_json(Box::new(move |j: Json| *mine.lock().unwrap() = Some(j)))(serde_json::Value::Null);
+        assert_eq!(got.lock().unwrap().take(), Some(Json::Null));
+    }
+
+    #[test]
+    fn the_shell_is_the_runs_desktops_in_the_overview_with_no_sender() {
+        let names = ["XR-1".to_owned(), "XR-2".to_owned()];
+        let shell = Shell::new(&names, "run", "session").unwrap();
+        assert_eq!(shell.state().names, names);
+        assert!(!shell.state().zoomed && !shell.has_sender());
+        assert!(Shell::new(&["DP-1".to_owned()], "run", "session").is_none());
+    }
+}
