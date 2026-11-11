@@ -46,7 +46,9 @@ use crate::glass::{
     options_gear_box, options_hint_box, options_icon_box, options_restore_box,
 };
 use crate::environment::{EnvironmentPass, environment_line_color};
-use crate::hud::{Background, HudImage};
+use crate::glass_raster::render_handle_atlas;
+use crate::hud::{Background, HUD_FONT_FAMILY, HudImage, HudTextMetrics};
+use crate::hud_font::HudFont;
 use crate::hud_gl::GlHud;
 use crate::options_geometry::{
     options_gear, options_maximize, options_maximize_ray, options_mesh_ray, options_panel,
@@ -982,9 +984,13 @@ pub struct GlCompositor {
     textures: Vec<SourceTexture>,
     panel_tex: PanelTexture,
     options_tex: PanelTexture,
-    /// The level bars', corner caps', gear's and Restore pill's pixels (glass render_handle_atlas), and whether the
-    /// latest one is on the GPU yet.
+    /// The level bars', corner caps', gear's and Restore pill's pixels (glass render_handle_atlas): one image per theme
+    /// colour, rendered for `handle_accent` (-1: none yet) with `handle_font`, looked up once (none: the pixel font).
     handle_texture: Option<glow::Texture>,
+    handle_accent: [f32; 3],
+    handle_font: Option<HudFont>,
+    handle_font_tried: bool,
+    /// set_handle_atlas: an injected atlas drawn in place of the rendered one, and whether it is on the GPU yet.
     handle_atlas: Option<Rc<HudImage>>,
     handle_uploaded: bool,
     width: u32,
@@ -1170,6 +1176,9 @@ impl GlCompositor {
             panel_tex,
             options_tex,
             handle_texture,
+            handle_accent: [-1.0; 3],
+            handle_font: None,
+            handle_font_tried: false,
             handle_atlas: None,
             handle_uploaded: false,
             width,
@@ -1768,11 +1777,43 @@ impl GlCompositor {
             f32::from(b) / 255.0,
         ];
     }
-    /// The handle atlas for the current accent (glass render_handle_atlas), uploaded before the next frame that draws a
-    /// handle. The C++ renders it itself on a theme change; its renderer (the font) is not ported yet.
+    /// An atlas drawn in place of the one the compositor renders for the accent (glass render_handle_atlas), from now
+    /// on whatever the accent: uploaded before the next frame that draws a handle. Tests use it to draw the C++ one.
     pub fn set_handle_atlas(&mut self, atlas: Rc<HudImage>) {
         self.handle_atlas = Some(atlas);
         self.handle_uploaded = false;
+    }
+
+    /// The handle atlas for the live accent, rendered and uploaded; a no-op for the same colour (C++ upload_handles).
+    /// The font is looked up on the first one only: a theme change never looks it up again. An injected atlas
+    /// (set_handle_atlas) is uploaded once instead.
+    fn upload_handles(&mut self) {
+        let atlas = if let Some(injected) = &self.handle_atlas {
+            if self.handle_uploaded {
+                return;
+            }
+            self.handle_uploaded = true;
+            if !injected.complete() {
+                return;
+            }
+            injected.clone()
+        } else {
+            if self.accent == self.handle_accent {
+                return;
+            }
+            self.handle_accent = self.accent;
+            if !self.handle_font_tried {
+                self.handle_font_tried = true;
+                self.handle_font = HudFont::load(HUD_FONT_FAMILY).ok();
+            }
+            let font = self.handle_font.as_ref().map(|f| f as &dyn HudTextMetrics);
+            Rc::new(render_handle_atlas(self.accent, font))
+        };
+        let gl = &self.gl;
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(self.handle_texture);
+        gl.pixel_store(glow::UNPACK_ALIGNMENT, 4);
+        gl.tex_image(atlas.width, atlas.height, Some(&atlas.rgba));
     }
 
     /// Draw every uploaded source into its rect, placed in space by `placements[i]` (missing: flat), back to front, with
@@ -1949,15 +1990,8 @@ impl GlCompositor {
         let handles = (self.glass.pills || highlight_alpha < 0.5)
             && self.progs.panel.is_some()
             && self.handle_texture.is_some();
-        if handles && !self.handle_uploaded {
-            // (the same reason: only on a theme change)
-            if let Some(atlas) = complete(&self.handle_atlas) {
-                gl.active_texture(glow::TEXTURE0);
-                gl.bind_texture(self.handle_texture);
-                gl.pixel_store(glow::UNPACK_ALIGNMENT, 4);
-                gl.tex_image(atlas.width, atlas.height, Some(&atlas.rgba));
-            }
-            self.handle_uploaded = true;
+        if handles {
+            self.upload_handles(); // (the same reason: only on a theme change)
         }
         // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as
         // without it.

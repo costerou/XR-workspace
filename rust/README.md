@@ -192,6 +192,8 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
   `environment_render_test.cpp` (all but the VR video sphere, which needs the scene path). Its
   level-bar and 3D button part always runs: the test renders the handle atlas with
   `glass_raster::render_handle_atlas` (HudFont when it loads) and passes it by `set_handle_atlas`.
+  Without that override `GlCompositor` renders its own atlas on a theme change, as the C++ does
+  (`tests/handle_atlas.rs`).
 - `capture_e2e_rust_malloc_{pattern,cpu,gl-shm,gl-dmabuf}`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
