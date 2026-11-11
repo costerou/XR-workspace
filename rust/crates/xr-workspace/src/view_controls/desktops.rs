@@ -377,7 +377,6 @@ struct Reset {
 /// `_desktops_before`).
 pub struct Manager {
     shared: Arc<Mutex<Shared>>,
-    origin: (i64, i64),
     worker: Worker,
     thread: Option<JoinHandle<()>>,
     guard: Box<dyn Fn(&[OutputSpec]) -> Option<Command> + Send>,
@@ -452,7 +451,7 @@ impl Manager {
     /// run has at least one).
     pub fn open(specs: &[OutputSpec], env: Env) -> Option<Manager> {
         let specs = sorted(specs.iter().map(plan_spec).collect::<Option<Vec<_>>>()?);
-        let origin = (specs.first()?.x, specs.first()?.y);
+        specs.first()?;
         Some(Manager {
             shared: Arc::new(Mutex::new(Shared {
                 specs,
@@ -460,7 +459,6 @@ impl Manager {
                 stop: false,
                 counts: Counts::default(),
             })),
-            origin,
             worker: Worker {
                 broker: env.broker,
                 journal: env.journal,
@@ -572,7 +570,8 @@ impl Manager {
         self.pending = Some(GuardChange::Replace(self.guard()));
     }
 
-    /// `plan(manager.specs, placements, action, index, held=manager.held())`.
+    /// `plan(manager.specs, placements, action, index, held=manager.held())`, laid out from the first desktop's
+    /// corner as the view's call does.
     pub fn plan(
         &self,
         placements: &[Placement],
@@ -587,7 +586,7 @@ impl Manager {
             placements,
             action,
             index,
-            Some(self.origin),
+            None,
             &held,
             &mut fresh,
         )
