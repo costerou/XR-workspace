@@ -31,7 +31,8 @@
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
 //! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `binds`, `overview_pointer`, `immersive`,
-//!   `keybinds`, which needs `binds`'s helper command line, `video`, and the `desktops` wiring). The shipped
+//!   `keybinds`, which needs `binds`'s helper command line, and the `desktops` wiring; `binds` also hides the VR video
+//!   keys, which need that command line too). The shipped
 //!   `view_controls` runs around them, with the ported socket, window sending, privacy mode and the window memory's
 //!   tracker. Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
