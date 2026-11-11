@@ -835,7 +835,13 @@ impl Host for RealHost<'_> {
         // `_setup_failed(ProfileStore(profiles_path(), model), desktops)`: the runner's store is the glasses profile.
         if let Some(path) = setup::profiles_path() {
             let log = &mut |line: &str| eprintln!("xr-workspace: {line}"); // profiles.log
-            setup::setup_failed(&path, &self.consent.model, &self.consent.desktops, error, log);
+            setup::setup_failed(
+                &path,
+                &self.consent.model,
+                &self.consent.desktops,
+                error,
+                log,
+            );
         }
         Ok(())
     }

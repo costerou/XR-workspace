@@ -17,7 +17,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde::ser::SerializeMap;
 
-use crate::geometry::{DEFAULT_DESKTOP, DEFAULT_PLACEMENT, Desktop, MAX_DESKTOPS, MAX_ROLL, PLACEMENT_KEYS, Placement};
+use crate::geometry::{
+    DEFAULT_DESKTOP, DEFAULT_PLACEMENT, Desktop, MAX_DESKTOPS, MAX_ROLL, PLACEMENT_KEYS, Placement,
+};
 use crate::managed::Error;
 use crate::private_file::token;
 use crate::pyjson::{self, Json};
@@ -89,7 +91,8 @@ pub fn setup_failed(
     error: &Error,
     log: &mut dyn FnMut(&str),
 ) -> bool {
-    UNCREATABLE.contains(&error.0.as_str()) && discard_unusable(path, model, desktops, &error.0, log)
+    UNCREATABLE.contains(&error.0.as_str())
+        && discard_unusable(path, model, desktops, &error.0, log)
 }
 
 /// `profiles.discard_unusable`: unless the profile changed meanwhile (its setup is no longer `desktops`), its setup goes
@@ -114,7 +117,10 @@ pub fn discard_unusable(
         pyjson::compact(&setup)
     ));
     if let Err(e) = reset(path, model) {
-        log(&format!("the saved monitor setup could not be reset ({})", e.0));
+        log(&format!(
+            "the saved monitor setup could not be reset ({})",
+            e.0
+        ));
         return false;
     }
     true
@@ -125,15 +131,31 @@ pub fn load_setup(path: &Path, model: &str) -> (Setup, Option<String>) {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let text = match fs::read(path) {
         Ok(bytes) => bytes,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return (default_setup(), Some(NOTHING_SAVED.into())),
-        Err(e) => return (default_setup(), Some(format!("{name} could not be read ({})", strerror(&e)))),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            return (default_setup(), Some(NOTHING_SAVED.into()));
+        }
+        Err(e) => {
+            return (
+                default_setup(),
+                Some(format!("{name} could not be read ({})", strerror(&e))),
+            );
+        }
     };
-    let Some(data) = String::from_utf8(text).ok().and_then(|t| Json::parse(&t).ok()) else {
-        return (default_setup(), Some(format!("{name} is corrupt (not JSON)")));
+    let Some(data) = String::from_utf8(text)
+        .ok()
+        .and_then(|t| Json::parse(&t).ok())
+    else {
+        return (
+            default_setup(),
+            Some(format!("{name} is corrupt (not JSON)")),
+        );
     };
     match profiles(&data) {
         Some(profiles) => setup_from(profiles.iter().find(|(k, _)| k == model).map(|(_, v)| v)),
-        None => (default_setup(), Some(format!("{name} is corrupt (no schema {SCHEMA} profiles)"))),
+        None => (
+            default_setup(),
+            Some(format!("{name} is corrupt (no schema {SCHEMA} profiles)")),
+        ),
     }
 }
 
@@ -189,7 +211,14 @@ pub fn setup_from(entry: Option<&Json>) -> (Setup, Option<String>) {
         Some(r) => validate_rolls(r, desktops.len()),
     };
     match rolls {
-        Ok(rolls) => (Setup { desktops, placements, rolls }, None),
+        Ok(rolls) => (
+            Setup {
+                desktops,
+                placements,
+                rolls,
+            },
+            None,
+        ),
         Err(e) => fail(format!("the saved rolls are invalid ({e})")),
     }
 }
@@ -210,7 +239,9 @@ fn placement(p: &Json) -> Result<Placement, String> {
     let mut value = p.to_value();
     if let Some(map) = value.as_object_mut() {
         let legacy = PLACEMENT_KEYS.iter().chain(&REMOVED_PLACEMENT_KEYS);
-        if map.len() == PLACEMENT_KEYS.len() + REMOVED_PLACEMENT_KEYS.len() && legacy.clone().all(|k| map.contains_key(*k)) {
+        if map.len() == PLACEMENT_KEYS.len() + REMOVED_PLACEMENT_KEYS.len()
+            && legacy.clone().all(|k| map.contains_key(*k))
+        {
             map.retain(|k, _| PLACEMENT_KEYS.contains(&k.as_str()));
         }
     }
@@ -268,7 +299,10 @@ struct Previous {
 fn previous(value: Option<&Json>) -> Option<Previous> {
     let value = value.filter(|v| v.as_object().is_some())?;
     let (setup, reason) = setup_from(Some(value));
-    let spacing = value.get("spacing").and_then(Json::as_int).filter(|s| (0..=MAX_SPACING).contains(s));
+    let spacing = value
+        .get("spacing")
+        .and_then(Json::as_int)
+        .filter(|s| (0..=MAX_SPACING).contains(s));
     match (reason, spacing) {
         (None, Some(spacing)) => Some(Previous { setup, spacing }),
         _ => None,
@@ -300,7 +334,11 @@ fn clean(data: &Json) -> Profile {
         _ => &[],
     };
     let placements = (0..n)
-        .map(|i| saved.get(i).map_or(DEFAULT_PLACEMENT, |p| placement(p).unwrap_or(DEFAULT_PLACEMENT)))
+        .map(|i| {
+            saved.get(i).map_or(DEFAULT_PLACEMENT, |p| {
+                placement(p).unwrap_or(DEFAULT_PLACEMENT)
+            })
+        })
         .collect();
     let rolls = data
         .get("rolls")
@@ -309,7 +347,11 @@ fn clean(data: &Json) -> Profile {
     let flag = |key| data.get(key).and_then(Json::as_bool).unwrap_or(true);
     Profile {
         view: view::settings_from(data),
-        setup: Setup { desktops, placements, rolls },
+        setup: Setup {
+            desktops,
+            placements,
+            rolls,
+        },
         previous_setup: previous(data.get("previous_setup")),
         tracking: flag("tracking"),
         mode_switch: flag("mode_switch"),
@@ -329,7 +371,10 @@ fn clean(data: &Json) -> Profile {
 
 /// `profiles.load_profile`.
 fn load_profile(path: &Path, model: &str) -> Profile {
-    let raw = read_profiles(path).into_iter().find(|(k, _)| k == model).map(|(_, v)| v);
+    let raw = read_profiles(path)
+        .into_iter()
+        .find(|(k, _)| k == model)
+        .map(|(_, v)| v);
     let raw = raw.filter(|r| r.as_object().is_some());
     if model == "pro2" {
         // No legacy layout migration or Luma startup choices before exact-model proof.
@@ -342,23 +387,39 @@ fn load_profile(path: &Path, model: &str) -> Profile {
         // Seeded from the v1 file, else defaults.
         None => {
             let settings = view::load_settings(&path.with_file_name("layout.json"));
-            let seeded = Json::parse(&pyjson::compact(&settings)).expect("settings serialize as JSON");
+            let seeded =
+                Json::parse(&pyjson::compact(&settings)).expect("settings serialize as JSON");
             clean(&seeded)
         }
     };
-    p.tracking_driver = if model == "luma-ultra" { "luma" } else { XRDRIVER }.into(); // tracking.default_driver
+    p.tracking_driver = if model == "luma-ultra" {
+        "luma"
+    } else {
+        XRDRIVER
+    }
+    .into(); // tracking.default_driver
     p
 }
 
 /// `PlacementStore(path, model).reset()`: the profile's setup becomes the default; every other field is kept, and so is
 /// every other model's profile. Written as `save_profile` writes it.
 fn reset(path: &Path, model: &str) -> Result<(), OsError> {
-    let profile = Profile { setup: default_setup(), ..load_profile(path, model) };
+    let profile = Profile {
+        setup: default_setup(),
+        ..load_profile(path, model)
+    };
     let others: Vec<(String, Json)> = read_profiles(path)
         .into_iter()
         .filter(|(k, _)| k != model && MODELS.contains(&k.as_str()))
         .collect();
-    save(path, &File { others: &others, model, profile: &profile })
+    save(
+        path,
+        &File {
+            others: &others,
+            model,
+            profile: &profile,
+        },
+    )
 }
 
 /// `{'schema': SCHEMA, 'profiles': {**others, model: profile}}`.
@@ -408,7 +469,10 @@ impl OsError {
 /// `save_profile`'s write: `json.dump` into a fresh `.profiles.*.tmp` (mode 0600) beside the file, synced, then
 /// replaced over it. A missing folder is made, mode 0700.
 fn save(path: &Path, file: &File) -> Result<(), OsError> {
-    let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
@@ -459,9 +523,21 @@ mod tests {
         fs::write(&path, r#"{"schema": 2, "profiles": {"luma-ultra": {"desktops": [{"width": 1920, "height": 1080, "scale": 1.0}]}}}"#).unwrap();
         let before = fs::read(&path).unwrap();
         let one = [DEFAULT_DESKTOP];
-        assert!(!setup_failed(&path, "luma-ultra", &one, &Error("broker epoch lost; preserve journal".into()), &mut |_| {}));
+        assert!(!setup_failed(
+            &path,
+            "luma-ultra",
+            &one,
+            &Error("broker epoch lost; preserve journal".into()),
+            &mut |_| {}
+        ));
         assert_eq!(fs::read(&path).unwrap(), before);
-        assert!(setup_failed(&path, "luma-ultra", &one, &Error("missing readback".into()), &mut |_| {}));
+        assert!(setup_failed(
+            &path,
+            "luma-ultra",
+            &one,
+            &Error("missing readback".into()),
+            &mut |_| {}
+        ));
         assert_ne!(fs::read(&path).unwrap(), before);
     }
 }

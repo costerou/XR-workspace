@@ -19,7 +19,9 @@ fn normal(log: &str, dir: &Path) -> String {
     while let Some(i) = rest.find(".profiles.") {
         out += &rest[..i];
         let tail = &rest[i + ".profiles.".len()..];
-        let end = tail.find(|c: char| c == '.' || c == '/' || c == '\'').unwrap_or(tail.len());
+        let end = tail
+            .find(|c: char| c == '.' || c == '/' || c == '\'')
+            .unwrap_or(tail.len());
         if tail[end..].starts_with(".tmp") && end > 0 {
             out += ".profiles.TMP.tmp";
             rest = &tail[end + 4..];
@@ -34,7 +36,10 @@ fn normal(log: &str, dir: &Path) -> String {
 #[test]
 fn every_case_matches_the_python() {
     let corpus: Value = serde_json::from_str(
-        &fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/setup/discard.json")).unwrap(),
+        &fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/setup/discard.json"),
+        )
+        .unwrap(),
     )
     .unwrap();
     let cases = corpus["cases"].as_array().unwrap();
@@ -62,19 +67,41 @@ fn every_case_matches_the_python() {
         }
         if asked {
             let error = Error(case["error"].as_str().unwrap().into());
-            setup::setup_failed(&path, case["model"].as_str().unwrap(), &desktops, &error, &mut |line| {
-                log += &format!("xr-workspace: {line}\n")
-            });
+            setup::setup_failed(
+                &path,
+                case["model"].as_str().unwrap(),
+                &desktops,
+                &error,
+                &mut |line| log += &format!("xr-workspace: {line}\n"),
+            );
         }
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
-        assert_eq!(normal(&log, &dir), case["log"].as_str().unwrap(), "{name}: log");
+        assert_eq!(
+            normal(&log, &dir),
+            case["log"].as_str().unwrap(),
+            "{name}: log"
+        );
         let after = fs::read_to_string(&path).ok();
-        assert_eq!(after.as_deref(), case["after"].as_str(), "{name}: profiles.json");
+        assert_eq!(
+            after.as_deref(),
+            case["after"].as_str(),
+            "{name}: profiles.json"
+        );
         if after.is_some() && case["before"] != case["after"] {
-            assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600, "{name}: mode");
+            assert_eq!(
+                fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600,
+                "{name}: mode"
+            );
         }
-        let left: Vec<_> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
-        assert!(left.len() <= 1, "{name}: a temporary file was left: {left:?}");
+        let left: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(
+            left.len() <= 1,
+            "{name}: a temporary file was left: {left:?}"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 }

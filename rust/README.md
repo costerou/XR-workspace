@@ -107,12 +107,18 @@ because the Rust run has none yet. Not ported, so a Rust run presents the deskto
 - the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
   pointer, privacy mode, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
 - the window memory: remembered windows are not put back at the start, and no capture is taken
-- the reset of a saved setup the broker refused (`profiles.discard_unusable`)
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
 the run loop (`supervisor::hook::LoopHook`: its sources, status datagrams, frame descriptors and guard changes) where the
 Python calls the original, in the Python's order. With every stub off, a run is the plain one above.
+Ported: the reset of a saved setup the broker refused (`view_controls::setup`: `managed._setup_failed` with
+`profiles.discard_unusable`). When the consent's desktops are not the default three and the broker refuses their outputs
+(`UNCREATABLE`), the glasses profile in `profiles.json` goes back to the default three, as `save_profile` writes it, and
+the log keeps the setup it replaced. `tests/setup_corpus.rs` replays the Python's resets
+(`rust/corpus/setup/discard.json`, from `tests/native_spike/setup_corpus.py`), and `managed_real`'s `create-fail` case
+with a saved four-desktop `profiles.json` compares the file both runners leave.
+
 `crates/xr-workspace/VIEW_CONTROLS.md` is the hand-off for each port: the Python to port, the renderer ops, the parity
 tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
 and a fake-compositor reply function per feature.
