@@ -256,12 +256,14 @@ Where the modules meet, the C++ order is kept:
 
 ### Gates
 
-Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments against the Rust binary, configured with
+Every `capture_e2e_rust_*` ctest (44) runs the C++ test's bench arguments against the Rust binary, configured with
 `-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
 (`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
 `pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
-`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies` and
-`feed_gone_video_loss`. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
+`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies`,
+`feed_gone_video_loss` and `desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
+(XR-2 removed, then added back), as the C++ `capture_e2e_desktops_change_*` does: XR-2's capture session goes and comes
+back, the others keep theirs, and every settled frame's tiles show the listed desktops' captures in order. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
 `tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
 `tests/video_owner_events.rs`, `tests/immersive.rs`, `tests/free_pointer.rs` and the `options_evidence` unit test in
 `shell/menus.rs`. `restore_band_wire`'s twin is in `tests/restore_band.rs`: `restore_band_dump --dump` (byte-equal to
@@ -272,7 +274,6 @@ Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments agains
 Not ported or not covered yet:
 
 - Late latch and the GPU timer query (plan task 6).
-- `desktops` has no end-to-end test: the bench never sends that op.
 
 ### IPC
 

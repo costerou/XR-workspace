@@ -718,6 +718,13 @@ if(XR_ENABLE_PRESENTATION)
     add_test(NAME capture_e2e_immersive_engine_dies COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 4 --warmup 1 --engine-dies 1.5
              --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_immersive_engine_dies PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    # A `desktops` frame mid-run (a pill's Remove, then Add): XR-2's capture stops and starts again, the others keep theirs,
+    # and the GL sources follow: every settled frame's tiles are the listed desktops' captures, in order.
+    foreach(MODE gl-shm gl-dmabuf)
+      add_test(NAME capture_e2e_desktops_change_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 4.5 --warmup 1
+        --desktops-change --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_desktops_change_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
     foreach(CHURN bounce resize)
       foreach(MODE cpu gl-shm gl-dmabuf)
         add_test(NAME capture_e2e_churn_${CHURN}_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1
@@ -795,6 +802,12 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_rust_edge_pan_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 3.5
         --warmup 1 --outputs 4 --maximize 3 --edge-pan --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_edge_pan_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # `desktops` mid-run: captures stop and start, the GL sources follow (as capture_e2e_desktops_change_* above).
+      foreach(MODE gl-shm gl-dmabuf)
+        add_test(NAME capture_e2e_rust_desktops_change_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 4.5
+          --warmup 1 --desktops-change --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_desktops_change_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
       # rust: handles
       add_test(NAME capture_e2e_rust_restore_band COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5 --warmup 1
         --outputs 2 --maximize 2 --restore-band --renderer "${XR_RUST_RENDERER}")
