@@ -42,9 +42,7 @@ def patch(module, name, value):
 
 
 class Nothing:
-    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {}), and
-    a panel of it is never open (`keys_open`, which a VR video's open reads)."""
-    open = False
+    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {})."""
     def __init__(self, *args, **kwargs): pass
     def bind_kwargs(self): return {}
     def start(self): return self
@@ -65,31 +63,13 @@ def stub_view(view):
     hide('event_stream', 'install_options_binds')
 
 
-def stub_binds(managed):
-    """`binds`: no Ctrl+Alt binds in or out, and no read of the session mode in `view_controls`'s body."""
-    quiet('install_view_binds', 'remove_view_binds')
-    hide('reinstall_view_binds')
-    body = managed.view_controls.__wrapped__.__code__
-
-    def no_session_mode(name, value):
-        if name != 'query': return value
-        def query(*args, **kwargs):
-            if sys._getframe(1).f_code is body and args[:1] == ('monitors',): return []
-            return value(*args, **kwargs)
-        return query
-    Client.filters.append(no_session_mode)
-
-
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, view
+    from tools.native_spike import immersive, managed, unified_cursor, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
-        # The video keys go in with the binds' helper command line (`bind_args`), which the Rust run has with `binds`.
-        'binds': lambda: (stub_binds(managed), hide('install_video_binds')),
         'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
         'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
-        'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
         'desktops': lambda: hide('adopt_windows'),
     }
     for stub in STUBS.values(): stub()

@@ -5,7 +5,8 @@
 //! first, which a test must not open); Escape's `video_exit` goes through each run's own key helper. Both runs send
 //! the renderer the same `video` frames (open, the quality, then close), the open's with one descriptor, the file
 //! (`Observed::frames`, compared by `parity`), and answer the panel's `status` with the same `video` entry. The video
-//! keys are not installed on either side until `binds` gives the Rust run the helper's command line (oracle.py).
+//! keys go in when the video opens and out when it closes, through each run's client: the same `install_video_binds` and
+//! `remove_video_binds` Lua in both traces, which `parity` compares.
 //!
 //! The file is a one-frame YUV4MPEG2 clip, which the real ffprobe reads on both sides (a file it refused would be
 //! told with a desktop notification).
@@ -84,7 +85,11 @@ fn a_file_opens_with_its_descriptor_and_leaves() {
     let video = &rust["playing"]["video"];
     assert_eq!(
         (&video["active"], &video["title"], &video["label"]),
-        (&json!(true), &json!("clip_360_TB.y4m"), &json!("360° top-bottom 3D")),
+        (
+            &json!(true),
+            &json!("clip_360_TB.y4m"),
+            &json!("360° top-bottom 3D")
+        ),
         "{rust}"
     );
     assert_eq!(rust["after"]["video"]["active"], json!(false), "{rust}");
@@ -94,6 +99,17 @@ fn a_file_opens_with_its_descriptor_and_leaves() {
     assert!(
         with_fds[0].contains("\"action\":\"open\"") && with_fds[0].contains("\"type\":\"file\""),
         "{with_fds:?}"
+    );
+    // The video keys went in with the open and out with Escape, through the run's own client.
+    let keys: Vec<&String> = run
+        .trace
+        .iter()
+        .filter(|r| r.contains("xr_workspace_video_binds"))
+        .collect();
+    assert_eq!(keys.len(), 2, "{keys:#?}");
+    assert!(
+        keys[0].contains("video_pause") && !keys[1].contains("video_pause"),
+        "{keys:#?}"
     );
     assert_eq!(run.result["stop_reason"], "interrupted");
 }

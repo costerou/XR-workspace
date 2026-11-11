@@ -1,0 +1,942 @@
+{
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "desktop": {
+  "id": 0,
+  "name": "DP-1",
+  "width": 1920,
+  "height": 1080,
+  "x": 0,
+  "y": 0,
+  "scale": 1.0,
+  "transform": 0,
+  "refreshRate": 60.0,
+  "disabled": false,
+  "dpmsStatus": true,
+  "mirrorOf": "none",
+  "availableModes": []
+ },
+ "run_id": "run-1",
+ "session": "a1b2c3",
+ "bind_args": [
+  "/usr/bin/python3",
+  "/opt/viture-workspace/tools/native_spike/xr_control.py",
+  "/run/user/1000/xr-workspace-spike/run-1/control.sock",
+  "run-1",
+  "a1b2c3"
+ ],
+ "scenarios": {
+  "typing": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1200,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 119.999,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": []
+   },
+   "sbs_mode": false,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "typing_toggle"
+     ],
+     "calls": [
+      [
+       "typing",
+       true
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@119.999000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "typing_toggle"
+     ],
+     "calls": [
+      [
+       "typing",
+       false
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@119.999000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  },
+  "menu": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1200,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 119.999,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": []
+   },
+   "sbs_mode": false,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "menu_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": true,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"menu_field_prev\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"menu_field_next\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"menu_dec\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"menu_inc\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"menu_dec_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"menu_inc_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_next\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_prev\")), hl.bind(\"R\", hl.dsp.exec_cmd(c .. \"menu_reset\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"menu_back\")), hl.bind(\"U\", hl.dsp.exec_cmd(c .. \"menu_ultrawide\")), hl.bind(\"N\", hl.dsp.exec_cmd(c .. \"menu_add\")), hl.bind(\"SHIFT + Delete\", hl.dsp.exec_cmd(c .. \"menu_delete\")) }",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@119.999000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"menu_field_prev\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"menu_field_next\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"menu_dec\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"menu_inc\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"menu_dec_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"menu_inc_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_next\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_prev\")), hl.bind(\"R\", hl.dsp.exec_cmd(c .. \"menu_reset\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"menu_back\")), hl.bind(\"U\", hl.dsp.exec_cmd(c .. \"menu_ultrawide\")), hl.bind(\"N\", hl.dsp.exec_cmd(c .. \"menu_add\")), hl.bind(\"SHIFT + Delete\", hl.dsp.exec_cmd(c .. \"menu_delete\")) }",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "menu_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": false,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "menu_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": true,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"menu_field_prev\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"menu_field_next\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"menu_dec\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"menu_inc\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"menu_dec_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"menu_inc_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_next\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_prev\")), hl.bind(\"R\", hl.dsp.exec_cmd(c .. \"menu_reset\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"menu_back\")), hl.bind(\"U\", hl.dsp.exec_cmd(c .. \"menu_ultrawide\")), hl.bind(\"N\", hl.dsp.exec_cmd(c .. \"menu_add\")), hl.bind(\"SHIFT + Delete\", hl.dsp.exec_cmd(c .. \"menu_delete\")) }",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "typing_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": false,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ],
+      [
+       "typing",
+       true
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@119.999000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "typing_toggle"
+     ],
+     "calls": [
+      [
+       "typing",
+       false
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  },
+  "presentation": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1200,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 119.999,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": []
+   },
+   "sbs_mode": false,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reset",
+      {
+       "x": 1920,
+       "y": 0,
+       "height": 1080,
+       "refreshRate": 60.0
+      }
+     ],
+     "calls": [],
+     "wire": []
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60.000000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1200@120\", position = \"-1920x9272\", scale = 1 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 120.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  },
+  "no-session-mode": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1080,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 60.0,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": []
+   },
+   "sbs_mode": false,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reset",
+      {
+       "x": 1920,
+       "y": 0
+      }
+     ],
+     "calls": [],
+     "wire": []
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60.000000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  },
+  "wide": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1200,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 119.999,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": [
+     "1920x1200@119.999Hz",
+     "3840x1200@60.00Hz",
+     "3840x1200@90.00Hz"
+    ]
+   },
+   "sbs_mode": true,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "reset",
+      {
+       "height": 1080,
+       "refreshRate": 60.0
+      }
+     ],
+     "calls": [],
+     "wire": []
+    },
+    {
+     "step": [
+      "reload"
+     ],
+     "calls": [
+      [
+       "reload"
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60.000000\", position = \"-1920x9272\", scale = 1.0, transform = 0 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1080, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ],
+      [
+       "/eval hl.monitor({ output = \"DP-2\", mode = \"3840x1200@90\", position = \"-1920x9272\", scale = 1 })",
+       "ok"
+      ],
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 3840, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 90.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": [\"1920x1200@119.999Hz\", \"3840x1200@60.00Hz\", \"3840x1200@90.00Hz\"]}]"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  },
+  "end-typing": {
+   "glasses": {
+    "id": 1,
+    "name": "DP-2",
+    "width": 1920,
+    "height": 1200,
+    "x": -1920,
+    "y": 9272,
+    "scale": 1.0,
+    "transform": 0,
+    "refreshRate": 119.999,
+    "disabled": false,
+    "dpmsStatus": true,
+    "mirrorOf": "none",
+    "availableModes": []
+   },
+   "sbs_mode": false,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "j/monitors all",
+       "[{\"id\": 0, \"name\": \"DP-1\", \"width\": 1920, \"height\": 1080, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 60.0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}, {\"id\": 1, \"name\": \"DP-2\", \"width\": 1920, \"height\": 1200, \"x\": -1920, \"y\": 9272, \"scale\": 1.0, \"transform\": 0, \"refreshRate\": 119.999, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"availableModes\": []}]"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "menu_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": true,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_menu_binds = { hl.bind(\"up\", hl.dsp.exec_cmd(c .. \"menu_field_prev\")), hl.bind(\"down\", hl.dsp.exec_cmd(c .. \"menu_field_next\")), hl.bind(\"left\", hl.dsp.exec_cmd(c .. \"menu_dec\")), hl.bind(\"right\", hl.dsp.exec_cmd(c .. \"menu_inc\")), hl.bind(\"SHIFT + left\", hl.dsp.exec_cmd(c .. \"menu_dec_big\")), hl.bind(\"SHIFT + right\", hl.dsp.exec_cmd(c .. \"menu_inc_big\")), hl.bind(\"Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_next\")), hl.bind(\"SHIFT + Tab\", hl.dsp.exec_cmd(c .. \"menu_desktop_prev\")), hl.bind(\"R\", hl.dsp.exec_cmd(c .. \"menu_reset\")), hl.bind(\"Escape\", hl.dsp.exec_cmd(c .. \"menu_back\")), hl.bind(\"U\", hl.dsp.exec_cmd(c .. \"menu_ultrawide\")), hl.bind(\"N\", hl.dsp.exec_cmd(c .. \"menu_add\")), hl.bind(\"SHIFT + Delete\", hl.dsp.exec_cmd(c .. \"menu_delete\")) }",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "typing_toggle"
+     ],
+     "calls": [
+      [
+       "menu",
+       false,
+       {
+        "menu_open": false,
+        "menu_keys_off": false,
+        "options_owned": false,
+        "typing": false
+       }
+      ],
+      [
+       "typing",
+       true
+      ]
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/viture-workspace/tools/native_spike/xr_control.py /run/user/1000/xr-workspace-spike/run-1/control.sock run-1 a1b2c3 \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ]
+    },
+    {
+     "step": [
+      "close"
+     ],
+     "calls": [],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ]
+    }
+   ]
+  }
+ }
+}

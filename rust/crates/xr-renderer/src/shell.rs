@@ -43,6 +43,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
     zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
 };
+use xr_renderer::pose::monotonic_ns;
 
 mod captures;
 mod scene;
@@ -481,6 +482,7 @@ impl Dispatch<WlCallback, CallbackKind> for State {
                 CallbackKind::Frame => {
                     s.frame = None;
                     s.cadence.frame_done();
+                    s.features.tracking.latch_frame_done();
                 }
                 CallbackKind::Sync => s.synced = true,
             }
@@ -675,11 +677,17 @@ impl Presentation {
         if let Some(wake) = &wake {
             fds.push(PollFd::new(wake, PollFlags::IN));
         }
-        // Events already queued may allow a draw: look, do not wait.
-        let wait = if dispatched > 0 { 0 } else { timeout_ms };
+        // Events already queued may allow a draw: look, do not wait. A late-latched frame waiting to be drawn
+        // (latch_wake_ns) shortens the wait to its start, to the nanosecond.
+        let mut wait_ns = if dispatched > 0 { 0 } else { i64::from(timeout_ms.max(0)) * 1_000_000 };
+        let wake_ns = self.state.features.tracking.latch_wake_ns();
+        if wake_ns != 0 && wait_ns > 0 {
+            let now = monotonic_ns();
+            wait_ns = if wake_ns <= now { 0 } else { wait_ns.min((wake_ns - now) as i64) };
+        }
         let timeout = Timespec {
-            tv_sec: i64::from(wait / 1000),
-            tv_nsec: i64::from(wait % 1000) * 1_000_000,
+            tv_sec: wait_ns / 1_000_000_000,
+            tv_nsec: wait_ns % 1_000_000_000,
         };
         match poll(&mut fds, Some(&timeout)) {
             Err(rustix::io::Errno::INTR) => return Ok(true),
@@ -759,6 +767,7 @@ impl Presentation {
             s.features.tracking.take_read(); // no feedback: no latency sample
         }
         surface.commit();
+        s.features.tracking.latch_committed(); // a late-latched frame's draw ends at its commit
         match self.conn.flush() {
             Ok(()) => Ok(()),
             Err(WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),

@@ -217,7 +217,7 @@ class Supervisor:
                         except ValueError: geometry = None  # never hit-test a stale card; the renderer sends it again
                         if handler is not None: handler(geometry)
                     else:
-                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video','tracking','capture_failure_run','vsync_error_ms','sensor_to_vsync_ms'}:
+                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video','tracking','capture_failure_run','vsync_error_ms','sensor_to_vsync_ms','gpu_p50_ms','gpu_p95_ms','gpu_max_ms'}:
                             raise ValueError('invalid status')
                         for k,v in value.items():
                             if k == 'capture_path': valid = v in ('dmabuf','shm')
