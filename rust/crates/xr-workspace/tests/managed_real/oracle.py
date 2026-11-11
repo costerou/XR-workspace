@@ -71,12 +71,11 @@ def stub_view(view):
 
 
 def apply_stubs():
-    from tools.native_spike import immersive, managed, unified_cursor, video, view
+    from tools.native_spike import managed, unified_cursor, video, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
         'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
-        'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
         'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
     }

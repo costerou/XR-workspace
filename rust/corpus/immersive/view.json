@@ -1,0 +1,2611 @@
+{
+ "first_request_id": 7,
+ "run_id": "r1",
+ "scenarios": [
+  {
+   "name": "nothing_on",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": false,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "pointer",
+     -1,
+     false
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "saved_on_at_start",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1",
+       "XR-2",
+       "XR-3"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "sync"
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "toggle_on_and_off",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1",
+       "XR-2",
+       "XR-3"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": true,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": false,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "toggle"
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ],
+    [
+     "status"
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "toggle_with_one_on_turns_all_off",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,true,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-2"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-2": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {
+     "XR-2": true
+    },
+    "global": false,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "toggle"
+    ]
+   ]
+  },
+  {
+   "name": "failed_engine_then_retry",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [
+      "3D is off: the depth engine could not start (it is not installed). Back to 2D."
+     ],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": true,
+      "installed": false,
+      "names": [],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":10,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "toggle"
+    ],
+    [
+     "tick",
+     [
+      [
+       "failed",
+       "engine",
+       "it is not installed"
+      ]
+     ]
+    ],
+    [
+     "status"
+    ],
+    [
+     "tick",
+     []
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "failed_sbs_and_died",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [
+      "3D is off: the depth engine stopped (it quit). Back to 2D."
+     ],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":10,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":11,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ],
+    [
+     "tick",
+     [
+      [
+       "failed",
+       "died",
+       "it quit"
+      ]
+     ]
+    ],
+    [
+     "click",
+     1
+    ],
+    [
+     "tail",
+     0
+    ]
+   ]
+  },
+  {
+   "name": "leave_toast",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [
+      "The glasses did not leave 3D mode (nope). Unplug them or use their button if the picture looks doubled."
+     ],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "tick",
+     [
+      [
+       "leave",
+       "nope"
+      ]
+     ]
+    ],
+    [
+     "tick",
+     [
+      [
+       "off"
+      ]
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "click_and_tail",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-1": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,true,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-1": true,
+         "XR-3": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":10,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":11,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-1": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":12,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":false,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-1": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {
+        "XR-1": true
+       },
+       "global": false,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": true,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "click",
+     0
+    ],
+    [
+     "click",
+     2
+    ],
+    [
+     "tail",
+     1
+    ],
+    [
+     "tail",
+     1
+    ],
+    [
+     "click",
+     0
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "stale_clicks",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-1": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": true
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "click",
+     3
+    ],
+    [
+     "click",
+     -1
+    ],
+    [
+     "tail",
+     9
+    ],
+    [
+     "zoomed",
+     true
+    ],
+    [
+     "click",
+     0
+    ],
+    [
+     "zoomed",
+     false
+    ],
+    [
+     "typing",
+     true
+    ],
+    [
+     "click",
+     0
+    ],
+    [
+     "typing",
+     false
+    ],
+    [
+     "video",
+     true
+    ],
+    [
+     "tail",
+     0
+    ],
+    [
+     "video",
+     false
+    ],
+    [
+     "click",
+     0
+    ]
+   ]
+  },
+  {
+   "name": "hover",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":1,\"tail\":true,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "pointer",
+     1,
+     false
+    ],
+    [
+     "pointer",
+     1,
+     false
+    ],
+    [
+     "pointer",
+     1,
+     true
+    ],
+    [
+     "pointer",
+     -1,
+     false
+    ]
+   ]
+  },
+  {
+   "name": "video_stands_down",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":10,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":11,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [
+      "Saved: 3D applies to the desktops, once the VR video closes."
+     ],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":12,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ],
+    [
+     "video",
+     true
+    ],
+    [
+     "tick",
+     []
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "video",
+     false
+    ],
+    [
+     "tick",
+     []
+    ],
+    [
+     "tick",
+     [
+      [
+       "active",
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ]
+      ]
+     ]
+    ]
+   ]
+  },
+  {
+   "name": "panel_sets_it",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "error": "invalid immersive"
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strengths\":[50,150,150,150],\"strength\":150,\"convergence\":70,\"near\":14,\"far\":36,\"text\":100,\"range_ms\":1000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 70,
+        "desktops": {},
+        "global": true,
+        "preset": "video",
+        "strength": 150,
+        "strengths": {
+         "XR-1": 50
+        }
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "error": "invalid immersive"
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,true,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-2"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-2": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-2"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {
+        "XR-2": true
+       },
+       "global": false,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": null,
+   "steps": [
+    [
+     "set",
+     {
+      "convergence": 92,
+      "desktops": {},
+      "global": true,
+      "preset": "desktop",
+      "strength": 100
+     }
+    ],
+    [
+     "set",
+     {
+      "convergence": 92,
+      "desktops": {},
+      "global": true,
+      "preset": "desktop",
+      "strength": 100
+     }
+    ],
+    [
+     "set",
+     {
+      "global": 0
+     }
+    ],
+    [
+     "set",
+     {
+      "convergence": 70,
+      "desktops": {},
+      "global": true,
+      "preset": "video",
+      "strength": 150,
+      "strengths": {
+       "XR-1": 50
+      }
+     }
+    ],
+    [
+     "set",
+     {
+      "convergence": 70,
+      "desktops": {},
+      "global": true,
+      "preset": "video",
+      "strength": 999,
+      "strengths": {
+       "XR-1": 50
+      }
+     }
+    ],
+    [
+     "set",
+     {
+      "convergence": 92,
+      "desktops": {
+       "XR-2": true
+      },
+      "global": false,
+      "preset": "desktop",
+      "strength": 100
+     }
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "panel_retries_after_a_failure",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [
+      "3D is off: the glasses could not switch to 3D mode (no button). Back to 2D."
+     ],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1",
+       "XR-2",
+       "XR-3"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": false
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "tick",
+     [
+      [
+       "failed",
+       "sbs",
+       "no button"
+      ]
+     ]
+    ],
+    [
+     "set",
+     {
+      "convergence": 92,
+      "desktops": {},
+      "global": true,
+      "preset": "desktop",
+      "strength": 100
+     }
+    ],
+    [
+     "status"
+    ]
+   ]
+  },
+  {
+   "name": "desktop_added_follows_global",
+   "names": [
+    "XR-1"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,false,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,false,false,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "names",
+     [
+      "XR-1",
+      "XR-2"
+     ]
+    ],
+    [
+     "tick",
+     []
+    ],
+    [
+     "names",
+     [
+      "XR-1"
+     ]
+    ],
+    [
+     "tick",
+     []
+    ]
+   ]
+  },
+  {
+   "name": "one_desktop_removed",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,true,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-2"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-2": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 92,
+        "desktops": {
+         "XR-2": true
+        },
+        "global": false,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {
+     "XR-2": true
+    },
+    "global": false,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "names",
+     [
+      "XR-1",
+      "XR-3"
+     ]
+    ],
+    [
+     "tick",
+     []
+    ]
+   ]
+  },
+  {
+   "name": "renderer_restarted",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":0,\"tail\":true,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 92,
+        "desktops": {},
+        "global": true,
+        "preset": "desktop",
+        "strength": 100
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "restarted"
+    ],
+    [
+     "sync"
+    ],
+    [
+     "restarted"
+    ],
+    [
+     "pointer",
+     0,
+     true
+    ]
+   ]
+  },
+  {
+   "name": "look_only_while_on",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":7,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strengths\":[50,150,150,150],\"strength\":150,\"convergence\":70,\"near\":14,\"far\":36,\"text\":100,\"range_ms\":1000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 70,
+        "desktops": {},
+        "global": true,
+        "preset": "video",
+        "strength": 150,
+        "strengths": {
+         "XR-1": 50
+        }
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":8,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[false,false,false,false],\"global\":false,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strength\":100,\"convergence\":92,\"near\":4,\"far\":14,\"text\":0,\"range_ms\":3000}}}"
+     ],
+     "requests": [
+      [
+       [],
+       {
+        "convergence": 70,
+        "desktops": {},
+        "global": false,
+        "preset": "video",
+        "strength": 150,
+        "strengths": {
+         "XR-1": 50
+        }
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [
+      "{\"schema\":1,\"request_id\":9,\"run_id\":\"r1\",\"session\":\"sess\",\"op\":\"immersive\",\"payload\":{\"desktops\":[true,true,true,false],\"global\":true,\"stereo\":false,\"hover\":-1,\"tail\":false,\"params\":{\"strengths\":[50,150,150,150],\"strength\":150,\"convergence\":70,\"near\":14,\"far\":36,\"text\":100,\"range_ms\":1000}}}"
+     ],
+     "requests": [
+      [
+       [
+        "XR-1",
+        "XR-2",
+        "XR-3"
+       ],
+       {
+        "convergence": 70,
+        "desktops": {},
+        "global": true,
+        "preset": "video",
+        "strength": 150,
+        "strengths": {
+         "XR-1": 50
+        }
+       }
+      ]
+     ],
+     "result": null,
+     "saved": 1,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 70,
+    "desktops": {},
+    "global": true,
+    "preset": "video",
+    "strength": 150,
+    "strengths": {
+     "XR-1": 50
+    }
+   },
+   "steps": [
+    [
+     "sync"
+    ],
+    [
+     "toggle"
+    ],
+    [
+     "toggle"
+    ]
+   ]
+  },
+  {
+   "name": "status_switching",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "results": [
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1",
+       "XR-2",
+       "XR-3"
+      ],
+      "phase": "off",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": true
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": null,
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    },
+    {
+     "frames": [],
+     "requests": [],
+     "result": {
+      "button": "R1",
+      "failed": false,
+      "installed": false,
+      "names": [
+       "XR-1",
+       "XR-2",
+       "XR-3"
+      ],
+      "phase": "glasses",
+      "setting": {
+       "convergence": 92,
+       "desktops": {},
+       "global": true,
+       "preset": "desktop",
+       "strength": 100
+      },
+      "stereo": false,
+      "switching": true
+     },
+     "saved": 0,
+     "toasts": [],
+     "touched": false
+    }
+   ],
+   "setting": {
+    "convergence": 92,
+    "desktops": {},
+    "global": true,
+    "preset": "desktop",
+    "strength": 100
+   },
+   "steps": [
+    [
+     "switch",
+     true
+    ],
+    [
+     "status"
+    ],
+    [
+     "phase",
+     "glasses"
+    ],
+    [
+     "status"
+    ]
+   ]
+  }
+ ],
+ "session": "sess"
+}

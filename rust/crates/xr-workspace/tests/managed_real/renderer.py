@@ -5,7 +5,8 @@ Records its argv (one JSON line per launch) in `$XDG_RUNTIME_DIR/renderer.jsonl`
 `$XDG_RUNTIME_DIR/renderer-started`, then sends a heartbeat every 50 ms. `FAKE_CASE`: `renderer-fail` exits 9 after three
 heartbeats, `success` exits 0 after ten, `heartbeat-stop` falls silent after three; `hold`'s first launch takes the
 glasses away (`$XDG_RUNTIME_DIR/fake-glasses-gone`, which the compositor reads) and exits 5 after three, as a USB drop
-ends a renderer; any other case runs until SIGTERM.
+ends a renderer; `switch`'s first launch puts the glasses in their side-by-side mode (`$XDG_RUNTIME_DIR/fake-glasses-wide`,
+as a held R1 does) and exits 5 after three; any other case runs until SIGTERM.
 
 Every frame after the start frame is recorded, in order, to `$XDG_RUNTIME_DIR/renderer-frames.jsonl`:
 `{"launch": n, "frame": text, "fds": [{"type": ..., "size": ...}]}`, `n` counting launches from 1, `fds` the descriptors
@@ -76,6 +77,9 @@ while True:
     beats += 1
     if case == 'renderer-fail' and beats >= 3:
         os._exit(9)
+    if case == 'switch' and launch == 1 and beats >= 3:
+        (runtime / 'fake-glasses-wide').write_text('wide')
+        os._exit(5)
     if case == 'hold' and launch == 1 and beats >= 3:
         (runtime / 'fake-glasses-gone').write_text('gone')
         os._exit(5)

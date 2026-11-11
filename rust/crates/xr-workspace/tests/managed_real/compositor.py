@@ -213,7 +213,23 @@ def reply_privacy(wire):
 
 
 def reply_immersive(wire):
-    """view_controls::immersive's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::immersive's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    The `switch` case (a run with the consent's 3D scope): DP-2 is the Luma Ultra at its session mode, 1920x1200@120,
+    until `<runtime>/fake-glasses-wide` exists (the fake renderer makes it as it ends, as a held R1 does); then it is
+    driven and offered side by side, 3840x1200@90. The wide rule takes a moment to answer, as a mode change does, so the
+    hold it ends lasts long enough to be counted."""
+    if case != 'switch': return None
+    wide = (root / 'fake-glasses-wide').exists()
+    if wire in ('j/monitors', 'j/monitors all'):
+        out = monitors()
+        for m in out:
+            if m['name'] == 'DP-2':
+                m.update(width=3840, height=1200, refreshRate=90.0, availableModes=['3840x1200@90.00Hz', '3840x1200@60.00Hz']) if wide \
+                    else m.update(width=1920, height=1200, availableModes=['1920x1200@120.00Hz', '1920x1200@60.00Hz'])
+        return out
+    if wire.startswith('/eval ') and 'mode = "3840x1200@90"' in wire:
+        time.sleep(0.3)
     return None
 
 
