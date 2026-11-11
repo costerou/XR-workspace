@@ -155,7 +155,8 @@ impl ViewControls {
             keys.startup_toast();
         }
         // `VideoControl` around the view, then `RuntimeText` and the options binds.
-        controls.video = video::Video::open(run);
+        controls.video =
+            video::Video::open(run, controls.binds.as_ref().map(binds::Binds::bind_args));
         if let Some(view) = controls.view.as_mut() {
             view.open_options(run);
         }
@@ -240,6 +241,9 @@ impl ViewControls {
         if let Some(view) = view {
             view.on_message(message, &mut features, out);
         }
+        if let Some(video) = self.video.as_mut() {
+            video.after_view(message, self.view.as_mut());
+        }
     }
 
     /// `_launch`: what goes to the renderer after the start frame (`control.initial_frame()`).
@@ -257,6 +261,9 @@ impl ViewControls {
 
     /// `keep_renderer`: a renderer started again after a hold (`control.renderer_restarted`).
     pub fn renderer_restarted(&mut self) {
+        if let Some(video) = self.video.as_mut() {
+            video.renderer_restarted(self.view.as_mut());
+        }
         if let Some(view) = self.view.as_mut() {
             view.renderer_restarted();
         }
@@ -264,9 +271,11 @@ impl ViewControls {
 
     /// `supervisor.serve_without_renderer`: a hold's wait. The panel still gets its status; a view op is dropped.
     pub fn serve_without_renderer(&mut self, seconds: Duration) {
-        let view = self.view.as_ref();
+        let (view, video) = (self.view.as_ref(), self.video.as_ref());
         match self.socket.as_mut() {
-            Some(socket) => socket.serve_without_renderer(seconds, || status_reply(view, true)),
+            Some(socket) => {
+                socket.serve_without_renderer(seconds, || status_reply(view, video, true))
+            }
             None => std::thread::sleep(seconds),
         }
     }
@@ -282,10 +291,20 @@ impl ViewControls {
     }
 }
 
-/// A `status` answer's body: the view's (`control.status_reply(status)`); `held`: during a hold, which has no
-/// measured status (`serve_without_renderer`'s `{}`). Without a view, the four header keys alone.
-fn status_reply(view: Option<&view::ViewControl>, held: bool) -> socket::Body {
-    view.map(|v| v.status_reply(held)).unwrap_or_default()
+/// A `status` answer's body: the view's (`control.status_reply(status)`), then the video's (`VideoControl.status_reply`
+/// adds `video`); `held`: during a hold, which has no measured status (`serve_without_renderer`'s `{}`). Without
+/// either, the four header keys alone.
+fn status_reply(
+    view: Option<&view::ViewControl>,
+    video: Option<&video::Video>,
+    held: bool,
+) -> socket::Body {
+    let mut body = view.map(|v| v.status_reply(held)).unwrap_or_default();
+    if let Some(video) = video {
+        body.retain(|(k, _)| k != "video");
+        body.push(("video".into(), video.snapshot(view)));
+    }
+    body
 }
 
 /// The order of [`LoopHook::sources`]: the control socket, then the event stream (the Python's `selector.register`).
@@ -309,9 +328,15 @@ impl LoopHook for ViewControls {
     }
 
     fn deadline(&mut self) -> Option<Instant> {
-        self.view
+        let view = self
+            .view
             .as_mut()
-            .and_then(|v| v.deadline(self.pointer.as_mut()))
+            .and_then(|v| v.deadline(self.pointer.as_mut()));
+        let video = self
+            .video
+            .as_mut()
+            .and_then(|v| v.deadline(self.view.as_mut(), Instant::now()));
+        view.into_iter().chain(video).min()
     }
 
     /// `control.poll(now)`: the free pointer, the debounced panel save, the overlay's idle close.
@@ -320,6 +345,9 @@ impl LoopHook for ViewControls {
         let (view, mut features) = self.features();
         if let Some(view) = view {
             view.poll(now, &mut features, &mut frames);
+        }
+        if let Some(video) = self.video.as_mut() {
+            video.poll(self.view.as_mut(), &mut frames);
         }
         self.queue(frames, out);
     }
@@ -333,11 +361,11 @@ impl LoopHook for ViewControls {
         let socket_first = self.socket.is_some();
         let mut frames = Frames::default();
         let keep = if socket_first && index == SOURCE_SOCKET {
-            let view = self.view.as_ref();
+            let (view, video) = (self.view.as_ref(), self.video.as_ref());
             let request = self
                 .socket
                 .as_mut()
-                .and_then(|s| s.control_request(|| status_reply(view, false)));
+                .and_then(|s| s.control_request(|| status_reply(view, video, false)));
             if let Some(message) = request {
                 self.on_message(&message, &mut frames);
             }

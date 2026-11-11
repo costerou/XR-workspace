@@ -30,6 +30,7 @@ use xr_wire::run_control::Frame;
 
 use super::{Frames, Run};
 use crate::hyprland::Client;
+use crate::py::to_serde;
 use crate::supervisor::immersive::{
     self as im, CLOSE_WAIT, DepthMemory, Done, Event, ImmersiveRun, MAX_DESKTOPS, NoDeviceSbs,
     Params, ProcessEngine, SET_OP, Sbs, Setting, TOGGLE_OP,
@@ -447,18 +448,6 @@ impl Immersive {
     }
     pub fn failures(&self) -> u32 {
         self.failures
-    }
-}
-
-fn to_serde(v: &xr_wire::json::Value) -> Value {
-    use xr_wire::json::Value as W;
-    match v {
-        W::Null => Value::Null,
-        W::Bool(b) => Value::Bool(*b),
-        W::Number(n) => Value::Number(n.clone()),
-        W::String(s) => Value::String(s.clone()),
-        W::Array(a) => Value::Array(a.iter().map(to_serde).collect()),
-        W::Object(o) => Value::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
     }
 }
 

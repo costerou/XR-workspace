@@ -24,8 +24,12 @@ fn the_status_and_a_key_while_the_renderer_runs() {
     let (run, _, [python, rust]) = parity_acting("stop", Some(status_during_the_run));
     assert_eq!(python, rust);
     assert_eq!(rust["helper"], 0, "a run listened");
+    // The body is the ported features' (`video`: no video playing; cases/video.rs), after the header keys.
+    let mut status = rust["status"].clone();
+    assert_eq!(status["video"]["active"], json!(false), "{status}");
+    status.as_object_mut().unwrap().remove("video");
     assert_eq!(
-        rust["status"],
+        status,
         json!({"schema": 1, "run_id": "r1", "session": "SESSION"})
     );
     assert_eq!(run.result["stop_reason"], "interrupted");

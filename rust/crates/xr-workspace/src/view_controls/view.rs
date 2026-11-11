@@ -258,6 +258,35 @@ impl crate::supervisor::keybinds::Host for ViewControl {
     fn binds_reinstalled(&mut self, _typing: bool, _menu_binds: bool, _options_binds: bool) {}
 }
 
+/// What VR video needs from the view (`video.VideoControl`'s `self.view`). A stub until the view is ported: the
+/// default quality and background, nothing saved, no key bind panel, no toasts and no readback.
+impl super::video::Host for ViewControl {
+    fn video_quality(&self) -> crate::supervisor::quality::Quality {
+        crate::supervisor::quality::Quality::default()
+    }
+    fn set_video_quality(&mut self, _quality: crate::supervisor::quality::Quality) {}
+    fn save_settings(&mut self) -> Result<(), String> {
+        Ok(())
+    }
+    fn environment(&self) -> serde_json::Value {
+        crate::supervisor::environment::DEFAULTS.to_json()
+    }
+    fn set_environment(&mut self, _env: crate::supervisor::environment::Environment) -> Vec<u8> {
+        Vec::new()
+    }
+    fn set_video_active(&mut self, _on: bool) {}
+    fn keys_open(&self) -> bool {
+        false
+    }
+    fn close_keys(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn tell(&mut self, _text: &str) {}
+    fn owner_readback(&self) -> (u64, Option<serde_json::Value>) {
+        (0, None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -30,8 +30,8 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `overview_pointer`, `video`, and the
-//!   `desktops` wiring). The shipped `view_controls` runs around them, with the ported socket, binds, key bind panel,
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view` and the `desktops` wiring). The shipped
+//!   `view_controls` runs around them, with the ported socket, binds, key bind panel, overview pointer, VR video,
 //!   window sending, privacy mode, 3D and the window memory's tracker. Each feature's port deletes its own entry
 //!   (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill

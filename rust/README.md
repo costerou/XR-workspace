@@ -118,13 +118,14 @@ connection, a `status` answered on it, any other op handed to the view controls,
 hold. `tests/control_server_corpus.rs` replays the Python serving every run frame case of `corpus/sockets/frames.json`
 and the socket's own (`corpus/sockets/server.json`, from `tests/native_spike/control_server_corpus.py`): the same
 verdict, request id and reply bytes. `managed_real`'s socket cases ask the status during a run and a hold, and send a
-key through each run's own key helper. Until the view is ported the reply is its four header keys on both sides.
+key through each run's own key helper. Until the view is ported the reply is its header keys and VR video's `video`
+entry on both sides.
 
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket and the Ctrl+Alt binds: the view and its frames,
-  the overview pointer's frames, VR video, and through them the pills' desktop changes. Window sending, privacy mode,
-  the key bind panel, 3D and the overview pointer are ported (below) but reach a run's ops only once the view is.
+  the overview pointer's frames, and through them the pills' desktop changes. Window sending, privacy mode, the key
+  bind panel, 3D, VR video and the overview pointer are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -151,6 +152,20 @@ recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requ
 Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
 calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
 `Tracker::poll`, `Tracker::deadline`).
+
+VR video (`view_controls::video`, `video.VideoControl`) is ported: a `video_open` on the control socket opens, probes and
+checks the file (or the web video, relayed through ffmpeg) on a worker thread, and the loop's next poll sends the `video`
+open frame with the file's descriptor (`Frames::fds`, SCM_RIGHTS with its first byte); then the video keys, the quality
+menu, Ctrl+Alt+C, the card's idle close, the renderer's errors and missing support (from its measured status), web seeks
+and resumes, and the options menu's deferred owners (`video::Done`). The video keys go in and out off the loop, in order,
+on a client of the video's own; `close` removes them before recovery. What it needs of the view comes through
+`video::Host`; a run without a view (today) has the default quality and background and no cards to close.
+`tests/video_control_corpus.rs` replays `corpus/video/control.json` (24 sessions of the Python control against a
+recording view, from `tests/native_spike/video_control_corpus.py`): the same frames, descriptors, status entry, bind
+calls, toasts and completions at every step. The `managed_real` case `video` opens a one-frame clip in the session and
+leaves it with Escape's helper: the same frames (one descriptor, the file) and `status` on both runners. The video keys
+go in with `binds`'s helper command line. Not yet: the options menu's and config reload's calls, which the `view` port
+makes (`Control::set_quality`, `on_message` with a `Done`, `Video::config_reloaded`).
 
 Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client

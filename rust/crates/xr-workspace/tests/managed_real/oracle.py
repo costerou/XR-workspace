@@ -49,13 +49,6 @@ class Nothing:
     def __getattr__(self, name): return lambda *args, **kwargs: None
 
 
-class NoVideo:
-    """`video.VideoControl(control, ...)` with no video: every call the view's, `close` nothing."""
-    def __init__(self, control, **kwargs): self._control = control
-    def close(self): pass
-    def __getattr__(self, name): return getattr(self._control, name)
-
-
 def stub_view(view):
     """`view`: the hub stays (the server, the state, the routing), but sends nothing and answers a bare status."""
     patch(view.ViewControl, 'on_message', lambda self, message: b'')
@@ -71,11 +64,10 @@ def stub_view(view):
 
 
 def apply_stubs():
-    from tools.native_spike import managed, video, view
+    from tools.native_spike import managed, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
-        'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
     }
     for stub in STUBS.values(): stub()
