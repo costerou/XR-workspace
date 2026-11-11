@@ -22,6 +22,7 @@ use xr_wire::json::Value;
 use xr_wire::run_control::Frame;
 use xr_workspace::hyprland::Client;
 use xr_workspace::lua::BindCommand;
+use xr_workspace::view_controls::binds::MenuLock;
 use xr_workspace::view_controls::keybinds::{Host, Keys, Notify};
 use xr_workspace::view_controls::{Frames, Run};
 
@@ -259,7 +260,7 @@ fn replay(name: &str, scenario: &Json, instance: &str, bind_args: &[String]) {
     };
 
     // managed.view_controls: the panel, then the binds' install with its keys (Binds::install), then installed().
-    let mut keys = Keys::open_at(&mut run, bind_args.to_vec(), &path, notify);
+    let mut keys = Keys::open_at(&mut run, bind_args.to_vec(), MenuLock::new(), &path, notify);
     let cmd = BindCommand {
         python: &bind_args[0],
         client: &bind_args[1],

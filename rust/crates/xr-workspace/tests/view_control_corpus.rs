@@ -148,6 +148,7 @@ fn view_control_scripts_match_the_python_step_by_step() {
             } else {
                 panic!("{name}: unknown step {step}");
             };
+            view.join_focus(None); // as the Python joins each step's focus and toast threads
             assert_eq!(
                 got,
                 step["out"].as_str().unwrap(),

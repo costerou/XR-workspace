@@ -126,14 +126,12 @@ supervisor's `control_request` / `serve_without_renderer`, and takes each featur
 
 | Entry | What it does on the Python side |
 |---|---|
-| `binds` | `install_view_binds` / `remove_view_binds` silenced, `reinstall_view_binds` hidden, and the session mode's `monitors` read in `view_controls`'s body answered `[]` without a request |
 | `overview_pointer` | `unified_cursor.UnifiedSampler` a stand-in, and `UnifiedPointer` one that leaves `control.overview_pointer` None (its `roll` frames, `summon` and rolls are the pointer's) |
 | `immersive` | `immersive.find_engine` gives `None` |
-| `keybinds` | `binds_text` and `open_key_panel` hidden, `keybinds.BindControl` a stand-in (`bind_kwargs()` is `{}`) that leaves `control.keys` None once installed. Ported, but the Rust run opens it only with `binds`'s `bind_args`: delete with `binds`. |
 | `video` | `install_video_binds` hidden, `video.VideoControl` a stand-in that hands every call to the view |
 | `desktops` | `adopt_windows` hidden (the pills' window mover) |
 
-`view`, `send`, `privacy` and `window_memory` have no entry: they are ported and run on both sides. The helpers are
+`view`, `send`, `privacy`, `window_memory`, `binds` and `keybinds` have no entry: they are ported and run on both sides. The helpers are
 `patch(module, name, value)`, and `hide(*methods)` and `quiet(*methods)` on the client wrapper (`Client`). A port deletes its own entry, and, if a helper it used has
 no other user, may leave the helper. If its feature then needs more than deleting (a stand-in the next feature relied
 on), it says so in its report. `tests/managed_real.rs`'s module doc lists the implicit exclusions: no
@@ -268,6 +266,11 @@ There are two levels. Use both.
     `_typing_bind_work`, `stop_menu_binds`
 - **Ported already**: `lua::view`, and `Client::{install,reinstall,remove}_view_binds`, `install_menu_binds`,
   `remove_menu_binds`, `install_options_binds`, `apply_session_mode`, `apply_wide_mode` and `park_presentation`
+- **Ported** (this module): `view_controls::binds` (`Binds`, `MenuLock`). The view calls `Binds::sync_menu`
+  (`_sync_menu_binds`), `Binds::typing` (`_sync_typing_binds`), `Binds::after_reload` then `Keys::after_reload` (the
+  reload), and `Binds::enable_options` (`options_binds`); its module doc says how. Level 1: `tests/binds_run.rs`. Level 2:
+  `cases/binds.rs` (install and removal; the reload through the view's event stream, the line sent by `compositor.py`'s
+  `events_binds`).
 - **Renderer ops**: none. The style frame after a reload is the view's.
 - **Python tests**:
   - `test_view.py`, the bind install cases

@@ -33,6 +33,70 @@ fn image_entry(name: &std::ffi::CStr) -> Option<ImageTarget> {
     (!p.is_null()).then(|| unsafe { std::mem::transmute::<*mut c_void, ImageTarget>(p) })
 }
 
+const TIME_ELAPSED_EXT: u32 = 0x88BF;
+const QUERY_RESULT_EXT: u32 = 0x8866;
+const QUERY_RESULT_AVAILABLE_EXT: u32 = 0x8867;
+const GPU_DISJOINT_EXT: u32 = 0x8FBB;
+
+type GenQueries = unsafe extern "system" fn(i32, *mut u32);
+type DeleteQueries = unsafe extern "system" fn(i32, *const u32);
+type BeginQuery = unsafe extern "system" fn(u32, u32);
+type EndQuery = unsafe extern "system" fn(u32);
+type QueryU32 = unsafe extern "system" fn(u32, u32, *mut u32);
+type QueryU64 = unsafe extern "system" fn(u32, u32, *mut u64);
+
+/// GL_EXT_disjoint_timer_query's elapsed-time query around one frame at a time (the status dict's and exit report's
+/// GPU time). None without the extension.
+struct GpuTimer {
+    delete: DeleteQueries,
+    begin: BeginQuery,
+    end: EndQuery,
+    available: QueryU32,
+    result: QueryU64,
+    query: u32,
+    /// Begun and not ended yet.
+    running: bool,
+    /// Ended, its result not read yet.
+    pending: bool,
+}
+
+impl GpuTimer {
+    fn load(raw: &glow::Context) -> Option<Self> {
+        if !raw.supported_extensions().contains("GL_EXT_disjoint_timer_query") {
+            return None;
+        }
+        let p = |n: &std::ffi::CStr| {
+            let f = proc_address(n);
+            (!f.is_null()).then_some(f)
+        };
+        let (g, d, b, e, a, r) = (
+            p(c"glGenQueriesEXT")?,
+            p(c"glDeleteQueriesEXT")?,
+            p(c"glBeginQueryEXT")?,
+            p(c"glEndQueryEXT")?,
+            p(c"glGetQueryObjectuivEXT")?,
+            p(c"glGetQueryObjectui64vEXT")?,
+        );
+        // SAFETY: each pointer is the named GL_EXT_disjoint_timer_query entry point, whose C signature the type
+        // spells; the context that gave them is current on this thread, and `query` is a valid out pointer.
+        unsafe {
+            let gen_queries = std::mem::transmute::<*mut c_void, GenQueries>(g);
+            let mut query = 0;
+            gen_queries(1, &mut query);
+            (query != 0).then(|| Self {
+                delete: std::mem::transmute::<*mut c_void, DeleteQueries>(d),
+                begin: std::mem::transmute::<*mut c_void, BeginQuery>(b),
+                end: std::mem::transmute::<*mut c_void, EndQuery>(e),
+                available: std::mem::transmute::<*mut c_void, QueryU32>(a),
+                result: std::mem::transmute::<*mut c_void, QueryU64>(r),
+                query,
+                running: false,
+                pending: false,
+            })
+        }
+    }
+}
+
 static IMAGE_TARGET_TEXTURE: std::sync::LazyLock<Option<ImageTarget>> =
     std::sync::LazyLock::new(|| image_entry(c"glEGLImageTargetTexture2DOES"));
 static IMAGE_TARGET_RENDERBUFFER: std::sync::LazyLock<Option<ImageTarget>> =
@@ -1031,6 +1095,8 @@ pub struct GlCompositor {
     env: EnvironmentSet,
     /// GL_MAX blending (ES 3 or EXT_blend_minmax): the highlight's glow over the grid stays under the cap.
     blend_max: bool,
+    /// The frame's GPU time (begin_gpu_time / take_gpu_ns); None without GL_EXT_disjoint_timer_query.
+    timer: Option<GpuTimer>,
     // Last: the context outlives every object above (Drop deletes them first).
     headless: Headless,
 }
@@ -1217,6 +1283,7 @@ impl GlCompositor {
             environment,
             env: EnvironmentSet::default(),
             blend_max,
+            timer: GpuTimer::load(raw),
             headless,
         };
         // SAFETY: a plain GL query on the current context.
@@ -1388,6 +1455,55 @@ impl GlCompositor {
     pub fn finish(&self) {
         // SAFETY: a plain GL call on the current context.
         unsafe { self.gl.raw().finish() };
+    }
+
+    /// Whether the context has GL_EXT_disjoint_timer_query (the frame's GPU time).
+    pub fn gpu_timer(&self) -> bool {
+        self.timer.is_some()
+    }
+
+    /// Starts timing the GPU work of a frame. Does nothing without the extension, or while the last frame's result
+    /// is still to be read (one query, one frame at a time).
+    pub fn begin_gpu_time(&mut self) {
+        if let Some(t) = self.timer.as_mut().filter(|t| !t.running && !t.pending) {
+            // SAFETY: the query made in GpuTimer::load, on the context still current on this thread. Reading the
+            // disjoint flag clears it, so a disjoint event seen at take_gpu_ns happened during this query.
+            unsafe {
+                let _ = self.gl.raw().get_parameter_i32(GPU_DISJOINT_EXT);
+                (t.begin)(TIME_ELAPSED_EXT, t.query);
+            }
+            t.running = true;
+        }
+    }
+
+    /// Ends the frame begun with [`Self::begin_gpu_time`].
+    pub fn end_gpu_time(&mut self) {
+        if let Some(t) = self.timer.as_mut().filter(|t| t.running) {
+            // SAFETY: as begin_gpu_time.
+            unsafe { (t.end)(TIME_ELAPSED_EXT) };
+            t.running = false;
+            t.pending = true;
+        }
+    }
+
+    /// The timed frame's GPU time in ns once the GPU has it (after [`Self::finish`] it has); None while it is not
+    /// ready, without a timed frame, or when the GPU's timer was disjoint meanwhile (the result is not trusted).
+    pub fn take_gpu_ns(&mut self) -> Option<u64> {
+        let t = self.timer.as_mut().filter(|t| t.pending)?;
+        let mut available = 0u32;
+        // SAFETY: as begin_gpu_time; `available` is a valid out pointer.
+        unsafe { (t.available)(t.query, QUERY_RESULT_AVAILABLE_EXT, &mut available) };
+        if available == 0 {
+            return None;
+        }
+        t.pending = false;
+        let mut ns = 0u64;
+        // SAFETY: as begin_gpu_time; `ns` is a valid out pointer.
+        let disjoint = unsafe {
+            (t.result)(t.query, QUERY_RESULT_EXT, &mut ns);
+            self.gl.raw().get_parameter_i32(GPU_DISJOINT_EXT) != 0
+        };
+        (!disjoint).then_some(ns)
     }
 
     /// A desktop added during the run: a new, empty source at `at` (later sources move up one).
@@ -2957,6 +3073,10 @@ impl Drop for GlCompositor {
             if let Some(g) = &p.panel {
                 raw.delete_program(g.p.id);
             }
+        }
+        if let Some(t) = self.timer.take() {
+            // SAFETY: the query made in GpuTimer::load on this context, still current.
+            unsafe { (t.delete)(1, &t.query) };
         }
         let _ = &self.headless;
     }

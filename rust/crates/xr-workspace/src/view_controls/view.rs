@@ -16,8 +16,9 @@
 //! Not ported here: the options menu (`options_menu.OptionsMenu`, the `options_*` ops, `RuntimeText`), whose
 //! `keyboard_owned` is always false; and the parts that are another feature's state, each marked where it goes: the
 //! overview pointer's (its rolls, `summon`, `level`, the geometry it hit-tests on, and so bumping and `_settle`), the
-//! desktops' (the panel's desktop row, Ctrl+Alt+R), 3D's (`_immersive_sync`, the status reply's run fields) and the
-//! binds' (the panel's and typing mode's bind swaps, `after_reload`).
+//! desktops' (the panel's desktop row, Ctrl+Alt+R) and 3D's (`_immersive_sync`, its reassert after a reload, the status
+//! reply's run fields). The panel's and typing mode's bind swaps, a reload's reinstall and the options binds go to
+//! `binds::Binds` (`sync_menu`, `typing`, `after_reload`, `enable_options`; `settle` in `join_focus`).
 
 use std::os::fd::{AsFd, AsRawFd, RawFd};
 use std::path::PathBuf;
@@ -28,6 +29,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use xr_wire::run_control::Frame;
 
+use super::binds::{Binds, MenuState};
 use super::{Features, Frames, Run, setup};
 use crate::geometry::{DEFAULT_PLACEMENT, Desktop, Placement};
 use crate::hyprland::{Client, EventStream, Query};
@@ -256,12 +258,10 @@ pub struct ViewControl {
     status_discard: bool,
     events: Option<EventStream>,
     pub reloads: u64,
-    /// What the binds last were told (`_menu_binds_installed`, `_typing_installed`, `_options_binds_installed`).
-    menu_binds_installed: bool,
-    typing_installed: bool,
-    options_binds_installed: bool,
-    /// The panel's or typing mode's binds changed: [`ViewControl::sync_binds`] tells the binds after the op.
-    binds_due: bool,
+    /// The panel opened or closed (`_sync_menu_binds`), or typing mode changed (`_sync_typing_binds`):
+    /// [`ViewControl::sync_binds`] asks the binds after the op. What the bind table holds is the binds' `MenuLock`.
+    menu_due: bool,
+    typing_due: bool,
     context: Context,
     /// `_help_binds`: the key bind panel's keys (run, send) as of the last op or poll; the defaults without it.
     help_binds: Option<(Vec<(String, &'static str)>, Vec<(String, &'static str)>)>,
@@ -407,10 +407,8 @@ impl ViewControl {
             status_discard: false,
             events: None,
             reloads: 0,
-            menu_binds_installed: false,
-            typing_installed: false,
-            options_binds_installed: false,
-            binds_due: false,
+            menu_due: false,
+            typing_due: false,
             context: Arc::new(Mutex::new(None)),
             help_binds: None,
             threads: Vec::new(),
@@ -477,19 +475,17 @@ impl ViewControl {
         }
         if reloaded {
             self.reloads += 1;
-            self.menu_binds_installed = false; // a reload drops runtime binds; the reload work re-adds an open panel's
-            // `_reload_work`: `on_reload` (the binds' `after_reload`), then the typing set and the panel's keys.
+            // `_reload_work`: `on_reload` (the binds for this mode, the presentation and its mode; 3D's reassert is
+            // the immersive port's), then the typing set and an open panel's modal keys, all in the binds' turn.
             if let Some(binds) = f.binds.as_deref_mut() {
-                binds.after_reload(self.state.typing, f.keys.as_deref());
+                binds.after_reload(f.keys.as_deref(), None);
             }
-            self.typing_installed = self.state.typing;
-            self.binds_due = true;
             if let Some(keys) = f.keys.as_deref_mut() {
                 keys.after_reload(self); // an open key bind panel's key subscription
             }
             out.bytes.extend(self.style_frame());
         }
-        self.sync_binds(f, reloaded); // after a reload: an open panel's modal keys again
+        self.sync_binds(f);
     }
 
     /// `events.close()`.
@@ -497,9 +493,13 @@ impl ViewControl {
         self.events = None;
     }
 
-    /// `control.options_key_text = RuntimeText(control, client)` and `control.options_binds`: the options menu's,
-    /// not ported.
-    pub fn open_options(&mut self, _run: &mut Run<'_>) {}
+    /// `control.options_key_text = RuntimeText(control, client)` (the options menu's, not ported) and
+    /// `control.options_binds`: the options menu's binds go in while it holds the keyboard.
+    pub fn open_options(&mut self, _run: &mut Run<'_>, binds: Option<&mut Binds>) {
+        if let Some(binds) = binds {
+            binds.enable_options();
+        }
+    }
 
     /// The `finally`'s first block: the options menu closed, its binds removed, the maximize geometry cleared on the
     /// pointer. Nothing while the options menu is not ported.
@@ -778,7 +778,7 @@ impl ViewControl {
         if let Some(keys) = f.keys.as_deref_mut() {
             keys.poll(now, self, out); // its own idle close, a change's timeout
         }
-        self.sync_binds(f, false);
+        self.sync_binds(f);
     }
 
     /// `_watch_rolls`: a levelling roll changed (the overview pointer's level bars) is saved like a placement.
@@ -882,29 +882,37 @@ impl ViewControl {
 
     // --- binds --------------------------------------------------------------------------------------------------
 
-    /// `_sync_menu_binds` and `_sync_typing_binds`: the binds follow the panel and typing mode (`_menu_bind_work`,
-    /// `_typing_bind_work`). `force`: after a reload, an open panel's keys are added again.
-    fn sync_binds(&mut self, f: &mut Features<'_>, force: bool) {
+    /// `_sync_menu_binds` and `_sync_typing_binds`: the binds follow the panel and typing mode, in that order (as
+    /// `_typing_toggle` collapses the panel first). The binds' worker puts in place the state current in its turn.
+    fn sync_binds(&mut self, f: &mut Features<'_>) {
         if !self.state.menu_open {
             self.menu_keys_off = false; // the next panel starts with its keys
         }
-        if !std::mem::take(&mut self.binds_due) && !force {
-            return;
-        }
+        let (menu, typing) = (
+            std::mem::take(&mut self.menu_due),
+            std::mem::take(&mut self.typing_due),
+        );
         let Some(binds) = f.binds.as_deref_mut() else {
             return;
         };
-        if self.state.typing != self.typing_installed {
-            binds.typing_binds(self.state.typing, f.keys.as_deref());
-            self.typing_installed = self.state.typing;
-            if self.state.typing {
-                self.menu_binds_installed = false; // the swap removed those too
-            }
+        if menu {
+            let state = MenuState {
+                menu_open: self.state.menu_open,
+                menu_keys_off: self.menu_keys_off,
+                options_owned: false, // the options menu is not ported
+            };
+            binds.sync_menu(state, false);
         }
-        let want = self.state.menu_open && !self.menu_keys_off;
-        if want != self.menu_binds_installed || (force && want) {
-            binds.menu_binds(want);
-            self.menu_binds_installed = want;
+        if typing {
+            binds.typing(self.state.typing, f.keys.as_deref());
+        }
+    }
+
+    /// `join_focus`: the focus and toast threads done, and the bind work asked for so far (`binds.settle()`).
+    pub fn join_focus(&mut self, binds: Option<&Binds>) {
+        join(&mut self.threads);
+        if let Some(binds) = binds {
+            binds.settle();
         }
     }
 
@@ -920,7 +928,7 @@ impl ViewControl {
         self.note_keys(f);
         let frames = self.route(message, f, out);
         out.bytes.extend(frames);
-        self.sync_binds(f, false);
+        self.sync_binds(f);
     }
 
     fn route(&mut self, message: &Frame, f: &mut Features<'_>, out: &mut Frames) -> Vec<u8> {
@@ -1197,7 +1205,7 @@ impl ViewControl {
             out.extend(self.close_keys(f));
         }
         self.state.typing = !self.state.typing;
-        self.binds_due = true;
+        self.typing_due = true;
         out.extend(self.view_frame(Flags::default())); // the renderer's pop-up shows the new mode
         out
     }
@@ -1313,7 +1321,7 @@ impl ViewControl {
             self.flush(); // collapsing saves at once
         }
         if was_open != self.state.menu_open {
-            self.binds_due = true;
+            self.menu_due = true;
         }
         if self.state.menu() != before {
             out.extend(self.menu_frame());
@@ -1381,21 +1389,23 @@ impl crate::supervisor::keybinds::Host for ViewControl {
         self.last_input = now;
     }
 
-    fn binds_reinstalled(&mut self, typing: bool, menu_binds: bool, options_binds: bool) {
-        self.typing_installed = typing;
-        self.menu_binds_installed = menu_binds;
-        self.options_binds_installed = options_binds;
-    }
+    /// The key bind panel's reinstall: what the table holds is set in the binds' `MenuLock` by the worker.
+    fn binds_reinstalled(&mut self, _typing: bool, _menu_binds: bool, _options_binds: bool) {}
 }
 
 impl Drop for ViewControl {
     /// `join_focus`: the focus and toast threads are short; the run's end waits for them, bounded.
     fn drop(&mut self) {
-        let deadline = Instant::now() + Duration::from_secs(2);
-        for t in self.threads.drain(..) {
-            while !t.is_finished() && Instant::now() < deadline {
-                std::thread::sleep(Duration::from_millis(1));
-            }
+        join(&mut self.threads);
+    }
+}
+
+/// The view's short threads (focus, toasts) done, waiting two seconds at most in all.
+fn join(threads: &mut Vec<JoinHandle<()>>) {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    for t in threads.drain(..) {
+        while !t.is_finished() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
 }

@@ -60,13 +60,6 @@ class NoPointer:
     def close(self): pass
 
 
-class NoKeys(Nothing):
-    """`keybinds.BindControl(control, ...)` with no panel: `view_controls` installs the binds with it, then the view has
-    none (`control.keys` is None), as the Rust run has no panel without `binds`'s helper command line."""
-    def __init__(self, control, *args, **kwargs): self._control = control
-    def startup_toast(self): self._control.keys = None
-
-
 class NoVideo:
     """`video.VideoControl(control, ...)` with no video: every call the view's, `close` nothing."""
     def __init__(self, control, **kwargs): self._control = control
@@ -74,30 +67,13 @@ class NoVideo:
     def __getattr__(self, name): return getattr(self._control, name)
 
 
-def stub_binds(managed):
-    """`binds`: no Ctrl+Alt binds in or out, and no read of the session mode in `view_controls`'s body."""
-    quiet('install_view_binds', 'remove_view_binds')
-    hide('reinstall_view_binds')
-    body = managed.view_controls.__wrapped__.__code__
-
-    def no_session_mode(name, value):
-        if name != 'query': return value
-        def query(*args, **kwargs):
-            if sys._getframe(1).f_code is body and args[:1] == ('monitors',): return []
-            return value(*args, **kwargs)
-        return query
-    Client.filters.append(no_session_mode)
-
-
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video
+    from tools.native_spike import immersive, managed, unified_cursor, video
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
-        'binds': lambda: stub_binds(managed),
         'overview_pointer': lambda: (patch(unified_cursor, 'UnifiedSampler', Nothing),
                                      patch(unified_cursor, 'UnifiedPointer', NoPointer)),
         'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
-        'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', NoKeys)),
         'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
     }

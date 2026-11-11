@@ -754,6 +754,20 @@ draw. The renderer's exit report carries `latency.late_latch` (margin, scheduled
 percentiles), and `python3 -m tools.latency_baseline --latest` turns that into `d4_verdict`. Late latch stays off by default
 until a 30-minute live run passes the D4 gate: read_to_present p50 at most 9 ms, p95 at most 11 ms, no missed latch.
 
+The Rust renderer (`rust/crates/xr-renderer`, its `late_latch` module) takes the same flag and draws on the same schedule,
+with the same `latency.late_latch` section, so the file works with either renderer the Python supervisor launches. The Rust
+supervisor does not read the file yet. Its draw is slower to commit than the C++ one: it copies the frame into its own
+dmabuf swapchain and waits for the GPU (`glFinish`) before the commit, where the C++ hands an EGL window surface to
+`eglSwapBuffers`. That wait counts in the measured draw, so its margin is about 1.5 ms wider. On the loopback compositor
+(`capture_e2e_bench --tracking --present-lag 1 --late-latch-guard-ms 1`, 2026-11-11, load 4 to 7) its read_to_present p50 was
+about 13.3 ms against the C++ renderer's 11.6 ms, with p95 about 14 ms for both. Neither figure is the D4 gate, which needs the
+glasses.
+
+The Rust renderer also reports its GPU time per frame (`GL_EXT_disjoint_timer_query`, from the first upload to the copy into the
+swapchain): `gpu_p50_ms`, `gpu_p95_ms` and `gpu_max_ms` in each 1 Hz status sample (the frames since the last one), and
+`composition.gpu_time` (frames, p50, p95, max over the run) in the exit report. Both are left out when the GL context lacks the
+extension. The C++ renderer sends neither; both supervisors accept the three status keys.
+
 Remove the file to turn it off again. The file is read at each renderer launch, so a change applies from the next run.
 
 ### Checks at start, for every driver

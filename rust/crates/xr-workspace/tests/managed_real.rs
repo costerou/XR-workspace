@@ -30,10 +30,10 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`binds`, `overview_pointer`, `immersive`,
-//!   `keybinds`, which needs `binds`'s helper command line, `video`, and the `desktops` wiring). The shipped
-//!   `view_controls` runs around them, with the ported socket, view, window sending, privacy mode and the window
-//!   memory's tracker. Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`overview_pointer`, `immersive`, `video`, and the
+//!   `desktops` wiring). The shipped `view_controls` runs around them, with the ported socket, view, binds, key bind
+//!   panel, window sending, privacy mode and the window memory's tracker. Each feature's port deletes its own entry
+//!   (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
 //!   asks for a change through the view controls.
 //! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
@@ -285,7 +285,7 @@ impl Session {
             acted = act(self, who);
         }
         match self.case {
-            "stop" | "recovery-stuck" | "hold" => {
+            "stop" | "recovery-stuck" | "hold" | "keybinds" | "binds-reload" => {
                 if wait_for(&started, Duration::from_secs(20)) {
                     std::thread::sleep(Duration::from_millis(300));
                     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
@@ -434,8 +434,23 @@ fn wait_bounded(mut child: Child, limit: Duration) -> std::process::Output {
     panic!("run did not end: {}", String::from_utf8_lossy(&out.stderr));
 }
 
+/// The bind helper each run's binds name (`view_controls::binds`): Python's `xr_control.py` beside its `view.py`, and
+/// the one in the bundle the Rust binary runs from (here, the cargo target folder, which has none: no key is pressed
+/// through a bind).
+fn helpers() -> [String; 2] {
+    let exe = Path::new(env!("CARGO_BIN_EXE_xr-workspace"))
+        .canonicalize()
+        .unwrap();
+    let bundle = exe.parent().and_then(Path::parent).unwrap();
+    [repo(), bundle.to_path_buf()].map(|root| {
+        root.join("tools/native_spike/xr_control.py")
+            .display()
+            .to_string()
+    })
+}
+
 /// Names for what differs between two runs by nature: output and record UUIDs (by first appearance), the session id
-/// (a hash of the compositor's pid), the run's folder, descriptor numbers.
+/// (a hash of the compositor's pid), the run's folder, descriptor numbers, the bind helper's path.
 struct Normal {
     root: String,
     uuids: HashMap<String, String>,
@@ -444,6 +459,9 @@ struct Normal {
 impl Normal {
     fn text(&mut self, s: &str) -> String {
         let mut out = s.replace(&self.root, "ROOT");
+        for helper in helpers() {
+            out = out.replace(&helper, "HELPER");
+        }
         let bytes: Vec<char> = out.chars().collect();
         let mut found = Vec::new();
         let hex = |c: char| c.is_ascii_hexdigit() && !c.is_ascii_uppercase();
@@ -527,6 +545,18 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
         // A hold polls the glasses' output every survive.POLL_S until they have been back survive.SETTLE_S: how many
         // reads that takes is the clock's. One read stands for a run of them.
         trace.dedup_by(|a, b| a == b && a.starts_with("j/monitors"));
+    }
+    if s.case == "binds-reload" {
+        // A config reload's style read (the view's `_style_frame`, on the loop) and its bind reinstall (`_reload_work`,
+        // off it) run at once in both supervisors: which reaches the compositor first is the scheduler's. The read is
+        // compared where the run's start makes it; the reload's style frame is compared in the frames.
+        let mut seen = false;
+        trace.retain(|r| {
+            let border = r == "j/getoption general:col.active_border";
+            let keep = !(border && seen);
+            seen |= border;
+            keep
+        });
     }
     let others: Vec<Value> = wire
         .iter()

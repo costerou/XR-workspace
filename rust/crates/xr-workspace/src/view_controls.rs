@@ -147,10 +147,12 @@ impl ViewControls {
         }
         // The key bind panel (`keybinds.BindControl`), then `client.install_view_binds` with its keys,
         // `keys.installed()`, `keys.startup_toast()`.
-        let bind_args = controls.binds.as_ref().map(binds::Binds::bind_args);
-        controls.keys = keybinds::Keys::open(run, bind_args);
-        if let Some(binds) = controls.binds.as_mut() {
-            binds.install(run, controls.keys.as_ref());
+        controls.keys = keybinds::Keys::open(run, controls.binds.as_ref());
+        if let Some(binds) = controls.binds.as_mut()
+            && let Err(e) = binds.install(run, controls.keys.as_ref())
+        {
+            controls.exit(run); // the `finally`: nothing installed, so nothing removed
+            return Err(e);
         }
         if let Some(keys) = controls.keys.as_mut() {
             keys.installed();
@@ -159,7 +161,7 @@ impl ViewControls {
         // `VideoControl` around the view, then `RuntimeText` and the options binds.
         controls.video = video::Video::open(run);
         if let Some(view) = controls.view.as_mut() {
-            view.open_options(run);
+            view.open_options(run, controls.binds.as_mut());
         }
         Ok(controls)
     }
