@@ -27,6 +27,10 @@ pub struct ViewControl {
     selected: usize,
     /// `state.typing`: typing mode ignores `IGNORED_WHILE_TYPING`.
     typing: bool,
+    /// `state.immersive`, `next_id` and `last_input`: what the 3D methods take ([`super::immersive::Shown`]).
+    immersive: crate::supervisor::immersive::Setting,
+    next_id: i64,
+    last_input: f64,
 }
 
 pub use crate::lua::resize::{CANCEL_OP as RESIZE_CANCEL_OP, RESIZE_OPS};
@@ -72,6 +76,9 @@ impl ViewControl {
             names,
             selected: 0,
             typing: false,
+            immersive: Default::default(),
+            next_id: 1,
+            last_input: 0.0,
         }
     }
 
@@ -148,7 +155,18 @@ impl ViewControl {
         // View: ENVIRONMENT_OP, ENVIRONMENT_SET_OP.
         if op == IMMERSIVE_OP || op == IMMERSIVE_SET_OP {
             if let Some(immersive) = f.immersive.as_deref_mut() {
-                immersive.on_message(message, out);
+                let mut shown = super::immersive::Shown {
+                    setting: &mut self.immersive,
+                    names: &self.names,
+                    video_active: false,
+                    zoomed: false,
+                    typing: self.typing,
+                    next_id: &mut self.next_id,
+                    now: 0.0,
+                    last_input: &mut self.last_input,
+                    changed: false,
+                };
+                immersive.on_message(message, &mut shown, out);
             }
             return;
         }
