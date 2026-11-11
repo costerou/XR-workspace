@@ -117,6 +117,14 @@ Python calls the original, in the Python's order. With every stub off, a run is 
 tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
 and a fake-compositor reply function per feature.
 
+The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
+before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
+keys `Binds::install` takes, the panel's ops (`binds_toggle`, `binds_key`) and `binds` frames through the view, and its
+compositor work on a worker thread with its own pinned client. `tests/keybinds_run.rs` replays
+`rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
+toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
+`tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+
 ### Switching runs to the Rust supervisor
 
 The Python controller picks the supervisor at every Start (`tools/xr_controller/supervisor_switch.py`), from one
