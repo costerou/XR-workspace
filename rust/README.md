@@ -157,7 +157,7 @@ field by field.
 ### Benches against the Rust renderer
 
 The C++ loopback compositor and benches stay the harness (plan decision: an independent harness
-while the renderer is replaced). Configure the spike with the Rust binary and three ctests run it:
+while the renderer is replaced). Configure the spike with the Rust binary and the `capture_e2e_rust_*` ctests run it:
 
 ```sh
 cargo build --release -p xr-renderer
@@ -174,13 +174,14 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
   dmabuf`); `gl-dmabuf` imports dmabuf captures (`gles2-dmabuf-import`). Both GL modes present
   through a three-buffer GBM swapchain wrapped as zwp_linux_dmabuf_v1 buffers (no wayland-egl).
   Each output's `fallback` in the exit `managed_output_capture` line is the C++ reason string.
-- `capture_e2e_rust_malloc_pattern`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
+- `capture_e2e_rust_malloc_{pattern,cpu,gl-shm,gl-dmabuf}`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
   `spike/bench/malloc_report.py` names the call sites, demangled. On 2026-11-10 the pattern
   path made 987 allocations/s (8 per frame at 120 Hz, all in `wayland-client` request and
   event handling, `Presentation::pump`'s poll list included) against 33,849/s for the C++ renderer
-  in the same mode.
+  in the same mode. The capture modes: `cpu` 5,064/s (C++ 96,111/s), `gl-shm` 20,856/s (C++
+  248,699/s), `gl-dmabuf` 21,715/s (C++ 256,308/s).
 
 `gl_bench`'s bench mode is ported as a cargo bench over the same scenarios (the 21 drawn without a
 background or video) with the same table, column for column: CPU, GL-minus-flush, thread CPU,
