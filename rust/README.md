@@ -561,6 +561,11 @@ The VR video controls card (`video::card::render_video_card`) is ported with its
 `golden/video_card.txt`) byte for byte, in the built-in pixel font and the installed `HUD_FONT_FAMILY`; the installed-font
 lines follow this machine's font file, so regenerate them (the command is in the `.cpp`) when it changes.
 
+The HUD cards are ported with their pixels too: `hud::render_hud_card` (the mode, cursor, prediction, typing and
+tracking pop-ups) and `hud::render_help_card` (every page, its click targets and `help_card_fit`). `tests/hud.rs`
+(`cards_match_cpp_golden`) replays every case of `golden/hud_cards.cpp`, the overlays' `image()` after a call sequence
+included, and matches `golden/hud_cards.txt` byte for byte in both fonts. `tests/help_card.rs` ports `help_card_test.cpp`.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
