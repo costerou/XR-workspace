@@ -144,8 +144,28 @@ def reply_overview_pointer(wire):
     return None
 
 
+sent = {}  # view_controls::send: the focused window's monitor and workspace once a send key moved it
+
+
 def reply_send(wire):
-    """view_controls::send's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::send's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    A send key's move (`dispatch hl.dsp.window.move({ workspace = "N", follow = true, window = "address:0x1" })`) puts
+    the one window (CLIENT, focused) on the monitor showing workspace N, so Ctrl+Alt+G then Ctrl+Alt+B reads it on an
+    XR desktop and moves it back to DP-1. Until a move, the built-in replies answer."""
+    import re
+    move = re.fullmatch(r'/dispatch hl\.dsp\.window\.move\(\{ workspace = "(\d+)", follow = (?:true|false), '
+                        r'window = "address:(0x[0-9a-f]+)" \}\)', wire)
+    if move:
+        workspace = int(move[1])
+        shown = [m for m in monitors() if m['activeWorkspace']['id'] == workspace]
+        if move[2] != CLIENT['address'] or len(shown) != 1:
+            return 'error: no such window or workspace'
+        sent.update(monitor=shown[0]['id'], workspace=dict(id=workspace, name=str(workspace)))
+        return 'ok'
+    if sent and wire in ('j/activewindow', 'j/clients'):
+        window = dict(CLIENT, **sent)
+        return window if wire == 'j/activewindow' else [window]
     return None
 
 
