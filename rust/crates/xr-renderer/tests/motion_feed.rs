@@ -1,4 +1,5 @@
-//! The motion feed (D3): the MotionFeed checks of ctest `predict` (spike/tests/predict_test.cpp), and MotionFeed reading a
+//! The motion feed (D3): the MotionFeed checks of ctest `predict` (spike/tests/predict_test.cpp), `motion_delta`
+//! bit-equal with the C++ over golden/motion_feed.cpp's grid (golden/motion_feed.txt), and MotionFeed reading a
 //! PredictionWire that xr-pose's FeedWriter publishes under a private prefix (every segment created by this test with
 //! IPC_EXCL, so a live driver's is never touched).
 
@@ -52,6 +53,37 @@ fn braking_stops_the_extrapolation_where_the_head_stops() {
     let at = |h: f32| deg(motion_delta(&m, h, 15.0), Quat::default());
     assert!(near(f64::from(at(50.0)), 2.5, 1e-3) && near(f64::from(at(200.0)), 2.5, 1e-3));
     assert!(near(f64::from(at(20.0)), 2.0 - 0.4, 1e-3));
+}
+
+/// golden/motion_feed.cpp prints its tables and every delta as IEEE bits; the Rust delta must print the same.
+#[test]
+fn motion_delta_matches_the_cpp_bit_for_bit() {
+    let golden = include_str!("../golden/motion_feed.txt");
+    let float = |w: &str| f32::from_bits(u32::from_str_radix(w, 16).expect("hex float bits"));
+    let bits = |v: f32| format!("{:08x}", v.to_bits());
+    let (mut qs, mut omegas, mut alphas, mut horizons, mut maxes) = (vec![], vec![], vec![], vec![], vec![]);
+    let mut checked = 0;
+    for (n, line) in golden.lines().enumerate() {
+        let w: Vec<&str> = line.split(' ').collect();
+        let v3 = || [float(w[2]), float(w[3]), float(w[4])];
+        match w[0] {
+            "q" => qs.push(Quat { x: float(w[2]), y: float(w[3]), z: float(w[4]), w: float(w[5]) }),
+            "omega" => omegas.push(v3()),
+            "alpha" => alphas.push(v3()),
+            "horizon" => horizons.push(float(w[2])),
+            "max" => maxes.push(float(w[2])),
+            "d" => {
+                let i: Vec<usize> = w[1..6].iter().map(|v| v.parse().unwrap()).collect();
+                let m = FeedMotion { q: qs[i[0]], host_ns: 5_000_000_000, omega_rad_s: omegas[i[1]], alpha_rad_s2: alphas[i[2]] };
+                let d = motion_delta(&m, horizons[i[3]], maxes[i[4]]);
+                let produced = format!("d {} {} {} {} {}", w[1..6].join(" "), bits(d.x), bits(d.y), bits(d.z), bits(d.w));
+                assert_eq!(produced, line, "golden/motion_feed.txt line {}: Rust, then C++", n + 1);
+                checked += 1;
+            }
+            other => panic!("golden/motion_feed.txt line {}: unknown record {other}", n + 1),
+        }
+    }
+    assert!(checked > 3000, "only {checked} cases");
 }
 
 struct Scratch(std::path::PathBuf);

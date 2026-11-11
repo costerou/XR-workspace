@@ -4,12 +4,14 @@
 //! acceleration, body frame, in the feed's frame, and that sample's arrival on CLOCK_MONOTONIC. XRLinuxDriver has no such
 //! segment, so a renderer on it keeps the finite difference.
 //!
-//! The wire itself is `xr_pose::prediction`'s. `luma::extrapolate` (spike/driver/src/predict.cpp) has no Rust port yet,
-//! so the part `motion_delta` needs (the default `PredictConfig` with its own `max_deg`) is mirrored here, privately.
+//! The wire itself is `xr_pose::prediction`'s and `luma::extrapolate` is `xr_pose::extrapolate`'s, so `motion_delta` is
+//! bit-equal with the C++ (tests/motion_feed.rs against golden/motion_feed.txt).
 
 use std::ffi::CString;
 use std::ptr;
 
+use xr_pose::MotionState;
+use xr_pose::extrapolate::{PredictConfig, extrapolate};
 use xr_pose::prediction::{PREDICTION_IPC_NAME, PredictionWire};
 
 use crate::pose::{Quat, quat_conj, quat_mul, quat_normalized};
@@ -81,87 +83,23 @@ impl Drop for MotionFeed {
     }
 }
 
-// luma::PredictConfig's defaults, for extrapolate.
-const LUMA_PI: f32 = std::f32::consts::PI; // kPi = 3.14159265358979f: the same f32
-const DEG_TO_RAD: f32 = LUMA_PI / 180.0;
-const STILL_LO_DPS: f32 = 2.5;
-const STILL_HI_DPS: f32 = 8.0;
-
-fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-fn length(v: [f32; 3]) -> f32 {
-    dot(v, v).sqrt()
-}
-/// `std::min`.
-fn min_f(a: f32, b: f32) -> f32 {
-    if b < a { b } else { a }
-}
-/// `std::clamp`.
-fn clamp_f(v: f32, lo: f32, hi: f32) -> f32 {
-    if v < lo {
-        lo
-    } else if hi < v {
-        hi
-    } else {
-        v
-    }
-}
-fn smoothstep(lo: f32, hi: f32, v: f32) -> f32 {
-    if !(hi > lo) {
-        return if v >= hi { 1.0 } else { 0.0 };
-    }
-    let u = clamp_f((v - lo) / (hi - lo), 0.0, 1.0);
-    u * u * (3.0 - 2.0 * u)
-}
-/// luma's `exp_map`: `[w, x, y, z]` as a Quat.
-fn exp_map(r: [f32; 3]) -> Quat {
-    let a = length(r);
-    let k = if a < 1e-6 { 0.5 } else { (a / 2.0).sin() / a };
-    Quat { x: r[0] * k, y: r[1] * k, z: r[2] * k, w: (a / 2.0).cos() }
-}
-/// luma's `normalized`: summed w first, identity when degenerate (NaN included).
-fn luma_normalized(q: Quat) -> Quat {
-    let n = (q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z).sqrt();
-    if n > 1e-6 { Quat { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n } } else { Quat::default() }
-}
-/// luma's `gated_path` with acceleration, the stop clamp and the still gate on: the rotation vector over horizon_ms.
-fn gated_path(m: &FeedMotion, horizon_ms: f32, max_deg: f32) -> [f32; 3] {
-    let mut t = horizon_ms / 1000.0;
-    let speed = length(m.omega_rad_s);
-    let along = if speed > 0.0 { dot(m.omega_rad_s, m.alpha_rad_s2) / speed } else { 0.0 };
-    if along < 0.0 {
-        t = min_f(t, -speed / along); // braking: the head stops, it does not reverse
-    }
-    let a = 0.5 * t * t;
-    let mut r = [0.0f32; 3];
-    for i in 0..3 {
-        r[i] = m.omega_rad_s[i] * t + m.alpha_rad_s2[i] * a;
-    }
-    let gain = smoothstep(STILL_LO_DPS * DEG_TO_RAD, STILL_HI_DPS * DEG_TO_RAD, length(m.omega_rad_s));
-    for v in &mut r {
-        *v *= gain;
-    }
-    let angle = length(r);
-    let limit = max_deg * DEG_TO_RAD;
-    if angle > limit {
-        for v in &mut r {
-            *v *= limit / angle;
-        }
-    }
-    r
-}
-
-/// The delta to apply on the right of the wire's pose (newest * delta, like `prediction_delta`): luma's `extrapolate`
-/// horizon_ms past the sample's arrival, with acceleration, the stop clamp, the still gate and max_deg. Identity for
-/// horizon <= 0.
+/// The delta to apply on the right of the wire's pose (newest * delta, like `prediction_delta`): `luma::extrapolate`
+/// horizon_ms past the sample's arrival, with the default config but max_deg. Identity for horizon <= 0.
 pub fn motion_delta(m: &FeedMotion, horizon_ms: f32, max_deg: f32) -> Quat {
     if !(horizon_ms > 0.0) {
         return Quat::default();
     }
-    let r = gated_path(m, horizon_ms, max_deg);
-    let p = luma_normalized(quat_mul(m.q, exp_map(r)));
-    quat_normalized(quat_mul(quat_conj(m.q), p)).unwrap_or_default()
+    let state = MotionState {
+        q: [m.q.w, m.q.x, m.q.y, m.q.z],
+        host_ns: m.host_ns,
+        omega_rad_s: m.omega_rad_s,
+        alpha_rad_s2: m.alpha_rad_s2,
+        valid: true,
+        calibrated: true,
+        ..MotionState::default()
+    };
+    let [w, x, y, z] = extrapolate(&state, horizon_ms, &PredictConfig { max_deg, ..PredictConfig::default() }).q;
+    quat_normalized(quat_mul(quat_conj(m.q), Quat { x, y, z, w })).unwrap_or_default()
 }
 
 /// Older than this, a sample's motion says nothing about now (a stopped driver).

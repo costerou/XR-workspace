@@ -34,6 +34,16 @@ and the plugin's `registry.cpp` (C++23, nlohmann_json headers) and feeds it ever
 `spike/tests/ownership_pair_wire_test.py`, encoded by `xr_wire::plugin`, plus geometry and bounds
 sweeps: the plugin's `parse_request` and the Rust mirror must give the same verdict on each.
 
+`xr_pose::extrapolate` is `luma::extrapolate` (`spike/driver/src/predict.cpp`): the driver's velocity and
+acceleration carried over a horizon, with the stop clamp, the still gate and the `max_deg` limit, in the C++ f32
+order with `std::min` and `std::clamp` mirrored. Its `PredictConfig` holds only the fields `extrapolate` reads;
+`Predictor`'s filters are not ported. `tests/extrapolate.rs` ports the `luma_predict` ctest's extrapolation checks
+on hand-built states, and compares the Rust with `golden/extrapolate.txt` line by line: `golden/extrapolate.cpp`
+links the C++ `predict.cpp` unchanged and prints the IEEE bits of every result over a grid of configs, states
+(still, slow, fast, braking, turning back, NaN, invalid, uncalibrated, a wrapping clock) and horizons (NaN,
+negative, zero, tiny, long). Both match bit for bit. The one gap is `target_ns` for a horizon of 2^64 ns or more,
+undefined in the C++ and saturating in Rust.
+
 `Cargo.lock` is committed. `deny.toml` allows permissive third-party licences only (MIT, Apache-2.0,
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own
 crates are `publish = false` and are skipped by the licence check.
@@ -566,11 +576,13 @@ frame after it is not late too. Wiring it into the shell is a later task.
 
 `motion_smooth` is `motion_smooth.cpp` and `motion_feed` is `motion_feed.cpp` (RR-72): `MotionSmoother` (the Pro 2's
 frame-rate motion) and `MotionFeed` (the driver's `pose_prediction` wire, read through `xr_pose::prediction`, with
-`motion_delta` and `motion_age_ms`). `luma::extrapolate` has no Rust port yet, so `motion_feed` mirrors the part it uses.
+`motion_delta` and `motion_age_ms`). `motion_delta` runs `xr_pose::extrapolate`, as the C++ runs `luma::extrapolate`.
 `tests/motion_smooth.rs` ports every check of the `motion_smooth` ctest, and replays `pro2_smooth_replay.cpp`'s per-frame
 pose path (stabilizer, pose state, pose age, horizon, smoother, view) over `tests/fixtures/pro2_smooth_replay{,_wire}.in`:
 byte-equal with `golden/motion_smooth.txt`, which `golden/motion_smooth.cpp` writes from the C++ replay itself.
 `tests/motion_feed.rs` ports the D3 checks of the `predict` ctest and reads a wire xr-pose's `FeedWriter` publishes.
+It checks `motion_delta` exactly: bit-equal with `golden/motion_feed.txt`, which `golden/motion_feed.cpp` writes from
+the C++ `motion_delta` over a grid of poses, velocities, accelerations, horizons and limits.
 
 `stabilization` is `stabilization.hpp` and `continuity` is `continuity.hpp` (RR-72). `Stabilizer` mirrors libstdc++'s
 three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` ctest and is byte-equal with
