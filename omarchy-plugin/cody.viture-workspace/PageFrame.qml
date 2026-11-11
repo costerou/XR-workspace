@@ -29,7 +29,7 @@ ColumnLayout {
             spacing: 14
         }
     }
-    Rectangle { visible: root.footerVisible; Layout.fillWidth: true; Layout.preferredHeight: 1; color: Tone.a(0.12) }
+    Rectangle { visible: root.footerVisible; Layout.fillWidth: true; Layout.preferredHeight: 1; color: Tone.a(Tone.hairline) }
     Item {
         visible: root.footerVisible
         Layout.fillWidth: true
