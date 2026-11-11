@@ -146,7 +146,7 @@ pub fn receive(
 
 /// What the presentation adds to a status sample (`Presentation::status_json`); `None` leaves a
 /// field out.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct StatusExtras {
     /// Left out while the player is off.
     pub video: Option<Video>,
@@ -154,6 +154,11 @@ pub struct StatusExtras {
     pub tracking: Option<bool>,
     /// Only when there are captures: the longest run of failed frames.
     pub capture_failure_run: Option<u64>,
+    /// Only while our driver publishes pose_vsync (`--read-events`) and a present has been measured: the horizon
+    /// error's p95 over the last frames (sent as the C++ `std::to_string`, 6 decimals).
+    pub vsync_error_ms: Option<f64>,
+    /// With `vsync_error_ms`, once a drawn sample was timed at scan-out: its median age then. May be negative.
+    pub sensor_to_vsync_ms: Option<f64>,
     /// Only when the newest pose came from the seqlock channel: read time minus sample time, in ns (sent as ms, 3
     /// decimals, as the C++ `%.3f`).
     pub pose_age_ns: Option<u64>,
@@ -162,7 +167,8 @@ pub struct StatusExtras {
 }
 
 /// One status sample, without its newline: the metrics' object (`missed`, `presented_hz`) and then
-/// `video`, `tracking`, `capture_failure_run`, `pose_age_ms` and `capture_path`, as the C++ appends them.
+/// `video`, `tracking`, `capture_failure_run`, `vsync_error_ms`, `sensor_to_vsync_ms`, `pose_age_ms` and
+/// `capture_path`, as the C++ appends them.
 pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
     let mut j: Map<String, Value> = match serde_json::from_str(metrics) {
         Ok(Value::Object(o)) => o.into_iter().collect(),
@@ -187,6 +193,12 @@ pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
     }
     if let Some(run) = extras.capture_failure_run {
         fields.push(("capture_failure_run".into(), run.to_string()));
+    }
+    if let Some(ms) = extras.vsync_error_ms {
+        fields.push(("vsync_error_ms".into(), format!("{ms:.6}")));
+    }
+    if let Some(ms) = extras.sensor_to_vsync_ms {
+        fields.push(("sensor_to_vsync_ms".into(), format!("{ms:.6}")));
     }
     if let Some(ns) = extras.pose_age_ns {
         fields.push(("pose_age_ms".into(), format!("{:.3}", ns as f64 / 1e6)));
@@ -319,6 +331,8 @@ mod tests {
                 video: Some(Video::Playing),
                 tracking: Some(true),
                 capture_failure_run: Some(0),
+                vsync_error_ms: None,
+                sensor_to_vsync_ms: None,
                 pose_age_ns: None,
                 capture_path: Some(CapturePath::Dmabuf),
             },
@@ -335,6 +349,7 @@ mod tests {
             video: Some(Video::Playing),
             tracking: Some(true),
             capture_failure_run: Some(0),
+            ..Status::default()
         };
         assert_eq!(
             status::decode(line.as_bytes()).unwrap(),
@@ -362,5 +377,38 @@ mod tests {
         assert_eq!(line, r#"{"capture_failure_run":0,"pose_age_ms":1.500}"#);
         let Datagram::Status(s) = status::decode(line.as_bytes()).unwrap() else { panic!("{line}") };
         assert_eq!(s.pose_age_ms, Some(1.5));
+    }
+
+    #[test]
+    fn vsync_fields_keep_the_cpp_to_string_and_order() {
+        // wayland.cpp appends them after capture_failure_run and before pose_age_ms, as std::to_string (%f).
+        let extras = StatusExtras {
+            tracking: Some(true),
+            capture_failure_run: Some(1),
+            vsync_error_ms: Some(0.4769351),
+            sensor_to_vsync_ms: Some(-3.5),
+            pose_age_ns: Some(2_000_000),
+            ..Default::default()
+        };
+        let line = status_dict(r#"{"missed":0}"#, &extras);
+        assert_eq!(
+            line,
+            r#"{"missed":0,"tracking":true,"capture_failure_run":1,"vsync_error_ms":0.476935,"sensor_to_vsync_ms":-3.500000,"pose_age_ms":2.000}"#
+        );
+        let Datagram::Status(s) = status::decode(line.as_bytes()).unwrap() else {
+            panic!("{line}")
+        };
+        assert_eq!(
+            (s.vsync_error_ms, s.sensor_to_vsync_ms),
+            (Some(0.476935), Some(-3.5))
+        );
+        let only_error = StatusExtras {
+            vsync_error_ms: Some(12.0),
+            ..Default::default()
+        };
+        assert_eq!(
+            status_dict("{}", &only_error),
+            r#"{"vsync_error_ms":12.000000}"#
+        );
     }
 }

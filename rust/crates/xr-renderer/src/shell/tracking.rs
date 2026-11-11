@@ -567,11 +567,21 @@ impl Tracking {
         self.latency.abandon();
     }
 
-    /// `tracking` (only when tracking was asked for) and `pose_age_ms` (only when the newest sample came from the
+    /// `tracking` (only when tracking was asked for), `vsync_error_ms` and `sensor_to_vsync_ms` (only while the driver's
+    /// vsync is measured) and `pose_age_ms` (only when the newest sample came from the
     /// seqlock channel, whose time is CLOCK_MONOTONIC; the mutex feed's age is against an unknown clock offset).
     pub(super) fn status(&self, extras: &mut StatusExtras) {
         if self.requested {
             extras.tracking = Some(self.pose.tracking());
+        }
+        // Our driver's scan-out against wp_presentation over the last presents, only while it publishes pose_vsync
+        // (--read-events): the horizon error p95, and the median sample age at scan-out.
+        let v = self.vsync_meter.summary();
+        if v.count > 0 {
+            extras.vsync_error_ms = Some(v.error_p95_ms);
+            if v.sensor_count > 0 {
+                extras.sensor_to_vsync_ms = Some(v.sensor_p50_ms);
+            }
         }
         if let Some(feed) = &self.pose_feed {
             let r = feed.stats();
@@ -772,7 +782,55 @@ impl Presentation {
 
 #[cfg(test)]
 mod tests {
-    use super::split_fov;
+    use super::{Tracking, split_fov};
+    use xr_renderer::ipc::{StatusExtras, status_dict};
+    use xr_renderer::pose::VsyncSnapshot;
+    use xr_renderer::predict::VsyncMeter;
+
+    /// golden/status_vsync.cpp's `run`: n presents at 90 Hz, each a little after its scan-out, drawing a sample `age_ms`
+    /// before it (none when `sample` is false).
+    fn run(m: &mut VsyncMeter, n: u32, age_ms: f64, sample: bool, feed_ms: f64) {
+        let v = VsyncSnapshot {
+            anchor_host_ns: 1_000_000_000,
+            period_ns: 1e9 / 90.0,
+            anchor_feed_ms: feed_ms,
+            ..VsyncSnapshot::default()
+        };
+        let late_us = [2000.0, 2150.0, 1900.0, 2600.0, 2050.0];
+        for k in 0..n {
+            let at = v.anchor_host_ns + (f64::from(k) * v.period_ns + late_us[k as usize % 5] * 1e3) as u64;
+            let drawn = if sample { (500.0 + f64::from(k) * v.period_ns / 1e6 - age_ms) as f32 } else { -1.0 };
+            m.presented(Some(&v), at, drawn);
+        }
+    }
+
+    #[test]
+    fn the_vsync_status_fields_match_the_cpp() {
+        let status = |m: VsyncMeter| {
+            let t = Tracking { vsync_meter: m, ..Tracking::default() };
+            let mut extras = StatusExtras::default();
+            t.status(&mut extras);
+            status_dict("{}", &extras)
+        };
+        let scenario = |n, age, sample, feed| {
+            let mut m = VsyncMeter::new();
+            run(&mut m, n, age, sample, feed);
+            m
+        };
+        let mut skipped = VsyncMeter::new();
+        skipped.presented(None, 5, 1.0);
+        let got = [
+            status(VsyncMeter::new()),
+            status(skipped),
+            status(scenario(20, 0.0, false, 500.0)),
+            status(scenario(40, 12.25, true, 500.0)),
+            status(scenario(40, -3.5, true, 500.0)),
+            status(scenario(10, 7.0, true, f64::NAN)),
+            status(scenario(1, 30.0, true, 500.0)),
+        ];
+        let want: Vec<&str> = include_str!("../../golden/status_vsync.txt").lines().collect();
+        assert_eq!(got.iter().map(String::as_str).collect::<Vec<_>>(), want);
+    }
 
     #[test]
     fn the_fov_fills_the_diagonal() {

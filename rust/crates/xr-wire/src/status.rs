@@ -73,6 +73,10 @@ pub struct Status {
     pub video: Option<Video>,
     pub tracking: Option<bool>,
     pub capture_failure_run: Option<u64>,
+    /// Our driver's scan-out against wp_presentation (`--read-events`): the horizon error p95.
+    pub vsync_error_ms: Option<f64>,
+    /// Scan-out minus the drawn sample's time: a clock offset can make it negative, so only finite.
+    pub sensor_to_vsync_ms: Option<f64>,
 }
 
 /// One decoded line.
@@ -118,6 +122,14 @@ fn measure(v: &Value) -> Option<f64> {
     }
 }
 
+/// A finite number of either sign, never a bool.
+fn finite(v: &Value) -> Option<f64> {
+    match v {
+        Value::Number(n) => n.as_f64().filter(|x| x.is_finite()),
+        _ => None,
+    }
+}
+
 /// Decode one line, with or without its newline.
 pub fn decode(line: &[u8]) -> Result<Datagram, Error> {
     if line.len() > LINE_LIMIT {
@@ -146,6 +158,8 @@ pub fn decode(line: &[u8]) -> Result<Datagram, Error> {
         let ok = match key.as_str() {
             "presented_hz" => measure(v).map(|x| status.presented_hz = Some(x)),
             "pose_age_ms" => measure(v).map(|x| status.pose_age_ms = Some(x)),
+            "vsync_error_ms" => measure(v).map(|x| status.vsync_error_ms = Some(x)),
+            "sensor_to_vsync_ms" => finite(v).map(|x| status.sensor_to_vsync_ms = Some(x)),
             "missed" => count(v).map(|n| status.missed = Some(n)),
             "capture_failure_run" => count(v).map(|n| status.capture_failure_run = Some(n)),
             "capture_path" => match v.as_str() {
@@ -262,6 +276,17 @@ mod tests {
                 video: Some(Video::Paused),
                 tracking: Some(true),
                 capture_failure_run: Some(2),
+                ..Status::default()
+            })
+        );
+        let vsync = r#"{"tracking":true,"vsync_error_ms":0.476935,"sensor_to_vsync_ms":-3.500000}"#;
+        assert_eq!(
+            ok(vsync),
+            Datagram::Status(Status {
+                tracking: Some(true),
+                vsync_error_ms: Some(0.476935),
+                sensor_to_vsync_ms: Some(-3.5),
+                ..Status::default()
             })
         );
         for line in [
@@ -276,6 +301,10 @@ mod tests {
             r#"{"fps":1}"#,
             r#"{"missed":1,"missed":2}"#,
             r#"{"presented_hz":NaN}"#,
+            r#"{"vsync_error_ms":-0.1}"#,
+            r#"{"vsync_error_ms":true}"#,
+            r#"{"sensor_to_vsync_ms":false}"#,
+            r#"{"sensor_to_vsync_ms":"1"}"#,
             "[]",
             "{",
         ] {

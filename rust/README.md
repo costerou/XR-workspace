@@ -212,7 +212,9 @@ Where the modules meet, the C++ order is kept:
   anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode view turn. The FOV comes from
   the driver when it publishes one, else from the supervisor's projection, else 46 degrees. A feed that stops holds
   the last pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and
-  keeps presenting. The exit report carries `tracking` and `latency` (software read to present, from the
+  keeps presenting. With the Luma driver's `--read-events`, the status datagram also carries `vsync_error_ms` and
+  `sensor_to_vsync_ms` (the C++ text, compared with `golden/status_vsync.cpp`'s, and read by `xr_wire::status`). The
+  exit report carries `tracking` and `latency` (software read to present, from the
   `wp_presentation` feedback in `shell.rs`).
 - **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
   as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
@@ -268,7 +270,6 @@ Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments agains
 
 Not ported or not covered yet:
 
-- The status fields `vsync_error_ms` and `sensor_to_vsync_ms`.
 - Late latch and the GPU timer query (plan task 6).
 - `desktops` has no end-to-end test: the bench never sends that op.
 - The restore band's wire ctest (the binary's `--dump` read by the Python supervisor) has no twin.
