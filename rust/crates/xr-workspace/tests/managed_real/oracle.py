@@ -1,28 +1,130 @@
-"""The Python side of tests/managed_real.rs: `tools.xr_controller.runner` as the run unit runs it, with one change.
+"""The Python side of tests/managed_real.rs: `tools.xr_controller.runner` as the run unit runs it, narrowed to the Rust port.
 
 `python3 -I oracle.py <repo> runner --consent C --state-dir S`, or `... recover-run --consent C --journal J`.
 
-The change: `managed.view_controls` yields no view control, as the Rust supervisor's managed run has none yet (the glasses'
-Ctrl+Alt controls, the overview pointer, the panel's control socket: rust/README.md). Everything else (the consent, the
-pins, the plugin, the broker, the journal, adoption, the renderer launch and its watchdog, recovery) is the shipped code.
-Which Rust port takes this (and the other, implicit, exclusions) away: tests/managed_real.rs's module doc and
-rust/crates/xr-workspace/VIEW_CONTROLS.md.
+The shipped `managed.view_controls` runs: the private control socket (`ipc.PrivateServer`), the supervisor's
+`control_request` and `serve_without_renderer` on it, the `with` around the renderer. Each view-controls feature the
+Rust run still has as a stub (rust/crates/xr-workspace/VIEW_CONTROLS.md) is taken out by its own entry in `STUBS`
+below, so it does on the Python side what the stub does on the Rust side: nothing. A feature's port deletes its own
+entry (and nothing else) in the commit that ports it. Everything else (the consent, the pins, the plugin, the broker, the
+journal, adoption, the renderer launch and its watchdog, holds, recovery) is the shipped code throughout.
+
+An entry is one of two kinds:
+- patch a module attribute (a class or a function) with a stand-in: `patch(module, name, value)`
+- change the client `view_controls` is given (`Client`): `hide` a method (`view_controls` gates on `hasattr`), or
+  `quiet` one (it is called, does nothing and returns None)
+- `withhold` one of `view_controls`'s arguments (it gets None), for a feature `_run_owned` builds and hands it
 """
 import contextlib
+import inspect
 import sys
+import types
 
 
+class Client:
+    """The run's client as `view_controls` sees it: the same object, less what `hide` takes and `quiet` silences."""
+    hidden, quieted, filters = set(), set(), []
 
-@contextlib.contextmanager
-def no_view_controls(*args, **kwargs):
-    yield None
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        if name in Client.hidden: raise AttributeError(name)
+        if name in Client.quieted: return lambda *args, **kwargs: None
+        value = getattr(self._client, name)
+        for wrap in Client.filters: value = wrap(name, value)
+        return value
+
+
+def hide(*names): Client.hidden.update(names)
+def quiet(*names): Client.quieted.update(names)
+
+
+WITHHELD = set()
+
+
+def withhold(*names): WITHHELD.update(names)
+
+
+def patch(module, name, value):
+    setattr(module, name, value)
+
+
+class Nothing:
+    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {})."""
+    def __init__(self, *args, **kwargs): pass
+    def bind_kwargs(self): return {}
+    def start(self): return self
+    def __getattr__(self, name): return lambda *args, **kwargs: None
+
+
+class NoVideo:
+    """`video.VideoControl(control, ...)` with no video: every call the view's, `close` nothing."""
+    def __init__(self, control, **kwargs): self._control = control
+    def close(self): pass
+    def __getattr__(self, name): return getattr(self._control, name)
+
+
+def stub_view(view):
+    """`view`: the hub stays (the server, the state, the routing), but sends nothing and answers a bare status."""
+    patch(view.ViewControl, 'on_message', lambda self, message: b'')
+    patch(view.ViewControl, 'initial_frame', lambda self: b'')
+    patch(view.ViewControl, 'status_reply', lambda self, status: {})
+    patch(view.ViewControl, 'poll', lambda self, now: b'')
+    patch(view.ViewControl, 'on_events', lambda self, data: b'')
+    patch(view.ViewControl, 'flush', lambda self: None)
+    patch(view.ViewControl, 'save_setup', lambda self: None)
+    patch(view.ViewControl, 'renderer_restarted', lambda self: None)
+    hide('event_stream', 'install_options_binds')
+
+
+def stub_binds(managed):
+    """`binds`: no Ctrl+Alt binds in or out, and no read of the session mode in `view_controls`'s body."""
+    quiet('install_view_binds', 'remove_view_binds')
+    hide('reinstall_view_binds')
+    body = managed.view_controls.__wrapped__.__code__
+
+    def no_session_mode(name, value):
+        if name != 'query': return value
+        def query(*args, **kwargs):
+            if sys._getframe(1).f_code is body and args[:1] == ('monitors',): return []
+            return value(*args, **kwargs)
+        return query
+    Client.filters.append(no_session_mode)
+
+
+def apply_stubs():
+    from tools.native_spike import immersive, keybinds, managed, send, unified_cursor, video, view
+    # One entry per feature still a stub in Rust. A port deletes its own line.
+    STUBS = {
+        'view': lambda: stub_view(view),
+        'binds': lambda: stub_binds(managed),
+        'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
+        'send': lambda: patch(send, 'WindowSender', Nothing),
+        'privacy': lambda: hide('set_dpms'),
+        'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
+        'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
+        'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
+        'desktops': lambda: hide('adopt_windows'),
+        'window_memory': lambda: withhold('windows'),
+    }
+    for stub in STUBS.values(): stub()
+    shipped = managed.view_controls
+    signature = inspect.signature(shipped)
+
+    @contextlib.contextmanager
+    def view_controls(client, *args, **kwargs):
+        bound = signature.bind(Client(client), *args, **kwargs)
+        for name in WITHHELD: bound.arguments[name] = None
+        with shipped(*bound.args, **bound.kwargs) as control:
+            yield control
+    managed.view_controls = view_controls
 
 
 # The guard's worker is a multiprocessing spawn of this file: it must not start a run of its own.
 if __name__ == '__main__':
     sys.path.insert(0, sys.argv[1])
-    from tools.native_spike import managed
-    managed.view_controls = no_view_controls
+    apply_stubs()
     if sys.argv[2] == 'runner':
         from tools.xr_controller import runner
         sys.exit(runner.main(sys.argv[3:]))

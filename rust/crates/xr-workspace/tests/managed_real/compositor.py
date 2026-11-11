@@ -125,7 +125,10 @@ def broker(j):
 
 
 def reply_socket(wire):
-    """view_controls::socket's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::socket's requests (VIEW_CONTROLS.md); None: not this feature's. The `hold` case: the glasses (DP-2)
+    are gone while `<runtime>/fake-glasses-gone` exists (the fake renderer makes it as it ends; the test removes it)."""
+    if wire in ('j/monitors', 'j/monitors all') and (root / 'fake-glasses-gone').exists():
+        return [m for m in monitors() if m['name'] != 'DP-2']
     return None
 
 
