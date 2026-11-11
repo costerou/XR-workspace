@@ -178,6 +178,15 @@ drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and chec
 2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
 gate tests and the `GlCompositor` inputs it feeds.
 
+Head tracking (`shell/tracking.rs`) is wired: `--pose-feed xrld` is taken, and a GPU frame reads the pose late (the
+feed and the motion wire opened and retried once a second), stabilizes, predicts and smooths it, and gives the frame its
+camera through `ModeController` (anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode
+view turn). The FOV comes from the driver when it publishes one (46 degrees otherwise). A feed that stops holds the last
+pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and keeps
+presenting. The exit report carries the `tracking` and `latency` sections (software read to present, fed from the
+`wp_presentation` feedback in `shell.rs`). `tests/level_frame_reference.rs` ports the `level_frame` ctest. Gates:
+`capture_e2e_rust_tracked`, `_feed_drop`, `_feed_gone_video_loss`, `_bad_control_fatal` and `_control_closed`.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
