@@ -115,8 +115,8 @@ key through each run's own key helper. Until the view is ported the reply is its
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
-  bind panel are ported (below) but reach a run's ops only once the view is.
+  overview pointer, 3D and VR video. Window sending, privacy mode, the key bind panel and the pills' desktop changes are
+  ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -140,9 +140,25 @@ pinned to the run's compositor; and the run's end takes the last capture into `w
 `tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
 recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
 `managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
-Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
-calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
-`Tracker::poll`, `Tracker::deadline`).
+Stop. A desktop removed and added again in a run is ported too: `Tracker::leaving` (the desktops worker's, before a
+removal) parks its windows' memory, and `Tracker::set_names` brings them home on the next capture (the corpus has
+`test_window_memory.RemovalTests`' scenarios). Not ported yet: the view's `window_context`, `poll` and `set_names`
+wiring, which the `view` port does (`Tracker::set_context`, `Tracker::poll`, `Tracker::deadline`, its
+`desktop_listeners`).
+
+The pills' desktop changes (`view_controls::desktops::Manager`, `desktops.DesktopManager`) are ported: Ultrawide, Add,
+Remove, Scale, Resolution and Ctrl+Alt+R plan their broker steps (`crate::desktops::plan`), which run on a worker with its
+own client pinned to the run's compositor and its own handle on the journal, through the run's one broker client
+(`create_live`, `reshape`, `remove_live`; a failure reverses what can be proven again), then pull a shrunk desktop's
+floating windows in; a reset's removed desktop's windows go to XR-3 first (`_window_mover`). A change pauses the run's
+guard and replaces it with `RealHost::guard` of the outputs as they are now (`LoopHook::guard_change`), and a later
+renderer captures them. The view's side (`desktop_action`, `_start_change`, `_desktops_done`, `layout_reset` and its
+ease) is `Manager`'s over `desktops::View`, which the `view` port implements on `ViewControl`; until then no change
+starts in a run. `tests/desktops_corpus.rs` runs `corpus/desktops/manager.json` (the Python manager through the Python
+broker client on a scripted plugin, `tests/native_spike/desktops_corpus.py`) on the same plugin: the same requests,
+outcomes, desktops, guard, counts and journal for every action, the reset, and a refused create, remove and reshape;
+and the view's side on a stand-in view (Remove twice, a refused create, Ctrl+Alt+R twice). The `managed_real` cases
+(`menu_add`, Ctrl+Alt+R, a refused create) wait, ignored, for the view.
 
 Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
