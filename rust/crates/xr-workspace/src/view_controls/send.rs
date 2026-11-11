@@ -21,12 +21,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use serde_json::Value as Json;
-use xr_wire::json::Value;
 
 use super::Run;
 use crate::hyprland::{Client, Identity, Query};
 use crate::lua::send::SEND_OPS;
-use crate::py;
+use crate::py::{self, to_serde};
 use crate::send as plan;
 use crate::supervisor::immersive::{Done, complete};
 use crate::supervisor::privacy::Notify;
@@ -73,17 +72,6 @@ impl Origin {
             None => Client::new(&self.instance, &self.runtime),
         }
         .map_err(|e| e.to_string())
-    }
-}
-
-fn to_serde(v: &Value) -> Json {
-    match v {
-        Value::Null => Json::Null,
-        Value::Bool(b) => Json::Bool(*b),
-        Value::Number(n) => Json::Number(n.clone()),
-        Value::String(s) => Json::String(s.clone()),
-        Value::Array(a) => Json::Array(a.iter().map(to_serde).collect()),
-        Value::Object(o) => Json::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
     }
 }
 

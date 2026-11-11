@@ -26,6 +26,7 @@ use serde_json::{Map, Value, json};
 use super::Run;
 use super::view::ViewControl;
 use crate::hyprland::{self, Client, Identity, Phase, Query};
+use crate::py::to_serde;
 use crate::window_memory::{self as memory, MAX_WINDOWS, Plan, Store};
 
 /// A window change is read this long after it: a burst of moves is one read.
@@ -85,19 +86,6 @@ fn log(message: &str) {
 
 fn lock(memory: &Mutex<Memory>) -> std::sync::MutexGuard<'_, Memory> {
     memory.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// A strict reply as serde_json holds it (the window memory reads serde_json).
-fn to_serde(v: &xr_wire::json::Value) -> Value {
-    use xr_wire::json::Value as W;
-    match v {
-        W::Null => Value::Null,
-        W::Bool(b) => Value::Bool(*b),
-        W::Number(n) => Value::Number(n.clone()),
-        W::String(s) => Value::String(s.clone()),
-        W::Array(a) => Value::Array(a.iter().map(to_serde).collect()),
-        W::Object(o) => Value::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
-    }
 }
 
 fn query(client: &mut Client, kind: Query, timeout: Duration) -> Result<Value, String> {
