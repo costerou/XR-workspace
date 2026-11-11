@@ -285,7 +285,7 @@ impl Session {
             acted = act(self, who);
         }
         match self.case {
-            "stop" | "recovery-stuck" | "hold" | "keybinds" => {
+            "stop" | "recovery-stuck" | "hold" | "keybinds" | "binds-reload" => {
                 if wait_for(&started, Duration::from_secs(20)) {
                     std::thread::sleep(Duration::from_millis(300));
                     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
