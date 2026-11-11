@@ -105,11 +105,8 @@ The Python side (`tests/managed_real/oracle.py`) is the shipped runner with one 
 because the Rust run has none yet. Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
-  pointer, privacy mode, 3D, the key bind panel, VR video, and through them the pills' desktop changes
-
-  pointer, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
-- the window memory: remembered windows are not put back at the start, and no capture is taken
-- the reset of a saved setup the broker refused (`profiles.discard_unusable`)
+  pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key bind
+  panel are ported (below) but reach a run only once the control socket and the view are.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
