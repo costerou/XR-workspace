@@ -8,6 +8,9 @@
 //! (`tests/card_raster.rs`). `cmin`, `cmax` and `clampf` are `std::min`, `std::max` and `std::clamp`, NaN and signed
 //! zeros included.
 
+// `!(a > 0.0)` is the C++ guard: true for NaN too.
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
+
 use crate::hud::HudImage;
 use crate::material::{MdRgb, clampf};
 

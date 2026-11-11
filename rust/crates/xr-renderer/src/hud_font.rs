@@ -7,6 +7,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::ffi::{CStr, CString, c_char, c_int, c_long, c_uint, c_ulong, c_void};
 use std::ptr;
 
@@ -452,40 +453,42 @@ impl HudFont {
         while i < text.len() {
             let cp = next_code_point(text, &mut i);
             let key = glyph_key(cp, px, bold);
-            if !cache.contains_key(&key) {
-                let mut g = Glyph::default();
-                // SAFETY: `f` is a live face; the glyph slot and its bitmap (rows x pitch bytes) are FreeType's and
-                // are copied before the next load.
-                unsafe {
-                    if !sized {
-                        if FT_Set_Pixel_Sizes(f, 0, px) != 0 {
-                            return;
+            let g = match cache.entry(key) {
+                Entry::Occupied(o) => o.into_mut(),
+                Entry::Vacant(v) => {
+                    let mut g = Glyph::default();
+                    // SAFETY: `f` is a live face; the glyph slot and its bitmap (rows x pitch bytes) are FreeType's and
+                    // are copied before the next load.
+                    unsafe {
+                        if !sized {
+                            if FT_Set_Pixel_Sizes(f, 0, px) != 0 {
+                                return;
+                            }
+                            sized = true;
                         }
-                        sized = true;
-                    }
-                    if FT_Load_Char(f, c_ulong::from(cp), FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT) == 0 {
-                        let slot = &*(*f).glyph;
-                        let bm = &slot.bitmap;
-                        g.ok = true;
-                        g.advance = slot.advance.x;
-                        g.left = slot.bitmap_left;
-                        g.top = slot.bitmap_top;
-                        if bm.pixel_mode == FT_PIXEL_MODE_GRAY {
-                            for row in 0..bm.rows {
-                                for col in 0..bm.width {
-                                    let at = row as isize * bm.pitch as isize + col as isize;
-                                    let cov = *bm.buffer.offset(at);
-                                    if cov != 0 {
-                                        g.pixels.push((col as i32, row as i32, f32::from(cov) / 255.0));
+                        if FT_Load_Char(f, c_ulong::from(cp), FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT) == 0 {
+                            let slot = &*(*f).glyph;
+                            let bm = &slot.bitmap;
+                            g.ok = true;
+                            g.advance = slot.advance.x;
+                            g.left = slot.bitmap_left;
+                            g.top = slot.bitmap_top;
+                            if bm.pixel_mode == FT_PIXEL_MODE_GRAY {
+                                for row in 0..bm.rows {
+                                    for col in 0..bm.width {
+                                        let at = row as isize * bm.pitch as isize + col as isize;
+                                        let cov = *bm.buffer.offset(at);
+                                        if cov != 0 {
+                                            g.pixels.push((col as i32, row as i32, f32::from(cov) / 255.0));
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    v.insert(g)
                 }
-                cache.insert(key, g);
-            }
-            let g = &cache[&key];
+            };
             if !g.ok {
                 continue;
             }

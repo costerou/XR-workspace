@@ -566,6 +566,14 @@ tracking pop-ups) and `hud::render_help_card` (every page, its click targets and
 (`cards_match_cpp_golden`) replays every case of `golden/hud_cards.cpp`, the overlays' `image()` after a call sequence
 included, and matches `golden/hud_cards.txt` byte for byte in both fonts. `tests/help_card.rs` ports `help_card_test.cpp`.
 
+The font and the Material drawing under them are checked on their own. `tests/hud_font.rs` ports the `hud_font` ctest and
+matches `golden/hud_font.txt` (`golden/hud_font.cpp`: metrics, measures and every plot of the ctest's queries and of
+single glyphs at five sizes in both faces) byte for byte. It also checks the no-font path: a missing family, and the system
+family with `FONTCONFIG_FILE` pointing at an empty configuration (in a child process), fail with the C++ reasons, and the
+pop-ups fall back to the 5x7 pixel font, byte-equal to the C++ fallback cards. `tests/material_draw.rs` matches
+`golden/material_draw.txt` (`golden/material_draw.cpp`: rounded containers, outlines, discs, every icon at five sizes, the
+corner caps' and icons' distance fields, the blend) byte for byte.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
