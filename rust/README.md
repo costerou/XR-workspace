@@ -564,6 +564,14 @@ frame after it is not late too. Wiring it into the shell is a later task.
 `predict` ctest but the D3 ones (`motion_delta`, `motion_age_ms`, `MotionFeed::open`), which go with `motion_feed`.
 `VsyncSnapshot` lives in `predict` until `pose.rs` ports `PoseFeed::vsync`.
 
+`motion_smooth` is `motion_smooth.cpp` and `motion_feed` is `motion_feed.cpp` (RR-72): `MotionSmoother` (the Pro 2's
+frame-rate motion) and `MotionFeed` (the driver's `pose_prediction` wire, read through `xr_pose::prediction`, with
+`motion_delta` and `motion_age_ms`). `luma::extrapolate` has no Rust port yet, so `motion_feed` mirrors the part it uses.
+`tests/motion_smooth.rs` ports every check of the `motion_smooth` ctest, and replays `pro2_smooth_replay.cpp`'s per-frame
+pose path (stabilizer, pose state, pose age, horizon, smoother, view) over `tests/fixtures/pro2_smooth_replay{,_wire}.in`:
+byte-equal with `golden/motion_smooth.txt`, which `golden/motion_smooth.cpp` writes from the C++ replay itself.
+`tests/motion_feed.rs` ports the D3 checks of the `predict` ctest and reads a wire xr-pose's `FeedWriter` publishes.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
