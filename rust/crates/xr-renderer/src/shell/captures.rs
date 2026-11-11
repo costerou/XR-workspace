@@ -354,6 +354,11 @@ impl CaptureState {
         self.gpu.is_some()
     }
 
+    /// The desktops the GPU composition draws, 0 without it (take_roll_geometry's `!gl || captures.empty()`).
+    pub(super) fn gpu_desktops(&self) -> usize {
+        self.gpu.as_ref().map_or(0, |_| self.captures.len())
+    }
+
     pub(super) fn close(&mut self) {
         let gpu = self.gpu.as_ref();
         for c in &mut self.captures {

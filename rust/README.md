@@ -195,6 +195,15 @@ along one smootherstep, as `view.rs` `step_placements`), `style` (the GL accent,
 since `desktops` moves their indices. `pan_dot` is checked frame by frame against `spike/tests/edge_pan_trace.cpp`
 (`tests/fixtures/edge_pan_dot.txt`); `capture_e2e_rust_edge_pan_gl-dmabuf` is its end-to-end gate.
 
+`shell/roll.rs` is wired: the `roll` op sets each desktop's levelling roll (`scene.own[i].roll`) and the level bars,
+hover, segment and active of the glass frame every GPU frame, and `take_roll_geometry` hands the supervisor its
+`roll_geometry` line (rate-limited to `ROLL_GEOMETRY_MS` once measured, never the same line twice, resent after a
+failed send). The line is byte-equal to the C++ for the same inputs: `golden/roll_geometry.cpp` prints the C++ lines
+for fixed references, anchors, layouts and placements (`roll_geometry_lines_match_the_cpp` in `shell/roll.rs`).
+Until tracking is wired every tilt is `null`, as the C++ sends untracked; the measured branch takes its reference
+from the tracking module. `tests/roll_level.rs` ports every check of the `roll_level` ctest; `level_frame`'s view half
+(the tilts reported for a fixed reference) is in `shell/roll.rs`, its pose half is tracking's.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
