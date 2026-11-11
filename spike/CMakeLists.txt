@@ -797,6 +797,10 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_rust_restore_band COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5 --warmup 1
         --outputs 2 --maximize 2 --restore-band --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_restore_band PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: pointer
+      add_test(NAME capture_e2e_rust_pointer_look_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5
+        --warmup 1 --outputs 1 --capture-hz 30 --pointer-look --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_pointer_look_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).

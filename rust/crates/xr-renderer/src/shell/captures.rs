@@ -1021,8 +1021,9 @@ impl Presentation {
         let fov = features.tracking.fov(width, height);
         let mut scene = Scene::new(now, (width, height), fov, tiles);
         scene.overview = view.zoom() < 0.01 && !view.switching();
-        scene.zoom = view.zoom();
         scene.switching = view.switching();
+        scene.overview_pan_landing = view.pan_overview() && view.pan_landing();
+        scene.zoom = view.zoom();
         scene.focus = view.focus() as usize;
         scene.sizes.clone_from(&sizes);
         features.contribute(&mut scene);

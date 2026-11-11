@@ -76,11 +76,13 @@ pub(super) struct Scene {
     pub half_h: f32,
     /// The overview, settled (zoom < 0.01 and not switching): pills, caps, pointer and panels show only here.
     pub overview: bool,
+    /// The view is switching (a zoom between desktops, a pan or a landing), and the overview pan is landing (the
+    /// real cursor is on the target again).
+    pub switching: bool,
+    pub overview_pan_landing: bool,
     /// The view's zoom (0 overview, 1 zoomed in) and its focus (the desktop the zoom is on).
     pub zoom: f32,
     pub focus: usize,
-    /// The view turns from one desktop to another (`View::switching`).
-    pub switching: bool,
     /// Each captured desktop's eased size, capture order.
     pub sizes: Vec<Size>,
 
@@ -132,9 +134,10 @@ impl Scene {
             half_w,
             half_h,
             overview: true,
+            switching: false,
+            overview_pan_landing: false,
             zoom: 0.0,
             focus: 0,
-            switching: false,
             sizes: Vec::new(),
             head: IDENTITY,
             world: IDENTITY,
