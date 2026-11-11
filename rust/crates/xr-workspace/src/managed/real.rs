@@ -320,11 +320,22 @@ fn plan_outputs(
 /// valid measured status (`Supervisor.status_bytes`). The view control's
 /// replies (`control_applied` and the rest) have no reader in a run without one.
 fn status_tracking(line: &[u8]) -> (Option<bool>, bool) {
-    let Ok(value) = wire::parse_strict(line) else {
+    let Some(value) = measured_status(line) else {
         return (None, false);
     };
+    let tracking = match value.get("tracking") {
+        Some(Value::Bool(b)) => Some(*b),
+        _ => None,
+    };
+    (tracking, value.get("missed").is_some())
+}
+
+/// One status line, when it is a valid measured status (`Supervisor.status_bytes`: `self.status = value`), not one of
+/// the view control's replies or an invalid sample.
+pub(crate) fn measured_status(line: &[u8]) -> Option<Value> {
+    let value = wire::parse_strict(line).ok()?;
     let Value::Object(entries) = &value else {
-        return (None, false);
+        return None;
     };
     const KEYS: [&str; 9] = [
         "presented_hz",
@@ -352,7 +363,7 @@ fn status_tracking(line: &[u8]) -> (Option<bool>, bool) {
         .contains(&k)
     };
     if entries.len() == 1 && one_key(&entries[0].0) {
-        return (None, false);
+        return None;
     }
     for (k, v) in entries {
         let valid = match k.as_str() {
@@ -367,17 +378,13 @@ fn status_tracking(line: &[u8]) -> (Option<bool>, bool) {
             k if KEYS.contains(&k) => {
                 finite(v) && matches!(v, Value::Number(n) if n.as_f64().is_some_and(|x| x >= 0.0))
             }
-            _ => return (None, false),
+            _ => return None,
         };
         if !valid {
-            return (None, false);
+            return None;
         }
     }
-    let tracking = match value.get("tracking") {
-        Some(Value::Bool(b)) => Some(*b),
-        _ => None,
-    };
-    (tracking, value.get("missed").is_some())
+    Some(value)
 }
 
 /// `str()` of a JSON value as Python formats it in an f-string.
