@@ -61,7 +61,7 @@ pub fn landing(window: &Value, monitor: &Value) -> Result<(i64, i64)> {
 }
 
 /// The monitor named `name` (exactly one) and its active regular workspace id.
-fn monitor<'a>(monitors: &'a Value, name: &str) -> Result<Option<(&'a Value, Option<i64>)>> {
+pub(crate) fn monitor<'a>(monitors: &'a Value, name: &str) -> Result<Option<(&'a Value, Option<i64>)>> {
     let monitors = monitors.as_array().ok_or(Refused("invalid monitors"))?;
     let found: Vec<&Value> = monitors
         .iter()
