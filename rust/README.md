@@ -110,13 +110,28 @@ connection, a `status` answered on it, any other op handed to the view controls,
 hold. `tests/control_server_corpus.rs` replays the Python serving every run frame case of `corpus/sockets/frames.json`
 and the socket's own (`corpus/sockets/server.json`, from `tests/native_spike/control_server_corpus.py`): the same
 verdict, request id and reply bytes. `managed_real`'s socket cases ask the status during a run and a hold, and send a
-key through each run's own key helper. Until the view is ported the reply is its four header keys on both sides.
+key through each run's own key helper. The reply's body is the view's `status_reply`.
+
+The view is ported (`view_controls::view::ViewControl`, `view.ViewControl`): the view keys (maximize, overview, next /
+previous, spacing, recenter, the viewing mode, prediction), the help card and its pages, typing mode, the pill panel's
+keys, `placement`, `stabilization` and the background, with their renderer frames (`view`, `recenter`, `style`, `help`,
+`placement`, `placement_menu`, `environment`); `initial_frame`, the status reply's body, the measured status, `poll` (the
+debounced saves, the overlay's idle close, the key bind panel's and the window memory's polls), the Hyprland events (a
+config reload's style, window events for the window memory), `flush`, `save_setup` and `_restored` on the glasses
+profile (`setup::store`: `ProfileStore`, `PlacementStore`). `tests/view_control_corpus.rs` replays the `controls`
+section of `corpus/view/view.json` (`tests/native_spike/view_corpus.py`): the Python view built from a profile, driven op
+by op on a fixed clock, gives the same frames, status, `profiles.json`, focus and toasts. `managed_real`'s view case sends
+Ctrl+Alt+Up, Right, Left, Down, spacing and help through each run's key helper with a saved profile restored, and compares
+the frames, the focus requests and the profile left. Not ported in it: the options menu (`options_menu.OptionsMenu`, the
+`options_*` ops, `RuntimeText`), and what is another feature's state (the overview pointer's rolls, hit-test geometry and
+so bumping and `_settle`; the panel's desktop row and Ctrl+Alt+R; 3D's sync; the binds' panel and typing swaps and
+`after_reload`), each marked in `view.rs`.
 
 Not ported, so a Rust run presents the desktops without these:
 
-- the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
-  bind panel are ported (below) but reach a run's ops only once the view is.
+- the glasses' view controls (`managed.view_controls`) but the socket, the view, window sending, privacy mode, the window
+  memory and the key bind panel (below): the Ctrl+Alt binds, the overview pointer, 3D, VR video, the options menu, and
+  through them the pills' desktop changes. The key bind panel comes on with the binds' helper command line.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -140,17 +155,16 @@ pinned to the run's compositor; and the run's end takes the last capture into `w
 `tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
 recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
 `managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
-Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
-calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
-`Tracker::poll`, `Tracker::deadline`).
+Stop. The view gives it its `window_context` and polls it. Not ported yet: `set_names` and `leaving` (a desktop removed
+and added again in a run), which the `desktops` port calls.
 
 Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
 of the run's compositor, and `close` lets a move in flight land before the binds go and recovery starts (`notify` is
 `managed::real::notify`). `tests/send_corpus.rs` replays `corpus/send/sender.json`, recorded from the Python
-`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves. Its keys
-reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
-it.
+`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves.
+`managed_real`'s send case sends Ctrl+Alt+G and Ctrl+Alt+B through each run's key helper: the same move Lua, and no move
+after recovery begins.
 
 The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
 before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
@@ -162,13 +176,12 @@ toasts and saved file). It comes on in a run with the `binds` port (no bind help
 
 Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
 compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
-display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. The press
-reaches it once the `socket` and `view` ports route `privacy_display`. `tests/privacy_transcripts.rs` replays
+display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. `tests/privacy_transcripts.rs` replays
 `corpus/supervisor/privacy.json` (recorded from the Python `PrivacyDisplay` and `privacy.wake` on the shipped
 HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, completions and notifications for the
 toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
-(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
-Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
+(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's, and Ctrl+Alt+D
+through each run's key helper: DP-1 blanked, then woken in `exit` before recovery.
 
 ### Switching runs to the Rust supervisor
 
