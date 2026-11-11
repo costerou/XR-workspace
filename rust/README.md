@@ -178,6 +178,11 @@ drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and chec
 2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
 gate tests and the `GlCompositor` inputs it feeds.
 
+`handles` is wired: `resize_handle`, `move_handle` and `restore_band` light the corner caps, ease the glass pills' and
+gears' hover levels and fade the Step-Back Band's Restore pill on the maximized desktop, and the exit report carries
+`restore_band`, `resize_handle` and `move_handle` as the C++ does. Its twins are `tests/resize_handle.rs` and
+`tests/restore_band.rs`; its gate is `capture_e2e_rust_restore_band`.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
