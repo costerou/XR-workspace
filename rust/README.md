@@ -150,7 +150,11 @@ C++ build; the Rust tool gives the corpus's `rust` column.)
 the unit tests compare against byte for byte.
 `binds_panel::render_bind_panel` draws the key bind panel's card byte-equal to the C++ in the built-in
 5x7 font and the installed font: `golden/binds_panel.cpp` prints the C++ cards' FNV-1a hashes
-(`tests/binds_panel.rs`; the installed-font lines come from this machine's font file). The loopback compositor drives it end to end:
+(`tests/binds_panel.rs`; the installed-font lines come from this machine's font file).
+`glass_raster` draws the placement panel (`render_glass_panel`), the options menu (`render_options_panel`), the handle
+atlas (`render_handle_atlas`) and CPU lit glass (`glass_draw`) byte-equal to `spike/src/glass.cpp` in both fonts:
+`golden/glass_cards.cpp` prints the C++ images' FNV-1a hashes for 43 cases per font (`tests/card_raster.rs`; the
+glass ctest's raster checks are in `tests/glass.rs`). The loopback compositor drives the renderer end to end:
 
 ```sh
 capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \

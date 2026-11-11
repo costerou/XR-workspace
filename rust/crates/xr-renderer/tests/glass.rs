@@ -777,3 +777,326 @@ fn level_bar_and_caps() {
     assert!(immersive_main_rect(&narrow).width == 0.0 && immersive_tail_rect(&narrow).width == 0.0);
     assert_eq!(immersive_part(&narrow, 100.0, -20.0), ImmersivePart::None);
 }
+
+// --- The panel's pixels (render_glass_panel), with the pixel font and the system font when installed ------------------
+
+mod panel_pixels {
+    use xr_renderer::desktops::{MAX_DESKTOPS, RESOLUTIONS};
+    use xr_renderer::glass::*;
+    use xr_renderer::glass_raster::render_glass_panel;
+    use xr_renderer::glass_theme::{GLASS_THEME_DEFAULT, glass_theme_scheme};
+    use xr_renderer::hud::{
+        BACKGROUND_COUNT, CARD_MAX_LEVEL, HUD_FONT_FAMILY, HudImage, HudTextMetrics, PLACEMENT_MENU_BRIGHTNESS,
+        PlacementMenuState, hud_text_width, placement_menu_bounds, placement_menu_flat,
+        placement_menu_rows,
+    };
+    use xr_renderer::hud_font::HudFont;
+    use xr_renderer::material::{MD_DISABLED_CONTAINER, MD_DISABLED_CONTENT, MdRgb};
+    use xr_renderer::view::FRect;
+
+    type Font<'a> = Option<&'a dyn HudTextMetrics>;
+    type Px = [i32; 4];
+
+    fn brightest(im: &HudImage) -> u8 {
+        im.rgba.chunks_exact(4).flat_map(|p| p[..3].iter().copied()).max().unwrap_or(0)
+    }
+    fn premultiplied(im: &HudImage) -> bool {
+        im.rgba.chunks_exact(4).all(|p| p[..3].iter().all(|&c| c <= p[3]))
+    }
+    /// The runs of columns that differ between `a` and `b` in rows y0..y1.
+    fn changed_columns(a: &HudImage, b: &HudImage, y0: u32, y1: u32) -> Vec<(u32, u32)> {
+        let mut runs: Vec<(u32, u32)> = Vec::new();
+        for x in 0..a.width {
+            let diff = (y0..y1).any(|y| {
+                let i = (y as usize * a.width as usize + x as usize) * 4;
+                a.rgba[i..i + 4] != b.rgba[i..i + 4]
+            });
+            if !diff {
+                continue;
+            }
+            match runs.last_mut() {
+                Some(last) if last.1 + 1 == x => last.1 = x,
+                _ => runs.push((x, x)),
+            }
+        }
+        runs
+    }
+    fn px_at(im: &HudImage, x: f32, y: f32) -> Px {
+        let i = (y as usize * im.width as usize + x as usize) * 4;
+        [im.rgba[i].into(), im.rgba[i + 1].into(), im.rgba[i + 2].into(), im.rgba[i + 3].into()]
+    }
+    /// `got` is `c` at `a` premultiplied, within 1 per channel.
+    fn is(got: Px, c: MdRgb, a: f32) -> bool {
+        (0..3).all(|k| (got[k] - (c[k] * a * 255.0).round() as i32).abs() <= 1)
+            && (got[3] - (a * 255.0).round() as i32).abs() <= 1
+    }
+    fn rect_differs(a: &HudImage, b: &HudImage, r: &FRect) -> bool {
+        (r.y as i32..(r.y + r.height) as i32).any(|y| {
+            (r.x as i32..(r.x + r.width) as i32).any(|x| {
+                let i = (y as usize * a.width as usize + x as usize) * 4;
+                a.rgba[i..i + 4] != b.rgba[i..i + 4]
+            })
+        })
+    }
+    fn draw(st: &PlacementMenuState, f: Font) -> HudImage {
+        render_glass_panel(st, f, GLASS_THEME_DEFAULT)
+    }
+
+    fn check_font(f: Font) {
+        let m = glass_theme_scheme(GLASS_THEME_DEFAULT);
+        let bounds = placement_menu_bounds();
+        let mut st = PlacementMenuState { open: true, desktop: 1, field: 3, ..PlacementMenuState::default() };
+        for p in &mut st.placements {
+            *p = placement_menu_flat();
+        }
+        st.placements[1] = [125, -70, 150, 90];
+        let im = draw(&st, f);
+        // PANEL_W x PANEL_H, premultiplied, transparent between its parts, under the cap but readable; only the selected
+        // row has a band.
+        assert!(im.width == PANEL_W as u32 && im.height == PANEL_H as u32 && premultiplied(&im));
+        assert!(brightest(&im) <= CARD_MAX_LEVEL && brightest(&im) >= 140, "{}", brightest(&im));
+        assert!(im.rgba[3] == 0 && im.rgba[im.rgba.len() - 1] == 0);
+        let alpha_at = |x: f32, y: f32| px_at(&im, x, y)[3];
+        let band_y = PANEL_ROWS_TOP + 3.0 * PANEL_ROW_H + 3.0;
+        assert!(
+            alpha_at(PANEL_TRACK_X0 - 4.0, band_y) > 0 && alpha_at(PANEL_TRACK_X0 - 4.0, PANEL_ROWS_TOP + 3.0) == 0
+        );
+        let other = PlacementMenuState { desktop: 2, ..st.clone() };
+        assert_ne!(draw(&other, f).rgba, im.rgba);
+
+        // The desktop row: its buttons show, the header names the real output, and each state draws differently.
+        let row_top = PANEL_ACTIONS_TOP as u32;
+        let row_bottom = (PANEL_ACTIONS_TOP + PANEL_ACTION_H) as u32;
+        assert!(alpha_at(glass_panel_action(1).x + 4.0, PANEL_ACTIONS_TOP + PANEL_ACTION_H / 2.0) > 0);
+        let renamed = PlacementMenuState { numbers: [1, 3, 4, 4], ..st.clone() };
+        assert_ne!(draw(&renamed, f).rgba, im.rgba);
+        let changes: [fn(&mut PlacementMenuState); 5] = [
+            |s| s.wide = true,
+            |s| s.armed = true,
+            |s| s.busy = true,
+            |s| s.count = 1,
+            |s| s.count = MAX_DESKTOPS as u32,
+        ];
+        for change in changes {
+            let mut changed = st.clone();
+            change(&mut changed);
+            let other_im = draw(&changed, f);
+            assert!(premultiplied(&other_im) && brightest(&other_im) <= CARD_MAX_LEVEL);
+            assert!(!changed_columns(&im, &other_im, row_top, row_bottom).is_empty());
+            assert!(changed_columns(&im, &other_im, 0, row_top).is_empty());
+        }
+        // Each button is a fully rounded M3 container, sampled 4 px in from its left end.
+        let container_at = |panel: &HudImage, a: usize| {
+            let r = glass_panel_action(a);
+            px_at(panel, r.x + 4.0, r.y + r.height / 2.0)
+        };
+        assert!(
+            is(container_at(&im, 0), m.secondary_container, 1.0)
+                && is(container_at(&im, 1), m.secondary_container, 1.0)
+        );
+        let wide = PlacementMenuState { wide: true, armed: true, ..st.clone() };
+        let wide_im = draw(&wide, f);
+        assert!(is(container_at(&wide_im, 0), m.primary, 1.0) && is(container_at(&wide_im, 2), m.error_container, 1.0));
+        let busy = PlacementMenuState { busy: true, ..st.clone() };
+        let busy_im = draw(&busy, f);
+        for a in 0..PANEL_ACTIONS {
+            assert!(is(container_at(&busy_im, a), m.on_surface, MD_DISABLED_CONTAINER));
+        }
+        assert_eq!(glass_panel_button_style(1, &busy, GLASS_THEME_DEFAULT).content_alpha, MD_DISABLED_CONTENT);
+        // The system font has room for an icon before each label: the icon's ink sits left of the label's.
+        if let Some(font) = f {
+            let r = glass_panel_action(1);
+            let row = r.y + r.height / 2.0;
+            let base = container_at(&im, 1)[0];
+            let first = (((r.x + 4.0) as u32)..((r.x + r.width - 4.0) as u32))
+                .find(|&x| (px_at(&im, x as f32, row)[0] - base).abs() > 40)
+                .expect("ink in the Add button");
+            let label = font.measure(glass_panel_action_label(1, false), 18, true) as f32;
+            assert!((first as f32) < r.x + (r.width - (16.0 + 6.0 + label)) / 2.0 + 9.0);
+        }
+
+        // The Background rows: the box shows the choice, the switch its state, the slider its value, under the cap.
+        {
+            let none = PlacementMenuState { background: 0, background_picker: false, ..st.clone() };
+            let grid = PlacementMenuState { background: 1, ..none.clone() };
+            let (i_none, i_grid) = (draw(&none, f), draw(&grid, f));
+            assert_ne!(i_none.rgba, i_grid.rgba);
+            let sw = glass_background_switch();
+            let bx = glass_background_box();
+            assert!(rect_differs(&i_none, &i_grid, &bx) && rect_differs(&i_none, &i_grid, &sw));
+            assert!(!rect_differs(&i_none, &i_grid, &FRect::new(0.0, 0.0, PANEL_W, PANEL_BACKGROUND_TOP - 2.0)));
+            let on_track = px_at(&i_grid, sw.x + 6.0, sw.y + sw.height / 2.0);
+            let off_track = px_at(&i_none, sw.x + sw.width - 3.0, sw.y + sw.height / 2.0);
+            assert!(is(on_track, m.primary, 1.0) && !is(off_track, m.primary, 1.0));
+            assert!(!is(px_at(&i_grid, sw.x + sw.width - sw.height / 2.0, sw.y + sw.height / 2.0), m.primary, 1.0));
+            let cy = PANEL_BRIGHTNESS_TOP + PANEL_ROW_H / 2.0;
+            let dim = PlacementMenuState { brightness: 10, ..grid.clone() };
+            let top = PlacementMenuState { brightness: 200, ..grid.clone() };
+            let (i_dim, i_top) = (draw(&dim, f), draw(&top, f));
+            assert!(
+                is(px_at(&i_dim, PANEL_KNOB_LO, cy), m.primary, 1.0)
+                    && is(px_at(&i_top, PANEL_KNOB_HI, cy), m.primary, 1.0)
+            );
+            assert!(!is(px_at(&i_dim, PANEL_KNOB_HI, cy), m.primary, 1.0));
+            let hundred = PANEL_KNOB_LO + (PANEL_KNOB_HI - PANEL_KNOB_LO) * 90.0 / 190.0;
+            assert!(!is(px_at(&i_none, hundred, cy), m.primary, 1.0)); // None: disabled
+            assert!(is(px_at(&i_grid, hundred, cy), m.primary, 1.0)); // 100%, at 90 of 190
+            let selected = PlacementMenuState { field: PLACEMENT_MENU_BRIGHTNESS as u32, ..grid.clone() };
+            assert_ne!(draw(&selected, f).rgba, i_grid.rgba);
+            let open = PlacementMenuState { background_picker: true, ..grid.clone() };
+            let i_open = draw(&open, f);
+            assert!(rect_differs(&i_grid, &i_open, &glass_background_item(0)));
+            assert!(rect_differs(&i_grid, &i_open, &glass_background_item(BACKGROUND_COUNT - 1)));
+            assert!(!rect_differs(&i_grid, &i_open, &FRect::new(0.0, PANEL_BRIGHTNESS_TOP, PANEL_W, PANEL_ROW_H)));
+            for i in [&i_none, &i_grid, &i_dim, &i_top, &i_open] {
+                assert!(brightest(i) <= CARD_MAX_LEVEL);
+            }
+        }
+
+        // The Scale row: the box shows the scale; the open list covers the sliders and shows every step, under the cap.
+        {
+            let row_top = PANEL_SCALE_TOP as u32;
+            let row_bottom = (PANEL_SCALE_TOP + PANEL_ROW_H) as u32;
+            let a = PlacementMenuState { scale: 100, scales: 0b111_0111, ..st.clone() };
+            let b = PlacementMenuState { scale: 150, ..a.clone() };
+            let (ia, ib) = (draw(&a, f), draw(&b, f));
+            assert!(!changed_columns(&ia, &ib, row_top, row_bottom).is_empty());
+            assert!(changed_columns(&ia, &ib, 0, row_top).is_empty());
+            assert!(changed_columns(&ia, &ib, row_bottom, PANEL_H as u32).is_empty());
+            assert!(alpha_at(glass_scale_box().x + 4.0, SCALE_BOX_Y + SCALE_BOX_H / 2.0) > 0);
+            let open = PlacementMenuState { picker: true, ..a.clone() };
+            let io = draw(&open, f);
+            assert!(premultiplied(&io) && brightest(&io) <= CARD_MAX_LEVEL);
+            let list_top = glass_scale_item(0).y as u32;
+            let list_bottom = SCALE_BOX_Y as u32;
+            assert!(!changed_columns(&ia, &io, list_top, list_bottom).is_empty());
+            assert!(changed_columns(&ia, &io, PANEL_ACTIONS_TOP as u32, PANEL_H as u32).is_empty());
+            for edit in [
+                PlacementMenuState { scale: 200, ..open.clone() },
+                PlacementMenuState { scales: 0b000_0001, ..open.clone() },
+                PlacementMenuState { scale: 300, ..open.clone() },
+            ] {
+                assert!(!changed_columns(&io, &draw(&edit, f), list_top, list_bottom).is_empty());
+            }
+            let bx = glass_scale_box();
+            assert!(is(px_at(&ia, bx.x + 4.0, bx.y + bx.height / 2.0), m.surface_container_highest, 1.0));
+            assert!(is(px_at(&ia, bx.x + bx.width / 2.0, bx.y + bx.height - 1.0), m.on_surface_variant, 1.0));
+            assert!(is(px_at(&io, bx.x + bx.width / 2.0, bx.y + bx.height - 2.0), m.primary, 1.0));
+            assert!(is(px_at(&ia, bx.x + bx.width / 2.0, bx.y + bx.height - 2.0), m.surface_container_highest, 1.0));
+            let (item0, item4) = (glass_scale_item(0), glass_scale_item(4));
+            assert!(is(px_at(&io, item0.x + 6.0, item0.y + item0.height / 2.0), m.secondary_container, 1.0));
+            assert!(is(px_at(&io, item4.x + 6.0, item4.y + item4.height / 2.0), m.surface_container, 1.0));
+            let unknown = PlacementMenuState { scale: 0, ..a.clone() };
+            assert!(is(px_at(&draw(&unknown, f), bx.x + 4.0, bx.y + bx.height / 2.0), m.on_surface, 0.04));
+            let busy = PlacementMenuState { busy: true, ..a.clone() };
+            assert!(is(px_at(&draw(&busy, f), bx.x + 4.0, bx.y + bx.height / 2.0), m.on_surface, 0.04));
+        }
+
+        // The Resolution row: the box shows the size; the open list covers the sliders with every size by shape.
+        {
+            let row_top = PANEL_RESOLUTION_TOP as u32;
+            let row_bottom = (PANEL_RESOLUTION_TOP + PANEL_ROW_H) as u32;
+            let a = PlacementMenuState {
+                resolution_w: 1920,
+                resolution_h: 1080,
+                scale: 100,
+                scales: 0b111_0111,
+                ..st.clone()
+            };
+            let b = PlacementMenuState { resolution_w: 2560, resolution_h: 1440, ..a.clone() };
+            let (ia, ib) = (draw(&a, f), draw(&b, f));
+            assert!(!changed_columns(&ia, &ib, row_top, row_bottom).is_empty());
+            assert!(changed_columns(&ia, &ib, 0, row_top).is_empty());
+            assert!(changed_columns(&ia, &ib, row_bottom, PANEL_H as u32).is_empty());
+            let open = PlacementMenuState { resolution_picker: true, ..a.clone() };
+            let io = draw(&open, f);
+            assert!(premultiplied(&io) && brightest(&io) <= CARD_MAX_LEVEL);
+            let list = glass_resolution_list();
+            let list_top = list.y as u32;
+            let list_bottom = RES_BOX_Y as u32;
+            assert!(!changed_columns(&ia, &io, list_top, list_bottom).is_empty());
+            assert!(changed_columns(&ia, &io, PANEL_SCALE_TOP as u32, PANEL_H as u32).is_empty());
+            assert!(changed_columns(&ia, &io, 0, list.y as u32 - 1).is_empty());
+            let moved = PlacementMenuState { resolution_w: 5120, resolution_h: 1440, ..open.clone() };
+            assert!(!changed_columns(&io, &draw(&moved, f), list_top, list_bottom).is_empty());
+            let busy = PlacementMenuState { busy: true, ..open.clone() };
+            assert!(!changed_columns(&io, &draw(&busy, f), list_top, list_bottom).is_empty());
+            for r in RESOLUTIONS.iter() {
+                let label = glass_resolution_label(r.width, r.height);
+                let w = f.map_or_else(|| hud_text_width(&label, 2), |f| f.measure(&label, 18, true)) as f32;
+                assert!(w + 12.0 + 4.0 <= list.width / 3.0 && w + 12.0 + 28.0 <= RES_BOX_W, "{label}");
+            }
+            let bx = glass_resolution_box();
+            assert!(is(px_at(&ia, bx.x + 4.0, bx.y + bx.height / 2.0), m.surface_container_highest, 1.0));
+            assert!(is(px_at(&ia, bx.x + bx.width / 2.0, bx.y + bx.height - 1.0), m.on_surface_variant, 1.0));
+            assert!(is(px_at(&io, bx.x + bx.width / 2.0, bx.y + bx.height - 2.0), m.primary, 1.0));
+            let (fhd, uhd, uw) = (glass_resolution_item(2), glass_resolution_item(4), glass_resolution_item(11));
+            assert!(is(px_at(&io, fhd.x + 6.0, fhd.y + fhd.height / 2.0), m.secondary_container, 1.0));
+            assert!(is(px_at(&io, uhd.x + 6.0, uhd.y + uhd.height / 2.0), m.surface_container, 1.0));
+            assert!(is(px_at(&io, uw.x + 6.0, uw.y + uw.height / 2.0), m.surface_container, 1.0));
+            let empty = glass_resolution_heading(2);
+            assert!(is(px_at(&io, empty.x + 6.0, list.y + list.height - 4.0), m.surface_container, 1.0));
+            let unknown = PlacementMenuState { resolution_w: 0, resolution_h: 0, ..a.clone() };
+            assert!(is(px_at(&draw(&unknown, f), bx.x + 4.0, bx.y + bx.height / 2.0), m.on_surface, 0.04));
+            let busy_box = PlacementMenuState { busy: true, ..a.clone() };
+            assert!(is(px_at(&draw(&busy_box, f), bx.x + 4.0, bx.y + bx.height / 2.0), m.on_surface, 0.04));
+            // One list at a time: with the Scale list open instead, nothing of this one is drawn.
+            let scale_open = PlacementMenuState { picker: true, ..a.clone() };
+            let i_scale = draw(&scale_open, f);
+            let at = (uhd.x + 6.0, uhd.y + uhd.height / 2.0);
+            assert!(uhd.x + uhd.width < SCALE_BOX_X && px_at(&i_scale, at.0, at.1) == px_at(&ia, at.0, at.1));
+            assert_ne!(px_at(&io, at.0, at.1), px_at(&ia, at.0, at.1));
+        }
+
+        // A knob at a field's bounds sits on PANEL_KNOB_LO / PANEL_KNOB_HI; the value text is right of the track.
+        for (field, &(low, high)) in bounds.iter().enumerate() {
+            let mut lo = PlacementMenuState { field: 9, ..st.clone() }; // no band
+            let mut hi = lo.clone();
+            lo.placements[1][field] = low;
+            hi.placements[1][field] = high;
+            let top = (PANEL_ROWS_TOP + field as f32 * PANEL_ROW_H) as u32;
+            let bottom = (top as f32 + PANEL_ROW_H) as u32;
+            let runs = changed_columns(&draw(&lo, f), &draw(&hi, f), top, bottom);
+            assert!(runs.len() >= 2, "field {field}: {runs:?}");
+            let left_centre = runs[0].0 as f32 + PANEL_KNOB_R;
+            let right_centre = (runs[0].1 + 1) as f32 - PANEL_KNOB_R;
+            assert!((left_centre - PANEL_KNOB_LO).abs() <= 1.5 && (right_centre - PANEL_KNOB_HI).abs() <= 1.5);
+            assert!(runs[1].0 >= PANEL_TRACK_X1 as u32);
+            assert!(runs[runs.len() - 1].1 < (PANEL_W - PANEL_PAD) as u32 + 2);
+        }
+        // Every value, at both bounds and one in from the low one, in both weights, inks right of the track.
+        let Some(font) = f else { return };
+        for (field, &(lo, hi)) in bounds.iter().enumerate() {
+            for v in [lo, hi, lo + 1] {
+                for bold in [false, true] {
+                    let mut at = st.clone();
+                    at.placements[1][field] = v;
+                    let value = &placement_menu_rows(&at, false)[field].value;
+                    let left = PANEL_W - PANEL_PAD - font.measure(value, PANEL_TEXT_PX, bold) as f32;
+                    assert!(left >= PANEL_TRACK_X1, "{value}");
+                    let mut ink = PANEL_W as i32;
+                    font.draw(value, PANEL_TEXT_PX, bold, left.round() as i32, 100, &mut |x, _, cov| {
+                        if cov > 0.0 {
+                            ink = ink.min(x);
+                        }
+                    });
+                    assert!(ink >= PANEL_TRACK_X1 as i32 && ink < PANEL_W as i32, "{value}");
+                }
+            }
+        }
+        assert!(font.measure(glass_panel_hint(false), PANEL_HINT_PX, false) <= (PANEL_W - 2.0 * PANEL_PAD) as u32);
+    }
+
+    #[test]
+    fn panel_pixels_pixel_font() {
+        check_font(None);
+    }
+
+    #[test]
+    fn panel_pixels_system_font() {
+        match HudFont::load(HUD_FONT_FAMILY) {
+            Ok(f) => check_font(Some(&f)),
+            Err(why) => eprintln!("{HUD_FONT_FAMILY} not found ({why}): skipped"),
+        }
+    }
+}

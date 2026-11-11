@@ -16,6 +16,7 @@ pub mod egl;
 pub mod environment;
 pub mod gl;
 pub mod glass;
+pub mod glass_raster;
 pub mod glass_theme;
 pub mod hud;
 pub mod hud_font;

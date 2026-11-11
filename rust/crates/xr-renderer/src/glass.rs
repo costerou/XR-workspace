@@ -15,9 +15,9 @@
 //! and nothing moves on its own.
 //!
 //! Ported from `spike/include/xr/glass.hpp` and `spike/src/glass.cpp`, f32 maths in the same order, so the geometry is
-//! bit for bit the C++ one. Not ported here (pixels, not geometry): the panel and handle atlas rasterisers
-//! (render_glass_panel, render_options_panel, render_handle_atlas, glass_draw), their atlas cell boxes, and the font.
-//! [`GlassPills`] keeps the content's state and render bookkeeping; the renderer draws [`GlassPills::rendered`].
+//! bit for bit the C++ one. The pixels (render_glass_panel, render_options_panel, render_handle_atlas, glass_draw) are in
+//! glass_raster.rs, byte-equal to the C++ ones. [`GlassPills`] keeps the content's state and render bookkeeping; the
+//! renderer draws [`GlassPills::rendered`].
 
 // `!(x > 0.0)` is the C++'s own test and is true for NaN, where `x <= 0.0` is not: kept as written.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
@@ -263,29 +263,29 @@ pub const HANDLE_ATLAS_GUTTER: u32 = 2;
 // caps, a column per state and a row per corner, and right of those the 3D button: a column for its segment and one for
 // its tail, four states each. Atlas px, HANDLE_ATLAS_GUTTER between cells and round the edge. Below them (from
 // ATLAS_OLD_H) the options gear and Maximize icons, the hint and the Restore pills.
-const ATLAS_GAP: u32 = HANDLE_ATLAS_GUTTER;
-const ATLAS_BAR_W: u32 = LEVEL_BAR_W as u32 * HANDLE_ATLAS_SCALE;
-const ATLAS_BAR_H: u32 = LEVEL_BAR_H as u32 * HANDLE_ATLAS_SCALE;
-const ATLAS_CAP: u32 = (CAP_OUTER + CAP_INNER) as u32 * HANDLE_ATLAS_SCALE;
+pub(crate) const ATLAS_GAP: u32 = HANDLE_ATLAS_GUTTER;
+pub(crate) const ATLAS_BAR_W: u32 = LEVEL_BAR_W as u32 * HANDLE_ATLAS_SCALE;
+pub(crate) const ATLAS_BAR_H: u32 = LEVEL_BAR_H as u32 * HANDLE_ATLAS_SCALE;
+pub(crate) const ATLAS_CAP: u32 = (CAP_OUTER + CAP_INNER) as u32 * HANDLE_ATLAS_SCALE;
 const BAR_CELLS: u32 = 1 + 2 * LEVEL_SEGMENTS as u32;
 const CAP_STATES: u32 = 3;
-const CAP_CORNERS: u32 = 4;
-const ATLAS_MAIN_W: u32 = IMMERSIVE_MAIN_W as u32 * HANDLE_ATLAS_SCALE;
-const ATLAS_TAIL_W: u32 = IMMERSIVE_TAIL_W as u32 * HANDLE_ATLAS_SCALE;
-const ATLAS_MAIN_X: u32 =
+pub(crate) const CAP_CORNERS: u32 = 4;
+pub(crate) const ATLAS_MAIN_W: u32 = IMMERSIVE_MAIN_W as u32 * HANDLE_ATLAS_SCALE;
+pub(crate) const ATLAS_TAIL_W: u32 = IMMERSIVE_TAIL_W as u32 * HANDLE_ATLAS_SCALE;
+pub(crate) const ATLAS_MAIN_X: u32 =
     ATLAS_GAP + ATLAS_BAR_W + ATLAS_GAP + CAP_STATES * (ATLAS_CAP + ATLAS_GAP);
-const ATLAS_TAIL_X: u32 = ATLAS_MAIN_X + ATLAS_MAIN_W + ATLAS_GAP;
+pub(crate) const ATLAS_TAIL_X: u32 = ATLAS_MAIN_X + ATLAS_MAIN_W + ATLAS_GAP;
 /// The handle atlas's size in px.
 pub const HANDLE_ATLAS_W: u32 = ATLAS_TAIL_X + ATLAS_TAIL_W + ATLAS_GAP;
-const ATLAS_OLD_H: u32 = ATLAS_GAP
+pub(crate) const ATLAS_OLD_H: u32 = ATLAS_GAP
     + if BAR_CELLS * (ATLAS_BAR_H + ATLAS_GAP) > CAP_CORNERS * (ATLAS_CAP + ATLAS_GAP) {
         BAR_CELLS * (ATLAS_BAR_H + ATLAS_GAP)
     } else {
         CAP_CORNERS * (ATLAS_CAP + ATLAS_GAP)
     };
 pub const HANDLE_ATLAS_H: u32 = ATLAS_OLD_H + 240;
-const ATLAS_PILL_W: f32 = RESTORE_PILL_W * HANDLE_ATLAS_SCALE as f32;
-const ATLAS_PILL_Y: f32 = ATLAS_OLD_H as f32 + 150.0;
+pub(crate) const ATLAS_PILL_W: f32 = RESTORE_PILL_W * HANDLE_ATLAS_SCALE as f32;
+pub(crate) const ATLAS_PILL_Y: f32 = ATLAS_OLD_H as f32 + 150.0;
 const _: () = assert!(
     2.0 * ATLAS_PILL_W + 6.0 <= HANDLE_ATLAS_W as f32,
     "the band's pills stay in the atlas"
@@ -300,18 +300,18 @@ pub struct AtlasBox {
     pub v1: f32,
 }
 
-struct AtlasCell {
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
+pub(crate) struct AtlasCell {
+    pub(crate) x: u32,
+    pub(crate) y: u32,
+    pub(crate) w: u32,
+    pub(crate) h: u32,
 }
 
-const fn cell(x: u32, y: u32, w: u32, h: u32) -> AtlasCell {
+pub(crate) const fn cell(x: u32, y: u32, w: u32, h: u32) -> AtlasCell {
     AtlasCell { x, y, w, h }
 }
 
-fn bar_cell(row: u32) -> AtlasCell {
+pub(crate) fn bar_cell(row: u32) -> AtlasCell {
     cell(
         ATLAS_GAP,
         ATLAS_GAP + row * (ATLAS_BAR_H + ATLAS_GAP),
@@ -320,7 +320,7 @@ fn bar_cell(row: u32) -> AtlasCell {
     )
 }
 
-fn bar_row(segment: LevelSegment, active: bool) -> u32 {
+pub(crate) fn bar_row(segment: LevelSegment, active: bool) -> u32 {
     if segment == LevelSegment::None {
         0
     } else {
@@ -328,7 +328,7 @@ fn bar_row(segment: LevelSegment, active: bool) -> u32 {
     }
 }
 
-fn cap_cell(corner: u32, state: u32) -> AtlasCell {
+pub(crate) fn cap_cell(corner: u32, state: u32) -> AtlasCell {
     cell(
         ATLAS_GAP + ATLAS_BAR_W + ATLAS_GAP + state * (ATLAS_CAP + ATLAS_GAP),
         ATLAS_GAP + corner * (ATLAS_CAP + ATLAS_GAP),
@@ -337,7 +337,7 @@ fn cap_cell(corner: u32, state: u32) -> AtlasCell {
     )
 }
 
-fn button_row(lit: bool, hot: bool) -> u32 {
+pub(crate) fn button_row(lit: bool, hot: bool) -> u32 {
     ATLAS_GAP + (u32::from(lit) * 2 + u32::from(hot)) * (ATLAS_BAR_H + ATLAS_GAP)
 }
 
