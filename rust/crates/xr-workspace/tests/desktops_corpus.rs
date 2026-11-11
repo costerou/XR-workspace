@@ -345,3 +345,384 @@ fn a_change_in_flight_is_busy_and_close_lets_it_land() {
     std::thread::sleep(Duration::from_millis(50));
     assert_eq!(fake.requests().len(), 0, "{after} requests, then none");
 }
+
+// --- the view's side: desktop_action, _start_change, _desktops_done, layout_reset (test_glass_pills.py,
+// test_layout_reset.py), through a stand-in for the view's port on the shipped ViewState -----------------------------
+
+use xr_workspace::geometry::Placement;
+use xr_workspace::supervisor::GuardChange;
+use xr_workspace::supervisor::view::{
+    DEFAULT_RESET_PLACEMENT, RESET_LEAVING_PLACEMENT, ViewOptions, ViewState,
+};
+use xr_workspace::view_controls::desktops::{RESET_ANIM_S, RESET_ARM_S, RESET_CONFIRM, View};
+
+/// The view as the change flow sees it: frames as `{op, payload}` lines, toasts, and what else it was asked.
+struct StandIn {
+    state: ViewState,
+    now: f64,
+    next: u64,
+    told: Vec<String>,
+    rolls: Vec<i64>,
+    calls: Vec<&'static str>,
+}
+
+impl StandIn {
+    fn new(names: &[&str], placements: Vec<Placement>, spacing: i64) -> StandIn {
+        let options = ViewOptions {
+            spacing,
+            placements,
+            ..ViewOptions::default()
+        };
+        StandIn {
+            state: ViewState::new(names, options).unwrap(),
+            now: 100.0,
+            next: 1,
+            told: Vec::new(),
+            rolls: vec![0; names.len()],
+            calls: Vec::new(),
+        }
+    }
+
+    fn line(op: &str, payload: Value) -> Vec<u8> {
+        format!("{}\n", json!({"op": op, "payload": payload})).into_bytes()
+    }
+}
+
+impl View for StandIn {
+    fn state(&mut self) -> &mut ViewState {
+        &mut self.state
+    }
+    fn now(&self) -> f64 {
+        self.now
+    }
+    fn video_active(&self) -> bool {
+        false
+    }
+    fn tell(&mut self, text: &str) {
+        self.told.push(text.to_owned());
+    }
+    fn flush(&mut self) {}
+    fn cancel_save(&mut self) {}
+    fn sync_menu_binds(&mut self) {
+        self.calls.push("menu_binds");
+    }
+    fn view_frame(&mut self) -> Vec<u8> {
+        StandIn::line("view", json!({"spacing": self.state.spacing}))
+    }
+    fn placement_frame(&mut self) -> Vec<u8> {
+        StandIn::line("placement", json!({"desktops": self.state.placements}))
+    }
+    fn menu_frame(&mut self) -> Vec<u8> {
+        let s = &self.state;
+        StandIn::line(
+            "placement_menu",
+            json!({"open": s.menu_open, "desktop": s.menu_desktop, "armed": s.menu_open && s.remove_armed,
+                   "busy": s.desktops_busy}),
+        )
+    }
+    fn next_id(&mut self) -> u64 {
+        self.next += 1;
+        self.next - 1
+    }
+    fn run_id(&self) -> &str {
+        "run"
+    }
+    fn session(&self) -> &str {
+        "session"
+    }
+    fn desktops_changed(&mut self) {
+        self.calls.push("desktops_changed");
+    }
+    fn windows_moved(&mut self) {
+        self.calls.push("windows_moved");
+    }
+    fn rolls(&self) -> Option<Vec<i64>> {
+        Some(self.rolls.clone())
+    }
+    fn set_rolls(&mut self, rolls: &[i64]) {
+        let n = rolls.len().min(self.rolls.len());
+        self.rolls[..n].copy_from_slice(&rolls[..n]);
+    }
+    fn forget_rolls(&mut self) {}
+    fn close_menu(&mut self) -> Vec<u8> {
+        self.state.menu_open = false;
+        self.menu_frame()
+    }
+    fn zoom_out(&mut self) -> Vec<u8> {
+        self.state.zoomed = false;
+        self.view_frame()
+    }
+    fn reset_store(
+        &mut self,
+        _: Option<&[xr_workspace::geometry::Desktop]>,
+        _: &[Placement],
+        _: &[i64],
+        _: i64,
+    ) {
+        self.calls.push("reset_store");
+    }
+    fn save_settings(&mut self) {
+        self.calls.push("save_settings");
+    }
+    fn save_setup(&mut self) {
+        self.calls.push("save_setup");
+    }
+}
+
+/// `{op, payload}` of each frame line (the desktops frame's own, and the stand-in's).
+fn ops(bytes: &[u8]) -> Vec<(String, Value)> {
+    String::from_utf8_lossy(bytes)
+        .lines()
+        .map(|l| {
+            let v: Value = serde_json::from_str(l).unwrap();
+            (v["op"].as_str().unwrap().to_owned(), v["payload"].clone())
+        })
+        .collect()
+}
+
+fn op_names(f: &[(String, Value)]) -> Vec<&str> {
+    f.iter().map(|(o, _)| o.as_str()).collect()
+}
+
+fn guard_kind(g: Option<GuardChange>) -> Option<&'static str> {
+    g.map(|g| match g {
+        GuardChange::Pause => "pause",
+        GuardChange::Replace(_) => "replace",
+    })
+}
+
+fn first_desktops(sizes: &[(i64, i64, f64)]) -> Vec<OutputSpec> {
+    let mut x = 3840;
+    sizes
+        .iter()
+        .enumerate()
+        .map(|(i, &(w, h, s))| {
+            let spec = OutputSpec {
+                id: format!("11111111-1111-4111-8111-11111111111{}", i + 1),
+                name: format!("XR-{}", i + 1),
+                index: i as i64,
+                width: w,
+                height: h,
+                refresh_millihz: 120000,
+                scale: s,
+                x,
+                y: 0,
+            };
+            x += (w as f64 / s) as i64;
+            spec
+        })
+        .collect()
+}
+
+/// The worker done, then the view's poll that collects it.
+fn landed(manager: &mut Manager, view: &mut StandIn) -> Vec<(String, Value)> {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while manager.busy() && Instant::now() < deadline {
+        let out = manager.poll(view);
+        if !out.is_empty() {
+            return ops(&out);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    ops(&manager.poll(view))
+}
+
+#[test]
+fn remove_asks_twice_then_the_renderer_lets_go_before_the_broker_removes_it() {
+    let fake = Fake::start("pill-remove", "", &json!([]));
+    let first = first_desktops(&[(1920, 1080, 1.0); 3]);
+    let mut manager = open(&fake, &first);
+    let mut view = StandIn::new(&["XR-1", "XR-2", "XR-3"], vec![DEFAULT_PLACEMENT; 3], 40);
+    (view.state.wide, view.state.sizes) = (manager.wide(), Some(manager.desktops()));
+    view.state.open_menu(1).unwrap();
+    // The first press only arms it ("Remove?").
+    let armed = ops(&manager.desktop_action(&mut view, 1, Action::Remove));
+    assert_eq!(op_names(&armed), ["placement_menu"]);
+    assert_eq!(armed[0].1["armed"], true);
+    assert_eq!(guard_kind(manager.guard_change()), None);
+    // The second: the renderer's new desktop set, the view, the panel busy; the guard paused.
+    view.now += 1.0;
+    let started = ops(&manager.desktop_action(&mut view, 1, Action::Remove));
+    assert_eq!(
+        op_names(&started),
+        ["desktops", "view", "placement", "placement_menu"]
+    );
+    assert_eq!(started[0].1, json!({"outputs": ["XR-1", "XR-3"]}));
+    assert_eq!(started[3].1["busy"], true);
+    assert_eq!(guard_kind(manager.guard_change()), Some("pause"));
+    let done = landed(&mut manager, &mut view);
+    assert_eq!(
+        op_names(&done),
+        ["desktops", "view", "placement", "placement_menu"]
+    );
+    assert_eq!(
+        done[0].1,
+        json!({"outputs": ["XR-1", "XR-3"]}),
+        "a slide keeps its capture"
+    );
+    assert_eq!(view.state.names, ["XR-1", "XR-3"]);
+    assert!(!view.state.desktops_busy);
+    assert!(
+        !view.state.menu_open,
+        "the removed desktop's panel collapsed"
+    );
+    let replaced = manager.guard_change();
+    let Some(GuardChange::Replace(Some(guard))) = replaced else {
+        panic!("the guard replaced: {replaced:?}");
+    };
+    let args: Vec<_> = guard
+        .get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        args,
+        ["XR-1", "XR-3"],
+        "the new guard holds the outputs as they are now"
+    );
+    assert!(view.told.is_empty());
+    assert!(view.calls.contains(&"windows_moved"));
+    manager.close();
+}
+
+#[test]
+fn an_arm_older_than_four_seconds_asks_again() {
+    let fake = Fake::start("pill-arm", "", &json!([]));
+    let mut manager = open(&fake, &first_desktops(&[(1920, 1080, 1.0); 2]));
+    let mut view = StandIn::new(&["XR-1", "XR-2"], vec![DEFAULT_PLACEMENT; 2], 40);
+    view.state.open_menu(0).unwrap();
+    manager.desktop_action(&mut view, 0, Action::Remove);
+    view.now += 4.0;
+    let again = ops(&manager.desktop_action(&mut view, 0, Action::Remove));
+    assert_eq!(
+        op_names(&again),
+        ["placement_menu"],
+        "too late: it only arms again"
+    );
+    // Left alone, the poll disarms it after REMOVE_ARM_S.
+    view.now += 4.0;
+    let disarmed = ops(&manager.poll(&mut view));
+    assert_eq!(disarmed[0].1["armed"], false);
+    manager.close();
+}
+
+#[test]
+fn a_refused_create_says_why_and_the_guard_comes_back() {
+    let fake = Fake::start("pill-refused", "create-fail", &json!([]));
+    let mut manager = open(&fake, &first_desktops(&[(1920, 1080, 1.0); 3]));
+    let mut view = StandIn::new(&["XR-1", "XR-2", "XR-3"], vec![DEFAULT_PLACEMENT; 3], 40);
+    view.state.open_menu(0).unwrap();
+    let started = ops(&manager.desktop_action(&mut view, 0, Action::Add));
+    assert_eq!(op_names(&started), ["placement_menu"]);
+    assert_eq!(guard_kind(manager.guard_change()), Some("pause"));
+    let done = landed(&mut manager, &mut view);
+    assert_eq!(done[0].1, json!({"outputs": ["XR-1", "XR-2", "XR-3"]}));
+    assert_eq!(view.state.names, ["XR-1", "XR-2", "XR-3"]);
+    assert_eq!(
+        view.told,
+        ["creation incomplete; recovery required for unverified outputs"]
+    );
+    assert_eq!(guard_kind(manager.guard_change()), Some("replace"));
+    // Its journal record holds XR-4 until recovery: the next Add has no name to take.
+    view.state.open_menu(0).unwrap();
+    manager.desktop_action(&mut view, 0, Action::Add);
+    assert_eq!(
+        view.told.last().unwrap(),
+        "no free desktop name until the session restarts"
+    );
+    manager.close();
+}
+
+#[test]
+fn ctrl_alt_r_twice_eases_four_desktops_then_makes_them_the_default_three() {
+    let windows = json!([{"address": "0x55aa04", "index": 3, "floating": false, "at": [9600, 0], "size": [1920, 1080]}]);
+    let fake = Fake::start("reset", "", &windows);
+    let first = first_desktops(&[
+        (2560, 1080, 1.0),
+        (1920, 1080, 1.0),
+        (2560, 1440, 1.25),
+        (2560, 1080, 1.0),
+    ]);
+    let mut manager = open(&fake, &first);
+    let placed = Placement {
+        x: 300,
+        y: 900,
+        distance: 110,
+        curvature: 8,
+    };
+    let mut view = StandIn::new(&["XR-1", "XR-2", "XR-3", "XR-4"], vec![placed; 4], 120);
+    view.rolls = vec![100, -200, 0, 50];
+    view.state.open_menu(1).unwrap();
+    // The first press only asks.
+    assert!(manager.layout_reset(&mut view).is_empty());
+    assert_eq!(view.told, [RESET_CONFIRM]);
+    assert!(!manager.resetting());
+    view.now += RESET_ARM_S - 0.01;
+    let first_frames = ops(&manager.layout_reset(&mut view));
+    assert_eq!(op_names(&first_frames), ["placement_menu", "view"]);
+    assert_eq!(
+        first_frames[0].1["open"], false,
+        "the open panel collapsed first"
+    );
+    assert_eq!(
+        first_frames[1].1["spacing"], 40,
+        "the spacing back to its default"
+    );
+    assert!(view.calls.contains(&"reset_store") && view.calls.contains(&"save_settings"));
+    assert!(view.state.desktops_busy);
+    // Halfway: the fourth on its way down, from +90 up to -90 down: level at half.
+    view.now += RESET_ANIM_S / 2.0;
+    let half = ops(&manager.poll(&mut view));
+    assert_eq!(op_names(&half), ["placement"]);
+    assert_eq!(
+        half[0].1["desktops"][3],
+        json!({"x": 150, "y": 0, "distance": 155, "curvature": 4})
+    );
+    assert_eq!(
+        guard_kind(manager.guard_change()),
+        None,
+        "the desktops wait for the ease"
+    );
+    // The ease ends: XR-4 lets go of its capture, then the broker steps run.
+    view.now += RESET_ANIM_S;
+    let end = ops(&manager.poll(&mut view));
+    assert_eq!(
+        end[0].1["desktops"],
+        json!([
+            DEFAULT_RESET_PLACEMENT,
+            DEFAULT_RESET_PLACEMENT,
+            DEFAULT_RESET_PLACEMENT,
+            RESET_LEAVING_PLACEMENT
+        ])
+    );
+    let desktops: Vec<&Value> = end
+        .iter()
+        .filter(|(o, _)| o == "desktops")
+        .map(|(_, p)| p)
+        .collect();
+    assert_eq!(
+        desktops,
+        [&json!({"outputs": ["XR-1", "XR-2", "XR-3"], "ease": true})]
+    );
+    assert_eq!(guard_kind(manager.guard_change()), Some("pause"));
+    let done = landed(&mut manager, &mut view);
+    let desktops: Vec<&Value> = done
+        .iter()
+        .filter(|(o, _)| o == "desktops")
+        .map(|(_, p)| p)
+        .collect();
+    assert_eq!(
+        desktops,
+        [&json!({"outputs": ["XR-1", "XR-2", "XR-3"], "renew": ["XR-1", "XR-3"], "ease": true})]
+    );
+    assert_eq!(manager.names(), ["XR-1", "XR-2", "XR-3"]);
+    assert_eq!(view.state.placements, [DEFAULT_RESET_PLACEMENT; 3]);
+    assert_eq!(view.rolls[..3], [0, 0, 0]);
+    assert!(!view.state.desktops_busy && !manager.resetting());
+    assert_eq!(guard_kind(manager.guard_change()), Some("replace"));
+    assert_eq!(
+        view.told.last().unwrap(),
+        "All monitors reset to three flat 1920x1080 desktops at 100%. XR-4's windows are now on XR-3."
+    );
+    assert!(view.calls.contains(&"save_setup"));
+    manager.close();
+}

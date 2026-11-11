@@ -891,7 +891,8 @@ impl Manager {
 
     /// The desktops' share of `ViewControl.poll(now)`: the reset's ease, a change done, Remove disarmed after a
     /// while.
-    pub fn poll(&mut self, view: &mut dyn View, now: f64) -> Vec<u8> {
+    pub fn poll(&mut self, view: &mut dyn View) -> Vec<u8> {
+        let now = view.now();
         let mut out = self.reset_tick(view, now);
         if let Some(outcome) = self.take_result() {
             out.extend(self.desktops_done(view, outcome));
