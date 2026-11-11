@@ -87,7 +87,7 @@ fn token(s: &str) -> Result<String, Error> {
 }
 
 /// A random (version 4) UUID, as `uuid.uuid4()` writes it.
-fn uuid4() -> Result<String, Error> {
+pub(crate) fn uuid4() -> Result<String, Error> {
     let mut b = [0u8; 16];
     let mut filled = 0;
     while filled < b.len() {

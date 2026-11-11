@@ -125,6 +125,7 @@ impl Backend for Fake {
             stop_reason: outcome.stop_reason,
             holds: Vec::new(),
             reasons: outcome.recovery.reasons,
+            marks: Vec::new(),
         })
     }
     fn toast(&mut self, body: &str) {

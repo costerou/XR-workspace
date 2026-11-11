@@ -8,9 +8,8 @@
 //! timeline (`startup`: `tools/native_spike/startup.py`).
 //!
 //! The steps that touch the compositor, the tracking driver and the managed run are a [`Backend`]'s. [`real`] wires the
-//! ported modules. Its managed run refuses for now: the ownership broker client and the renderer host behind
-//! `managed::Host` are not ported yet, so a Rust run stops before any output changes and unloads the plugin. The
-//! loopback backend ([`fake`], debug builds only) runs the whole order through `managed::run_managed` for the tests.
+//! ported modules, and its managed run is `managed::real` (the broker, the journal, the renderer and its watchdog;
+//! without the glasses' view controls, which are not ported yet). The loopback backend ([`fake`], debug builds only) runs the whole order through `managed::run_managed` for the tests.
 
 use std::ffi::OsString;
 use std::fs;
@@ -86,6 +85,8 @@ pub struct PanelConsent {
     pub tracking: Option<String>,
     pub tracking_driver: Option<String>,
     pub mode_switch: bool,
+    /// The consent's 3D scope (`sbs_mode`), checked against the model.
+    pub sbs_mode: bool,
     pub plugin: Pin,
     pub renderer: Pin,
     pub luma_driver: Option<Pin>,
@@ -110,6 +111,8 @@ pub struct Run {
     /// survive.py: the USB drops this run outlived or waited out.
     pub holds: Vec<Value>,
     pub reasons: Vec<String>,
+    /// The run's own start-up marks (`renderer`, `first_status`), for the runner's timeline.
+    pub marks: Vec<(String, i64)>,
 }
 
 /// The steps of a run that act on the compositor, the tracking driver and the session. Everything else (the consent,
@@ -397,6 +400,7 @@ pub fn validate_consent(raw: &Value, instance: &str, output: &str) -> Res<PanelC
         tracking,
         tracking_driver,
         mode_switch,
+        sbs_mode: data.contains_key(SBS_KEY),
         plugin,
         renderer,
         luma_driver,
@@ -755,6 +759,9 @@ fn run_steps(
     verify_pinned(&renderer)?;
     st.managed_started = true;
     let run = backend.run_managed(&consent, runtime, &renderer)?;
+    for (name, ns) in &run.marks {
+        startup.mark(name, Some(*ns));
+    }
     result.insert("complete".into(), json!(run.complete));
     result.insert("renderer_returncode".into(), json!(run.renderer_returncode));
     result.insert("remaining".into(), json!(run.remaining));

@@ -702,6 +702,15 @@ impl Client {
         &self.instance
     }
 
+    /// A client already bound to `identity` and `session`, as a run's guard worker gets the run's client: any other
+    /// compositor process behind the socket is refused ("compositor peer changed", "session changed").
+    pub fn pinned(instance: &str, runtime_dir: &Path, identity: Identity, session: &str) -> Result<Client> {
+        let mut client = Client::new(instance, runtime_dir)?;
+        client.peer = Some(identity);
+        client.session = Some(session.to_string());
+        Ok(client)
+    }
+
     /// The compositor identity every request so far was checked against.
     pub fn identity(&self) -> Option<&Identity> {
         self.peer.as_ref()
@@ -796,6 +805,12 @@ impl Client {
                 return value("Hyprland response exceeds 1 MiB");
             }
         }
+    }
+
+    /// One ownership plugin request (`ownership._call`'s `transport._request`): `wire` is the `xrspike` command; the raw
+    /// reply, within `timeout` and LIMIT.
+    pub fn broker_request(&mut self, wire: &str, timeout: Duration) -> Result<Vec<u8>> {
+        self.request(&format!("j/{wire}"), timeout)
     }
 
     /// The reply as text, invalid UTF-8 replaced, stripped.
@@ -1609,7 +1624,7 @@ fn offered(m: &Monitor) -> Result<Vec<(u64, u64, f64)>> {
 }
 
 /// `sbs.best_wide`: the rate to ask for, or None while the glasses do not offer the model's side-by-side mode.
-fn best_wide(m: &Monitor, model: &str) -> Result<Option<f64>> {
+pub fn best_wide(m: &Monitor, model: &str) -> Result<Option<f64>> {
     let Ok(((w, h), rates)) = sbs::mode(model) else {
         return Ok(None);
     };

@@ -30,6 +30,9 @@ fn main() -> ExitCode {
     // startup.py `runner`: when this process began, before anything else runs.
     let started_ns = xr_workspace::runner::monotonic_ns();
     let raw: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    if raw.first().is_some_and(|c| c == xr_workspace::managed::real::GUARD_COMMAND) {
+        return ExitCode::from(xr_workspace::managed::real::guard_main());
+    }
     if raw.first().is_some_and(|c| c == "supervisor") {
         return ExitCode::from(supervisor(&raw[1..], started_ns));
     }
@@ -65,6 +68,8 @@ fn supervisor(args: &[std::ffi::OsString], started_ns: i64) -> u8 {
             }
         };
     }
+    // Stop is SIGINT: the renderer stops and recovery runs, never a killed supervisor.
+    xr_workspace::managed::real::catch_interrupt();
     runner::main(args, &mut runner::real::Real::default(), started_ns)
 }
 

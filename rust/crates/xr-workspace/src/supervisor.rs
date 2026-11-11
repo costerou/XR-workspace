@@ -876,6 +876,8 @@ pub struct Launch<'a> {
     pub animate_pattern_ms: Option<u32>,
     pub capture: Option<&'a [&'a str]>,
     pub pose_feed: bool,
+    /// The saved renderer trial flags (`_renderer_flags`), after `--pose-feed xrld`.
+    pub renderer_flags: Vec<String>,
     pub pro2: Option<Pro2Pose>,
     /// The depth engine's shared memory and the continuity memfd, inherited at their own numbers.
     pub depth_fd: Option<BorrowedFd<'a>>,
@@ -907,6 +909,7 @@ impl<'a> Launch<'a> {
             animate_pattern_ms: None,
             capture: None,
             pose_feed: false,
+            renderer_flags: Vec::new(),
             pro2: None,
             depth_fd: None,
             continuity_fd: None,
@@ -940,6 +943,7 @@ impl<'a> Launch<'a> {
                 return Err(invalid("head tracking requires managed-output capture"));
             }
             capture.extend(["--pose-feed".into(), "xrld".into()]);
+            capture.extend(self.renderer_flags.iter().cloned());
             if let Some(pro2) = &self.pro2 {
                 capture.extend([
                     "--pro2-test-pose-prefix".into(),
