@@ -100,6 +100,8 @@ struct SwapBuffer {
 
 struct Capture {
     name: String,
+    /// Stable for the capture's life: its proxies' user data (its index moves when set_desktops adds or drops one).
+    id: usize,
     output_global: Option<u32>,
     source: Option<ExtImageCaptureSourceV1>,
     session: Option<ExtImageCopyCaptureSessionV1>,
@@ -140,9 +142,10 @@ struct Capture {
 }
 
 impl Capture {
-    fn new(name: &str) -> Self {
+    fn new(name: &str, id: usize) -> Self {
         Self {
             name: name.to_owned(),
+            id,
             output_global: None,
             source: None,
             session: None,
@@ -219,7 +222,7 @@ pub(super) struct CaptureState {
     geometry_sent: String,
     readback: ReadbackLimiter,
     /// The `view` op's zoom, selection and spacing (maximize is a zoomed view), eased.
-    view: ViewAnimator,
+    pub(super) view: ViewAnimator,
     /// The `environment` op: the background's fade, the one drawn (None's fade-out keeps the last), its brightness.
     environment: EnvironmentFade,
     background: Background,
@@ -228,6 +231,8 @@ pub(super) struct CaptureState {
     environment_drawn: bool,
     maximize: String,
     maximize_sent: String,
+    /// The next capture's id.
+    next_id: usize,
 }
 
 /// Destroys dmabuf slots: their wl_buffers and GL images (the buffer objects go with them).
@@ -278,6 +283,26 @@ impl CaptureState {
 
     fn active(&self) -> bool {
         !self.names.is_empty()
+    }
+
+    fn new_capture(&mut self, name: &str) -> Capture {
+        self.next_id += 1;
+        Capture::new(name, self.next_id - 1)
+    }
+
+    /// The index of the capture with this id (None: it was dropped by set_desktops).
+    fn index_of(&self, id: usize) -> Option<usize> {
+        self.captures.iter().position(|c| c.id == id)
+    }
+
+    /// GPU composition is on (wayland.cpp's `impl_->gl`).
+    pub(super) fn gpu(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    /// The desktops' sizes as drawn (wayland.cpp capture_sizes): each one's eased shape, or its frame's size.
+    pub(super) fn capture_sizes(&self) -> Vec<Size> {
+        self.captures.iter().map(|c| c.shape.value().unwrap_or_else(|| c.layout_size())).collect()
     }
 
     /// Registry: the capture globals, bound only when there is something to capture.
@@ -382,7 +407,7 @@ impl State {
             return false;
         };
         let source = sources.create_source(&output, qh, ());
-        let session = copies.create_session(&source, Options::PaintCursors, qh, i);
+        let session = copies.create_session(&source, Options::PaintCursors, qh, cs.captures[i].id);
         let c = &mut cs.captures[i];
         c.output_global = Some(global);
         c.source = Some(source);
@@ -551,7 +576,7 @@ impl State {
             slots.push(DmabufSlot { buf, image: Some(image), proxy: None });
         }
         for (j, slot) in slots.iter().enumerate() {
-            let params = linux_dmabuf.create_params(qh, (i, c.generation, j));
+            let params = linux_dmabuf.create_params(qh, (c.id, c.generation, j));
             let b = &slot.buf;
             params.add(b.fd.as_fd(), 0, b.offset, b.stride, (b.modifier >> 32) as u32, b.modifier as u32);
             params.create(width as i32, height as i32, b.fourcc, Flags::empty());
@@ -611,7 +636,7 @@ impl State {
             }
             Path::None => return,
         };
-        let frame = session.create_frame(qh, i);
+        let frame = session.create_frame(qh, c.id);
         frame.attach_buffer(&buffer);
         frame.damage_buffer(0, 0, width as i32, height as i32);
         frame.capture();
@@ -705,6 +730,69 @@ impl State {
         }
     }
 
+    /// The capture half of set_desktops (wayland.cpp Impl::set_desktops): the captures not in `names` (a parsed,
+    /// sorted capture list) stop and go, the missing ones go in at their place and the `renew` ones start again. Each
+    /// index as it goes or comes is handed to the layout (its placements). Returns the names before, or None when
+    /// captures cannot change (no capture run, not opened yet, or no capture globals).
+    pub(super) fn change_captures(
+        &mut self,
+        names: &[String],
+        renew: &[String],
+        qh: &QueueHandle<State>,
+    ) -> Option<Vec<String>> {
+        let cs = &self.capture;
+        if !cs.active() || cs.captures.is_empty() || cs.source_manager.is_none() || cs.copy_manager.is_none() {
+            return None;
+        }
+        let was: Vec<String> = cs.captures.iter().map(|c| c.name.clone()).collect();
+        for i in (0..self.capture.captures.len()).rev() {
+            // back to front: indices below stay valid
+            if names.contains(&self.capture.captures[i].name) {
+                continue;
+            }
+            self.stop_session(i);
+            let cs = &mut self.capture;
+            let mut c = cs.captures.remove(i);
+            drop_dbufs(cs.gpu.as_ref(), &mut c.held_dbufs);
+            if let Some(gpu) = &mut cs.gpu {
+                gpu.gl.remove_source(i);
+            }
+            self.features.layout.desktop_removed(i);
+        }
+        for (i, name) in names.iter().enumerate() {
+            // both sorted: what is missing goes in at its place
+            if self.capture.captures.get(i).is_some_and(|c| &c.name == name) {
+                continue;
+            }
+            let c = self.capture.new_capture(name);
+            self.capture.captures.insert(i, c);
+            if let Some(gpu) = &mut self.capture.gpu {
+                gpu.gl.insert_source(i);
+            }
+            self.features.layout.desktop_inserted(i);
+        }
+        for name in renew {
+            for i in 0..self.capture.captures.len() {
+                if &self.capture.captures[i].name != name {
+                    continue;
+                }
+                if self.capture.captures[i].session.is_some() {
+                    self.stop_session(i);
+                }
+                let c = &mut self.capture.captures[i];
+                c.output_global = None;
+                c.gone = false;
+                c.stopped = false;
+                c.restart_ms = None;
+                c.restarts = 0;
+            }
+        }
+        self.capture.names = names.to_vec();
+        self.service_captures(qh, monotonic_ms());
+        self.capture.dirty = true;
+        Some(was)
+    }
+
     /// The surface's buffer size: the fractional-scale size under a viewport (GPU composition only).
     fn scaled_size(&self) -> (u32, u32) {
         if self.viewport.is_some() && self.scale120 != 0 {
@@ -737,7 +825,9 @@ impl Presentation {
         }
         let n = self.state.capture.names.len();
         let s = &mut self.state;
-        s.capture.captures = s.capture.names.iter().map(|n| Capture::new(n)).collect();
+        let names = s.capture.names.clone();
+        let captures = names.iter().map(|n| s.capture.new_capture(n)).collect();
+        s.capture.captures = captures;
         let (width, height) = (s.width, s.height);
         let gpu = match (&s.capture.linux_dmabuf, s.capture.main_device) {
             (None, _) => Err("compositor lacks zwp_linux_dmabuf_v1"),
@@ -937,6 +1027,10 @@ impl Presentation {
         let options = ZoomOptions { leaving, ..ZoomOptions::default() };
         let tiles = &scene.tiles;
         let placements = zoomed_placements_with(&canvas, &overview, tiles, &scene.own, view.zoom(), view.position(), options);
+        // The edge pan's dot (the hand's) in place of the free pointer: the real cursor is hidden and held.
+        if let Some(dot) = features.layout.pan_dot(&canvas, &sizes, view, tiles, &placements) {
+            scene.pointer = Some(dot);
+        }
         let focus = view.focus() as usize;
         cs.maximize = if view.zoom() >= 0.99 && !view.switching() && focus < tiles.len() {
             maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &scene.head)
@@ -1136,7 +1230,7 @@ impl Presentation {
                 s.scale120,
                 s.viewport.is_some()
             ));
-            s.features.report_before_composition(&mut out);
+            s.features.report_before_composition(&mut out, &cs.view);
             out.push_str(",\"composition\":");
             match &cs.gpu {
                 Some(g) => {
@@ -1177,11 +1271,14 @@ impl Dispatch<ExtImageCopyCaptureSessionV1, usize> for State {
         s: &mut Self,
         _: &ExtImageCopyCaptureSessionV1,
         event: ext_image_copy_capture_session_v1::Event,
-        &i: &usize,
+        &id: &usize,
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
         use ext_image_copy_capture_session_v1::Event;
+        let Some(i) = s.capture.index_of(id) else {
+            return;
+        };
         let c = &mut s.capture.captures[i];
         match event {
             Event::BufferSize { width, height } => c.constraints.size(width, height),
@@ -1224,10 +1321,13 @@ impl Dispatch<ExtImageCopyCaptureFrameV1, usize> for State {
         s: &mut Self,
         _: &ExtImageCopyCaptureFrameV1,
         event: ext_image_copy_capture_frame_v1::Event,
-        &i: &usize,
+        &id: &usize,
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
+        let Some(i) = s.capture.index_of(id) else {
+            return;
+        };
         match event {
             ext_image_copy_capture_frame_v1::Event::Ready => s.frame_ready(i, qh),
             ext_image_copy_capture_frame_v1::Event::Failed { reason } => s.frame_failed(i, reason, qh),
@@ -1241,19 +1341,21 @@ impl Dispatch<ZwpLinuxBufferParamsV1, (usize, u64, usize)> for State {
         s: &mut Self,
         params: &ZwpLinuxBufferParamsV1,
         event: zwp_linux_buffer_params_v1::Event,
-        &(i, generation, j): &(usize, u64, usize),
+        &(id, generation, j): &(usize, u64, usize),
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
         params.destroy();
-        if i == usize::MAX {
+        if id == usize::MAX {
             // A swapchain buffer (create_immed): one the compositor cannot import ends the run.
             if let zwp_linux_buffer_params_v1::Event::Failed = event {
                 s.closed = true;
             }
             return;
         }
-        let current = s.capture.captures.get(i).is_some_and(|c| c.generation == generation);
+        let index = s.capture.index_of(id);
+        let current = index.is_some_and(|i| s.capture.captures[i].generation == generation);
+        let i = index.unwrap_or(usize::MAX);
         match event {
             zwp_linux_buffer_params_v1::Event::Created { buffer } => {
                 if !current {

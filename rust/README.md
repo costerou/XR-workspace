@@ -187,6 +187,14 @@ presenting. The exit report carries the `tracking` and `latency` sections (softw
 `wp_presentation` feedback in `shell.rs`). `tests/level_frame_reference.rs` ports the `level_frame` ctest. Gates:
 `capture_e2e_rust_tracked`, `_feed_drop`, `_feed_gone_video_loss`, `_bad_control_fatal` and `_control_closed`.
 
+`scene_layout` is wired: `placement` (each desktop's placement, eased toward the latest at the display's rate or glided
+along one smootherstep, as `view.rs` `step_placements`), `style` (the GL accent, and the exit report's `theme`),
+`edge_pan` (`ViewAnimator::set_pan`, and the hand's dot drawn as the free pointer while it pans, `pan_dot`) and
+`desktops` (captures stop, start and restart; placements follow their desktops; a Ctrl+Alt+R change eases the tiles,
+`TileEase`). The exit report's `view` section lists the placements. Captures key their Wayland proxies by a stable id,
+since `desktops` moves their indices. `pan_dot` is checked frame by frame against `spike/tests/edge_pan_trace.cpp`
+(`tests/fixtures/edge_pan_dot.txt`); `capture_e2e_rust_edge_pan_gl-dmabuf` is its end-to-end gate.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops

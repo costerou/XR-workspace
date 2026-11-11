@@ -20,6 +20,11 @@ impl RollState {
     pub(super) fn animating(&self, _now_ms: f64) -> bool {
         false
     }
+
+    /// How many `roll` ops were applied (the exit report's `view.roll_updates`).
+    pub(super) fn updates(&self) -> u64 {
+        0
+    }
 }
 
 impl Presentation {

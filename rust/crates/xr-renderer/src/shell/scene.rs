@@ -15,7 +15,7 @@ use xr_renderer::glass::GlassFrame;
 use xr_renderer::hud::HudImage;
 use xr_renderer::ipc::StatusExtras;
 use xr_renderer::pose::{IDENTITY, Mat3};
-use xr_renderer::view::{FRect, Placement, PointerLook, Size};
+use xr_renderer::view::{FRect, Placement, PointerLook, Size, ViewAnimator};
 use xr_wire::control::Op;
 
 use super::{
@@ -251,9 +251,9 @@ impl Features {
 
     /// The exit report's feature sections between `surface` and `composition`: latency (tracking), view (layout and
     /// roll), popup_font (cards), video.
-    pub(super) fn report_before_composition(&self, out: &mut String) {
+    pub(super) fn report_before_composition(&self, out: &mut String, view: &ViewAnimator) {
         self.tracking.report_latency(out);
-        self.layout.report_view(out, &self.roll);
+        self.layout.report_view(out, &self.roll, view);
         self.cards.report_popup_font(out);
         self.video.report(out);
     }

@@ -788,6 +788,11 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_rust_feed_gone_video_loss COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 8
         --warmup 1 --video-loss 5 --feed-drop 1000 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_feed_gone_video_loss PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: scene_layout
+      # The hand's pan from desktop 1 to desktop 3 by `edge_pan` frames and the landing, as for the C++ renderer above.
+      add_test(NAME capture_e2e_rust_edge_pan_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 3.5
+        --warmup 1 --outputs 4 --maximize 3 --edge-pan --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_edge_pan_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
