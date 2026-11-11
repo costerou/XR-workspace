@@ -349,7 +349,7 @@ impl CaptureState {
         self.dirty = true;
     }
 
-    /// The desktops are composed on the GPU (head tracking needs it).
+    /// The desktops are composed on the GPU (head tracking needs it; wayland.cpp's `gl`).
     pub(super) fn gpu_composition(&self) -> bool {
         self.gpu.is_some()
     }
@@ -357,6 +357,11 @@ impl CaptureState {
     /// The desktops the GPU composition draws, 0 without it (take_roll_geometry's `!gl || captures.empty()`).
     pub(super) fn gpu_desktops(&self) -> usize {
         self.gpu.as_ref().map_or(0, |_| self.captures.len())
+    }
+
+    /// The view's eased zoom now (0 overview, 1 zoomed in).
+    pub(super) fn zoom(&self) -> f32 {
+        self.view.zoom()
     }
 
     pub(super) fn close(&mut self) {
@@ -854,6 +859,7 @@ impl Presentation {
                     imported_frames: 0,
                     uploaded_bytes: 0,
                 });
+                s.features.cards.load_fonts(); // the cards' text font; the built-in pixel font is the reported fallback
             }
             Err(why) => s.capture.cpu_reason = why,
         }

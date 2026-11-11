@@ -215,6 +215,16 @@ and through the overview pan's landing, and hidden while the view switches. The 
 how many times it was shown. The edge pan's hand dot, which takes the pointer's place during an edge pan, comes with
 `scene_layout`'s `pan_dot`.
 
+`shell/cards.rs` is wired: the `help` and `binds` ops and the mode pop-ups of `view` (viewing mode, cursor follow,
+prediction, typing; a maximize or un-maximize changes the mode without a pop-up) are drawn head-locked through
+`GlCompositor::set_popup` / `set_help` / `set_binds`. Each card is rasterised by the ported `hud.rs` /
+`binds_panel.rs` code the first time a frame needs its generation, from the overlay state the C++ draws it from, so its
+pixels are the C++ ones. The fonts load when the GPU composition comes up (one instance per card, as the C++ does) and
+the exit report's `popup_font` names the family or the pixel-font fallback; `help` and `binds` report their counters,
+page and scroll window. The `help_geometry` line goes to the supervisor with the C++ rules: at once on a show or hide,
+then at most every `HELP_GEOMETRY_MS` (40 ms) while the card is up on the overview, null while the FOV split has not
+been worked out since a configure. `tests/native_help.rs` is the `native_help` twin.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
