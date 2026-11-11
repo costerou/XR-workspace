@@ -18,7 +18,6 @@ fn help_exits_zero_with_the_usage() {
 }
 
 #[test]
-#[ignore = "passes once main.rs HELP is updated, after every feature module has landed"]
 fn help_lists_nothing_as_not_yet_in_this_build() {
     let (_, usage) = help();
     assert!(!usage.to_lowercase().contains("not yet in this build"), "{usage}");

@@ -775,12 +775,14 @@ if(XR_ENABLE_PRESENTATION)
       # rust: tracking
       add_test(NAME capture_e2e_rust_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
         --tracking --renderer "${XR_RUST_RENDERER}")
-      # capture_e2e_rust_bad_control waits for menus: its good frame after the bad ones opens the placement panel.
+      # capture_e2e_rust_bad_control: its good frame after the bad ones opens the placement panel (menus).
+      add_test(NAME capture_e2e_rust_bad_control COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --bad-control --control-errors log --renderer "${XR_RUST_RENDERER}")
       add_test(NAME capture_e2e_rust_bad_control_fatal COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
         --warmup 1 --outputs 1 --bad-control --renderer "${XR_RUST_RENDERER}")
       add_test(NAME capture_e2e_rust_control_closed COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
         --warmup 1 --outputs 1 --close-control --renderer "${XR_RUST_RENDERER}")
-      set_tests_properties(capture_e2e_rust_tracked capture_e2e_rust_bad_control_fatal
+      set_tests_properties(capture_e2e_rust_tracked capture_e2e_rust_bad_control capture_e2e_rust_bad_control_fatal
         capture_e2e_rust_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       add_test(NAME capture_e2e_rust_feed_drop COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 25 --warmup 1
         --feed-drop 20 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
@@ -807,6 +809,7 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_rust_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
         --outputs 1 --environment grid --open-panel --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_options_roundtrip capture_e2e_rust_open_panel
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       # rust: immersive
       foreach(MODE gl-dmabuf gl-shm)
         add_test(NAME capture_e2e_rust_immersive_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1

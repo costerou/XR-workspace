@@ -30,14 +30,17 @@ use xr_wire::control::{
 };
 use xr_wire::status::{encode_applied, encode_refused};
 
-const HELP: &str = "xr-renderer: native output-bound layer-shell renderer (no SDK/input).\n\
+const HELP: &str = "xr-renderer: native output-bound layer-shell renderer (no SDK/input; capture only of managed outputs).\n\
 Launched only by the permission-gated Python supervisor with inherited capability sockets.\n\
 Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n\
 Optional --status-fd FD: nonblocking measured status JSON, at most once per second.\n\
+Optional --depth-fd FD: the depth engine's shared memory, for immersive 3D.\n\
+Optional --continuity-fd FD: a sealed regular file of this user (at most 64 KiB) the view is restored from and saved to.\n\
 Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n\
 Optional --control-errors fatal, for tests: a bad control frame stops the renderer. Otherwise it is logged and dropped.\n\
 Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n\
-Not yet in this build: --pose-feed, --depth-fd, --continuity-fd. Control ops other than stop are receipted but not drawn.\n\
+Or --capture XR-1[,XR-2[,XR-3[,XR-4]]]: show only the app's own managed outputs (managed-output capture consent),\n\
+  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n\
 Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
 
 static STOPPING: AtomicBool = AtomicBool::new(false);
