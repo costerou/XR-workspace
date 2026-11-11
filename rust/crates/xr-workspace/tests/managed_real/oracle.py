@@ -49,25 +49,29 @@ class Nothing:
     def __getattr__(self, name): return lambda *args, **kwargs: None
 
 
+class NoPointer:
+    """`unified_cursor.UnifiedPointer(control)` with no pointer: `view_controls` takes its rolls and wake, then the view
+    has none (`control.overview_pointer` is None), as the Rust run has no overview pointer yet."""
+    def __init__(self, control): self._control, self.rolls = control, [0] * 4
+    @property
+    def wake_reader(self):
+        self._control.overview_pointer = None
+        return None
+    def close(self): pass
+
+
+class NoKeys(Nothing):
+    """`keybinds.BindControl(control, ...)` with no panel: `view_controls` installs the binds with it, then the view has
+    none (`control.keys` is None), as the Rust run has no panel without `binds`'s helper command line."""
+    def __init__(self, control, *args, **kwargs): self._control = control
+    def startup_toast(self): self._control.keys = None
+
+
 class NoVideo:
     """`video.VideoControl(control, ...)` with no video: every call the view's, `close` nothing."""
     def __init__(self, control, **kwargs): self._control = control
     def close(self): pass
     def __getattr__(self, name): return getattr(self._control, name)
-
-
-def stub_view(view):
-    """`view`: the hub stays (the server, the state, the routing), but sends nothing and answers a bare status."""
-    patch(view.ViewControl, 'on_message', lambda self, message: b'')
-    patch(view.ViewControl, 'initial_frame', lambda self: b'')
-    patch(view.ViewControl, 'status_reply', lambda self, status: {})
-    patch(view.ViewControl, 'poll', lambda self, now: b'')
-    patch(view.ViewControl, 'on_events', lambda self, data: b'')
-    patch(view.ViewControl, 'flush', lambda self: None)
-    patch(view.ViewControl, 'save_setup', lambda self: None)
-    patch(view.ViewControl, 'renderer_restarted', lambda self: None)
-    patch(view.ViewControl, 'window_context', lambda self: {})  # the window memory's captures: no placements yet
-    hide('event_stream', 'install_options_binds')
 
 
 def stub_binds(managed):
@@ -86,14 +90,14 @@ def stub_binds(managed):
 
 
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video, view
+    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
-        'view': lambda: stub_view(view),
         'binds': lambda: stub_binds(managed),
-        'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
+        'overview_pointer': lambda: (patch(unified_cursor, 'UnifiedSampler', Nothing),
+                                     patch(unified_cursor, 'UnifiedPointer', NoPointer)),
         'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
-        'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
+        'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', NoKeys)),
         'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
     }

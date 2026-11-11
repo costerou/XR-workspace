@@ -3,8 +3,7 @@
 //! runs (`Supervisor._control_ready`) and while a USB drop holds the run (`serve_without_renderer`), and a key's op
 //! sent through each run's own key helper reaching the run (both helpers exit 0: a run listened).
 //!
-//! The answer's body is the view's (`status_reply`), stubbed on both sides until `view` is ported (oracle.py), so
-//! the replies are the four header keys today; the view's port makes them whole without changing these cases.
+//! The answer's body is the view's (`status_reply`), the same on both sides.
 
 use std::fs;
 use std::time::Duration;
@@ -24,10 +23,14 @@ fn the_status_and_a_key_while_the_renderer_runs() {
     let (run, _, [python, rust]) = parity_acting("stop", Some(status_during_the_run));
     assert_eq!(python, rust);
     assert_eq!(rust["helper"], 0, "a run listened");
+    let status = &rust["status"];
     assert_eq!(
-        rust["status"],
-        json!({"schema": 1, "run_id": "r1", "session": "SESSION"})
+        (&status["schema"], &status["run_id"], &status["session"]),
+        (&json!(1), &json!("r1"), &json!("SESSION"))
     );
+    // The view's body (`status_reply`): no measured status yet from the fake renderer.
+    assert_eq!(status["names"], json!(["XR-1", "XR-2"]), "{status}");
+    assert_eq!(status["status"], json!({}), "{status}");
     assert_eq!(run.result["stop_reason"], "interrupted");
 }
 
