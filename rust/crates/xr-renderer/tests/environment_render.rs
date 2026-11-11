@@ -19,26 +19,25 @@
 //!     GlCompositor has no VR video scene yet, so that check is not ported;
 //!   * the preview PNGs (a directory argument, `--smoke-frames`, zlib) are not written, and with them the placement panel
 //!     (render_glass_panel) only the previews drew;
-//!   * the desktops' text is drawn as blocks, as the C++ does without a font (the font is not ported yet);
-//!   * the level bars, caps and 3D buttons sample the handle atlas (render_handle_atlas, which needs the font, is not
-//!     ported): with XR_GL_CARDS set to a `gl_bench --dump DIR` directory their section draws the C++ atlas, else it is
-//!     skipped (and said so). A synthetic atlas cannot stand in: its cells are neither under the cap nor lit/unlit pairs.
+//!   * the Rust GlCompositor does not render its handle atlas on a theme change, so the test renders it as the C++
+//!     compositor does (glass_raster::render_handle_atlas for the accent, with HudFont when it loads) and hands it over
+//!     with set_handle_atlas; the desktops' text uses the same font, or blocks without one, as the C++ does.
 //!
 //! Exit 77 (skipped) without EGL/GLES.
 
-#[path = "support/gl_scenarios.rs"]
-mod gl_scenarios;
-
 use std::f32::consts::PI as PI_F32;
 use std::f64::consts::PI;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use xr_renderer::environment::{ENVIRONMENT_LOOP_S, environment_view};
+use xr_renderer::environment::{environment_view, ENVIRONMENT_LOOP_S};
 use xr_renderer::gl::GlCompositor;
 use xr_renderer::glass::GlassFrame;
-use xr_renderer::hud::Background;
-use xr_renderer::pose::{IDENTITY, Mat3, Quat, quat_mul};
-use xr_renderer::view::{FREE_POINTER_LEVEL, FRect, Placement, PointerLook, Size, blended_layout};
+use xr_renderer::glass_raster::render_handle_atlas;
+use xr_renderer::hud::{Background, HUD_FONT_FAMILY};
+use xr_renderer::hud_font::HudFont;
+use xr_renderer::pose::{quat_mul, Mat3, Quat, IDENTITY};
+use xr_renderer::view::{blended_layout, FRect, Placement, PointerLook, Size, FREE_POINTER_LEVEL};
 
 static FAILURES: AtomicUsize = AtomicUsize::new(0);
 
@@ -86,8 +85,33 @@ impl Desktop {
             }
         }
     }
-    /// Text as the C++ draws it without a font: a block a third as bright.
-    fn text(&mut self, s: &str, x: i32, baseline: i32, size: u32, rgb: [i32; 3]) {
+    /// Text as the C++ draws it: the font's coverage blended over what is there; without a font, a block a third as
+    /// bright.
+    #[allow(clippy::too_many_arguments)]
+    fn text(
+        &mut self,
+        font: Option<&HudFont>,
+        s: &str,
+        x: i32,
+        baseline: i32,
+        size: u32,
+        rgb: [i32; 3],
+        bold: bool,
+    ) {
+        if let Some(font) = font {
+            let px = &mut self.px;
+            font.draw(s, size, bold, x, baseline, &mut |px_x, px_y, a| {
+                if px_x < 0 || px_y < 0 || px_x >= DESKTOP_W as i32 || px_y >= DESKTOP_H as i32 {
+                    return;
+                }
+                let k = (px_y as usize * DESKTOP_W as usize + px_x as usize) * 4;
+                let c = a.clamp(0.0, 1.0);
+                for (j, v) in [rgb[2], rgb[1], rgb[0]].into_iter().enumerate() {
+                    px[k + j] = (f32::from(px[k + j]) * (1.0 - c) + v as f32 * c) as u8;
+                }
+            });
+            return;
+        }
         let len = s.len() as u32;
         self.fill(
             x,
@@ -99,7 +123,7 @@ impl Desktop {
     }
 }
 
-fn desktops() -> [Desktop; 3] {
+fn desktops(font: Option<&HudFont>) -> [Desktop; 3] {
     let mut d = [Desktop::new(), Desktop::new(), Desktop::new()];
     let wall = [[16, 18, 30], [20, 16, 28], [14, 20, 26]];
     let accent = TOKYO.map(i32::from);
@@ -117,15 +141,25 @@ fn desktops() -> [Desktop; 3] {
             1 => "1  2",
             _ => "1",
         };
-        k.text(spaces, 20, 24, 18, [150, 160, 190]);
+        k.text(font, spaces, 20, 24, 18, [150, 160, 190], false);
         k.text(
+            font,
             &format!("XR-{}", i + 1),
             DESKTOP_W as i32 / 2 - 30,
             24,
             18,
             [200, 205, 220],
+            true,
         );
-        k.text("15:19", DESKTOP_W as i32 - 90, 24, 18, [150, 160, 190]);
+        k.text(
+            font,
+            "15:19",
+            DESKTOP_W as i32 - 90,
+            24,
+            18,
+            [150, 160, 190],
+            false,
+        );
         k.fill(60, 80, DESKTOP_W as i32 - 60, DESKTOP_H as i32 - 50, accent); // the window border
         k.fill(
             62,
@@ -151,7 +185,7 @@ fn desktops() -> [Desktop; 3] {
         } else {
             [192, 202, 245]
         };
-        d[0].text(s, 100, 150 + l as i32 * 44, 28, c);
+        d[0].text(font, s, 100, 150 + l as i32 * 44, 28, c, false);
     }
     let code = [
         "#include \"xr/environment.hpp\"",
@@ -170,9 +204,9 @@ fn desktops() -> [Desktop; 3] {
         } else {
             [187, 154, 247]
         };
-        d[1].text(s, 100, 150 + l as i32 * 44, 28, c);
+        d[1].text(font, s, 100, 150 + l as i32 * 44, 28, c, false);
     }
-    d[2].text("XR Workspace", 100, 190, 64, [200, 210, 235]);
+    d[2].text(font, "XR Workspace", 100, 190, 64, [200, 210, 235], true);
     let page = [
         "Choose a background behind your desktops.",
         "Ctrl+Alt+E     background on / off",
@@ -180,7 +214,15 @@ fn desktops() -> [Desktop; 3] {
         "Look round: it stays put in the room.",
     ];
     for (l, s) in page.iter().enumerate() {
-        d[2].text(s, 100, 300 + l as i32 * 56, 34, [170, 180, 210]);
+        d[2].text(
+            font,
+            s,
+            100,
+            300 + l as i32 * 56,
+            34,
+            [170, 180, 210],
+            false,
+        );
     }
     d
 }
@@ -192,13 +234,13 @@ struct Env {
     half_h: f32,
 }
 
-fn make(d: &[Desktop; 3]) -> Result<Env, String> {
+fn make(d: &[Desktop; 3], font: Option<&HudFont>) -> Result<Env, String> {
     let mut gl = GlCompositor::create_offscreen(CANVAS_W, CANVAS_H, 3)?;
     gl.resize(CANVAS_W, CANVAS_H, PX_W, PX_H);
     gl.set_accent(TOKYO[0], TOKYO[1], TOKYO[2]);
-    if std::env::var_os("XR_GL_CARDS").is_some() {
-        gl.set_handle_atlas(gl_scenarios::load_resources().handles);
-    }
+    // The C++ compositor renders this itself for its accent (upload_handles), the 3D button in the HUD font.
+    let accent = TOKYO.map(|v| f32::from(v) / 255.0);
+    gl.set_handle_atlas(Rc::new(render_handle_atlas(accent, font.map(|f| f as _))));
     for (i, k) in d.iter().enumerate() {
         check!(gl.upload(i, &k.px, DESKTOP_W, DESKTOP_H, DESKTOP_W * 4));
     }
@@ -492,7 +534,13 @@ const fn dir(name: &'static str, yaw: f32, pitch: f32) -> Dir {
 }
 
 fn main() {
-    let content = desktops();
+    let font = HudFont::load(HUD_FONT_FAMILY)
+        .map_err(|why| {
+            println!("note: {why}; desktops use blocks for text, the 3D button the pixel font")
+        })
+        .ok();
+    let font = font.as_ref();
+    let content = desktops(font);
 
     // 1. Off is exactly the frame without it: a compositor that never had set_environment called, then (only one
     // compositor at a time: they would share the EGL display) the same frame after the grid has been on and gone off.
@@ -510,7 +558,7 @@ fn main() {
         ..base
     };
     let plain = {
-        let mut fresh = match make(&content) {
+        let mut fresh = match make(&content, font) {
             Ok(e) => e,
             Err(why) => {
                 println!("SKIP: {why}");
@@ -519,7 +567,7 @@ fn main() {
         };
         draw(&mut fresh, &never)
     };
-    let mut env = match make(&content) {
+    let mut env = match make(&content, font) {
         Ok(e) => e,
         Err(why) => {
             println!("SKIP: {why}");
@@ -527,7 +575,9 @@ fn main() {
         }
     };
     let e = &mut env;
-    check!(e.gl.set_environment(0.0, Background::None, 100.0, 0.0, &IDENTITY)); // the pass compiled
+    check!(e
+        .gl
+        .set_environment(0.0, Background::None, 100.0, 0.0, &IDENTITY)); // the pass compiled
     let _ = draw(e, &base);
     {
         let b = draw(e, &off);
@@ -909,7 +959,8 @@ fn main() {
         for i in 0..PIXELS {
             over += usize::from(channel_max(&m2, i) > CAP);
             black += usize::from(channel_max(&m2, i) == 0);
-            raised += usize::from(channel_max(&m2, i) == 0 && channel_max(&a, i) != 0); // black at 200%, lit at 100%: impossible
+            raised += usize::from(channel_max(&m2, i) == 0 && channel_max(&a, i) != 0);
+            // black at 200%, lit at 100%: impossible
         }
         println!("smoke black at 200%: {:.1}%", 100.0 * black as f64 / n);
         check!(over == 0 && raised == 0);
@@ -970,13 +1021,7 @@ fn main() {
 
     // Level bars and corner caps over the background (blended, premultiplied, after it and before the desktops): the
     // marks they leave over black they leave over every scene, and a maximized frame has none.
-    let have_atlas = std::env::var_os("XR_GL_CARDS").is_some();
-    if !have_atlas {
-        println!(
-            "note: XR_GL_CARDS not set, the level bar / 3D button checks were skipped (no handle atlas in Rust yet)"
-        );
-    }
-    if have_atlas {
+    {
         let black = Frame {
             pills: true,
             environment: false,
