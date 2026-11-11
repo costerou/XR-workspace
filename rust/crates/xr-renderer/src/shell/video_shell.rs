@@ -232,7 +232,8 @@ fn sorted(v: Value) -> Value {
 }
 
 impl VideoShell {
-    fn active(&self) -> bool {
+    /// A VR video is open: it draws in place of the desktops.
+    pub(super) fn active(&self) -> bool {
         self.mode.as_ref().is_some_and(Mode::active)
     }
 

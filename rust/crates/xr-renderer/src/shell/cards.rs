@@ -14,7 +14,6 @@ use xr_renderer::hud::{
     help_geometry_json, render_help_card, render_hud_card,
 };
 use xr_renderer::hud_font::HudFont;
-use xr_renderer::pose::{IDENTITY, Mat3};
 use xr_wire::control::{BindState, Binds, View, ViewMode};
 
 use super::scene::{CardInput, Scene};
@@ -112,8 +111,7 @@ pub(super) struct Cards {
     binds_drawn: bool,
     /// The `view` op's last zoomed (Impl::maximized): a maximize or un-maximize changes the mode without a pop-up.
     maximized: bool,
-    /// The head rotation of the last desktop frame and its FOV split (0: not yet worked out since the configure).
-    last_head: Mat3,
+    /// The last desktop frame's FOV split (0: not yet worked out since the configure or a supervised projection).
     half_w: f32,
     half_h: f32,
     geometry: GeometrySent,
@@ -135,7 +133,6 @@ impl Default for Cards {
             help_drawn: false,
             binds_drawn: false,
             maximized: false,
-            last_head: IDENTITY,
             half_w: 0.0,
             half_h: 0.0,
             geometry: GeometrySent::default(),
@@ -169,12 +166,6 @@ impl Cards {
         self.half_w = 0.0;
     }
 
-    /// The pop-ups' font, for the tracking hint (None: the pixel font).
-    #[allow(dead_code)] // the tracking hint's card is tracking.rs's
-    pub(super) fn popup_font(&self) -> Option<&dyn HudTextMetrics> {
-        self.popup_font.as_ref().map(|f| f as &dyn HudTextMetrics)
-    }
-
     /// The theme colour (Presentation::set_accent's share): the pop-ups and the cards, redrawn if showing.
     pub(super) fn set_accent(&mut self, seed: [f32; 3], now_ms: f64) -> bool {
         let popup = self.popups.set_accent(seed, now_ms);
@@ -205,8 +196,9 @@ impl Cards {
     }
 
     /// `scene.popup`, `scene.help`, `scene.binds`. The tracking hint, when it shows, is already on `scene.popup`
-    /// (tracking contributes first); a mode pop-up goes first, and is brief.
-    pub(super) fn contribute(&mut self, scene: &mut Scene) {
+    /// (tracking contributes first); a mode pop-up goes first, and is brief. A VR video (`video`) draws in place of
+    /// the desktops: the help card and the bind panel are not set and not drawn that frame.
+    pub(super) fn contribute(&mut self, scene: &mut Scene, video: bool) {
         let now = scene.now_ms;
         let popup = self.popups.alpha(now);
         let hint = scene.popup.as_ref().map_or(0.0, |c| c.alpha);
@@ -221,6 +213,11 @@ impl Cards {
         // The FOV split as this frame has it (update_fov runs before the render path).
         self.half_w = scene.half_w;
         self.half_h = scene.half_h;
+        if video {
+            self.help_drawn = false;
+            self.binds_drawn = false;
+            return;
+        }
         let help = self.help.alpha(now);
         let image = (help > 0.0).then(|| self.help_image());
         let (generation, drop_px) = (self.help.generation(), self.help.offset_px(now));
@@ -234,8 +231,11 @@ impl Cards {
         let (generation, drop_px) = (self.binds.generation(), self.binds.offset_px(now));
         scene.binds = Some(CardInput { image, generation, alpha: binds, drop_px });
         self.binds_drawn = binds > 0.0;
-        // The help card's hit box is worked out on the canvas as drawn.
-        self.last_head = scene.head;
+    }
+
+    /// A supervised projection replaces the FOV: no help geometry until a frame has split it again.
+    pub(super) fn fov_reset(&mut self) {
+        self.half_w = 0.0;
     }
 
     pub(super) fn animating(&self, now_ms: f64) -> bool {
@@ -344,14 +344,16 @@ impl Presentation {
         }
         let (width, height) = (self.state.width, self.state.height);
         let zoom = self.state.capture.zoom();
-        let c = &mut self.state.features.cards;
-        // The free pointer is overview-only.
-        let up = c.help.visible() && c.help.generation() != 0 && zoom < 0.01 && c.half_w > 0.0;
+        let f = &mut self.state.features;
+        let video = f.video.active();
+        let (c, head) = (&mut f.cards, f.tracking.last_head());
+        // The free pointer is overview-only and off during a video.
+        let up = c.help.visible() && c.help.generation() != 0 && zoom < 0.01 && c.half_w > 0.0 && !video;
         let mut sent = std::mem::take(&mut c.geometry);
         let line = sent.take(up, now_ms, || {
             let im = c.help_image();
             let origin = centered_card_origin(width, height, im.width, im.height, 0.0);
-            help_geometry_json(&c.last_head, width, height, c.half_w, c.half_h, origin, im.width, im.height, c.help.controls())
+            help_geometry_json(head, width, height, c.half_w, c.half_h, origin, im.width, im.height, c.help.controls())
         });
         c.geometry = sent;
         line

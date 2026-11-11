@@ -19,7 +19,8 @@ use xr_renderer::ipc::StatusExtras;
 use xr_renderer::motion_feed::{MotionFeed, motion_age_ms, motion_delta};
 use xr_renderer::motion_smooth::{MotionSmoother, motion_smooth_params};
 use xr_renderer::pose::{
-    Change, IDENTITY, Mat3, ModeController, PoseFeed, PoseState, Quat, ViewMode, aim_along, aim_rotation, mat3_to_quat,
+    Change, IDENTITY, Mat3, ModeController, PoseFeed, PoseState, Quat, ViewMode, aim_along, aim_rotation, canvas_up,
+    mat3_to_quat,
     monotonic_ns, mul, quat_angle, quat_conj, quat_mul, quat_slerp, quat_to_mat3, view_from,
 };
 use xr_renderer::predict::{
@@ -508,6 +509,13 @@ impl Tracking {
         self.hint.set_accent(seed);
     }
 
+    /// The world's up in the canvas frame when a desktop's tilt is measured (wayland.cpp take_roll_geometry's
+    /// `measured`, less its video test): tracking with a level reference, anchor mode settled.
+    pub(super) fn roll_up(&self) -> Option<[f32; 3]> {
+        let anchored = self.pose.tracking() && self.modes.mode() == ViewMode::Anchor && self.modes.settled();
+        self.pose.reference().filter(|_| anchored).map(|r| canvas_up(r, self.modes.anchor()))
+    }
+
     /// zoomed_placements' keep_size: anchor mode and maximized (wayland.cpp resolved_placements).
     pub(super) fn keep_size(&self) -> bool {
         self.modes.mode() == ViewMode::Anchor && self.maximized
@@ -519,7 +527,6 @@ impl Tracking {
     }
 
     /// The head before this frame's switch turn (the help card's hit box is worked out on the canvas as drawn).
-    #[allow(dead_code)] // read by the help card once cards is wired
     pub(super) fn last_head(&self) -> &Mat3 {
         &self.last_head
     }
@@ -714,6 +721,7 @@ impl Presentation {
         t.supervised_projection = supervised_projection;
         if supervised_projection > 0.0 {
             t.half_w = 0.0;
+            self.state.features.cards.fov_reset();
         }
         // The channel has one fixed name, so only the production feed's renderer reads it; a test prefix gets its own
         // feed alone.

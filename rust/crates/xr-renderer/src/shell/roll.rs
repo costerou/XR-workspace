@@ -2,7 +2,7 @@
 //! set_roll, take_roll_geometry, resend_roll_geometry, and the render path's glass `bars` lines).
 
 use xr_renderer::glass::LevelSegment;
-use xr_renderer::view::{Canvas, FRect, Placement, Vec3, desktop_tilt};
+use xr_renderer::view::{Canvas, FRect, Placement, Vec3, desktop_tilt, overview_layout};
 
 use super::Presentation;
 use super::scene::Scene;
@@ -190,10 +190,18 @@ impl Presentation {
     }
 
     /// The measured branch's inputs, when the tilt is measured: tracking with a level reference, anchor mode settled
-    /// and no VR video. Not measured in this build: the pose reference is the tracking module's, and until it is wired
-    /// every tilt is `null`, as the C++ sends untracked.
+    /// and no VR video. Otherwise every tilt is `null`, as the C++ sends untracked.
     fn roll_measure(&self) -> Option<RollMeasure> {
-        None
+        let s = &self.state;
+        let f = &s.features;
+        if f.video.active() {
+            return None;
+        }
+        let up = f.tracking.roll_up()?;
+        let sizes = s.capture.settled_sizes();
+        let tiles = overview_layout(&sizes, s.width as f32, s.height as f32, s.capture.view.target_spacing());
+        let placements = (0..sizes.len()).map(|i| f.layout.target_placement(i, &f.roll)).collect();
+        Some(RollMeasure { tiles, placements, up })
     }
 }
 

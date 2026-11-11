@@ -216,7 +216,7 @@ impl Features {
         self.tracking.contribute(scene);
         self.layout.contribute(scene, &self.roll);
         self.roll.contribute(scene);
-        self.cards.contribute(scene);
+        self.cards.contribute(scene, self.video.active());
         self.handles.contribute(scene);
         self.menus.contribute(scene);
         self.immersive.contribute(scene);

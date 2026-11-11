@@ -311,6 +311,12 @@ impl CaptureState {
         self.captures.iter().map(|c| c.shape.value().unwrap_or_else(|| c.layout_size())).collect()
     }
 
+    /// What the layout is heading for (wayland.cpp settled_sizes): each desktop's frame size, the supervisor's hit
+    /// testing.
+    pub(super) fn settled_sizes(&self) -> Vec<Size> {
+        self.captures.iter().map(Capture::layout_size).collect()
+    }
+
     /// Registry: the capture globals, bound only when there is something to capture.
     pub(super) fn bind_global(
         &mut self,
@@ -1104,7 +1110,7 @@ impl Presentation {
         gpu.gl.finish();
         target.busy = true;
         let proxy = target.proxy.clone();
-        let settled = overview_layout(&sizes, w, h, cs.view.target_spacing());
+        let settled = overview_layout(&cs.settled_sizes(), w, h, cs.view.target_spacing());
         cs.geometry = overview_geometry_json(&settled, width, height, half_w, half_h);
         cs.dirty = false;
         self.commit(&proxy, size.0, size.1)
