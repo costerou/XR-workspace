@@ -93,12 +93,43 @@ FOCUSED = [dict(m, focused=(m['name'] == 'DP-1')) for m in fx.MONITORS]
 
 
 def scenarios():
-    """(name, file before the run (a value, raw text, or None), first state, context, steps). A step: {'do': place |
-    finish | capture | close} with optional 'state' (replaced before it), 'fail' (queries answered with junk) and 'eval'
-    (the eval reply)."""
+    """(name, file before the run (a value, raw text, or None), first state, context, steps[, the run's desktops]). A
+    step: {'do': place | finish | capture | close | leaving (with 'name' and 'target') | set_names (with 'names')} with
+    optional 'state' (replaced before it), 'fail' (queries answered with junk) and 'eval' (the eval reply)."""
     one = state([fx.win('0xa', 61, at=(4100, 26))], [fx.ws(61, 'XR-1')])
     home = state([fx.win('0xa', 1)], [fx.ws(1, 'DP-1')])
+    # test_window_memory.RemovalTests: XR-4 holds 0xa and 0xb, XR-3 holds 0xc; XR-4 goes (its windows land on
+    # `workspace` of `monitor`, as adopt.adopt moves them) and comes back.
+    four = fx.MONITORS + [fx.mon('XR-4', x=9856, active=91)]
+    xr4 = ['XR-1', 'XR-2', 'XR-3', 'XR-4']
+
+    def removal(workspace=None, monitor='XR-3', monitors=four):
+        on = 91 if workspace is None else workspace
+        spaces = [fx.ws(91, 'XR-4')] if workspace is None else [fx.ws(workspace, monitor)]
+        return state([fx.win('0xa', on, at=(9856, 26)), fx.win('0xb', on, at=(10000, 26)), fx.win('0xc', 81, at=(7936, 26))],
+                     spaces + [fx.ws(81, 'XR-3')], monitors)
+    landed = removal(86, monitors=fx.MONITORS)
     return [
+        ('a_removed_desktops_windows_are_parked', None, removal(), None, [
+            {'do': 'leaving', 'name': 'XR-4', 'target': 'XR-3'},
+            {'do': 'set_names', 'names': fx.XR, 'state': landed}, {'do': 'close'}], xr4),
+        ('a_removed_desktops_windows_park_on_the_fallback_without_a_target', None, removal(), None, [
+            {'do': 'leaving', 'name': 'XR-4', 'target': None},
+            {'do': 'set_names', 'names': fx.XR, 'state': removal(5, 'DP-1', fx.MONITORS)}, {'do': 'close'}], xr4),
+        ('adding_the_desktop_again_brings_them_back', None, removal(), None, [
+            {'do': 'leaving', 'name': 'XR-4', 'target': 'XR-3'},
+            {'do': 'set_names', 'names': fx.XR, 'state': landed},
+            {'do': 'set_names', 'names': xr4, 'state': removal(86, monitors=four)},
+            {'do': 'capture'}, {'do': 'close'}], xr4),
+        ('a_different_new_desktop_brings_nothing', None, removal(), None, [
+            {'do': 'leaving', 'name': 'XR-4', 'target': 'XR-3'},
+            {'do': 'set_names', 'names': fx.XR, 'state': landed},
+            {'do': 'set_names', 'names': fx.XR}, {'do': 'capture'}], xr4),
+        ('a_second_removal_cannot_park_a_window_twice', None, removal(), None, [
+            {'do': 'capture'},
+            {'do': 'leaving', 'name': 'XR-4', 'target': 'XR-3', 'fail': True},
+            {'do': 'leaving', 'name': 'XR-4', 'target': 'XR-3', 'fail': True},
+            {'do': 'set_names', 'names': fx.XR, 'state': landed}, {'do': 'close'}], xr4),
         ('a_mark_saves_after_the_delay', None, one, None, [{'do': 'capture'}]),
         ('the_memory_is_only_written_when_it_changed', None, one, None, [
             {'do': 'capture'}, {'do': 'capture'},
@@ -146,7 +177,7 @@ def _file(path):
     except ValueError: return {'raw': text}
 
 
-def record(name, before, first, context, steps):
+def record(name, before, first, context, steps, names=None):
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         os.chmod(root, 0o700)
@@ -160,7 +191,7 @@ def record(name, before, first, context, steps):
         out = []
         try:
             client = hyprland.HyprlandClient(INSTANCE, root)
-            tracker = wm.WindowTracker(client, wm.Store(path, MODEL), FALLBACK, fx.XR, threads=False)
+            tracker = wm.WindowTracker(client, wm.Store(path, MODEL), FALLBACK, names or fx.XR, threads=False)
             tracker.delay = 0
             if context is not None: tracker.context = lambda: copy.deepcopy(context)
             for step in steps:
@@ -171,11 +202,14 @@ def record(name, before, first, context, steps):
                 elif step['do'] == 'finish': tracker.finish()
                 elif step['do'] == 'capture': tracker.mark(); tracker.poll(tracker.clock() + 1); tracker.join()
                 elif step['do'] == 'close': tracker.close()
+                elif step['do'] == 'leaving': tracker.leaving(step['name'], step['target'])
+                elif step['do'] == 'set_names': tracker.set_names(step['names'])
                 else: raise ValueError(step['do'])
                 out.append({**step, 'exchanges': compositor.exchanges, 'file': _file(path),
                             'counts': {k: getattr(tracker, k) for k in ('captures', 'writes', 'failures', 'restored')}})
         finally: compositor.close()
-        return {'name': name, 'before': before, 'state': first, 'context': context, 'steps': out}
+        return {'name': name, 'before': before, 'state': first, 'context': context, 'steps': out,
+                **({} if names is None else {'names': names})}
 
 
 def corpus():

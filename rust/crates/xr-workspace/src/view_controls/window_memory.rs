@@ -13,8 +13,9 @@
 //! (`Client::pinned`), one at a time. [`Tracker::close`] joins it and takes the last capture with the run's client.
 //! Everything fails open, as in Python: a failure is a log line, and adoption or recovery goes on.
 //!
-//! Not ported: `set_names` and `leaving` (a desktop removed and added again in a run, with `_come_home`); the
-//! `desktops` port calls them. `context` is [`Tracker::set_context`], for the view's `window_context`.
+//! A desktop removed and added again in a run: [`Tracker::leaving`] gives the desktops worker its `leaving` (the
+//! removed desktop's windows parked in the memory), and [`Tracker::set_names`] (a desktop change) brings them home on
+//! the next capture (`_come_home`). `context` is [`Tracker::set_context`], for the view's `window_context`.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -48,6 +49,8 @@ struct Memory {
     parked: Vec<Value>,
     /// Those desktops' context.
     parked_desktops: Map<String, Value>,
+    /// A desktop with parked windows is back (`home_due`).
+    home_due: bool,
     closed: bool,
     counts: Counts,
 }
@@ -155,7 +158,13 @@ impl Memory {
     }
 
     /// `_capture`: read Hyprland and save the memory if it changed. The memory read, or None if it could not be read.
-    fn capture(&mut self, client: &mut Client, timeout: Duration) -> Option<Value> {
+    /// `names`: the desktops to capture, the run's by default.
+    fn capture(
+        &mut self,
+        client: &mut Client,
+        timeout: Duration,
+        names: Option<&[String]>,
+    ) -> Option<Value> {
         self.counts.captures += 1;
         let fresh = (|| -> Result<Value, String> {
             let (clients, workspaces, monitors) = read(client, timeout)?;
@@ -164,7 +173,7 @@ impl Memory {
                 &clients,
                 &workspaces,
                 &monitors,
-                &refs(&self.names),
+                &refs(names.unwrap_or(&self.names)),
                 &self.instance,
                 context.as_ref(),
             )
@@ -242,6 +251,120 @@ impl Memory {
         }
         Some(fresh)
     }
+
+    /// `_come_home`: a desktop with parked windows exists again, and those very windows go back (`exact`: by address,
+    /// so a window that has closed can never pull in another).
+    fn come_home(&mut self, client: &mut Client) {
+        let back = |r: &Value| {
+            r["output"]
+                .as_str()
+                .is_some_and(|o| self.names.iter().any(|n| n == o))
+        };
+        let mut landings: Vec<String> = self
+            .parked
+            .iter()
+            .filter(|r| back(r))
+            .filter_map(|r| r["landing"].as_str().map(str::to_owned))
+            .collect();
+        landings.sort();
+        landings.dedup();
+        for landing in landings {
+            let windows: Vec<Value> = self
+                .parked
+                .iter()
+                .filter(|r| back(r) && r["landing"].as_str() == Some(landing.as_str()))
+                .cloned()
+                .collect();
+            let memory = json!({"instance": self.instance, "desktops": self.parked_desktops, "windows": windows});
+            let placed = (|| -> Result<usize, String> {
+                let (clients, workspaces, monitors) = read(client, QUERY_TIMEOUT)?;
+                let active = active(client, &monitors, QUERY_TIMEOUT)?;
+                let plan = memory::plan(
+                    &memory,
+                    &clients,
+                    &workspaces,
+                    &monitors,
+                    &refs(&self.names),
+                    &landing,
+                    &self.instance,
+                    Some(&active),
+                    true,
+                )
+                .map_err(|e| e.to_string())?;
+                if memory::empty(&plan.moves) {
+                    return Ok(0);
+                }
+                client
+                    .place_windows(&plan.moves, Phase::Moves)
+                    .map_err(|e| e.to_string())?;
+                client
+                    .place_windows(&plan.moves, Phase::Settle)
+                    .map_err(|e| e.to_string())?;
+                Ok(plan.placed.len())
+            })();
+            match placed {
+                Ok(n) => self.counts.restored += n,
+                Err(e) => {
+                    self.counts.failures += 1;
+                    log(&format!(
+                        "run: could not bring the windows back to their desktop: {e}"
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// `windows.leaving`, for the desktops worker (`desktops.leaving = windows.leaving`): see [`Tracker::leaving`].
+#[derive(Clone)]
+pub struct Leaving {
+    memory: Arc<Mutex<Memory>>,
+    fallback: String,
+}
+
+impl Leaving {
+    /// `leaving(name, target)`: desktop `name` is about to go, its windows to `target` (`None`: the fallback). Its
+    /// windows' memory is parked, read with `client` (the worker's). Never fails: the removal goes ahead whatever
+    /// happens here.
+    pub fn call(&self, client: &mut Client, name: &str, target: Option<&str>) {
+        let landing = target.unwrap_or(&self.fallback).to_owned();
+        let mut m = lock(&self.memory);
+        let mut names = m.names.clone();
+        if !names.iter().any(|n| n == name) {
+            names.push(name.to_owned());
+        }
+        names.sort_by_key(|n| crate::adopt::output_number(n));
+        let memory = m.capture(client, QUERY_TIMEOUT, Some(&names));
+        let Some(source) = memory.or_else(|| m.saved.clone()) else {
+            return;
+        };
+        let waiting: Vec<Value> = m.parked.iter().map(|r| r["address"].clone()).collect();
+        let parked = |r: &Value| {
+            !matches!(
+                r.get("parked"),
+                None | Some(Value::Null) | Some(Value::Bool(false))
+            )
+        };
+        let leaving: Vec<Value> = source["windows"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|r| {
+                r["output"].as_str() == Some(name) && !parked(r) && !waiting.contains(&r["address"])
+            })
+            .map(|r| {
+                let mut record = r.as_object().cloned().unwrap_or_default();
+                record.insert("index".into(), Value::Null);
+                record.insert("parked".into(), json!(true));
+                record.insert("landing".into(), json!(landing));
+                Value::Object(record)
+            })
+            .collect();
+        m.parked.extend(leaving);
+        if let Some(desktop) = source["desktops"].get(name) {
+            m.parked_desktops.insert(name.to_owned(), desktop.clone());
+        }
+    }
 }
 
 impl Tracker {
@@ -263,6 +386,7 @@ impl Tracker {
                 saved: None,
                 parked: Vec::new(),
                 parked_desktops: Map::new(),
+                home_due: false,
                 closed: false,
                 counts: Counts::default(),
             })),
@@ -373,8 +497,38 @@ impl Tracker {
 
     /// `windows.mark()`: something moved, capture soon. Marks inside the delay are one capture.
     pub fn mark(&mut self) {
+        self.mark_in(self.delay);
+    }
+
+    fn mark_in(&mut self, delay: Duration) {
         if self.due.is_none() {
-            self.due = Some(Instant::now() + self.delay);
+            self.due = Some(Instant::now() + delay);
+        }
+    }
+
+    /// `windows.set_names(names)` (a desktop change, `view.ViewControl.desktop_listeners`): one that came back with
+    /// parked windows brings them home at once, on the worker.
+    pub fn set_names(&mut self, names: &[String]) {
+        let mut m = lock(&self.memory);
+        let new: Vec<&String> = names.iter().filter(|n| !m.names.contains(n)).collect();
+        let home = m.parked.iter().any(|r| {
+            r["output"]
+                .as_str()
+                .is_some_and(|o| new.iter().any(|n| *n == o))
+        });
+        m.names = names.to_vec();
+        if home {
+            m.home_due = true;
+        }
+        drop(m);
+        self.mark_in(if home { Duration::ZERO } else { self.delay });
+    }
+
+    /// `desktops.leaving = windows.leaving`: the desktops worker's handle, called before any removal.
+    pub fn leaving(&self) -> Leaving {
+        Leaving {
+            memory: Arc::clone(&self.memory),
+            fallback: self.fallback.clone(),
         }
     }
 
@@ -411,7 +565,10 @@ impl Tracker {
                 });
             match client {
                 Ok(mut client) => {
-                    m.capture(&mut client, QUERY_TIMEOUT);
+                    if std::mem::take(&mut m.home_due) {
+                        m.come_home(&mut client);
+                    }
+                    m.capture(&mut client, QUERY_TIMEOUT, None);
                 }
                 Err(e) => {
                     m.counts.failures += 1;
@@ -450,6 +607,6 @@ impl Tracker {
         self.closed = true;
         let mut m = lock(&self.memory);
         m.closed = true;
-        m.capture(run.client, QUERY_TIMEOUT);
+        m.capture(run.client, QUERY_TIMEOUT, None);
     }
 }
