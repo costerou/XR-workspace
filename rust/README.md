@@ -212,6 +212,14 @@ Not ported from the C++ bench: its `report:` line and the card and font CPU timi
 Rust yet). `tests/gl_parity.rs` still checks the call counts against the C++ ones
 (`XR_GL_CPP_BENCH`).
 
+The scenarios (`tests/support/gl_scenarios.rs`, shared by `gl_frame`, `gl_parity`, the bench and
+`environment_render`) draw the real cards: the pop-up, help card, placement panel, its 81
+slider-drag frames and the handle atlas that `gl_bench --dump` writes, rendered by the Rust rasters
+in the installed HUD font (else the pixel font, as the C++ then does). With `XR_GL_CARDS` set to a
+`gl_bench --dump DIR` directory every one of them, and the video card, must also equal the dumped
+C++ image byte for byte; `gl_parity` always checks against its fresh dump. `tests/overlay_residue.rs`
+draws the help card the C++ `HelpOverlay` draws for its rows (`render_help_card`, unbounded, page 1).
+
 ## Driver real-time layer
 
 `xr-luma-driver`'s `rt` module ports the C++ `luma::rt` pipeline (`spike/driver/include/luma/rt.hpp`):
