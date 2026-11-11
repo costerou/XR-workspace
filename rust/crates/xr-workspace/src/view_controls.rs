@@ -134,6 +134,11 @@ impl ViewControls {
         controls.immersive = immersive::Immersive::open(run);
         // The window memory's tracker, given to the view.
         controls.windows = windows.and_then(|w| w.attach(controls.view.as_mut()));
+        if let (Some(desktops), Some(windows)) =
+            (controls.desktops.as_mut(), controls.windows.as_ref())
+        {
+            desktops.set_leaving(windows.leaving()); // `desktops.leaving = windows.leaving`
+        }
         // `client.event_stream()` (config reloads, window changes, `xrcursor`).
         if let Some(view) = controls.view.as_mut() {
             view.open_events(run);
