@@ -185,14 +185,14 @@ fn a_press_blanks_the_main_display_and_the_next_wakes_it() {
         "one eval: off for the target, on for the glasses"
     );
     assert_eq!(p.blanked().as_deref(), Some("DP-1"));
+    // The notification follows the completion, on the worker and outside the lock (as in privacy.py), so a second
+    // press can notify first: hear each press's before the next.
+    let heard = || notes.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(heard(), on.1);
     assert_eq!(press(&p), (true, "Privacy off: DP-1 is back on.".into()));
     assert!(fake.on("DP-1"));
     assert_eq!(p.blanked(), None);
-    // The notification follows the completion, on the worker.
-    let heard: Vec<String> = (0..2)
-        .map(|_| notes.recv_timeout(Duration::from_secs(5)).unwrap())
-        .collect();
-    assert_eq!(heard, [on.1, "Privacy off: DP-1 is back on.".to_owned()]);
+    assert_eq!(heard(), "Privacy off: DP-1 is back on.");
 }
 
 #[test]
