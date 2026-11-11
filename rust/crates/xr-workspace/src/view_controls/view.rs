@@ -161,7 +161,7 @@ impl ViewControl {
         // View: HELP_PAGE_OPS.
         if op == BINDS_PANEL_OP || op == BINDS_KEY_OP {
             if let Some(keys) = f.keys.as_deref_mut() {
-                keys.on_message(message, out);
+                keys.on_message(message, self, out);
             }
             return;
         }
@@ -197,6 +197,46 @@ impl ViewControl {
 
     /// `control.save_setup()`: the monitor setup for the next start (profiles.py).
     pub fn save_setup(&mut self) {}
+}
+
+/// What the key bind panel needs from the view (`keybinds.BindControl`'s `control`). A stub until the view is ported:
+/// no typing mode, card or menu, and no frame ids of its own.
+impl crate::supervisor::keybinds::Host for ViewControl {
+    fn now(&self) -> f64 {
+        0.0
+    }
+    fn typing(&self) -> bool {
+        self.typing
+    }
+    fn video_active(&self) -> bool {
+        false
+    }
+    fn help_visible(&self) -> bool {
+        false
+    }
+    fn close_help(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn menu_open(&self) -> bool {
+        false
+    }
+    fn close_menu(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+    fn keyboard_owned(&self) -> bool {
+        false
+    }
+    fn run_id(&self) -> &str {
+        ""
+    }
+    fn session(&self) -> &str {
+        ""
+    }
+    fn next_request_id(&mut self) -> u64 {
+        0
+    }
+    fn set_last_input(&mut self, _now: f64) {}
+    fn binds_reinstalled(&mut self, _typing: bool, _menu_binds: bool, _options_binds: bool) {}
 }
 
 #[cfg(test)]

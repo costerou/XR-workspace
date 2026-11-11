@@ -141,6 +141,14 @@ of the run's compositor, and `close` lets a move in flight land before the binds
 reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
 it.
 
+The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
+before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
+keys `Binds::install` takes, the panel's ops (`binds_toggle`, `binds_key`) and `binds` frames through the view, and its
+compositor work on a worker thread with its own pinned client. `tests/keybinds_run.rs` replays
+`rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
+toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
+`tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+
 ### Switching runs to the Rust supervisor
 
 The Python controller picks the supervisor at every Start (`tools/xr_controller/supervisor_switch.py`), from one

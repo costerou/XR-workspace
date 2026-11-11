@@ -179,8 +179,16 @@ def reply_immersive(wire):
     return None
 
 
+# The desktop's own binds (plain `hyprctl binds`, as Hyprland 0.56 prints it). In the `keybinds` case a described
+# desktop bind holds Ctrl+Alt+P, the run's default prediction toggle: both runs must leave that bind out.
+DESKTOP_BINDS = ('bindd\n\tmodmask: 12\n\tsubmap: \n\tkey: P\n\tkeycode: 0\n\tcatchall: false\n'
+                 '\tdescription: Pick a color\n\tdispatcher: exec\n\targ: hyprpicker\n\n')
+
+
 def reply_keybinds(wire):
     """view_controls::keybinds's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    if wire == 'binds':  # the key bind panel's read of the desktop's binds (`client.binds_text`)
+        return DESKTOP_BINDS if case == 'keybinds' else ''
     return None
 
 
