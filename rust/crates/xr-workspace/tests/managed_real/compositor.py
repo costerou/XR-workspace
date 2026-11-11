@@ -142,8 +142,28 @@ def reply_view(wire):
     return None
 
 
+pointer = {}  # view_controls::overview_pointer: where the cursor is once a case put it on XR-1, moved by warps
+
+
 def reply_overview_pointer(wire):
-    """view_controls::overview_pointer's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::overview_pointer's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    While `<runtime>/fake-cursor-xr` exists (cases/overview_pointer.rs writes it once the renderer is up) the cursor is
+    mid XR-1, so the overview's dot is over a desktop and the sampler enters it; a warp (`hl.dsp.cursor.move`) moves it,
+    as Hyprland does. Otherwise the cursor is where the built-in reply has it."""
+    import re
+    if not (root / 'fake-cursor-xr').exists():
+        return None
+    if not pointer:
+        xr1 = next((r['observation'] for r in registry.values() if r['name'] == 'XR-1' and r['state'] == 'live'), None)
+        if xr1 is None:
+            return None
+        pointer.update(x=xr1['x'] + xr1['width'] // 2, y=xr1['y'] + xr1['height'] // 2)
+    if wire == 'j/cursorpos':
+        return dict(pointer)
+    warp = re.search(r'hl\.dsp\.cursor\.move\(\{ x = (-?\d+), y = (-?\d+) \}\)', wire)
+    if wire.startswith('/eval ') and warp:
+        pointer.update(x=int(warp[1]), y=int(warp[2]))
     return None
 
 

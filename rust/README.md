@@ -115,8 +115,8 @@ key through each run's own key helper. Until the view is ported the reply is its
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
-  bind panel are ported (below) but reach a run's ops only once the view is.
+  overview pointer's frames, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode,
+  the key bind panel and the overview pointer are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -169,6 +169,19 @@ HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, compl
 toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
 (`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
 Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
+
+The overview pointer (`view_controls::overview_pointer::Pointer`) is ported: the run's `UnifiedPointer`, shared with
+the `UnifiedSampler` thread on a compositor client of its own pinned to the run's compositor, the broker's cursor read
+(`cursor_reader`, a copy of the run's broker on that client), the window sender's drags on the run's `WindowSender`
+(`control.sender`), and the teardown (`sampler.stop()` removes its binds and shows the cursor before the view binds go).
+Its frames (`overview_pointer`, `roll`, `edge_pan`, `restore_band`, `resize_handle`, `move_handle`) come from
+`Pointer::poll` and the Super and resize ops, which the view calls; until the view is ported the pointer drives a
+`Shell` (the run's `ViewState` with the defaults) and nothing polls it. `tests/overview_pointer_run.rs` replays
+`rust/corpus/pointer/overview_pointer_run.json` (`tests/native_spike/overview_pointer_run_corpus.py`: the Python's
+pointer and sampler on the shipped HyprlandClient, the dot over a desktop, at its edge and over text): the same calls
+in order, reads, broker read, stop calls and last dot. The sampler starts with the `binds` port (it binds with the bind
+helper's command line), and the run case in `tests/managed_real/cases/overview_pointer.rs` waits on it and on a trace
+that sets the sampler's clocked reads apart.
 
 ### Switching runs to the Rust supervisor
 
