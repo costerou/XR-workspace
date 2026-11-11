@@ -126,15 +126,14 @@ supervisor's `control_request` / `serve_without_renderer`, and takes each featur
 
 | Entry | What it does on the Python side |
 |---|---|
-| `view` | `ViewControl.on_message`, `initial_frame`, `poll`, `on_events` send nothing; `status_reply` is `{}`; `window_context` is `{}` (the window memory's captures have no placements); `flush`, `save_setup`, `renderer_restarted` do nothing; `event_stream` and `install_options_binds` hidden |
 | `binds` | `install_view_binds` / `remove_view_binds` silenced, `reinstall_view_binds` hidden, and the session mode's `monitors` read in `view_controls`'s body answered `[]` without a request |
-| `overview_pointer` | `unified_cursor.UnifiedSampler` a stand-in (the `UnifiedPointer` stays: it sends nothing by itself) |
+| `overview_pointer` | `unified_cursor.UnifiedSampler` a stand-in, and `UnifiedPointer` one that leaves `control.overview_pointer` None (its `roll` frames, `summon` and rolls are the pointer's) |
 | `immersive` | `immersive.find_engine` gives `None` |
-| `keybinds` | `binds_text` and `open_key_panel` hidden, `keybinds.BindControl` a stand-in (`bind_kwargs()` is `{}`). Ported, but the Rust run opens it only with `binds`'s `bind_args`: delete with `binds`. |
+| `keybinds` | `binds_text` and `open_key_panel` hidden, `keybinds.BindControl` a stand-in (`bind_kwargs()` is `{}`) that leaves `control.keys` None once installed. Ported, but the Rust run opens it only with `binds`'s `bind_args`: delete with `binds`. |
 | `video` | `install_video_binds` hidden, `video.VideoControl` a stand-in that hands every call to the view |
 | `desktops` | `adopt_windows` hidden (the pills' window mover) |
 
-`send`, `privacy` and `window_memory` have no entry: they are ported and run on both sides. The helpers are
+`view`, `send`, `privacy` and `window_memory` have no entry: they are ported and run on both sides. The helpers are
 `patch(module, name, value)`, and `hide(*methods)` and `quiet(*methods)` on the client wrapper (`Client`). A port deletes its own entry, and, if a helper it used has
 no other user, may leave the helper. If its feature then needs more than deleting (a stand-in the next feature relied
 on), it says so in its report. `tests/managed_real.rs`'s module doc lists the implicit exclusions: no
