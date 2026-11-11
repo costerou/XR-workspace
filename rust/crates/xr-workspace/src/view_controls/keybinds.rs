@@ -5,13 +5,16 @@
 //!
 //! The panel itself is `crate::supervisor::keybinds` (`BindControl`, which queues `Job`s, and `BindWorker`, which runs
 //! them). This is the run's side of it: `keybinds.json` beside the profile, the desktop's binds read first, the jobs
-//! run in order on a worker thread with its own compositor client (the Python's `_sync` / `_read_desktop` threads,
-//! which its `_menu_lock` keeps in order), the results taken back on the loop (`poll`), and the toasts sent as desktop
-//! notifications off the loop (`_tell`).
+//! run in order on a worker thread with its own compositor client (the Python's `_sync` / `_read_desktop` threads),
+//! each in its turn of the run's bind table lock (`_menu_lock`: [`MenuLock`], shared with the binds' worker, taken on
+//! the loop when the job is sent), the results taken back on the loop (`poll`), and the toasts sent as desktop
+//! notifications off the loop (`_tell`). A reinstall's flags (`_typing_installed` and the panel's and options menu's
+//! binds) are set in the lock by the worker, in its turn, as the Python's `_work` sets them.
 //!
 //! What the panel needs from the view (typing mode, the help card and the placement panel it closes, the frame ids)
 //! comes through [`Host`], which the view implements; the view calls [`Keys::on_message`], [`Keys::poll`] and
-//! [`Keys::deadline`], and the binds' reload calls [`Keys::after_reload`].
+//! [`Keys::deadline`], and after a config reload [`Keys::after_reload`] (right after
+//! [`Binds::after_reload`](super::binds::Binds::after_reload), whose reinstall the lock lands first).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -21,6 +24,7 @@ use std::time::{Duration, Instant};
 
 use xr_wire::run_control::Frame;
 
+use super::binds::{Binds, KeyArgs, MenuLock, Table, Ticket};
 use super::{Frames, Run};
 use crate::hyprland::Client;
 use crate::lua::BindCommand;
@@ -45,12 +49,14 @@ pub type Notify = Arc<dyn Fn(&str) + Send + Sync>;
 pub struct Keys {
     control: BindControl,
     /// The worker thread's queue, and its results; `None`: no compositor client, so the jobs (state only) run here.
-    jobs: Option<Sender<Job>>,
+    jobs: Option<Sender<(Job, Ticket)>>,
     results: Option<Receiver<WorkResult>>,
     worker: Option<JoinHandle<()>>,
     local: BindWorker,
     /// Jobs sent whose results have not come back.
     outstanding: usize,
+    /// The bind table's lock: each job sent takes its place in it (`self.control._menu_lock`).
+    lock: MenuLock,
     notify: Notify,
     toasts: Vec<JoinHandle<()>>,
 }
@@ -166,11 +172,13 @@ impl Keys {
     /// installed, as before the panel), and the panel's worker on a client of its own. `bind_args`: the bind helper's
     /// command line (`python, client, control_socket, run_id, session`); `None`: the run installs no binds, so there
     /// is no panel either.
-    pub fn open(run: &mut Run<'_>, bind_args: Option<Vec<String>>) -> Option<Keys> {
+    pub fn open(run: &mut Run<'_>, binds: Option<&Binds>) -> Option<Keys> {
+        let binds = binds?;
         let notify: Notify = Arc::new(crate::managed::real::notify);
         Some(Keys::open_at(
             run,
-            bind_args?,
+            binds.bind_args(),
+            binds.lock().clone(),
             &panel::config_path(),
             notify,
         ))
@@ -178,7 +186,14 @@ impl Keys {
 
     /// [`Keys::open`] with the saved file at `path` and the toasts to `notify`. The worker's client is pinned to the
     /// compositor the run's client verified (none before a verified request: the panel then cannot take the keyboard).
-    pub fn open_at(run: &mut Run<'_>, bind_args: Vec<String>, path: &Path, notify: Notify) -> Keys {
+    /// `lock`: the run's bind table lock ([`MenuLock`]), which orders the worker's compositor work with the binds'.
+    pub fn open_at(
+        run: &mut Run<'_>,
+        bind_args: Vec<String>,
+        lock: MenuLock,
+        path: &Path,
+        notify: Notify,
+    ) -> Keys {
         let desktop = run
             .client
             .binds_text(READ_TIMEOUT)
@@ -204,6 +219,7 @@ impl Keys {
             outstanding: 0,
             notify,
             toasts: Vec::new(),
+            lock,
         };
         if let Some(client) = worker_client {
             keys.start_worker(Compositor { client, bind_args });
@@ -212,14 +228,27 @@ impl Keys {
     }
 
     fn start_worker(&mut self, mut compositor: Compositor) {
-        let (jobs, inbox) = mpsc::channel::<Job>();
+        let (jobs, inbox) = mpsc::channel::<(Job, Ticket)>();
         let (results, outbox) = mpsc::channel();
         let mut worker = self.control.worker();
+        let lock = self.lock.clone();
         let spawned = thread::Builder::new()
             .name("xr-keybinds".into())
             .spawn(move || {
-                for job in inbox {
+                for (job, ticket) in inbox {
+                    ticket.wait();
                     let result = worker.run(job, Some(&mut compositor));
+                    if let Some((typing, menu, options)) = result.reinstalled {
+                        // `c._typing_installed = typing`, the panel's and options menu's binds back or gone.
+                        lock.set_table(|t| {
+                            *t = Table {
+                                typing,
+                                menu,
+                                options,
+                            }
+                        });
+                    }
+                    drop(ticket);
                     if results.send(result).is_err() {
                         break;
                     }
@@ -237,7 +266,9 @@ impl Keys {
         let mut host = host;
         for job in self.control.take_jobs() {
             match &self.jobs {
-                Some(jobs) if jobs.send(job.clone()).is_ok() => self.outstanding += 1,
+                Some(jobs) if jobs.send((job.clone(), self.lock.ticket())).is_ok() => {
+                    self.outstanding += 1
+                }
                 _ => {
                     let result = self.local.run(job, None);
                     if let Some(host) = host.as_deref_mut() {
@@ -292,7 +323,7 @@ impl Keys {
 
     /// `bind_kwargs()`: the view and send binds `Client::install_view_binds` takes (`binds`, `send_binds`); `None`
     /// for either is its default table.
-    pub fn bind_kwargs(&self) -> (Option<Vec<(String, String)>>, Option<Vec<(String, String)>>) {
+    pub fn bind_kwargs(&self) -> KeyArgs {
         let owned = |binds: Vec<Bind>| -> Vec<(String, String)> {
             binds
                 .into_iter()
