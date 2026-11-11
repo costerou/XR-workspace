@@ -231,6 +231,15 @@ glass (`set_options_menu`, `set_placement_menu`, the render path's glass block, 
 `capture_e2e_rust_options_roundtrip`, `capture_e2e_rust_open_panel` and the `options_evidence` twin (a unit test in
 `shell/menus.rs`).
 
+`video_shell` is wired: the eight `video` actions play the file through `video::mode::Mode` (libmpv), made on the
+first open with the GPU compositor's GL context (without GPU composition the file is closed, as in C++). While a video
+is open it is drawn in place of the desktops through `GlCompositor::draw_scene_and_swap`, world-locked by
+`scene.world`, over the background, with the controls card (title, state, time, format, error, the quality menu)
+and the status pop-up head-locked in each eye. The status datagram carries `video` while one is open, the exit report
+has its `video` section, and the owner readback's `video` is the open video's report or the next video's quality
+defaults, keys sorted as nlohmann writes them. `tests/owner_readback.rs` and `tests/video_owner_events.rs` are the
+ctest twins.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops

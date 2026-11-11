@@ -156,6 +156,10 @@ impl Gl {
     pub fn raw(&self) -> &glow::Context {
         &self.gl
     }
+    /// The context itself, shared: for GL users with their own objects (the VR video's player and sphere).
+    pub fn context(&self) -> &Rc<glow::Context> {
+        &self.gl
+    }
     pub fn counts(&self) -> Counts {
         self.counts.get()
     }
@@ -1003,6 +1007,8 @@ pub struct GlCompositor {
     help: Card,
     binds_hud: Option<GlHud>,
     binds: Card,
+    /// The VR video's controls card (draw_scene_and_swap), made on its first draw.
+    video_hud: Option<GlHud>,
     glass: GlassFrame,
     glass_image: Option<Rc<HudImage>>,
     options_image: Option<Rc<HudImage>>,
@@ -1191,6 +1197,7 @@ impl GlCompositor {
             help: Card::default(),
             binds_hud,
             binds: Card::default(),
+            video_hud: None,
             glass: GlassFrame::default(),
             glass_image: None,
             options_image: None,
@@ -1831,6 +1838,7 @@ impl GlCompositor {
         half_h: f32,
         pan: Option<&PanLayers>,
     ) -> bool {
+        self.bind_target();
         let eyes = self.stereo_eyes();
         if eyes.is_empty() {
             self.env.eye = 0.0;
@@ -1870,6 +1878,60 @@ impl GlCompositor {
             self.gl.flush();
             true
         }
+    }
+
+    /// Draw a scene of its own in place of the desktops (`scene` gets the compositor and the buffer's pixel size; its
+    /// viewports are buffer pixels), then `card` head-locked near the bottom at `card_alpha` (re-uploaded when
+    /// `card_generation` changes) and the status pop-up over it, in each eye, then "swap" (glFlush). The VR video.
+    pub fn draw_scene_and_swap(
+        &mut self,
+        scene: impl FnOnce(&mut Self, u32, u32),
+        card: Option<&HudImage>,
+        card_generation: u64,
+        card_alpha: f32,
+    ) -> bool {
+        self.bind_target(); // whatever ran since the last frame (mpv) may have bound another framebuffer
+        self.env.eye = 0.0;
+        scene(self, self.px_w, self.px_h);
+        self.current = None; // the scene used programs of its own
+        self.gl.bind_buffer(None); // GlHud draws from client arrays
+        let card = card.filter(|_| card_alpha > 0.0);
+        if card.is_some() && self.video_hud.is_none() {
+            self.video_hud = GlHud::new(&self.gl);
+        }
+        let (width, height) = (self.width, self.height);
+        let overlays = |c: &mut Self| {
+            if let (Some(hud), Some(image)) = (&mut c.video_hud, card) {
+                hud.draw(image, card_generation, card_alpha, width, height, false, 0.0);
+            }
+            if let (Some(hud), Some(image)) = (&mut c.hud, &c.popup.image) {
+                hud.draw(image, c.popup.generation, c.popup.alpha, width, height, false, 0.0);
+            }
+        };
+        let eyes = self.stereo_eyes();
+        if eyes.is_empty() {
+            self.gl.viewport(0, 0, self.px_w as i32, self.px_h as i32);
+            overlays(self);
+        } else {
+            // the same picture in each eye: on the screen plane
+            for e in &eyes {
+                self.gl.viewport(e.x as i32, e.y as i32, e.width as i32, e.height as i32);
+                overlays(self);
+            }
+            self.gl.viewport(0, 0, self.px_w as i32, self.px_h as i32);
+        }
+        let ok = self.gl.get_error() == glow::NO_ERROR;
+        ok && {
+            self.gl.flush();
+            true
+        }
+    }
+
+    /// Bind the buffer the frame is drawn into.
+    fn bind_target(&self) {
+        let raw = self.gl.raw();
+        // SAFETY: a plain GL call on the current context; the framebuffer is this compositor's own.
+        unsafe { raw.bind_framebuffer(glow::FRAMEBUFFER, self.framebuffer.map(|(fb, _)| fb)) };
     }
 
     /// The drawn buffer's RGB, bottom row first (glReadPixels order), 3 bytes per pixel.
@@ -2841,6 +2903,7 @@ impl Drop for GlCompositor {
         self.hud = None;
         self.help_hud = None;
         self.binds_hud = None;
+        self.video_hud = None;
         self.meshes.each(|m| drop_mesh(raw, m));
         if let Some(pass) = self.stereo.pass.take() {
             pass.destroy(raw);

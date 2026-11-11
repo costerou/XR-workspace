@@ -1,5 +1,5 @@
-//! VR video mode of the renderer (docs/vr-video.md; port of spike/src/video_mode.cpp without the controls card, which
-//! comes with the HUD): while active it replaces the desktops in the glasses with the head-tracked video. Owns the
+//! VR video mode of the renderer (docs/vr-video.md; port of spike/src/video_mode.cpp, whose controls card is the
+//! shell's, src/shell/video_shell.rs): while active it replaces the desktops in the glasses with the head-tracked video. Owns the
 //! decoder and the projection pass; the supervisor owns what is shown and sends it as `video` control frames. The GL
 //! context is current for every call and for drop.
 
@@ -111,6 +111,11 @@ impl Mode {
         if let Some(p) = &mut self.player {
             p.seek(relative_s);
         }
+    }
+
+    /// The format shown (the report's `format_state`).
+    pub fn format(&self) -> Format {
+        self.format
     }
 
     pub fn set_format(&mut self, format: Format) {
@@ -227,76 +232,129 @@ impl Mode {
         }
     }
 
-    /// Bounded JSON for the exit report, as the C++ mode writes it (the card fields read 0 until the HUD lands).
-    pub fn report(&self) -> String {
-        let format = |f: &Format| {
-            let projection = match f.projection {
-                Projection::Equirect360 => "360",
-                Projection::Equirect180 => "180",
-                Projection::Fisheye => "fisheye",
-            };
-            let stereo = match f.stereo {
-                Stereo::Mono => "mono",
-                Stereo::Sbs => "sbs",
-                Stereo::Tb => "tb",
-            };
-            json!({"projection": projection, "stereo": stereo, "fov": f.fov_deg})
-        };
-        let player = self.player.as_ref().map(Player::report);
-        let parsed: Value = player
-            .as_deref()
-            .and_then(|p| serde_json::from_str(p).ok())
-            .unwrap_or(Value::Null);
-        let observed = parsed.get("readback").cloned().unwrap_or_else(|| json!({}));
-        let get = |k: &str, d: Value| observed.get(k).cloned().unwrap_or(d);
-        let error: String = self
-            .player
-            .as_ref()
-            .map_or(self.why.as_str(), Player::error)
-            .chars()
-            .take(256)
-            .collect();
-        let typed = json!({
-            "format_state": format(&self.format),
-            "format_applied": self.format_drawn.as_ref().map(format),
-            "playback": {
-                "state": self.state().name(),
-                "paused": get("paused", Value::Null),
-                "position_s": get("position_s", Value::Null),
-                "duration_s": get("duration_s", Value::Null),
-                "revision": get("revision", json!(0)),
-                "command_replies": get("command_replies", json!(0)),
-                "command_errors": get("command_errors", json!(0)),
-                "command_error": get("command_error", json!("")),
-                "error": error,
-            },
-            "quality_readback": {
-                "filter_requested": self.quality.filter.name(),
-                "deband_requested": self.quality.deband,
-                "filter_applied": self.filter_drawn.map(Filter::name),
-                "deband_applied": get("deband_applied", Value::Null),
-            },
-        });
-        let prefix = typed.to_string();
-        let filter = self
-            .sphere
-            .as_ref()
-            .map_or(self.quality.filter, Sphere::filter);
-        format!(
-            "{},\"opened\":{},\"frames_drawn\":{},\"card_shown\":0,\"state\":\"{}\",\"format\":\"{}\",\"filter\":\"{}\",\
-             \"forced\":{},\"setting\":\"{}\",\"deband\":{},\"player\":{}}}",
-            &prefix[..prefix.len() - 1],
-            self.opened,
-            self.frames_drawn,
-            self.state().name(),
-            self.format.label(true),
-            filter.name(),
-            self.sphere.as_ref().is_some_and(Sphere::forced),
-            self.quality.filter.name(),
-            self.quality.deband,
-            player.as_deref().unwrap_or("null"),
-        )
+    /// The error the card shows: the player's, or why there is none.
+    pub fn error(&self) -> &str {
+        self.player.as_ref().map_or(self.why.as_str(), Player::error)
     }
+
+    /// Bounded JSON for the exit report, as the C++ mode writes it, with no controls card shown.
+    pub fn report(&self) -> String {
+        self.report_with_card(0)
+    }
+
+    /// The exit report with `card_shown`: how often the controls card was faded in (the shell's card).
+    pub fn report_with_card(&self, card_shown: u64) -> String {
+        let player = self.player.as_ref().map(Player::report);
+        report_json(&ReportParts {
+            format: self.format,
+            format_drawn: self.format_drawn,
+            filter_drawn: self.filter_drawn,
+            player: player.as_deref(),
+            error: self.error(),
+            state: self.state(),
+            quality: self.quality,
+            opened: self.opened,
+            frames_drawn: self.frames_drawn,
+            card_shown,
+            sphere: self.sphere.as_ref().map(|s| (s.filter(), s.forced())),
+        })
+    }
+
+    /// The report of a mode that was never opened, with `quality` set: the renderer's saved next-video defaults
+    /// (the C++ VideoDefaults::report, a closed CPU VideoMode with no sphere or player).
+    pub fn closed_report(quality: Quality) -> String {
+        report_json(&ReportParts {
+            format: Format::default(),
+            format_drawn: None,
+            filter_drawn: None,
+            player: None,
+            error: "",
+            state: State::Off,
+            quality,
+            opened: 0,
+            frames_drawn: 0,
+            card_shown: 0,
+            sphere: None,
+        })
+    }
+}
+
+/// What the exit report is made of.
+struct ReportParts<'a> {
+    format: Format,
+    format_drawn: Option<Format>,
+    filter_drawn: Option<Filter>,
+    /// The player's own report.
+    player: Option<&'a str>,
+    error: &'a str,
+    state: State,
+    quality: Quality,
+    opened: u64,
+    frames_drawn: u64,
+    card_shown: u64,
+    /// The sphere's filter and whether the GPU forced it.
+    sphere: Option<(Filter, bool)>,
+}
+
+fn report_json(r: &ReportParts) -> String {
+    let format = |f: &Format| {
+        let projection = match f.projection {
+            Projection::Equirect360 => "360",
+            Projection::Equirect180 => "180",
+            Projection::Fisheye => "fisheye",
+        };
+        let stereo = match f.stereo {
+            Stereo::Mono => "mono",
+            Stereo::Sbs => "sbs",
+            Stereo::Tb => "tb",
+        };
+        json!({"projection": projection, "stereo": stereo, "fov": f.fov_deg})
+    };
+    let parsed: Value = r
+        .player
+        .and_then(|p| serde_json::from_str(p).ok())
+        .unwrap_or(Value::Null);
+    let observed = parsed.get("readback").cloned().unwrap_or_else(|| json!({}));
+    let get = |k: &str, d: Value| observed.get(k).cloned().unwrap_or(d);
+    let error: String = r.error.chars().take(256).collect();
+    let typed = json!({
+        "format_state": format(&r.format),
+        "format_applied": r.format_drawn.as_ref().map(format),
+        "playback": {
+            "state": r.state.name(),
+            "paused": get("paused", Value::Null),
+            "position_s": get("position_s", Value::Null),
+            "duration_s": get("duration_s", Value::Null),
+            "revision": get("revision", json!(0)),
+            "command_replies": get("command_replies", json!(0)),
+            "command_errors": get("command_errors", json!(0)),
+            "command_error": get("command_error", json!("")),
+            "error": error,
+        },
+        "quality_readback": {
+            "filter_requested": r.quality.filter.name(),
+            "deband_requested": r.quality.deband,
+            "filter_applied": r.filter_drawn.map(Filter::name),
+            "deband_applied": get("deband_applied", Value::Null),
+        },
+    });
+    let prefix = typed.to_string();
+    let (filter, forced) = r.sphere.unwrap_or((r.quality.filter, false));
+    format!(
+        "{},\"opened\":{},\"frames_drawn\":{},\"card_shown\":{},\"state\":\"{}\",\"format\":\"{}\",\"filter\":\"{}\",\
+         \"forced\":{},\"setting\":\"{}\",\"deband\":{},\"player\":{}}}",
+        &prefix[..prefix.len() - 1],
+        r.opened,
+        r.frames_drawn,
+        r.card_shown,
+        r.state.name(),
+        r.format.label(true),
+        filter.name(),
+        forced,
+        r.quality.filter.name(),
+        r.quality.deband,
+        r.player.unwrap_or("null"),
+    )
 }
 
 impl Drop for Mode {

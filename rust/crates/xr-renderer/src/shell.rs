@@ -217,10 +217,11 @@ struct State {
     scale120: u32,
     configured: bool,
     closed: bool,
+    /// Every feature's state (scene.rs). Before `capture`, so it drops first: the VR video's player and sphere free
+    /// GL objects while the compositor's context is still current.
+    features: scene::Features,
     /// Managed-output capture and the composition of the captured desktops (none: the test pattern).
     capture: captures::CaptureState,
-    /// Every feature's state (scene.rs).
-    features: scene::Features,
 }
 
 impl State {
