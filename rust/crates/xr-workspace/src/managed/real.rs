@@ -19,6 +19,7 @@ use std::os::fd::{AsFd, FromRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value as Json, json};
@@ -420,7 +421,9 @@ pub struct RealHost<'a> {
     runtime: PathBuf,
     renderer: PathBuf,
     layouts: PathBuf,
-    broker: Option<Broker>,
+    /// One broker client for the run, as Python's one `OwnershipBrokerClient`: the pills' desktop changes run on the
+    /// desktops worker with it, so the request ids stay one sequence (the guard's and recovery's after them).
+    broker: Option<Arc<Mutex<Broker>>>,
     journal: Option<Journal>,
     owner: Option<ManagedOwner>,
     specs: Vec<OutputSpec>,
@@ -437,6 +440,70 @@ pub struct RealHost<'a> {
     cursor_shape: Option<overview_pointer::CursorShape>,
     /// `view_controls`'s `control`, from its enter to its exit.
     controls: Option<ViewControls>,
+}
+
+/// The run's broker, locked for one call.
+fn locked(broker: &Option<Arc<Mutex<Broker>>>) -> Result<MutexGuard<'_, Broker>> {
+    broker
+        .as_ref()
+        .map(|b| b.lock().unwrap_or_else(PoisonError::into_inner))
+        .ok_or_else(|| Error("no ownership broker".into()))
+}
+
+/// What the run's guard checks besides the broker and the outputs: the compositor, the glasses.
+#[derive(Clone)]
+struct GuardScope {
+    instance: String,
+    runtime: PathBuf,
+    identity: Identity,
+    session: String,
+    output: String,
+}
+
+/// The run's guard (`ManagedGuard(broker, output, specs)`), as a worker process of this binary.
+fn guard_command(scope: &GuardScope, broker: &Broker, specs: &[OutputSpec]) -> Result<Command> {
+    let identity = &scope.identity;
+    let blob = json!({
+        "instance": scope.instance, "runtime": scope.runtime,
+        "identity": {"pid": identity.pid, "uid": identity.uid, "gid": identity.gid, "start": identity.start},
+        "session": scope.session, "run_id": broker.run_id, "output": scope.output,
+        "fallback_name": broker.approved_physical, "epoch": broker.epoch, "fallback": broker.fallback,
+        "request_id": broker.request_id, "specs": specs.iter().map(wire_spec).collect::<Vec<_>>(),
+    });
+    let exe = std::env::current_exe().map_err(err)?;
+    let mut command = Command::new(exe);
+    command.arg(GUARD_COMMAND).env(GUARD_ENV, blob.to_string());
+    Ok(command)
+}
+
+/// `adopt.adopt(client, monitor, names)`: `monitor`'s windows onto `names`, whole workspaces, in one compositor tick.
+pub(crate) fn adopt_onto(
+    client: &mut Client,
+    monitor: &str,
+    names: &[&str],
+) -> std::result::Result<(), String> {
+    let workspaces = client
+        .query(Query::Workspaces, hyprland::DEADLINE)
+        .map_err(|e| e.to_string())?;
+    let clients = client
+        .query(Query::Clients, hyprland::DEADLINE)
+        .map_err(|e| e.to_string())?;
+    let moves = adopt::plan(&to_serde(&workspaces), &to_serde(&clients), monitor, names)
+        .map_err(|e| e.0.to_string())?;
+    if !moves.workspaces.is_empty() || !moves.windows.is_empty() {
+        let w: Vec<(i64, &str)> = moves
+            .workspaces
+            .iter()
+            .map(|(i, o)| (*i, o.as_str()))
+            .collect();
+        let c: Vec<(&str, &str)> = moves
+            .windows
+            .iter()
+            .map(|(a, o)| (a.as_str(), o.as_str()))
+            .collect();
+        client.adopt_windows(&w, &c).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// The [`view_controls::Run`] of one call, from the host's fields (a macro, so the borrows stay per field).
@@ -567,28 +634,25 @@ impl<'a> RealHost<'a> {
             .map_err(|e| e.to_string())
     }
 
-    /// The run's guard (`ManagedGuard`), as a worker process of this binary.
-    fn guard(&mut self, specs: &[OutputSpec]) -> Result<Command> {
+    fn guard_scope(&self) -> Result<GuardScope> {
         let identity = self
             .client
             .identity()
             .cloned()
             .ok_or_else(|| Error("no verified compositor peer yet".into()))?;
-        let broker = self
-            .broker
-            .as_ref()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
-        let blob = json!({
-            "instance": self.client.instance(), "runtime": self.runtime,
-            "identity": {"pid": identity.pid, "uid": identity.uid, "gid": identity.gid, "start": identity.start},
-            "session": self.session, "run_id": broker.run_id, "output": self.consent.output,
-            "fallback_name": broker.approved_physical, "epoch": broker.epoch, "fallback": broker.fallback,
-            "request_id": broker.request_id, "specs": specs.iter().map(wire_spec).collect::<Vec<_>>(),
-        });
-        let exe = std::env::current_exe().map_err(err)?;
-        let mut command = Command::new(exe);
-        command.arg(GUARD_COMMAND).env(GUARD_ENV, blob.to_string());
-        Ok(command)
+        Ok(GuardScope {
+            instance: self.client.instance().to_owned(),
+            runtime: self.runtime.clone(),
+            identity,
+            session: self.session.clone(),
+            output: self.consent.output.clone(),
+        })
+    }
+
+    /// The run's guard (`ManagedGuard`), as a worker process of this binary.
+    fn guard(&mut self, specs: &[OutputSpec]) -> Result<Command> {
+        let scope = self.guard_scope()?;
+        guard_command(&scope, &*locked(&self.broker)?, specs)
     }
 
     /// `_launch` of one renderer, until it is reaped: its return code.
@@ -712,7 +776,8 @@ impl Host for RealHost<'_> {
 
     fn broker_open(&mut self, run_id: &str, session: &str, fallback: &str) -> Result<()> {
         self.session = session.to_owned();
-        self.broker = Some(Broker::new(run_id, session, fallback).map_err(Error)?);
+        let broker = Broker::new(run_id, session, fallback).map_err(Error)?;
+        self.broker = Some(Arc::new(Mutex::new(broker)));
         Ok(())
     }
 
@@ -721,16 +786,15 @@ impl Host for RealHost<'_> {
             .journal
             .as_mut()
             .ok_or_else(|| Error("no journal".into()))?;
-        self.broker = Some(Broker::from_journal(self.client, journal).map_err(Error)?);
+        let broker = Broker::from_journal(self.client, journal).map_err(Error)?;
+        self.broker = Some(Arc::new(Mutex::new(broker)));
         Ok(())
     }
 
     fn require_output_ownership(&mut self) -> Result<()> {
-        let broker = self
-            .broker
-            .as_mut()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
-        broker.require_output_ownership(self.client).map_err(Error)
+        locked(&self.broker)?
+            .require_output_ownership(self.client)
+            .map_err(Error)
     }
 
     fn private_dir(&mut self, relative: &Path) -> Result<()> {
@@ -771,10 +835,7 @@ impl Host for RealHost<'_> {
     }
 
     fn journal_bind_broker(&mut self, scope: &Scope) -> Result<()> {
-        let broker = self
-            .broker
-            .as_ref()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
+        let broker = locked(&self.broker)?.clone();
         let text = |s: &Option<String>| s.clone().map_or(Value::Null, Value::String);
         let context = Value::Object(vec![
             ("instance".into(), Value::String(scope.instance.clone())),
@@ -811,13 +872,10 @@ impl Host for RealHost<'_> {
             .journal
             .as_mut()
             .ok_or_else(|| Error("no journal".into()))?;
-        let broker = self
-            .broker
-            .as_mut()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
+        let mut broker = locked(&self.broker)?;
         let mut backend = BrokerRecovery {
             client: self.client,
-            broker,
+            broker: &mut broker,
         };
         let done = recovery::recover(journal, &mut backend).map_err(err)?;
         Ok(Recovery {
@@ -837,10 +895,7 @@ impl Host for RealHost<'_> {
             .journal
             .as_mut()
             .ok_or_else(|| Error("no journal".into()))?;
-        let broker = self
-            .broker
-            .as_mut()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
+        let mut broker = locked(&self.broker)?;
         broker
             .require_output_ownership(self.client)
             .map_err(Error)?;
@@ -866,7 +921,32 @@ impl Host for RealHost<'_> {
     }
 
     fn desktop_manager(&mut self, _specs: &[Spec]) -> Result<()> {
-        self.desktops = desktops::Manager::open(&self.specs); // the pills' Ultrawide / Add / Remove
+        // `DesktopManager(broker, journal, specs, guard_factory=make_guard, windows=client)`: the pills' Ultrawide /
+        // Add / Remove. The worker opens its own client on this compositor and its own handle on the journal.
+        let scope = self.guard_scope()?;
+        let broker = self
+            .broker
+            .clone()
+            .ok_or_else(|| Error("no ownership broker".into()))?;
+        let guard_broker = Arc::clone(&broker);
+        let guard_scope = scope.clone();
+        let make_guard = move |live: &[OutputSpec]| {
+            let broker = guard_broker.lock().unwrap_or_else(PoisonError::into_inner);
+            guard_command(&guard_scope, &broker, live).ok()
+        };
+        self.desktops = desktops::Manager::open(
+            &self.specs,
+            desktops::Env {
+                broker,
+                journal: self.journal_path(&self.consent.run_id),
+                run_id: self.consent.run_id.clone(),
+                session: scope.session,
+                instance: scope.instance,
+                runtime: scope.runtime,
+                identity: scope.identity,
+                guard: Box::new(make_guard),
+            },
+        );
         Ok(())
     }
 
@@ -877,11 +957,9 @@ impl Host for RealHost<'_> {
             .find(|s| s.id == spec.id)
             .cloned()
             .ok_or_else(|| Error("unknown output".into()))?;
-        let broker = self
-            .broker
-            .as_mut()
-            .ok_or_else(|| Error("no ownership broker".into()))?;
-        let observed = broker.inspect(self.client, &spec.id).map_err(Error)?;
+        let observed = locked(&self.broker)?
+            .inspect(self.client, &spec.id)
+            .map_err(Error)?;
         ownership::verify(&observed, &wanted).map_err(Error)
     }
 
@@ -927,41 +1005,8 @@ impl Host for RealHost<'_> {
 
     fn adopt(&mut self, names: &[String]) -> Result<()> {
         let fallback = self.consent.recovery_output.clone();
-        let moved = (|| -> std::result::Result<(), String> {
-            let workspaces = self
-                .client
-                .query(Query::Workspaces, hyprland::DEADLINE)
-                .map_err(|e| e.to_string())?;
-            let clients = self
-                .client
-                .query(Query::Clients, hyprland::DEADLINE)
-                .map_err(|e| e.to_string())?;
-            let targets: Vec<&str> = names.iter().map(String::as_str).collect();
-            let moves = adopt::plan(
-                &to_serde(&workspaces),
-                &to_serde(&clients),
-                &fallback,
-                &targets,
-            )
-            .map_err(|e| e.0.to_string())?;
-            if !moves.workspaces.is_empty() || !moves.windows.is_empty() {
-                let w: Vec<(i64, &str)> = moves
-                    .workspaces
-                    .iter()
-                    .map(|(i, o)| (*i, o.as_str()))
-                    .collect();
-                let c: Vec<(&str, &str)> = moves
-                    .windows
-                    .iter()
-                    .map(|(a, o)| (a.as_str(), o.as_str()))
-                    .collect();
-                self.client
-                    .adopt_windows(&w, &c)
-                    .map_err(|e| e.to_string())?;
-            }
-            Ok(())
-        })();
-        if moved.is_err() {
+        let targets: Vec<&str> = names.iter().map(String::as_str).collect();
+        if adopt_onto(self.client, &fallback, &targets).is_err() {
             notify("Could not move your windows onto the glasses.");
         }
         Ok(())
@@ -977,10 +1022,9 @@ impl Host for RealHost<'_> {
     }
 
     fn cursor_reader(&mut self) -> Result<()> {
-        self.cursor_shape = self
-            .broker
-            .as_ref()
-            .and_then(overview_pointer::cursor_reader);
+        self.cursor_shape = locked(&self.broker)
+            .ok()
+            .and_then(|b| overview_pointer::cursor_reader(&b));
         Ok(())
     }
 

@@ -1064,9 +1064,7 @@ impl ViewControl {
             return self.on_menu(op, f);
         }
         if op == RESET_OP {
-            if let Some(desktops) = f.desktops.as_deref_mut() {
-                desktops.layout_reset(out);
-            }
+            // View: `desktops.layout_reset(self)` once `ViewControl` implements `desktops::View`.
             return Vec::new();
         }
         if RESIZE_OPS.contains(&op) {

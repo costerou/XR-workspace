@@ -139,8 +139,8 @@ The panel's and typing mode's bind swaps and a config reload go to the binds (`B
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket, the Ctrl+Alt binds, the view, window sending,
-  privacy mode, the window memory, the key bind panel, 3D, VR video and the overview pointer (below): the options menu,
-  the overview pointer's pill clicks and sliders in the view, and through them the pills' desktop changes.
+  privacy mode, the window memory, the key bind panel, 3D, VR video, the overview pointer and the pills' desktop changes
+  (below): the options menu, and the overview pointer's pill clicks and sliders in the view.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -164,8 +164,9 @@ pinned to the run's compositor; and the run's end takes the last capture into `w
 `tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
 recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
 `managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
-Stop. The view gives it its `window_context` and polls it. Not ported yet: `set_names` and `leaving` (a desktop removed
-and added again in a run), which the `desktops` port calls.
+Stop. The view gives it its `window_context` and polls it. A desktop removed and added again in a run is ported too:
+`Tracker::leaving` (the desktops worker's, before a removal) parks its windows' memory, and `Tracker::set_names` brings
+them home on the next capture (the corpus has `test_window_memory.RemovalTests`' scenarios).
 
 VR video (`view_controls::video`, `video.VideoControl`) is ported: a `video_open` on the control socket opens, probes and
 checks the file (or the web video, relayed through ffmpeg) on a worker thread, and the loop's next poll sends the `video`
@@ -173,13 +174,25 @@ open frame with the file's descriptor (`Frames::fds`, SCM_RIGHTS with its first 
 menu, Ctrl+Alt+C, the card's idle close, the renderer's errors and missing support (from its measured status), web seeks
 and resumes, and the options menu's deferred owners (`video::Done`). The video keys go in and out off the loop, in order,
 on a client of the video's own; `close` removes them before recovery. What it needs of the view comes through
-`video::Host`; a run without a view (today) has the default quality and background and no cards to close.
-`tests/video_control_corpus.rs` replays `corpus/video/control.json` (24 sessions of the Python control against a
-recording view, from `tests/native_spike/video_control_corpus.py`): the same frames, descriptors, status entry, bind
-calls, toasts and completions at every step. The `managed_real` case `video` opens a one-frame clip in the session and
-leaves it with Escape's helper: the same frames (one descriptor, the file) and `status` on both runners. The video keys
-go in with `binds`'s helper command line. Not yet: the options menu's and config reload's calls, which the `view` port
-makes (`Control::set_quality`, `on_message` with a `Done`, `Video::config_reloaded`).
+`video::Host`. `tests/video_control_corpus.rs` replays `corpus/video/control.json` (24 sessions of the Python control
+against a recording view, from `tests/native_spike/video_control_corpus.py`): the same frames, descriptors, status
+entry, bind calls, toasts and completions at every step. The `managed_real` case `video` opens a one-frame clip in the
+session and leaves it with Escape's helper: the same frames (one descriptor, the file) and `status` on both runners. The
+video keys go in with `binds`'s helper command line.
+
+The pills' desktop changes (`view_controls::desktops::Manager`, `desktops.DesktopManager`) are ported: Ultrawide, Add,
+Remove, Scale, Resolution and Ctrl+Alt+R plan their broker steps (`crate::desktops::plan`), which run on a worker with its
+own client pinned to the run's compositor and its own handle on the journal, through the run's one broker client
+(`create_live`, `reshape`, `remove_live`; a failure reverses what can be proven again), then pull a shrunk desktop's
+floating windows in; a reset's removed desktop's windows go to XR-3 first (`_window_mover`). A change pauses the run's
+guard and replaces it with `RealHost::guard` of the outputs as they are now (`LoopHook::guard_change`), and a later
+renderer captures them. The view's side (`desktop_action`, `_start_change`, `_desktops_done`, `layout_reset` and its
+ease) is `Manager`'s over `desktops::View`, which `ViewControl` implements. `tests/desktops_corpus.rs` runs
+`corpus/desktops/manager.json` (the Python manager through the Python broker client on a scripted plugin,
+`tests/native_spike/desktops_corpus.py`) on the same plugin: the same requests, outcomes, desktops, guard, counts and
+journal for every action, the reset, and a refused create, remove and reshape; and the view's side on a stand-in view
+(Remove twice, a refused create, Ctrl+Alt+R twice). The `managed_real` cases (`menu_add`, Ctrl+Alt+R, a refused create)
+run on both sides.
 
 Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client

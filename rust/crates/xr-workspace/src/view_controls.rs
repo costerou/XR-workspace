@@ -150,6 +150,11 @@ impl ViewControls {
         if let (Some(windows), Some(view)) = (controls.windows.as_mut(), controls.view.as_ref()) {
             windows.set_context(view.window_context());
         }
+        if let (Some(desktops), Some(windows)) =
+            (controls.desktops.as_mut(), controls.windows.as_ref())
+        {
+            desktops.set_leaving(windows.leaving()); // `desktops.leaving = windows.leaving`
+        }
         // `client.event_stream()` (config reloads, window changes, `xrcursor`).
         if let Some(view) = controls.view.as_mut() {
             view.open_events(run);
