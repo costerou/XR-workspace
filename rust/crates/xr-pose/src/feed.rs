@@ -534,6 +534,17 @@ impl FeedReader {
         Some(std::array::from_fn(|i| unsafe { p.add(i).read_volatile() }))
     }
 
+    /// Whether the driver has disabled the feed. When it has, the sample `read` serves while the
+    /// writer holds the lock is forgotten too, as `read` does.
+    pub fn disabled(&mut self) -> bool {
+        // SAFETY: a byte in an attached segment; the writer stores it atomically.
+        let off = unsafe { AtomicU8::from_ptr(self.disabled) }.load(Ordering::Acquire) != 0;
+        if off {
+            self.last = None;
+        }
+        off
+    }
+
     /// The newest sample. `None` while disabled, for an invalid sample, or when the lock is not
     /// recoverable. While the writer holds the lock, the previous sample again: its device time
     /// is unchanged, so it ages and is predicted like any other (no sample would leave the frame
@@ -542,9 +553,7 @@ impl FeedReader {
         const WAIT_NS: u64 = 2_000_000;
         const FIRST_BACKOFF_NS: u64 = 50_000_000;
         const MAX_BACKOFF_NS: u64 = 1_000_000_000;
-        // SAFETY: a byte in an attached segment; the writer stores it atomically.
-        if unsafe { AtomicU8::from_ptr(self.disabled) }.load(Ordering::Acquire) != 0 {
-            self.last = None;
+        if self.disabled() {
             return None;
         }
         let mut rc = clocklock(self.mutex, None);
