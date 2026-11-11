@@ -6,7 +6,7 @@ ColumnLayout {
     property alias title: main.text
     property alias text: sub.text
     Layout.fillWidth: true
-    spacing: 4
-    PanelText { id: main; objectName: "heading"; font.pixelSize: 22; font.bold: true }
-    PanelText { id: sub; visible: text !== ""; alpha: 0.55; font.pixelSize: 11 }
+    spacing: Tone.space1
+    PanelText { id: main; objectName: "heading"; role: "heading" }
+    PanelText { id: sub; visible: text !== ""; alpha: Tone.secondary; role: "small" }
 }

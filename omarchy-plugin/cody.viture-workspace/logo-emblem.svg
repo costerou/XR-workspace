@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
 <title>XR Workspace</title>
 <!-- The panel header's mark: the emblem group of assets/logo.svg, copied as its comment says (viewBox
-     0 0 128 128, transform dropped). Logo.qml draws the wordmark next to it in the theme's font and colours.
+     0 0 128 128, transform dropped). PanelHeader.qml shows it beside "XR Workspace" in the theme's font.
      tests/test_branding.py checks the group still matches the logo's. -->
 <g id="emblem">
   <defs>

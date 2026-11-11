@@ -3,7 +3,6 @@ ControllerClient 1.0 ControllerClient.qml
 Panel 1.0 Panel.qml
 BarWidget 1.0 BarWidget.qml
 DesktopEditor 1.0 DesktopEditor.qml
-Logo 1.0 Logo.qml
 singleton Motion 1.0 Motion.qml
 MenuTransition 1.0 MenuTransition.qml
 HomePage 1.0 HomePage.qml

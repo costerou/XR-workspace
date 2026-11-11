@@ -233,6 +233,30 @@ ShellRoot {
         check(find(p, "stopButton").enabled, "running: Stop stays"); p.destroy();
     }
 
+    Component { id: header; Plugin.PanelHeader {} }
+    Component { id: heading; Plugin.PageHeading {} }
+    Component { id: text; Plugin.PanelText {} }
+    Component { id: label; Plugin.SectionLabel {} }
+
+    // The type roles read Tone's tokens: the header title is ui-strong, the heading ui-heading, its line ui-small.
+    function testTokens() {
+        let h = header.createObject(surface);
+        const t = find(h, "pageTitle");
+        check(t.font.pixelSize === 13 && t.font.weight === Font.Bold && t.text === "XR Workspace", "tokens: header title strong");
+        h.destroy();
+        h = heading.createObject(surface, {title: "Confirm", text: "Line"});
+        check(find(h, "heading").font.pixelSize === 22 && find(h, "heading").font.weight === Font.Bold, "tokens: heading");
+        h.destroy();
+        h = text.createObject(surface);
+        check(h.font.pixelSize === 12 && h.font.weight === Font.Normal, "tokens: body is the default role");
+        h.role = "cta"; check(h.font.pixelSize === 24 && h.font.weight === Font.ExtraBold && h.font.letterSpacing === 1, "tokens: cta");
+        h.role = "nonsense"; check(h.font.pixelSize === 12, "tokens: an unknown role falls back to body");
+        h.destroy();
+        h = label.createObject(surface);
+        check(h.font.pixelSize === 10 && h.font.weight === Font.Bold, "tokens: section label is caption");
+        h.destroy();
+    }
+
     FloatingWindow {
         implicitWidth: 520; implicitHeight: 660
         Item { id: surface; anchors.fill: parent }
@@ -240,7 +264,7 @@ ShellRoot {
     Timer {
         interval: 300; running: true
         onTriggered: {
-            for (const test of [root.testHome, root.testSetup, root.testConfirm, root.testProgress, root.testRecovery, root.testRunning]) {
+            for (const test of [root.testHome, root.testSetup, root.testConfirm, root.testProgress, root.testRecovery, root.testRunning, root.testTokens]) {
                 try { test(); } catch (e) { root.fail(e + " " + e.stack); }
             }
             if (root.failures === 0) console.log("PASS prestart pages");
