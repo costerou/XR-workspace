@@ -21,7 +21,7 @@ use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use rustix::io::Errno;
 use rustix::net::{RecvFlags, SendFlags, recv, send};
 
-use shell::{Presentation, monotonic_ms_f64};
+use shell::{Presentation, monotonic_ms, monotonic_ms_f64};
 use xr_renderer::ipc::{self, ControlStream, Descriptors, StatusExtras};
 use xr_wire::control::{self, Message, Op, Payload, Refused, Video};
 use xr_wire::status::{encode_applied, encode_refused};

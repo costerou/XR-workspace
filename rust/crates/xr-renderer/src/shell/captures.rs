@@ -14,7 +14,7 @@
 use std::os::fd::{AsFd, AsRawFd};
 
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_output::WlOutput, wl_registry::WlRegistry, wl_shm};
-use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, WEnum, delegate_noop, event_created_child};
+use wayland_client::{Connection, Dispatch, QueueHandle, WEnum, delegate_noop, event_created_child};
 use wayland_protocols::ext::image_capture_source::v1::client::{
     ext_image_capture_source_v1::ExtImageCaptureSourceV1,
     ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1,
@@ -37,7 +37,7 @@ use xr_renderer::capture::{
 use xr_renderer::dmabuf::{Allocator, Dmabuf, dev_from_array, render_node};
 use xr_renderer::egl::DmabufPlane;
 use xr_renderer::gl::{GlCompositor, GpuImage};
-use xr_renderer::ipc::CapturePath;
+use xr_wire::status::CapturePath;
 use xr_renderer::options_geometry::json_string;
 use xr_renderer::pose::IDENTITY;
 use xr_renderer::view::{Placement, Size, SizeEase, overview_geometry_json, overview_layout};
@@ -1156,11 +1156,9 @@ impl Dispatch<ZwpLinuxBufferParamsV1, (usize, u64, usize)> for State {
                 }
                 s.params_settled(i, qh);
             }
-            zwp_linux_buffer_params_v1::Event::Failed => {
-                if current {
-                    s.capture.captures[i].dmabuf_failed = true;
-                    s.params_settled(i, qh);
-                }
+            zwp_linux_buffer_params_v1::Event::Failed if current => {
+                s.capture.captures[i].dmabuf_failed = true;
+                s.params_settled(i, qh);
             }
             _ => {}
         }
