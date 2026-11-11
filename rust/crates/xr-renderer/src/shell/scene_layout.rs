@@ -341,17 +341,38 @@ mod tests {
         let mut s = scene(1000.0, &sizes, tiles.clone());
         l.contribute(&mut s, &RollState::default());
         assert_eq!(s.own, vec![Placement::default(); 2]); // nothing set: flat, straight ahead
-        assert!(!l.animating(1000.0));
+        assert!(!l.animating(1000.0, &RollState::default()));
         l.placements = vec![[300, 0, 150, 0]];
         let target = placement_from_wire(&[300, 0, 150, 0]);
         let mut s = scene(1000.0 + f64::from(PLACEMENT_EASE), &sizes, tiles.clone());
         l.contribute(&mut s, &RollState::default());
-        assert!(s.own[0].x > 0.0 && s.own[0].x < target.x && l.animating(0.0)); // on its way
+        assert!(s.own[0].x > 0.0 && s.own[0].x < target.x && l.animating(0.0, &RollState::default())); // on its way
         assert_eq!(s.own[1], Placement::default()); // an absent entry is flat
         let mut s = scene(1e6, &sizes, tiles);
         l.contribute(&mut s, &RollState::default());
-        assert!(same_placement(&s.own[0], &target) && !l.animating(0.0)); // lands exactly
+        assert!(same_placement(&s.own[0], &target) && !l.animating(0.0, &RollState::default())); // lands exactly
     }
+    /// The levelling roll is part of the target placement (wayland.cpp target_placement): it eases with the rest.
+    #[test]
+    fn the_roll_eases_with_the_placement() {
+        let sizes = [Size { w: 1920.0, h: 1080.0 }];
+        let tiles = vec![FRect::default()];
+        let (mut l, mut roll) = (SceneLayout::default(), RollState::default());
+        let mut s = scene(1000.0, &sizes, tiles.clone());
+        l.contribute(&mut s, &roll);
+        roll.set_rolls([9000, 0, 0, 0]);
+        let target = std::f32::consts::FRAC_PI_2;
+        assert_eq!(l.target_placement(0, &roll).roll, 9000.0 / 100.0 * std::f32::consts::PI / 180.0);
+        assert!(l.animating(1000.0, &roll));
+        let mut s = scene(1000.0 + f64::from(PLACEMENT_EASE), &sizes, tiles.clone());
+        l.contribute(&mut s, &roll);
+        assert!(s.own[0].roll > 0.0 && s.own[0].roll < target, "on its way: {}", s.own[0].roll);
+        assert_eq!(s.targets[0].roll, l.target_placement(0, &roll).roll);
+        let mut s = scene(1e6, &sizes, tiles);
+        l.contribute(&mut s, &roll);
+        assert!(same_placement(&s.own[0], &s.targets[0]) && !l.animating(0.0, &roll));
+    }
+
     const PLACEMENT_EASE: f32 = xr_renderer::view::PLACEMENT_EASE_MS;
 
     #[test]
@@ -398,7 +419,7 @@ mod tests {
         let mut s = scene(20.0, &two, after.clone());
         l.contribute(&mut s, &RollState::default());
         assert_eq!(s.tiles[0], before[0]); // the ease starts from where it was drawn
-        assert!(l.animating(20.0));
+        assert!(l.animating(20.0, &RollState::default()));
         let mut s = scene(20.0 + f64::from(xr_renderer::view::TILE_EASE_MS), &two, after.clone());
         l.contribute(&mut s, &RollState::default());
         assert_eq!(s.tiles, after);
