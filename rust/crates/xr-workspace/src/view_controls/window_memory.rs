@@ -188,7 +188,8 @@ impl Memory {
                     .and_then(|c| monitor_of(c["workspace"].get("id")))
             };
             // A parked window stays parked only where the removal put it: anywhere else it was moved on purpose.
-            self.parked.retain(|r| at(&r["address"]) == Some(&r["landing"]));
+            self.parked
+                .retain(|r| at(&r["address"]) == Some(&r["landing"]));
             let waiting: Vec<&Value> = self.parked.iter().map(|r| &r["address"]).collect();
             let mut windows: Vec<Value> = fresh["windows"]
                 .as_array()
@@ -351,7 +352,9 @@ impl Tracker {
                     "run: {n} remembered window{} back on their desktops",
                     if n == 1 { "" } else { "s" }
                 )),
-                Err(e) => log(&format!("run: could not settle the remembered windows: {e}")),
+                Err(e) => log(&format!(
+                    "run: could not settle the remembered windows: {e}"
+                )),
             }
         }
         self.pin(run.client);
@@ -390,8 +393,11 @@ impl Tracker {
         }
         self.due = None;
         let memory = Arc::clone(&self.memory);
-        let (runtime, session, identity) =
-            (self.runtime.clone(), self.session.clone(), self.identity.clone());
+        let (runtime, session, identity) = (
+            self.runtime.clone(),
+            self.session.clone(),
+            self.identity.clone(),
+        );
         self.worker = Some(std::thread::spawn(move || {
             let mut m = lock(&memory);
             if m.closed {

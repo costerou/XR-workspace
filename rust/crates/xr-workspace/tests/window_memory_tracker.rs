@@ -278,7 +278,11 @@ fn marks_inside_the_delay_are_one_capture_and_nothing_marked_reads_nothing() {
     let due = tracker.deadline().unwrap();
     tracker.mark();
     tracker.mark();
-    assert_eq!(tracker.deadline(), Some(due), "later marks keep the first due time");
+    assert_eq!(
+        tracker.deadline(),
+        Some(due),
+        "later marks keep the first due time"
+    );
     assert!(due >= start + Duration::from_millis(900));
     tracker.poll(due - Duration::from_millis(10));
     tracker.join();

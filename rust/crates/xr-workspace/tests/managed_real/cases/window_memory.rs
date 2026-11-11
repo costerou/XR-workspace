@@ -26,16 +26,35 @@ fn remember(s: &Session) {
         json!({"name": name, "x": x, "y": 0, "width": 1920, "height": 1080, "scale": 1.0,
                "activeWorkspace": {"id": active, "name": active.to_string()}})
     };
-    let monitors = json!([monitor("DP-1", 0, 1), monitor("XR-1", 3840, 61), monitor("XR-2", 5760, 71)]);
+    let monitors = json!([
+        monitor("DP-1", 0, 1),
+        monitor("XR-1", 3840, 61),
+        monitor("XR-2", 5760, 71)
+    ]);
     let workspaces = json!([{"id": 71, "name": "71", "monitor": "XR-2", "windows": 1}]);
     let clients = json!([{"address": "0x1", "workspace": {"id": 71, "name": "71"}, "at": [5790, 30],
                           "size": [800, 600], "class": "kitty", "title": "t", "initialTitle": "t", "pid": 4242,
                           "floating": false, "mapped": true, "pinned": false, "fullscreen": 0, "fullscreenClient": 0}]);
-    let memory = capture(&clients, &workspaces, &monitors, &["XR-1", "XR-2"], INSTANCE, None).unwrap();
-    assert_eq!(memory["windows"].as_array().map(Vec::len), Some(1), "{memory}");
+    let memory = capture(
+        &clients,
+        &workspaces,
+        &monitors,
+        &["XR-1", "XR-2"],
+        INSTANCE,
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        memory["windows"].as_array().map(Vec::len),
+        Some(1),
+        "{memory}"
+    );
     let path = memory_file(s);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    Store::new(&path, "luma-ultra").unwrap().save(memory).unwrap();
+    Store::new(&path, "luma-ultra")
+        .unwrap()
+        .save(memory)
+        .unwrap();
 }
 
 /// One supervisor's run on the case, stopped (SIGINT) once the renderer is up, as `Session::run`'s `stop`.
@@ -44,7 +63,10 @@ fn stopped(who: Who) -> (super::Observed, Value, Value, i32, String) {
     remember(&s);
     let before: Value = serde_json::from_slice(&fs::read(memory_file(&s)).unwrap()).unwrap();
     let child = s.runner(who).spawn().unwrap();
-    if wait_for(&s.root.join("run/renderer-started"), Duration::from_secs(20)) {
+    if wait_for(
+        &s.root.join("run/renderer-started"),
+        Duration::from_secs(20),
+    ) {
         std::thread::sleep(Duration::from_millis(300));
         unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
     }
@@ -71,12 +93,23 @@ fn the_remembered_window_goes_back_and_the_last_capture_is_saved() {
         "{CASE}: the requests differ\n{}\n{context}",
         diff(&python.trace, &rust.trace)
     );
-    let placed = |t: &[String]| t.iter().filter(|r| r.starts_with("/eval ") && r.contains("{{1,\"XR-2\",")).count();
-    assert!(placed(&rust.trace) > 0, "the placement went out: {:#?}", rust.trace);
+    let placed = |t: &[String]| {
+        t.iter()
+            .filter(|r| r.starts_with("/eval ") && r.contains("{{1,\"XR-2\","))
+            .count()
+    };
+    assert!(
+        placed(&rust.trace) > 0,
+        "the placement went out: {:#?}",
+        rust.trace
+    );
     assert_eq!(python.journal, rust.journal, "journal: {context}");
     assert_eq!(python.layout, rust.layout, "layout snapshot: {context}");
     assert_eq!(python.result, rust.result, "result: {context}");
-    assert_eq!(python.renderers, rust.renderers, "renderer arguments: {context}");
+    assert_eq!(
+        python.renderers, rust.renderers,
+        "renderer arguments: {context}"
+    );
     assert_eq!(py_code, rs_code, "exit status: {context}");
     assert_eq!(rust.result["stop_reason"], "interrupted");
     assert_eq!(py_before, rs_before);
