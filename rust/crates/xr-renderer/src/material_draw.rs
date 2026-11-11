@@ -89,6 +89,21 @@ fn rotate_right(gx: f32, gy: f32) -> f32 {
     )
 }
 
+/// The 2 px round-capped, round-joined stroke along the open polyline `pts` (grid units).
+fn polyline(gx: f32, gy: f32, pts: &[(f32, f32)]) -> f32 {
+    pts.windows(2).fold(1e9, |d, s| cmin(d, capsule(gx, gy, s[0].0, s[0].1, s[1].0, s[1].1, 1.0)))
+}
+
+/// The 2 px stroke along the circle of radius r about (cx, cy).
+fn ring(gx: f32, gy: f32, cx: f32, cy: f32, r: f32) -> f32 {
+    ((gx - cx).hypot(gy - cy) - r).abs() - 1.0
+}
+
+/// The 2 px stroke along a filled shape's edge, given its signed distance (round outer corners, as a round join).
+fn outline(d: f32) -> f32 {
+    d.abs() - 1.0
+}
+
 /// Premultiplied "over": colour `c` with coverage `a` (clamped to 1) on top of pixel (x, y); outside the image: nothing.
 pub fn md_over(im: &mut HudImage, x: i32, y: i32, c: MdRgb, a: f32) {
     if x < 0 || y < 0 || x as u32 >= im.width || y as u32 >= im.height || !(a > 0.0) {
@@ -191,6 +206,42 @@ pub enum MdIcon {
     RotateRight,
     /// A dot on a broken horizon line.
     Level,
+    // The HUD set (`.i-<name>` in the design system's `bundle.css`): 2 px round strokes on the 24 grid.
+    /// Four corner brackets pointing out.
+    Maximize,
+    /// Four corner brackets pointing in.
+    Restore,
+    /// Two sliders with knobs.
+    Options,
+    /// An X.
+    Close,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    /// A tick.
+    Check,
+    /// An outlined triangle, point right.
+    Play,
+    /// Two bars.
+    Pause,
+    /// An outlined rounded square.
+    Stop,
+    /// A ring with four ticks round it.
+    Recenter,
+    /// A keyboard: three keys over a space bar.
+    Keys,
+    /// A four-way arrow: move.
+    Place,
+    /// A monitor on a stand line.
+    Display,
+    /// An eye.
+    View,
+    /// A screen with a play triangle.
+    Video,
+    /// The power symbol.
+    Session,
+    /// An isometric cube.
+    Cube,
 }
 
 /// Icons in buttons (M3: 18 dp next to a label).
@@ -221,6 +272,91 @@ pub fn md_icon_distance(icon: MdIcon, x: f32, y: f32, size: f32) -> f32 {
         MdIcon::Level => cmin(
             cmin(capsule(gx, gy, 2.0, 12.0, 7.4, 12.0, 1.0), capsule(gx, gy, 16.6, 12.0, 22.0, 12.0, 1.0)),
             capsule(gx, gy, 12.0, 12.0, 12.0, 12.0, 2.4),
+        ),
+        MdIcon::Maximize => [
+            polyline(gx, gy, &[(15.0, 4.0), (20.0, 4.0), (20.0, 9.0)]),
+            polyline(gx, gy, &[(20.0, 15.0), (20.0, 20.0), (15.0, 20.0)]),
+            polyline(gx, gy, &[(9.0, 20.0), (4.0, 20.0), (4.0, 15.0)]),
+        ]
+        .into_iter()
+        .fold(polyline(gx, gy, &[(4.0, 9.0), (4.0, 4.0), (9.0, 4.0)]), cmin),
+        MdIcon::Restore => [
+            polyline(gx, gy, &[(15.0, 4.0), (15.0, 9.0), (20.0, 9.0)]),
+            polyline(gx, gy, &[(20.0, 15.0), (15.0, 15.0), (15.0, 20.0)]),
+            polyline(gx, gy, &[(4.0, 15.0), (9.0, 15.0), (9.0, 20.0)]),
+        ]
+        .into_iter()
+        .fold(polyline(gx, gy, &[(9.0, 4.0), (9.0, 9.0), (4.0, 9.0)]), cmin),
+        MdIcon::Options => [
+            polyline(gx, gy, &[(18.0, 7.0), (20.0, 7.0)]),
+            polyline(gx, gy, &[(4.0, 17.0), (6.0, 17.0)]),
+            polyline(gx, gy, &[(12.0, 17.0), (20.0, 17.0)]),
+            ring(gx, gy, 15.0, 7.0, 2.5),
+            ring(gx, gy, 9.0, 17.0, 2.5),
+        ]
+        .into_iter()
+        .fold(polyline(gx, gy, &[(4.0, 7.0), (12.0, 7.0)]), cmin),
+        MdIcon::Close => cmin(polyline(gx, gy, &[(6.0, 6.0), (18.0, 18.0)]), polyline(gx, gy, &[(18.0, 6.0), (6.0, 18.0)])),
+        MdIcon::ChevronLeft => polyline(gx, gy, &[(15.0, 6.0), (9.0, 12.0), (15.0, 18.0)]),
+        MdIcon::ChevronRight => polyline(gx, gy, &[(9.0, 6.0), (15.0, 12.0), (9.0, 18.0)]),
+        MdIcon::ChevronDown => polyline(gx, gy, &[(6.0, 9.0), (12.0, 15.0), (18.0, 9.0)]),
+        MdIcon::Check => polyline(gx, gy, &[(5.0, 12.0), (10.0, 17.0), (19.0, 7.0)]),
+        MdIcon::Play => outline(triangle(gx, gy, 8.0, 5.0, 19.0, 12.0, 8.0, 19.0)),
+        MdIcon::Pause => cmin(polyline(gx, gy, &[(8.0, 5.0), (8.0, 19.0)]), polyline(gx, gy, &[(16.0, 5.0), (16.0, 19.0)])),
+        MdIcon::Stop => outline(md_rounded_distance(gx, gy, 12.0, 12.0, 6.0, 6.0, 2.0)),
+        MdIcon::Recenter => [
+            polyline(gx, gy, &[(12.0, 3.0), (12.0, 7.0)]),
+            polyline(gx, gy, &[(12.0, 17.0), (12.0, 21.0)]),
+            polyline(gx, gy, &[(3.0, 12.0), (7.0, 12.0)]),
+            polyline(gx, gy, &[(17.0, 12.0), (21.0, 12.0)]),
+        ]
+        .into_iter()
+        .fold(ring(gx, gy, 12.0, 12.0, 3.0), cmin),
+        MdIcon::Keys => [
+            polyline(gx, gy, &[(7.0, 10.0), (7.0, 10.0)]),
+            polyline(gx, gy, &[(12.0, 10.0), (12.0, 10.0)]),
+            polyline(gx, gy, &[(17.0, 10.0), (17.0, 10.0)]),
+            polyline(gx, gy, &[(8.0, 14.0), (16.0, 14.0)]),
+        ]
+        .into_iter()
+        .fold(outline(md_rounded_distance(gx, gy, 12.0, 12.0, 9.0, 6.0, 2.0)), cmin),
+        MdIcon::Place => [
+            polyline(gx, gy, &[(3.0, 12.0), (21.0, 12.0)]),
+            polyline(gx, gy, &[(9.0, 6.0), (12.0, 3.0), (15.0, 6.0)]),
+            polyline(gx, gy, &[(9.0, 18.0), (12.0, 21.0), (15.0, 18.0)]),
+            polyline(gx, gy, &[(6.0, 9.0), (3.0, 12.0), (6.0, 15.0)]),
+            polyline(gx, gy, &[(18.0, 9.0), (21.0, 12.0), (18.0, 15.0)]),
+        ]
+        .into_iter()
+        .fold(polyline(gx, gy, &[(12.0, 3.0), (12.0, 21.0)]), cmin),
+        MdIcon::Display => cmin(
+            outline(md_rounded_distance(gx, gy, 12.0, 11.0, 9.0, 6.0, 2.0)),
+            polyline(gx, gy, &[(9.0, 21.0), (15.0, 21.0)]),
+        ),
+        // The SVG's eye is four cubics; two circular arcs through its corners and its top and bottom are within 0.4
+        // grid units of them.
+        MdIcon::View => {
+            const DY: f32 = 16.0 / 3.0; // centre's offset from the eye's middle: 10^2 + (DY)^2 = (DY + 6)^2
+            const R: f32 = DY + 6.0;
+            let (a, b) = (DY.atan2(10.0), DY.atan2(-10.0)); // the corners (2, 12), (22, 12) seen from below/above
+            [arc_stroke(gx, gy, 12.0, 12.0 - DY, R, a, b, 1.0), ring(gx, gy, 12.0, 12.0, 2.5)]
+                .into_iter()
+                .fold(arc_stroke(gx, gy, 12.0, 12.0 + DY, R, -b, -a, 1.0), cmin)
+        }
+        MdIcon::Video => cmin(
+            outline(md_rounded_distance(gx, gy, 12.0, 12.0, 9.0, 7.0, 2.0)),
+            outline(triangle(gx, gy, 10.0, 9.0, 15.0, 12.0, 10.0, 15.0)),
+        ),
+        // The arc is the SVG's 8-radius circle through (6.3, 7) and (17.7, 7), the long way round below.
+        MdIcon::Session => {
+            const CY: f32 = 7.0 + 5.613_376; // 5.7^2 + 5.613^2 = 8^2
+            let a = (7.0 - CY).atan2(5.7); // the right end, upper right
+            let b = (7.0 - CY).atan2(-5.7) + 2.0 * std::f32::consts::PI; // the left end, a turn on
+            cmin(polyline(gx, gy, &[(12.0, 3.0), (12.0, 12.0)]), arc_stroke(gx, gy, 12.0, CY, 8.0, a, b, 1.0))
+        }
+        MdIcon::Cube => cmin(
+            polyline(gx, gy, &[(12.0, 3.0), (20.0, 7.5), (20.0, 16.5), (12.0, 21.0), (4.0, 16.5), (4.0, 7.5), (12.0, 3.0)]),
+            cmin(polyline(gx, gy, &[(4.0, 7.5), (12.0, 12.0), (20.0, 7.5)]), polyline(gx, gy, &[(12.0, 12.0), (12.0, 21.0)])),
         ),
     };
     // Optical size (as Material Symbols' opsz): below MD_ICON_PX the 2 px strokes thicken, up to 3 grid px at 12 px, so
