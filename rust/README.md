@@ -167,8 +167,13 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
 ```
 
 - `capture_e2e_rust_pattern` and `capture_e2e_rust_scaled_pattern` (`--fractional-scale 150`):
-  the `pattern` mode, the only one the Rust binary draws so far. The capture modes (`cpu`,
-  `gl-shm`, `gl-dmabuf`) are added here once its capture is ported.
+  the `pattern` mode.
+- `capture_e2e_rust_{cpu,gl-shm,gl-dmabuf}`, their `capture_e2e_rust_scaled_*` twins and
+  `capture_e2e_rust_churn_{bounce,resize}_*`: the capture modes. `cpu` composes on the CPU into
+  SHM (`cpu-blit`); `gl-shm` uploads SHM captures (`gles2-shm-upload`, fallback `session offers no
+  dmabuf`); `gl-dmabuf` imports dmabuf captures (`gles2-dmabuf-import`). Both GL modes present
+  through a three-buffer GBM swapchain wrapped as zwp_linux_dmabuf_v1 buffers (no wayland-egl).
+  Each output's `fallback` in the exit `managed_output_capture` line is the C++ reason string.
 - `capture_e2e_rust_malloc_pattern`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus

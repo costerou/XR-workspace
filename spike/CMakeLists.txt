@@ -726,9 +726,10 @@ if(XR_ENABLE_PRESENTATION)
       endforeach()
     endforeach()
     # The same loopback compositor against the Rust renderer (rust/crates/xr-renderer, `cargo build --release -p
-    # xr-renderer`), opt-in: -DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer. Only the modes the Rust
-    # binary draws so far; the capture modes (cpu, gl-shm, gl-dmabuf) join as its capture lands. The malloc test also
-    # proves the counting shim loads into the Rust process (glibc malloc), so allocations_per_s is reported.
+    # xr-renderer`), opt-in: -DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer. The pattern mode, the capture
+    # modes (cpu, gl-shm, gl-dmabuf), each at fractional scale 150, and the constraint churn, as for the C++ renderer above.
+    # The malloc test also proves the counting shim loads into the Rust process (glibc malloc), so allocations_per_s is
+    # reported.
     set(XR_RUST_RENDERER "" CACHE FILEPATH "Rust xr-renderer binary for the capture_e2e_rust_* tests (empty: none)")
     if(XR_RUST_RENDERER)
       add_test(NAME capture_e2e_rust_pattern COMMAND capture_e2e_bench --check --mode pattern --seconds 1.5 --warmup 1
@@ -739,6 +740,18 @@ if(XR_ENABLE_PRESENTATION)
         --malloc-shim "$<TARGET_FILE:xr_malloc_count>" --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_pattern capture_e2e_rust_scaled_pattern capture_e2e_rust_malloc_pattern
         PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      foreach(MODE cpu gl-shm gl-dmabuf)
+        add_test(NAME capture_e2e_rust_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+          --renderer "${XR_RUST_RENDERER}")
+        add_test(NAME capture_e2e_rust_scaled_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+          --fractional-scale 150 --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_${MODE} capture_e2e_rust_scaled_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+        foreach(CHURN bounce resize)
+          add_test(NAME capture_e2e_rust_churn_${CHURN}_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2
+            --warmup 1 --constraint-churn ${CHURN} --renderer "${XR_RUST_RENDERER}")
+          set_tests_properties(capture_e2e_rust_churn_${CHURN}_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+        endforeach()
+      endforeach()
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
