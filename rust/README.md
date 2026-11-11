@@ -558,6 +558,12 @@ summary, with `parse_guard` going through the C library's `strtod` as the C++ do
 ports every check of the `late_latch` ctest, and checks that a late frame boosts the margin and the
 frame after it is not late too. Wiring it into the shell is a later task.
 
+`predict` is `predict.cpp` (RR-72): the look-ahead config, angular velocity from the feed's two newest samples
+(with the whole-ms timestamp mean), the bounded delta, `LatencyTracker` with its read-phase model, `PoseAge`,
+`VsyncMeter` and `prediction_horizon`, same fields and constants. `tests/predict.rs` ports every check of the
+`predict` ctest but the D3 ones (`motion_delta`, `motion_age_ms`, `MotionFeed::open`), which go with `motion_feed`.
+`VsyncSnapshot` lives in `predict` until `pose.rs` ports `PoseFeed::vsync`.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
