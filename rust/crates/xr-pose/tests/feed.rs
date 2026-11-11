@@ -31,7 +31,7 @@ fn round_trip_disabled_fov_and_look_ahead() {
     let mut options = private(&scratch.prefix());
     options.display_fov_deg = 46.0;
     options.look_ahead_cfg = [1.0, 2.0, 3.0, 4.0];
-    let mut writer = FeedWriter::open(&options).unwrap();
+    let mut writer = open_private(|| FeedWriter::open(&options));
     let mut reader = FeedReader::open(&scratch.prefix()).unwrap();
     assert_eq!(reader.display_fov(), Some(46.0));
     assert_eq!(reader.look_ahead_cfg(), Some([1.0, 2.0, 3.0, 4.0]));
@@ -74,7 +74,7 @@ fn insane_fov_is_never_used() {
     for fov in [f32::NAN, 500.0, 5.0] {
         let mut options = private(&scratch.prefix());
         options.display_fov_deg = fov;
-        let _writer = FeedWriter::open(&options).unwrap();
+        let _writer = open_private(|| FeedWriter::open(&options));
         assert_eq!(FeedReader::open(&scratch.prefix()).unwrap().display_fov(), None);
     }
 }
@@ -82,7 +82,7 @@ fn insane_fov_is_never_used() {
 #[test]
 fn private_feed_cleans_up_its_files() {
     let scratch = Scratch::new();
-    let writer = FeedWriter::open(&private(&scratch.prefix())).unwrap();
+    let writer = open_private(|| FeedWriter::open(&private(&scratch.prefix())));
     assert!(std::path::Path::new(&format!("{}pose_orientation", scratch.prefix())).exists());
     drop(writer);
     assert_eq!(std::fs::read_dir(&scratch.dir).unwrap().count(), 0);
@@ -284,6 +284,6 @@ fn private_feeds_skip_the_writer_checks() {
     fake_process(&scratch, "400 (xrDriver) S 1 400 400 0 -1");
     let mut options = private(&scratch.prefix());
     options.proc_root = scratch.dir.join("proc");
-    let _a = FeedWriter::open(&options).unwrap();
+    let _a = open_private(|| FeedWriter::open(&options));
     assert!(!scratch.dir.join("feed_writer.lock").exists());
 }

@@ -73,7 +73,7 @@ fn cpp_reads_the_rust_feed() {
     let mut options = private(&scratch.prefix());
     options.display_fov_deg = 46.5;
     options.look_ahead_cfg = [10.0, 0.6, 10.0, 40.0];
-    let mut writer = xr_pose::feed::FeedWriter::open(&options).unwrap();
+    let mut writer = open_private(|| xr_pose::feed::FeedWriter::open(&options));
     let prefix = scratch.prefix();
 
     assert_eq!(cpp_read(bin, &prefix, 1), ["fov 46.5", "look_ahead 10 0.600000024 10 40", "none"], "disabled at open");
@@ -191,7 +191,7 @@ fn cpp_renderer_reads_the_rust_motion() {
     };
     assert_eq!(motion(), "absent", "no publisher yet");
     let options = PublisherOptions { feed: private(&prefix), history_step: 4, mount_pitch_deg: 0.0, ..Default::default() };
-    let mut publisher = Publisher::open(&options).unwrap();
+    let mut publisher = open_private(|| Publisher::open(&options));
     assert_eq!(motion(), "none", "invalid at open");
     let h = 15f32.to_radians();
     let state = MotionState {

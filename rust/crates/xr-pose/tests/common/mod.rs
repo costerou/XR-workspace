@@ -6,7 +6,7 @@
 use std::ffi::{CString, c_void};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
-use xr_pose::feed::{FeedWriter, WriterOptions};
+use xr_pose::feed::{FeedError, FeedWriter, WriterOptions};
 
 pub struct Scratch {
     pub dir: PathBuf,
@@ -38,10 +38,25 @@ pub fn private(prefix: &str) -> WriterOptions {
     WriterOptions { prefix: prefix.to_owned(), private_segments: true, ..WriterOptions::default() }
 }
 
+/// Opens a private feed (a FeedWriter, or a Publisher around one). ftok keys hold 16 bits of the
+/// inode, so a private open can refuse with "key in use" when another segment holds a key. The
+/// refused open removed its files, and tmpfs numbers inodes in sequence, so the next try lands on
+/// new keys (as spike/tests/fake_feed.hpp and Precreated retry).
+pub fn open_private<T>(mut open: impl FnMut() -> Result<T, FeedError>) -> T {
+    for _ in 0..1024 {
+        match open() {
+            Ok(feed) => return feed,
+            Err(e) if e.0.starts_with("key in use: ") => continue,
+            Err(e) => panic!("private feed: {e}"),
+        }
+    }
+    panic!("no free SysV keys for a private feed")
+}
+
 /// A private writer, its scratch directory kept alive alongside.
 pub fn private_writer() -> (Scratch, FeedWriter) {
     let scratch = Scratch::new();
-    let writer = FeedWriter::open(&private(&scratch.prefix())).expect("private feed");
+    let writer = open_private(|| FeedWriter::open(&private(&scratch.prefix())));
     (scratch, writer)
 }
 

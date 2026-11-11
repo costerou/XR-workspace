@@ -22,7 +22,7 @@ fn opened(step: u32, pitch: f32) -> (Scratch, Publisher, FeedReader) {
         mount_pitch_deg: pitch,
         ..Default::default()
     };
-    let publisher = Publisher::open(&options).unwrap();
+    let publisher = open_private(|| Publisher::open(&options));
     let reader = FeedReader::open(&scratch.prefix()).unwrap();
     (scratch, publisher, reader)
 }
