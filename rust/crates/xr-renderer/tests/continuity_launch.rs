@@ -95,6 +95,7 @@ fn rust_renderer_restores_a_cpp_blob_and_saves_one_the_cpp_restores() {
     // What was saved is the restored state: the C++ blob resumed at the restore (every clock moved on by the gap
     // since it was saved), saved later. The restore was at a whole millisecond between the launch and the save. The
     // view is live (the bench's `view` op retargets it), so only its edge pan is compared: restored, then untouched.
+    // The same op sets the stabilization strength and the maximized flag (wayland.cpp set_view), so those are live too.
     let mut cpp_state = ViewContinuity::default();
     assert!(cpp_state.decode(&blob));
     let resumed_at = |t: u64| {
@@ -108,6 +109,8 @@ fn rust_renderer_restores_a_cpp_blob_and_saves_one_the_cpp_restores() {
         };
         let same_pan = pan(&c) == pan(&saved);
         c.view = saved.view.clone();
+        c.stabilization = saved.stabilization.clone();
+        c.maximized = saved.maximized;
         same_pan && c.encode() == saved.encode()
     };
     assert!(
