@@ -12,18 +12,21 @@
 
 use super::*;
 
-/// The `stop` case, with DP-1 put DPMS-off once the renderer is up (before Stop, 300 ms later).
+/// A run stopped as `stop` is (SIGINT 300 ms after the renderer is up), with DP-1 put DPMS-off before the Stop.
 fn asleep(who: Who) -> (Session, i32, String) {
-    let s = Session::new("stop", who);
-    let run = s.root.join("run");
-    let sleeper = std::thread::spawn(move || {
-        if wait_for(&run.join("renderer-started"), Duration::from_secs(20)) {
-            fs::write(run.join("fake-privacy-asleep"), "").unwrap();
-        }
-    });
-    let (code, err) = s.run(who);
-    sleeper.join().unwrap();
-    (s, code, err)
+    let s = Session::new("privacy-asleep", who);
+    let child = s.runner(who).spawn().unwrap();
+    if wait_for(
+        &s.root.join("run/renderer-started"),
+        Duration::from_secs(20),
+    ) {
+        fs::write(s.root.join("run/fake-privacy-asleep"), "").unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
+    }
+    let out = wait_bounded(child, Duration::from_secs(40));
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    (s, out.status.code().unwrap_or(-1), err)
 }
 
 #[test]
