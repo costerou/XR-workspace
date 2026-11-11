@@ -772,6 +772,13 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
           PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
+      # rust: menus
+      add_test(NAME capture_e2e_rust_options_roundtrip COMMAND capture_e2e_bench --check --mode gl-shm --seconds 4.5 --warmup 1
+        --outputs 2 --options-roundtrip --control-errors log --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
+        --outputs 1 --environment grid --open-panel --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_options_roundtrip capture_e2e_rust_open_panel
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).

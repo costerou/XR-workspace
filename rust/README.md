@@ -178,6 +178,12 @@ drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and chec
 2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
 gate tests and the `GlCompositor` inputs it feeds.
 
+`menus` is wired: `options_menu` and `placement_menu` open the options panel and the placement panel from the overview's
+glass (`set_options_menu`, `set_placement_menu`, the render path's glass block, `options_overlay.hpp` and
+`options_evidence.hpp`), and the exit report carries `placement_menu` and `options_menu`. Its gates are
+`capture_e2e_rust_options_roundtrip`, `capture_e2e_rust_open_panel` and the `options_evidence` twin (a unit test in
+`shell/menus.rs`).
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
