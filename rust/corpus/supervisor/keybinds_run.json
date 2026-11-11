@@ -1,0 +1,307 @@
+{
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "bind_args": [
+  "/usr/bin/python3",
+  "/opt/x/xr_control.py",
+  "/run/user/1000/x/control.sock",
+  "run",
+  "session"
+ ],
+ "scenarios": {
+  "conflict": {
+   "saved": {
+    "next": "CTRL + ALT + Delete",
+    "prev": "CTRL + ALT + J"
+   },
+   "desktop": "bindd\n\tmodmask: 12\n\tsubmap:\n\tkey: DELETE\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Close all windows\n\tdispatcher: __lua\n\targ: 83\n\nbindd\n\tmodmask: 12\n\tsubmap:\n\tkey: TAB\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Focus on next monitor\n\tdispatcher: __lua\n\targ: 185\n\nbindd\n\tmodmask: 64\n\tsubmap:\n\tkey: SUPER + code:10\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Switch to workspace 1\n\tdispatcher: __lua\n\targ: 201\n\nbindm\n\tmodmask: 64\n\tsubmap:\n\tkey: mouse:272\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Move window\n\tdispatcher: __lua\n\targ: 300\n\nbind\n\tmodmask: 5\n\tsubmap:\n\tkey: S\n\tkeycode: 0\n\tcatchall: false\n\tdescription:\n\tdispatcher: __lua\n\targ: 310\n\nbind\n\tmodmask: 0\n\tsubmap: resize\n\tkey:\n\tkeycode: 0\n\tcatchall: true\n\tdescription:\n\tdispatcher: __lua\n\targ: 311\n\n",
+   "clock": 100.0,
+   "first_request_id": 2,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "wire": [
+      [
+       "binds",
+       "bindd\n\tmodmask: 12\n\tsubmap:\n\tkey: DELETE\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Close all windows\n\tdispatcher: __lua\n\targ: 83\n\nbindd\n\tmodmask: 12\n\tsubmap:\n\tkey: TAB\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Focus on next monitor\n\tdispatcher: __lua\n\targ: 185\n\nbindd\n\tmodmask: 64\n\tsubmap:\n\tkey: SUPER + code:10\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Switch to workspace 1\n\tdispatcher: __lua\n\targ: 201\n\nbindm\n\tmodmask: 64\n\tsubmap:\n\tkey: mouse:272\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Move window\n\tdispatcher: __lua\n\targ: 300\n\nbind\n\tmodmask: 5\n\tsubmap:\n\tkey: S\n\tkeycode: 0\n\tcatchall: false\n\tdescription:\n\tdispatcher: __lua\n\targ: 310\n\nbind\n\tmodmask: 0\n\tsubmap: resize\n\tkey:\n\tkeycode: 0\n\tcatchall: true\n\tdescription:\n\tdispatcher: __lua\n\targ: 311\n\n"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + J\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ],
+     "frames": "",
+     "toasts": [
+      "Key bind conflict: Next desktop: Off: Hyprland binds Ctrl+Alt+Del to \"Close all windows\". Ctrl+Alt+K shows them all."
+     ]
+    },
+    {
+     "step": [
+      "op",
+      "binds_toggle",
+      null
+     ],
+     "wire": [
+      [
+       "binds",
+       "bindd\n\tmodmask: 12\n\tsubmap:\n\tkey: DELETE\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Close all windows\n\tdispatcher: __lua\n\targ: 83\n\nbindd\n\tmodmask: 12\n\tsubmap:\n\tkey: TAB\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Focus on next monitor\n\tdispatcher: __lua\n\targ: 185\n\nbindd\n\tmodmask: 64\n\tsubmap:\n\tkey: SUPER + code:10\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Switch to workspace 1\n\tdispatcher: __lua\n\targ: 201\n\nbindm\n\tmodmask: 64\n\tsubmap:\n\tkey: mouse:272\n\tkeycode: 0\n\tcatchall: false\n\tdescription: Move window\n\tdispatcher: __lua\n\targ: 300\n\nbind\n\tmodmask: 5\n\tsubmap:\n\tkey: S\n\tkeycode: 0\n\tcatchall: false\n\tdescription:\n\tdispatcher: __lua\n\targ: 310\n\nbind\n\tmodmask: 0\n\tsubmap: resize\n\tkey:\n\tkeycode: 0\n\tcatchall: true\n\tdescription:\n\tdispatcher: __lua\n\targ: 311\n\n"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session binds_key \" if xr_workspace_keys_off then xr_workspace_keys_off() end local s = xr_workspace_keys or {} xr_workspace_keys = s if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then hl.define_submap(\"xr_workspace_keys\", function() s.catchall = hl.bind(\"catchall\", hl.dsp.no_op(), { ignore_mods = true }) end) end if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then error(\"no catch-all\") end local held, silent = { { 37, 4 }, { 105, 4 }, { 64, 8 }, { 108, 8 }, { 50, 1 }, { 62, 1 }, { 133, 64 }, { 134, 64 } }, { [37] = true, [105] = true, [64] = true, [108] = true, [50] = true, [62] = true, [133] = true, [134] = true, [66] = true, [77] = true, [92] = true } s.seen, s.esc = os.time(), 0 xr_workspace_keys_off = function() xr_workspace_keys_off = nil if s.sub then pcall(function() s.sub:remove() end) end s.sub = nil if s.timer then pcall(function() s.timer:set_enabled(false) end) end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end end local ok, sub = pcall(hl.on, \"input.keyboard.key\", function(code, _, state) if state ~= 1 or silent[code] then return end s.seen = os.time() local m, bits = 0, {} for _, k in ipairs(held) do if not bits[k[2]] and hl.is_key_down(k[1]) then bits[k[2]] = true m = m + k[2] end end if code == 9 and m == 0 then s.esc = s.esc + 1 else s.esc = 0 end if s.esc >= 3 and xr_workspace_keys_off then xr_workspace_keys_off() return end hl.exec_cmd(c .. m .. \" \" .. code) end) if not ok or not sub then xr_workspace_keys_off() error(\"no key subscription\") end s.sub = sub if not s.timer then pcall(function() s.timer = hl.timer(function() if os.time() - s.seen > 90 and xr_workspace_keys_off then xr_workspace_keys_off() end end, { timeout = 5000, type = \"repeat\" }) end) end if s.timer then pcall(function() s.timer:set_enabled(true) end) end pcall(hl.dispatch, hl.dsp.submap(\"xr_workspace_keys\")) if hl.get_current_submap() ~= \"xr_workspace_keys\" then xr_workspace_keys_off() error(\"no key submap\") end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+J\",\"note\":\"\",\"state\":\"custom\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Del\",\"note\":\"Off: Hyprland binds Ctrl+Alt+Del to \\\"Close all windows\\\"\",\"state\":\"conflict\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":0,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"1 bind with conflicts (marked). Change them, or R to reset.\",\"alert\":true}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "poll",
+      0.1
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      0,
+      116
+     ],
+     "wire": [],
+     "frames": "{\"schema\":1,\"request_id\":3,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+J\",\"note\":\"\",\"state\":\"custom\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Del\",\"note\":\"Off: Hyprland binds Ctrl+Alt+Del to \\\"Close all windows\\\"\",\"state\":\"conflict\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":1,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"1 bind with conflicts (marked). Change them, or R to reset.\",\"alert\":true}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      0,
+      36
+     ],
+     "wire": [],
+     "frames": "{\"schema\":1,\"request_id\":4,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Press keys...\",\"note\":\"\",\"state\":\"capture\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+J\",\"note\":\"\",\"state\":\"custom\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Del\",\"note\":\"Off: Hyprland binds Ctrl+Alt+Del to \\\"Close all windows\\\"\",\"state\":\"conflict\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":1,\"hint\":\"Press the new keys (Ctrl, Alt or Super with a key)   Esc cancel\",\"status\":\"New keys for Overview (now Ctrl+Alt+Down).\",\"alert\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      12,
+      29
+     ],
+     "wire": [
+      [
+       "/eval for _, b in ipairs(xr_workspace_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_binds = nil for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil xr_workspace_drag_run = nil for _, b in ipairs(xr_workspace_menu_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_menu_binds = nil for _, b in ipairs(xr_workspace_mouse_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_mouse_binds = nil do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then pcall(hl.config, { cursor = { invisible = s.invisible } }) if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end end end if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + Y\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + J\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session binds_key \" if xr_workspace_keys_off then xr_workspace_keys_off() end local s = xr_workspace_keys or {} xr_workspace_keys = s if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then hl.define_submap(\"xr_workspace_keys\", function() s.catchall = hl.bind(\"catchall\", hl.dsp.no_op(), { ignore_mods = true }) end) end if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then error(\"no catch-all\") end local held, silent = { { 37, 4 }, { 105, 4 }, { 64, 8 }, { 108, 8 }, { 50, 1 }, { 62, 1 }, { 133, 64 }, { 134, 64 } }, { [37] = true, [105] = true, [64] = true, [108] = true, [50] = true, [62] = true, [133] = true, [134] = true, [66] = true, [77] = true, [92] = true } s.seen, s.esc = os.time(), 0 xr_workspace_keys_off = function() xr_workspace_keys_off = nil if s.sub then pcall(function() s.sub:remove() end) end s.sub = nil if s.timer then pcall(function() s.timer:set_enabled(false) end) end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end end local ok, sub = pcall(hl.on, \"input.keyboard.key\", function(code, _, state) if state ~= 1 or silent[code] then return end s.seen = os.time() local m, bits = 0, {} for _, k in ipairs(held) do if not bits[k[2]] and hl.is_key_down(k[1]) then bits[k[2]] = true m = m + k[2] end end if code == 9 and m == 0 then s.esc = s.esc + 1 else s.esc = 0 end if s.esc >= 3 and xr_workspace_keys_off then xr_workspace_keys_off() return end hl.exec_cmd(c .. m .. \" \" .. code) end) if not ok or not sub then xr_workspace_keys_off() error(\"no key subscription\") end s.sub = sub if not s.timer then pcall(function() s.timer = hl.timer(function() if os.time() - s.seen > 90 and xr_workspace_keys_off then xr_workspace_keys_off() end end, { timeout = 5000, type = \"repeat\" }) end) end if s.timer then pcall(function() s.timer:set_enabled(true) end) end pcall(hl.dispatch, hl.dsp.submap(\"xr_workspace_keys\")) if hl.get_current_submap() ~= \"xr_workspace_keys\" then xr_workspace_keys_off() error(\"no key submap\") end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Y\",\"note\":\"\",\"state\":\"custom\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+J\",\"note\":\"\",\"state\":\"custom\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Del\",\"note\":\"Off: Hyprland binds Ctrl+Alt+Del to \\\"Close all windows\\\"\",\"state\":\"conflict\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":1,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"Overview is now Ctrl+Alt+Y.\",\"alert\":false}}\n",
+     "toasts": [
+      "Key binds: 1 with conflicts. They are marked in the panel."
+     ]
+    },
+    {
+     "step": [
+      "poll",
+      0.1
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      0,
+      9
+     ],
+     "wire": [
+      [
+       "/eval if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":6,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "poll",
+      0.1
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    },
+    {
+     "step": [
+      "stop"
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    }
+   ],
+   "saved_after": "{\n \"schema\": 1,\n \"binds\": {\n  \"next\": \"CTRL + ALT + Delete\",\n  \"prev\": \"CTRL + ALT + J\",\n  \"zoom_out\": \"CTRL + ALT + Y\"\n }\n}"
+  },
+  "defaults": {
+   "saved": null,
+   "desktop": "",
+   "clock": 100.0,
+   "first_request_id": 2,
+   "steps": [
+    {
+     "step": [
+      "open"
+     ],
+     "wire": [
+      [
+       "binds",
+       ""
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_binds = { hl.bind(\"CTRL + ALT + up\", hl.dsp.exec_cmd(c .. \"zoom_in\")), hl.bind(\"CTRL + ALT + down\", hl.dsp.exec_cmd(c .. \"zoom_out\")), hl.bind(\"CTRL + ALT + left\", hl.dsp.exec_cmd(c .. \"prev\")), hl.bind(\"CTRL + ALT + right\", hl.dsp.exec_cmd(c .. \"next\")), hl.bind(\"CTRL + ALT + bracketleft\", hl.dsp.exec_cmd(c .. \"spacing_down\")), hl.bind(\"CTRL + ALT + bracketright\", hl.dsp.exec_cmd(c .. \"spacing_up\")), hl.bind(\"CTRL + ALT + space\", hl.dsp.exec_cmd(c .. \"recenter\")), hl.bind(\"CTRL + ALT + V\", hl.dsp.exec_cmd(c .. \"mode_next\")), hl.bind(\"CTRL + ALT + P\", hl.dsp.exec_cmd(c .. \"prediction\")), hl.bind(\"CTRL + ALT + H\", hl.dsp.exec_cmd(c .. \"help\")), hl.bind(\"CTRL + ALT + T\", hl.dsp.exec_cmd(c .. \"typing_toggle\")), hl.bind(\"CTRL + ALT + L\", hl.dsp.exec_cmd(c .. \"menu_toggle\")), hl.bind(\"CTRL + ALT + R\", hl.dsp.exec_cmd(c .. \"layout_reset\")), hl.bind(\"CTRL + ALT + O\", hl.dsp.exec_cmd(c .. \"video_open\")), hl.bind(\"CTRL + ALT + U\", hl.dsp.exec_cmd(c .. \"video_paste\")), hl.bind(\"CTRL + ALT + Page_Up\", hl.dsp.exec_cmd(c .. \"help_prev\")), hl.bind(\"CTRL + ALT + Page_Down\", hl.dsp.exec_cmd(c .. \"help_next\")), hl.bind(\"CTRL + ALT + D\", hl.dsp.exec_cmd(c .. \"privacy_display\")), hl.bind(\"CTRL + ALT + C\", hl.dsp.exec_cmd(c .. \"playback_menu_toggle\")), hl.bind(\"CTRL + ALT + K\", hl.dsp.exec_cmd(c .. \"binds_toggle\")), hl.bind(\"CTRL + ALT + E\", hl.dsp.exec_cmd(c .. \"environment_toggle\")), hl.bind(\"CTRL + ALT + I\", hl.dsp.exec_cmd(c .. \"immersive_toggle\")) }",
+       "ok"
+      ],
+      [
+       "/eval for _, b in ipairs(xr_workspace_send_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then b:remove() end end xr_workspace_send_binds = nil local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" xr_workspace_send_binds = { hl.bind(\"CTRL + ALT + G\", hl.dsp.exec_cmd(c .. \"send_glasses\")), hl.bind(\"CTRL + ALT + code:10\", hl.dsp.exec_cmd(c .. \"send_glasses_1\")), hl.bind(\"CTRL + ALT + code:11\", hl.dsp.exec_cmd(c .. \"send_glasses_2\")), hl.bind(\"CTRL + ALT + code:12\", hl.dsp.exec_cmd(c .. \"send_glasses_3\")), hl.bind(\"CTRL + ALT + code:13\", hl.dsp.exec_cmd(c .. \"send_glasses_4\")), hl.bind(\"CTRL + ALT + B\", hl.dsp.exec_cmd(c .. \"send_back\")) }",
+       "ok"
+      ],
+      [
+       "/eval xr_workspace_drag_run = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session \" do local live = false for _, b in ipairs(xr_workspace_drag_binds or {}) do if tostring(b) ~= \"HL.Keybind(expired)\" then live = true end end if not live then local t, held = {}, false local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end local function press(op) return function() if not xr_workspace_drag_run then return end if xr_workspace_grab then hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = \"oneshot\" }) return end held = true hl.exec_cmd(xr_workspace_drag_run .. op) end end local function release() if held then held = false if xr_workspace_drag_run then hl.exec_cmd(xr_workspace_drag_run .. \"super_release\") end end end bind(\"SUPER + mouse:272\", press(\"super_left_press\"), { non_consuming = true }) bind(\"SUPER + mouse:273\", press(\"super_right_press\"), { non_consuming = true }) bind(\"SUPER + mouse:272\", release, { release = true, non_consuming = true, ignore_mods = true }) bind(\"SUPER + mouse:273\", release, { release = true, non_consuming = true, ignore_mods = true }) xr_workspace_drag_binds = t end end",
+       "ok"
+      ]
+     ],
+     "frames": "",
+     "toasts": []
+    },
+    {
+     "step": [
+      "op",
+      "binds_toggle",
+      null
+     ],
+     "wire": [
+      [
+       "binds",
+       ""
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session binds_key \" if xr_workspace_keys_off then xr_workspace_keys_off() end local s = xr_workspace_keys or {} xr_workspace_keys = s if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then hl.define_submap(\"xr_workspace_keys\", function() s.catchall = hl.bind(\"catchall\", hl.dsp.no_op(), { ignore_mods = true }) end) end if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then error(\"no catch-all\") end local held, silent = { { 37, 4 }, { 105, 4 }, { 64, 8 }, { 108, 8 }, { 50, 1 }, { 62, 1 }, { 133, 64 }, { 134, 64 } }, { [37] = true, [105] = true, [64] = true, [108] = true, [50] = true, [62] = true, [133] = true, [134] = true, [66] = true, [77] = true, [92] = true } s.seen, s.esc = os.time(), 0 xr_workspace_keys_off = function() xr_workspace_keys_off = nil if s.sub then pcall(function() s.sub:remove() end) end s.sub = nil if s.timer then pcall(function() s.timer:set_enabled(false) end) end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end end local ok, sub = pcall(hl.on, \"input.keyboard.key\", function(code, _, state) if state ~= 1 or silent[code] then return end s.seen = os.time() local m, bits = 0, {} for _, k in ipairs(held) do if not bits[k[2]] and hl.is_key_down(k[1]) then bits[k[2]] = true m = m + k[2] end end if code == 9 and m == 0 then s.esc = s.esc + 1 else s.esc = 0 end if s.esc >= 3 and xr_workspace_keys_off then xr_workspace_keys_off() return end hl.exec_cmd(c .. m .. \" \" .. code) end) if not ok or not sub then xr_workspace_keys_off() error(\"no key subscription\") end s.sub = sub if not s.timer then pcall(function() s.timer = hl.timer(function() if os.time() - s.seen > 90 and xr_workspace_keys_off then xr_workspace_keys_off() end end, { timeout = 5000, type = \"repeat\" }) end) end if s.timer then pcall(function() s.timer:set_enabled(true) end) end pcall(hl.dispatch, hl.dsp.submap(\"xr_workspace_keys\")) if hl.get_current_submap() ~= \"xr_workspace_keys\" then xr_workspace_keys_off() error(\"no key submap\") end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":2,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+Left\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Right\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":0,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"No conflicts with each other or with Hyprland / Omarchy binds.\",\"alert\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "poll",
+      0.1
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      0,
+      111
+     ],
+     "wire": [],
+     "frames": "{\"schema\":1,\"request_id\":3,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+Left\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Right\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":0,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"No conflicts with each other or with Hyprland / Omarchy binds.\",\"alert\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "key",
+      0,
+      116
+     ],
+     "wire": [],
+     "frames": "{\"schema\":1,\"request_id\":4,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+Left\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Right\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":1,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"No conflicts with each other or with Hyprland / Omarchy binds.\",\"alert\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "poll",
+      31
+     ],
+     "wire": [
+      [
+       "/eval if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":5,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "op",
+      "binds_toggle",
+      null
+     ],
+     "wire": [
+      [
+       "binds",
+       ""
+      ],
+      [
+       "/eval local c = \"/usr/bin/python3 -I /opt/x/xr_control.py /run/user/1000/x/control.sock run session binds_key \" if xr_workspace_keys_off then xr_workspace_keys_off() end local s = xr_workspace_keys or {} xr_workspace_keys = s if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then hl.define_submap(\"xr_workspace_keys\", function() s.catchall = hl.bind(\"catchall\", hl.dsp.no_op(), { ignore_mods = true }) end) end if not s.catchall or tostring(s.catchall) == \"HL.Keybind(expired)\" then error(\"no catch-all\") end local held, silent = { { 37, 4 }, { 105, 4 }, { 64, 8 }, { 108, 8 }, { 50, 1 }, { 62, 1 }, { 133, 64 }, { 134, 64 } }, { [37] = true, [105] = true, [64] = true, [108] = true, [50] = true, [62] = true, [133] = true, [134] = true, [66] = true, [77] = true, [92] = true } s.seen, s.esc = os.time(), 0 xr_workspace_keys_off = function() xr_workspace_keys_off = nil if s.sub then pcall(function() s.sub:remove() end) end s.sub = nil if s.timer then pcall(function() s.timer:set_enabled(false) end) end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end end local ok, sub = pcall(hl.on, \"input.keyboard.key\", function(code, _, state) if state ~= 1 or silent[code] then return end s.seen = os.time() local m, bits = 0, {} for _, k in ipairs(held) do if not bits[k[2]] and hl.is_key_down(k[1]) then bits[k[2]] = true m = m + k[2] end end if code == 9 and m == 0 then s.esc = s.esc + 1 else s.esc = 0 end if s.esc >= 3 and xr_workspace_keys_off then xr_workspace_keys_off() return end hl.exec_cmd(c .. m .. \" \" .. code) end) if not ok or not sub then xr_workspace_keys_off() error(\"no key subscription\") end s.sub = sub if not s.timer then pcall(function() s.timer = hl.timer(function() if os.time() - s.seen > 90 and xr_workspace_keys_off then xr_workspace_keys_off() end end, { timeout = 5000, type = \"repeat\" }) end) end if s.timer then pcall(function() s.timer:set_enabled(true) end) end pcall(hl.dispatch, hl.dsp.submap(\"xr_workspace_keys\")) if hl.get_current_submap() ~= \"xr_workspace_keys\" then xr_workspace_keys_off() error(\"no key submap\") end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":6,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":true,\"title\":\"Key binds\",\"rows\":[{\"action\":\"Maximize the selected desktop\",\"keys\":\"Ctrl+Alt+Up\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Overview\",\"keys\":\"Ctrl+Alt+Down\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous desktop\",\"keys\":\"Ctrl+Alt+Left\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next desktop\",\"keys\":\"Ctrl+Alt+Right\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Less space between desktops\",\"keys\":\"Ctrl+Alt+[\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"More space between desktops\",\"keys\":\"Ctrl+Alt+]\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Recenter the view\",\"keys\":\"Ctrl+Alt+Space\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Reset to 3 flat desktops (press twice)\",\"keys\":\"Ctrl+Alt+R\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Maximized: follow / locked\",\"keys\":\"Ctrl+Alt+V\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Toggle pose prediction\",\"keys\":\"Ctrl+Alt+P\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Typing mode: XR keys off / on\",\"keys\":\"Ctrl+Alt+T\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Privacy: main display off / on\",\"keys\":\"Ctrl+Alt+D\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Background: none / last used\",\"keys\":\"Ctrl+Alt+E\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Immersive 3D: all desktops on / off\",\"keys\":\"Ctrl+Alt+I\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Placement pill of the selected desktop\",\"keys\":\"Ctrl+Alt+L\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play a 180/360 VR video\",\"keys\":\"Ctrl+Alt+O\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Play the browser video you copied\",\"keys\":\"Ctrl+Alt+U\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"VR video: hide / show playback controls\",\"keys\":\"Ctrl+Alt+C\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Help card (every key)\",\"keys\":\"Ctrl+Alt+H\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Key binds (this panel)\",\"keys\":\"Ctrl+Alt+K\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Previous help page\",\"keys\":\"Ctrl+Alt+PgUp\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Next help page\",\"keys\":\"Ctrl+Alt+PgDn\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to the selected desktop\",\"keys\":\"Ctrl+Alt+G\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-1\",\"keys\":\"Ctrl+Alt+1\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-2\",\"keys\":\"Ctrl+Alt+2\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-3\",\"keys\":\"Ctrl+Alt+3\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window to XR-4\",\"keys\":\"Ctrl+Alt+4\",\"note\":\"\",\"state\":\"normal\"},{\"action\":\"Send window back to the main display\",\"keys\":\"Ctrl+Alt+B\",\"note\":\"\",\"state\":\"normal\"}],\"selected\":1,\"hint\":\"Up/Down pick   Enter change   R reset   Shift+R reset all   Esc close\",\"status\":\"No conflicts with each other or with Hyprland / Omarchy binds.\",\"alert\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "op",
+      "binds_toggle",
+      null
+     ],
+     "wire": [
+      [
+       "/eval if xr_workspace_keys_off then xr_workspace_keys_off() end if hl.get_current_submap() == \"xr_workspace_keys\" then hl.dispatch(hl.dsp.submap(\"reset\")) end",
+       "ok"
+      ]
+     ],
+     "frames": "{\"schema\":1,\"request_id\":7,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":{\"visible\":false}}\n",
+     "toasts": []
+    },
+    {
+     "step": [
+      "stop"
+     ],
+     "wire": [],
+     "frames": "",
+     "toasts": []
+    }
+   ],
+   "saved_after": null
+  }
+ }
+}

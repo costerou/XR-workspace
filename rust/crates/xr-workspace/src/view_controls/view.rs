@@ -161,7 +161,7 @@ impl ViewControl {
         // View: HELP_PAGE_OPS.
         if op == BINDS_PANEL_OP || op == BINDS_KEY_OP {
             if let Some(keys) = f.keys.as_deref_mut() {
-                keys.on_message(message, out);
+                keys.on_message(message, self, out);
             }
             return;
         }
