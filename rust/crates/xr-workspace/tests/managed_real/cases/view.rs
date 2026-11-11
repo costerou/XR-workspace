@@ -31,6 +31,8 @@ fn saved() -> Start {
 
 /// Ctrl+Alt+Up, Right, Left, Down, then spacing up, help on and off: each through `who`'s own helper.
 fn keys(s: &super::Session, who: Who) -> Value {
+    // The window memory's capture a second after adoption (`window_memory::CAPTURE_DELAY`) first: the keys never race it.
+    std::thread::sleep(Duration::from_millis(1500));
     let mut sent = Vec::new();
     for op in [
         "zoom_in",

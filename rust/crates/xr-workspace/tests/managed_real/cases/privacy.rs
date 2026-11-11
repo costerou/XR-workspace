@@ -10,6 +10,8 @@
 use super::*;
 
 fn blank(s: &Session, who: Who) -> Value {
+    // The window memory's capture a second after adoption (`window_memory::CAPTURE_DELAY`) first: the keys never race it.
+    std::thread::sleep(Duration::from_millis(1500));
     let sent = s.control(who, "privacy_display", &[]);
     std::thread::sleep(Duration::from_millis(300)); // the worker's blank done before Stop
     json!(sent)

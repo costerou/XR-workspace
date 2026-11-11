@@ -15,6 +15,8 @@ use serde_json::{Value, json};
 use super::{Session, Who, parity_acting};
 
 fn send_and_back(s: &Session, who: Who) -> Value {
+    // The window memory's capture a second after adoption (`window_memory::CAPTURE_DELAY`) first: the keys never race it.
+    std::thread::sleep(Duration::from_millis(1500));
     let glasses = s.control(who, "send_glasses", &[]);
     std::thread::sleep(Duration::from_millis(300)); // the worker's move done before the next
     let back = s.control(who, "send_back", &[]);
