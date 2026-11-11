@@ -94,6 +94,36 @@ covers the setting, the pin checks and the spawn command. With a debug build (`c
 starts the real binary on its loopback backend, using the exact command and environment `Host.spawn` passes to
 systemd-run.
 
+### Switching runs to the Rust renderer
+
+The renderer a run launches is picked at every Start, too (`tools/xr_controller/renderer_switch.py`), from
+`$XDG_CONFIG_HOME/viture-workspace/renderer.json` (`{"schema": 1, "renderer": "rust" | "cpp"}`). With no file, runs
+launch the C++ `xr-native-spike`, as before. The Rust renderer has to be pinned first:
+
+```sh
+cargo build --locked --release -p xr-renderer
+python3 -m tools.xr_controller install --build build/release --rust-renderer rust/target/release/xr-renderer
+python3 -m tools.xr_controller renderer set rust     # the next Start launches bin/<hash>/rust/xr-renderer
+python3 -m tools.xr_controller renderer set cpp      # the way back, from the next Start; `clear` does the same
+python3 -m tools.xr_controller renderer status       # the setting, and whether a Rust start would pass its pin check
+```
+
+`xr-workspace install --rust-renderer PATH` pins it the same way, byte for byte. The pin is its own file,
+`renderer-rust.pin.json` beside `installed.json`, which keeps the C++ renderer and its old keys, so every reader and an
+older controller load it unchanged. The controller puts the Rust pin into the consent, so the confirm box names the
+renderer that will launch; the Python runner and the Rust supervisor (`runner::renderer_switch`) read the setting again,
+require that same pin and hash the binary just before the launch. If the setting says rust and the Rust renderer is not
+installed, its pin is broken or its bytes changed, the Start fails with a message naming `renderer set cpp`. It never
+falls back to C++ without saying so. A Pro 2 run and Recover stay on C++ and their own path whatever the setting, and a
+Rust Start offers no 3D. The two switches are independent: both runners pick the renderer the same way, though the
+Rust supervisor's real backend still refuses the managed run (`MANAGED_NOT_PORTED`), so only its fake one launches.
+
+`tests/xr_controller/test_renderer_switch.py` covers the setting, the pin checks and, once `xr-renderer` is built,
+the spawn command carrying its pinned path. `tests/install.rs` checks both installers' bytes and rolling back by
+restoring the previous pins, and `tests/renderer_switch.rs` runs the Rust supervisor on its fake backend and compares
+its refusals with the Python's. This is only the switch: the Rust renderer still draws the test pattern only (see
+[Renderer](#renderer)), so a Rust run cannot show desktops yet.
+
 ## Key helper (`xr-control`)
 
 `xr-control` is the Rust port of `tools/native_spike/xr_control.py`, the helper Hyprland runs once per bound key press. It
