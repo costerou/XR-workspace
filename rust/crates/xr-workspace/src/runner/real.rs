@@ -1,4 +1,5 @@
-//! The backend a release build runs: the ported Hyprland client and tracking wrappers.
+//! The backend a release build runs: the ported Hyprland client and tracking wrappers, and the managed run on them
+//! (`managed::real`).
 
 use std::path::Path;
 
@@ -8,10 +9,6 @@ use crate::supervisor::luma_watch::{self, LumaWatch};
 use crate::supervisor::tracking::{Paths, Tracking, Want};
 
 use super::{Backend, PanelConsent, Res, Run};
-
-/// Why the Rust managed run refuses: nothing behind `managed::Host` talks to the broker or the renderer yet.
-pub const MANAGED_NOT_PORTED: &str =
-    "the Rust supervisor's managed run is not available yet (ownership broker and renderer host not ported)";
 
 #[derive(Default)]
 pub struct Real {
@@ -72,9 +69,9 @@ impl Backend for Real {
         self.client()?.park_presentation(output).map(drop).map_err(|e| e.to_string())
     }
 
-    fn run_managed(&mut self, _consent: &PanelConsent, _runtime: &Path, _renderer: &Pin) -> Res<Run> {
-        // Refused before anything opens: no journal, so the runner unloads the plugin and the run ends clean.
-        Err(MANAGED_NOT_PORTED.into())
+    fn run_managed(&mut self, consent: &PanelConsent, runtime: &Path, renderer: &Pin) -> Res<Run> {
+        let client = self.client()?;
+        crate::managed::real::run(client, consent, runtime, renderer).map_err(|e| e.0)
     }
 
     fn toast(&mut self, body: &str) {

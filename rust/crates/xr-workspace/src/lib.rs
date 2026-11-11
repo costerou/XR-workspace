@@ -21,15 +21,18 @@ pub mod json;
 pub mod lua;
 pub mod managed;
 pub mod monitor_rules;
+pub mod ownership;
 pub mod pro2_route;
 pub mod private_file;
 mod py;
 pub mod pyjson;
 pub mod recovery;
 pub mod resize;
+pub mod restore;
 pub mod runner;
 pub mod send;
 pub mod supervisor;
+pub mod view_controls;
 // Shared with the binary's tests, which use all of it.
 #[cfg(test)]
 #[allow(dead_code)]

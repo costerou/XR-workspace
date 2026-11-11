@@ -65,8 +65,8 @@ with ctest, the Python suites and the QML tests.
 
 `tests/supervisor_faults.rs` drives each fault (slow, hung, failing and crashing guards, silence,
 interrupts, a foreign Wayland peer) against shell stand-ins and checks the timings and that no
-worker or renderer is left unreaped. The control socket, Hyprland events and the physical-pair
-guard check are later tasks.
+worker or renderer is left unreaped. The physical-pair guard check is in `managed::real`; the
+control socket and Hyprland events come with the view controls.
 
 The tracking side ports `tools/native_spike/tracking.py`, `survive.py` and `tools/pro2_runtime/scope.py`:
 
@@ -79,6 +79,43 @@ The tracking side ports `tools/native_spike/tracking.py`, `survive.py` and `tool
 
 `tests/tracking.rs` runs fake drivers in real namespaces against a temporary tree, and checks that the shipped Python
 reads a state file this wrote.
+
+### The managed run on the real backend
+
+`xr-workspace supervisor` on its real backend runs the managed order of `managed.rs` (`managed::real`), as
+`tools/native_spike/managed.py` does: the physical pair checked, the outputs planned, the ownership broker's hello
+(`ownership.rs`, a port of `OwnershipBrokerClient` on the requests of `xr_wire::plugin`, with a session proof round each
+one), the journal bound, each output journaled, created and read back, the guard's first check, the layout snapshot
+(`restore.rs`, the same file as `restore.py`), adoption, then the renderer under the watchdog with the guard as a
+worker process of the same binary (`xr-workspace supervisor-guard`) and a new renderer after a USB drop. Recovery wakes
+the fallback, asks the glasses out of 3D, handles the monitor rules, unpins, restores the layout and undoes the journal
+through the broker. Stop is SIGINT, which ends the renderer and runs recovery.
+
+`tests/managed_real.rs` is the gate. It runs the Python runner and the Rust supervisor, each against its own copy of one
+scripted Hyprland and ownership plugin (`tests/managed_real/compositor.py`, real sockets, every request logged with its
+sender) and a fake renderer. Both must send the same requests in the same order from the run's process, leave the same
+journal, layout snapshot and result, and start the renderer with the same arguments. The cases are a renderer that ends
+by itself, Stop, a renderer that fails, a silent renderer, the fallback lost mid-run (guard failure), a hello the broker
+refuses, a create that does not go live, the glasses missing at the start, and a removal the broker refuses. In that last
+case, Python's `recover-run` then finishes the run the Rust supervisor started. The UUIDs, the session id, the folders
+and the descriptor numbers are normalized. When a renderer exits on its own, `renderer-closed` against no stop reason is
+a race in both supervisors, so it is not compared.
+
+The Python side (`tests/managed_real/oracle.py`) is the shipped runner with one change: it takes the view controls out,
+because the Rust run has none yet. Not ported, so a Rust run presents the desktops without these:
+
+- the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
+  pointer, privacy mode, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
+- the window memory: remembered windows are not put back at the start, and no capture is taken
+- the reset of a saved setup the broker refused (`profiles.discard_unusable`)
+- the isolated-VM broker (schema 2) and the Pro 2 route, as before
+
+Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
+the run loop (`supervisor::hook::LoopHook`: its sources, status datagrams, frame descriptors and guard changes) where the
+Python calls the original, in the Python's order. With every stub off, a run is the plain one above.
+`crates/xr-workspace/VIEW_CONTROLS.md` is the hand-off for each port: the Python to port, the renderer ops, the parity
+tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
+and a fake-compositor reply function per feature.
 
 ### Switching runs to the Rust supervisor
 
@@ -127,8 +164,7 @@ renderer that will launch; the Python runner and the Rust supervisor (`runner::r
 require that same pin and hash the binary just before the launch. If the setting says rust and the Rust renderer is not
 installed, its pin is broken or its bytes changed, the Start fails with a message naming `renderer set cpp`. It never
 falls back to C++ without saying so. A Pro 2 run and Recover stay on C++ and their own path whatever the setting, and a
-Rust Start offers no 3D. The two switches are independent: both runners pick the renderer the same way, though the
-Rust supervisor's real backend still refuses the managed run (`MANAGED_NOT_PORTED`), so only its fake one launches.
+Rust Start offers no 3D. The two switches are independent: both runners pick the renderer the same way.
 
 `tests/xr_controller/test_renderer_switch.py` covers the setting, the pin checks and, once `xr-renderer` is built,
 the spawn command carrying its pinned path. `tests/install.rs` checks both installers' bytes and rolling back by

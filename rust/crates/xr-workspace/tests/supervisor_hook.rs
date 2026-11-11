@@ -229,3 +229,102 @@ fn a_stopping_run_polls_no_hook() {
     assert_eq!(w.stop_reason, Some(StopReason::RendererClosed));
     assert!(shared.polls.lock().unwrap().is_empty());
 }
+
+/// The view controls' side of the hook (`view_controls`): a source the loop waits on (the control socket), the status
+/// datagrams it is handed, and a descriptor that travels with its frame (a VR video's file).
+struct Sourced {
+    wake: WakeFd,
+    source: UnixStream,
+    file: Option<std::os::fd::OwnedFd>,
+    statuses: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+impl LoopHook for Sourced {
+    fn wake_fd(&self) -> &WakeFd {
+        &self.wake
+    }
+    fn poll(&mut self, _now: Instant, _out: &mut Vec<u8>) {}
+    fn sources(&self) -> Vec<std::os::fd::RawFd> {
+        vec![std::os::fd::AsRawFd::as_raw_fd(&self.source)]
+    }
+    fn ready(&mut self, index: usize, _now: Instant, out: &mut Vec<u8>) -> bool {
+        assert_eq!(index, 0);
+        let mut op = [0u8; 64];
+        let n = (&self.source).read(&mut op).unwrap();
+        if n == 0 {
+            return false; // ended: never woken by it again
+        }
+        out.extend_from_slice(b"{\"op\":\"video\"}\n");
+        true
+    }
+    fn status(&mut self, datagram: &[u8], _now: Instant) {
+        self.statuses.lock().unwrap().push(datagram.to_vec());
+    }
+    fn take_fds(&mut self) -> Vec<std::os::fd::OwnedFd> {
+        self.file.take().into_iter().collect()
+    }
+}
+
+#[test]
+fn a_source_its_status_and_a_frame_with_a_descriptor() {
+    use std::io::Write;
+    use std::os::unix::net::UnixDatagram;
+    let (parent, peer) = UnixStream::pair().unwrap();
+    let (status_parent, status_child) = UnixDatagram::pair().unwrap();
+    let (source, mut user) = UnixStream::pair().unwrap();
+    let statuses = Arc::new(Mutex::new(Vec::new()));
+    let mut hook = Sourced {
+        wake: WakeFd::new().unwrap(),
+        source,
+        file: Some(std::fs::File::open("/dev/null").unwrap().into()),
+        statuses: Arc::clone(&statuses),
+    };
+    let interrupt = Arc::new(AtomicBool::new(false));
+    let stop = Arc::clone(&interrupt);
+    let seen = Arc::clone(&statuses);
+    let renderer = thread::spawn(move || {
+        status_child.send(b"{\"missed\": 0}\n").unwrap();
+        user.write_all(b"video_open").unwrap();
+        // The frame and the descriptor sent with it (SCM_RIGHTS), as the renderer's socket gets them.
+        let mut data = [0u8; 64];
+        let mut space = [0u64; 8];
+        let mut iov = libc::iovec {
+            iov_base: data.as_mut_ptr().cast(),
+            iov_len: data.len(),
+        };
+        let mut message: libc::msghdr = unsafe { std::mem::zeroed() };
+        message.msg_iov = &mut iov;
+        message.msg_iovlen = 1;
+        message.msg_control = space.as_mut_ptr().cast();
+        message.msg_controllen = std::mem::size_of_val(&space) as _;
+        let n = unsafe { libc::recvmsg(std::os::fd::AsRawFd::as_raw_fd(&peer), &mut message, 0) };
+        let header = unsafe { libc::CMSG_FIRSTHDR(&message) };
+        let rights = !header.is_null() && unsafe { (*header).cmsg_type } == libc::SCM_RIGHTS;
+        drop(user); // the source ends
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while seen.lock().unwrap().is_empty() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        thread::sleep(Duration::from_millis(60)); // an ended source must not spin the loop
+        stop.store(true, Ordering::SeqCst);
+        (data[..n as usize].to_vec(), rights, peer)
+    });
+    let mut w = watchdog();
+    w.run_hosting(
+        &parent,
+        Some(&status_parent),
+        &mut hook,
+        &interrupt,
+        POLL_INTERVAL,
+    )
+    .unwrap();
+    let (frame, rights, _peer) = renderer.join().unwrap();
+    assert_eq!(frame, b"{\"op\":\"video\"}\n");
+    assert!(rights, "the descriptor went with its frame");
+    assert_eq!(*statuses.lock().unwrap(), [b"{\"missed\": 0}\n".to_vec()]);
+    assert!(
+        w.loop_passes < 40,
+        "an ended source spun the loop: {} passes",
+        w.loop_passes
+    );
+}
