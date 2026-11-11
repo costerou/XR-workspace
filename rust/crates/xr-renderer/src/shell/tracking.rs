@@ -11,6 +11,7 @@
 
 use std::rc::Rc;
 
+use xr_renderer::continuity::ViewContinuity;
 use xr_renderer::environment::environment_view;
 use xr_renderer::hud::{HUD_FONT_FAMILY, HudImage, HudTextMetrics, TrackingHint, render_hud_card, tracking_hint_lines};
 use xr_renderer::hud_font::HudFont;
@@ -477,6 +478,31 @@ impl Tracking {
             look_turn(&c, &overview, &scene.own, view.look_from() as usize, view.look_to() as usize, view.turn())
         };
         mul(head, &m)
+    }
+
+    /// The tracking fields of a continuity snapshot (wayland.cpp save_continuity): the pose, stabilization, viewing
+    /// mode, the last maximize, the view last drawn and a centred switch's start.
+    #[allow(dead_code)] // called by continuity_shell
+    pub(super) fn save_continuity(&self, c: &mut ViewContinuity) {
+        c.pose = self.pose.clone();
+        c.stabilization = self.stabilization.clone();
+        c.modes = self.modes.clone();
+        c.maximized = self.maximized;
+        c.last_drawn = self.last_drawn;
+        c.centre_valid = self.centre.valid;
+        c.centre_serial = self.centre.serial;
+        c.centre_dir = self.centre.dir;
+    }
+
+    /// The same fields back from a restored snapshot (wayland.cpp restore_continuity).
+    #[allow(dead_code)] // called by continuity_shell
+    pub(super) fn restore_continuity(&mut self, c: &ViewContinuity) {
+        self.pose = c.pose.clone();
+        self.stabilization = c.stabilization.clone();
+        self.modes = c.modes.clone();
+        self.maximized = c.maximized;
+        self.last_drawn = c.last_drawn;
+        self.centre = Centre { valid: c.centre_valid, serial: c.centre_serial, dir: c.centre_dir };
     }
 
     /// Head tracking redraws on every frame callback.
