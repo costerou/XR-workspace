@@ -24,11 +24,11 @@ public:
     float* fov = nullptr;
     float* look_ahead = nullptr;
     explicit FakeFeed(std::string prefix, float fov_deg = 52.f, std::array<float, 4> cfg = {10, 0.6f, 10, 40}) : prefix_(std::move(prefix)) {
-        pose = static_cast<float*>(make(0, "pose_orientation", sizeof(float) * 16));
-        mutex = static_cast<pthread_mutex_t*>(make(1, "pose_orientation_mutex", sizeof(pthread_mutex_t)));
-        disabled = static_cast<bool*>(make(2, "disabled", sizeof(bool)));
-        fov = static_cast<float*>(make(3, "display_fov", sizeof(float)));
-        look_ahead = static_cast<float*>(make(4, "look_ahead_cfg", sizeof(float) * 4));
+        pose = static_cast<float*>(make("pose_orientation", sizeof(float) * 16));
+        mutex = static_cast<pthread_mutex_t*>(make("pose_orientation_mutex", sizeof(pthread_mutex_t)));
+        disabled = static_cast<bool*>(make("disabled", sizeof(bool)));
+        fov = static_cast<float*>(make("display_fov", sizeof(float)));
+        look_ahead = static_cast<float*>(make("look_ahead_cfg", sizeof(float) * 4));
         *fov = fov_deg;
         std::memcpy(look_ahead, cfg.data(), sizeof(float) * 4);
         pthread_mutexattr_t attr;
@@ -53,8 +53,11 @@ public:
         write(v);
     }
     ~FakeFeed() { cleanup(); }
+    // A segment beyond XRLinuxDriver's, made the same way and removed with the rest: one a shared (not
+    // private_segments) Luma publisher would otherwise create itself and, by design, leave behind.
+    void* also(const char* name, std::size_t size) { return make(name, size); }
 private:
-    void* make(int i, const char* name, std::size_t size) {
+    void* make(const char* name, std::size_t size) {
         const std::string path = prefix_ + name;
         // Each retry moves to the next inode (tmpfs numbers them in sequence), and so the next key; a live
         // driver holds a run of ~28 consecutive keys, so allow far more attempts than that.
@@ -63,7 +66,7 @@ private:
             if (attempt == 0) files_.push_back(path);
             const int id = shmget(ftok(path.c_str(), 0), size, 0600 | IPC_CREAT | IPC_EXCL);
             if (id >= 0) {
-                ids_[i] = id;
+                ids_.push_back(id);
                 void* addr = shmat(id, nullptr, 0);
                 if (addr == reinterpret_cast<void*>(-1)) fail("shmat", path);
                 return addr;
@@ -82,12 +85,13 @@ private:
         std::exit(2);
     }
     void cleanup() {
-        for (int& id : ids_) if (id >= 0) { shmctl(id, IPC_RMID, nullptr); id = -1; }
+        for (int id : ids_) shmctl(id, IPC_RMID, nullptr);
+        ids_.clear();
         for (const auto& path : files_) std::remove(path.c_str());
         files_.clear();
     }
     std::string prefix_;
-    int ids_[5] = {-1, -1, -1, -1, -1};
+    std::vector<int> ids_;
     std::vector<std::string> files_;
 };
 }

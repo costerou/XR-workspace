@@ -40,3 +40,20 @@ pub fn write_private(path: &Path, value: &serde_json::Value) {
     std::io::Write::write_all(&mut file, value.to_string().as_bytes()).unwrap();
     std::fs::rename(&tmp, path).unwrap();
 }
+
+/// An executable script (0700) at `path`, replacing any file there. Written by a child process: a
+/// writable descriptor held here could leak into another test's fork and make the exec fail with
+/// ETXTBSY.
+pub fn write_script(path: &Path, body: &str) {
+    let status = std::process::Command::new("/bin/sh")
+        .args([
+            "-c",
+            "printf '%s' \"$1\" > \"$2\" && chmod 700 \"$2\"",
+            "sh",
+            body,
+        ])
+        .arg(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+}

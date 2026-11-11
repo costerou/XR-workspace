@@ -259,7 +259,7 @@ fn recovery_reason(state_dir: &Path, run_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testdir::{TestDir, write_private};
+    use crate::testdir::{TestDir, write_private, write_script};
     use serde_json::json;
     use std::os::unix::fs::PermissionsExt;
 
@@ -308,8 +308,7 @@ mod tests {
         let script = format!(
             "#!/bin/sh\nok=3\nfor u in \"$@\"; do case \"$u\" in\n{cases}viture-xr-*) echo inactive;;\nesac; done\nexit $ok\n"
         );
-        std::fs::write(&path, script).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        write_script(&path, &script);
         Units {
             systemctl: path.clone(),
             systemd_run: path,

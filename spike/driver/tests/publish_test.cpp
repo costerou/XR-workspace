@@ -351,6 +351,7 @@ void restart_keeps_an_attached_reader() {
     Scratch scratch;
     const std::string prefix = scratch.dir + "/shared_";
     xr::test::FakeFeed driver(prefix, 40.f, {1, 1, 1, 1});
+    driver.also(kPredictionIpcName, sizeof(PredictionWire));
     const int id = segment(prefix + "pose_orientation");
     std::string why;
     auto feed = xr::PoseFeed::open(prefix, why);
@@ -380,6 +381,7 @@ void undersized_segment_is_replaced() {
     Scratch scratch;
     const std::string prefix = scratch.dir + "/small_";
     xr::test::FakeFeed driver(prefix);  // every key is this test's; then one segment is swapped for a short one
+    driver.also(kPredictionIpcName, sizeof(PredictionWire));
     const std::string path = prefix + "pose_orientation";
     CHECK(shmctl(segment(path), IPC_RMID, nullptr) == 0);
     const int small = shmget(ftok(path.c_str(), 0), 8, 0600 | IPC_CREAT | IPC_EXCL);
@@ -609,6 +611,7 @@ void second_publisher_is_refused_until_the_first_is_gone() {
     Scratch scratch;
     const std::string prefix = scratch.dir + "/shared_";
     xr::test::FakeFeed driver(prefix);
+    driver.also(kPredictionIpcName, sizeof(PredictionWire));
     const auto options = shared(prefix, scratch);
     std::string why;
     auto first = Publisher::open(options, why);
@@ -632,6 +635,7 @@ void running_xrdriver_is_refused_and_a_dead_one_is_not() {
     Scratch scratch;
     const std::string prefix = scratch.dir + "/shared_";
     xr::test::FakeFeed driver(prefix);
+    driver.also(kPredictionIpcName, sizeof(PredictionWire));
     driver.write(xr::Quat{0, 0, 0, 1}, 77.f);
     *driver.disabled = false;
     PublisherOptions options = shared(prefix, scratch);

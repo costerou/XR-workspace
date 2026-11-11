@@ -240,21 +240,19 @@ fn run(cmd: &mut Command, timeout: Duration) -> io::Result<Done> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testdir::TestDir;
+    use crate::testdir::{TestDir, write_script};
     use std::os::unix::fs::PermissionsExt;
 
     /// A stand-in `systemctl` that logs its arguments and answers from a script.
     fn fake(dir: &TestDir, body: &str) -> Units {
         let path = dir.path().join("systemctl");
-        std::fs::write(
+        write_script(
             &path,
-            format!(
+            &format!(
                 "#!/bin/sh\necho \"$@\" >> '{}'\n{body}\n",
                 dir.path().join("calls").display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        );
         Units {
             systemctl: path.clone(),
             systemd_run: path,

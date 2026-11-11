@@ -1347,7 +1347,7 @@ pub fn run_hook(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testdir::TestDir;
+    use crate::testdir::{TestDir, write_script};
 
     fn scrubber() -> Scrubber {
         Scrubber::new("/home/testuser", "testuser", "testhost")
@@ -1435,21 +1435,9 @@ mod tests {
         assert!(text.len() <= MAX_SUMMARY + 1 && text.ends_with('\n'));
     }
 
-    /// Written by a child process: a writable descriptor held here could leak into another test's fork and make the
-    /// exec fail with ETXTBSY.
     fn script(dir: &Path, name: &str, body: &str) -> PathBuf {
         let path = dir.join(name);
-        let status = std::process::Command::new("/bin/sh")
-            .args([
-                "-c",
-                "printf '%s' \"$1\" > \"$2\" && chmod 700 \"$2\"",
-                "sh",
-                body,
-            ])
-            .arg(&path)
-            .status()
-            .unwrap();
-        assert!(status.success());
+        write_script(&path, body);
         path
     }
 
