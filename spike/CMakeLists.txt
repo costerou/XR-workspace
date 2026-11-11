@@ -772,6 +772,11 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
           PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
+      # rust: video_shell
+      # The feed gone and then the glasses' output: the renderer ends by itself (shared with the tracking block).
+      add_test(NAME capture_e2e_rust_feed_gone_video_loss COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 8 --warmup 1
+        --video-loss 5 --feed-drop 1000 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_feed_gone_video_loss PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
