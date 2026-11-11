@@ -114,9 +114,9 @@ key through each run's own key helper. Until the view is ported the reply is its
 
 Not ported, so a Rust run presents the desktops without these:
 
-- the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
-  bind panel are ported (below) but reach a run's ops only once the view is.
+- the glasses' view controls (`managed.view_controls`) but the socket and the Ctrl+Alt binds: the view and its frames,
+  the overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the
+  key bind panel are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -157,8 +157,21 @@ before the run's own go in (a run bind on keys a described Hyprland / Omarchy bi
 keys `Binds::install` takes, the panel's ops (`binds_toggle`, `binds_key`) and `binds` frames through the view, and its
 compositor work on a worker thread with its own pinned client. `tests/keybinds_run.rs` replays
 `rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
-toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
-`tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+toasts and saved file). In a run it opens with the binds (below); `tests/managed_real/cases/keybinds.rs` runs both
+runners with a described desktop bind on a run key, which both leave out, and presses Ctrl+Alt+K through each run's
+helper. Its frames come once the view routes the panel's ops.
+
+The run's Ctrl+Alt binds (`view_controls::binds::Binds`) are ported: the bind helper's command line (the bundle's
+`tools/native_spike/xr_control.py` under `/usr/bin/python3`, as the bind Lua names an interpreter and a script), the
+session mode read at the start, the install with the key bind panel's keys, the removal before recovery, and the work
+the view asks for off the loop: the reinstall after a config reload (typing mode kept, the glasses parked, then their
+session or wide mode back, then 3D reasserted), the placement panel's and options menu's modal binds, and typing mode's
+bind table. `MenuLock`, a ticket lock shared with the key bind panel's worker, orders their compositor work in the order
+the loop asked for it, as the Python's `_menu_lock` does, and holds what is installed. `tests/binds_run.rs` replays
+`rust/corpus/supervisor/binds_run.json` (`tests/native_spike/binds_run_corpus.py`: the Python's `managed.view_controls`
+and `ViewControl` bind work, step for step, on the real client). `tests/managed_real/cases/binds.rs` compares the run's
+install and removal; its config-reload case waits on the view's event stream. Not ported: a Pro 2's mode restore after a
+reload (`display_restore`).
 
 Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
 compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main

@@ -70,23 +70,8 @@ def stub_view(view):
     hide('event_stream', 'install_options_binds')
 
 
-def stub_binds(managed):
-    """`binds`: no Ctrl+Alt binds in or out, and no read of the session mode in `view_controls`'s body."""
-    quiet('install_view_binds', 'remove_view_binds')
-    hide('reinstall_view_binds')
-    body = managed.view_controls.__wrapped__.__code__
-
-    def no_session_mode(name, value):
-        if name != 'query': return value
-        def query(*args, **kwargs):
-            if sys._getframe(1).f_code is body and args[:1] == ('monitors',): return []
-            return value(*args, **kwargs)
-        return query
-    Client.filters.append(no_session_mode)
-
-
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video, view
+    from tools.native_spike import immersive, managed, unified_cursor, video, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
