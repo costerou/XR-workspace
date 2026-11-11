@@ -1525,6 +1525,7 @@ int main(int argc, char** argv) {
           for(const auto& refusal:native_refusals)if((refusal.value("request_id",std::uint64_t(0))==bad_menu_id||refusal.value("request_id",std::uint64_t(0))==bad_quality_id)&&(!refusal["detail"].is_string()||refusal["detail"].get<std::string>().empty()||refusal["detail"].get<std::string>().size()>256))fail("native refusal missing bounded owner error");
         }
         if (!window_complete || !stop_sent) fail("renderer ended before the measured window did");
+        if (malloc_count && !shim_loaded) fail("--malloc-shim given but the shim did not load in the renderer");
         if (opt.feed_drop > 0) {
             const auto tracking = out.value("tracking_report", nlohmann::json::object());
             if (!status_tracked) fail("head tracking never started");

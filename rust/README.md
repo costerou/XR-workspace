@@ -154,6 +154,43 @@ capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \
 Its output carries the renderer's `timing_report`, so the C++ and Rust reports can be compared
 field by field.
 
+### Benches against the Rust renderer
+
+The C++ loopback compositor and benches stay the harness (plan decision: an independent harness
+while the renderer is replaced). Configure the spike with the Rust binary and three ctests run it:
+
+```sh
+cargo build --release -p xr-renderer
+cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release -DXR_RUST_RENDERER=$PWD/rust/target/release/xr-renderer
+ninja -C build/release capture_e2e_bench xr_malloc_count
+ctest --test-dir build/release -R '^capture_e2e_rust_'
+```
+
+- `capture_e2e_rust_pattern` and `capture_e2e_rust_scaled_pattern` (`--fractional-scale 150`):
+  the `pattern` mode, the only one the Rust binary draws so far. The capture modes (`cpu`,
+  `gl-shm`, `gl-dmabuf`) are added here once its capture is ported.
+- `capture_e2e_rust_malloc_pattern`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
+  process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
+  `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
+  `spike/bench/malloc_report.py` names the call sites, demangled. On 2026-11-10 the pattern
+  path made 987 allocations/s (8 per frame at 120 Hz, all in `wayland-client` request and
+  event handling, `Presentation::pump`'s poll list included) against 33,849/s for the C++ renderer
+  in the same mode.
+
+`gl_bench`'s bench mode is ported as a cargo bench over the same scenarios (the 21 drawn without a
+background or video) with the same table, column for column: CPU, GL-minus-flush, thread CPU,
+flush, GPU time (`GL_EXT_disjoint_timer_query`), frame time, frames over 8.3 ms and the GL call
+counts.
+
+```sh
+cargo bench -p xr-renderer --bench gl_bench -- [--frames N] [--size WxH]
+build/release/gl_bench --bench [--frames N] [--size WxH]   # the C++ one, to compare
+```
+
+Not ported from the C++ bench: its `report:` line and the card and font CPU timings (no font in
+Rust yet). `tests/gl_parity.rs` still checks the call counts against the C++ ones
+(`XR_GL_CPP_BENCH`).
+
 ## Driver real-time layer
 
 `xr-luma-driver`'s `rt` module ports the C++ `luma::rt` pipeline (`spike/driver/include/luma/rt.hpp`):

@@ -113,6 +113,9 @@ type VertexAttribPointer = unsafe extern "system" fn(u32, i32, u32, u8, i32, *co
 pub struct Gl {
     gl: Rc<glow::Context>,
     counts: Cell<Counts>,
+    /// Wall time inside glFlush since the last reset (gl_call_counts.hpp `flush_ns`: the offscreen "swap", command
+    /// submission to the kernel). Kept beside Counts, which holds calls and amounts only.
+    flush_ns: Cell<u64>,
     /// glVertexAttribPointer itself: glow only takes buffer offsets, and the cards draw from client arrays.
     attrib_pointer: VertexAttribPointer,
 }
@@ -141,6 +144,7 @@ impl Gl {
         Ok(Self {
             gl,
             counts: Cell::new(Counts::default()),
+            flush_ns: Cell::new(0),
             attrib_pointer,
         })
     }
@@ -154,6 +158,11 @@ impl Gl {
     }
     pub fn reset_counts(&self) {
         self.counts.set(Counts::default());
+        self.flush_ns.set(0);
+    }
+    /// Nanoseconds spent inside glFlush since the last `reset_counts`.
+    pub fn flush_ns(&self) -> u64 {
+        self.flush_ns.get()
     }
 
     // SAFETY (every method below): plain GL calls on the context current on this thread (the type's contract). The
@@ -310,7 +319,9 @@ impl Gl {
     }
     pub fn flush(&self) {
         count!(self, other);
+        let t = std::time::Instant::now();
         unsafe { self.gl.flush() }
+        self.flush_ns.set(self.flush_ns.get() + t.elapsed().as_nanos() as u64);
     }
     pub fn scissor(&self, x: i32, y: i32, w: i32, h: i32) {
         count!(self, other);

@@ -725,6 +725,21 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_churn_${CHURN}_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
     endforeach()
+    # The same loopback compositor against the Rust renderer (rust/crates/xr-renderer, `cargo build --release -p
+    # xr-renderer`), opt-in: -DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer. Only the modes the Rust
+    # binary draws so far; the capture modes (cpu, gl-shm, gl-dmabuf) join as its capture lands. The malloc test also
+    # proves the counting shim loads into the Rust process (glibc malloc), so allocations_per_s is reported.
+    set(XR_RUST_RENDERER "" CACHE FILEPATH "Rust xr-renderer binary for the capture_e2e_rust_* tests (empty: none)")
+    if(XR_RUST_RENDERER)
+      add_test(NAME capture_e2e_rust_pattern COMMAND capture_e2e_bench --check --mode pattern --seconds 1.5 --warmup 1
+        --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_scaled_pattern COMMAND capture_e2e_bench --check --mode pattern --seconds 1.5 --warmup 1
+        --fractional-scale 150 --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_malloc_pattern COMMAND capture_e2e_bench --check --mode pattern --seconds 1.5 --warmup 1
+        --malloc-shim "$<TARGET_FILE:xr_malloc_count>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_pattern capture_e2e_rust_scaled_pattern capture_e2e_rust_malloc_pattern
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
   add_executable(video_bench tests/video_bench.cpp src/video_gl.cpp src/video_player.cpp)

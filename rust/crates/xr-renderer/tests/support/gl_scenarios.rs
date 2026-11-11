@@ -412,13 +412,40 @@ pub fn draw_frame(
     h: u32,
     upload: bool,
 ) -> bool {
+    draw_frame_timed(gl, r, s, frame, w, h, upload).ok
+}
+
+/// What draw_frame_timed measured: the gl_bench.cpp draw_frame return (wall time of the draw call alone) and its
+/// `upload_us` out value (the uploads before it), in microseconds.
+pub struct Timed {
+    pub ok: bool,
+    pub upload_us: f64,
+    pub draw_us: f64,
+}
+
+/// draw_frame with the draw call and the uploads timed apart, as gl_bench.cpp's bench mode reads them.
+pub fn draw_frame_timed(
+    gl: &mut GlCompositor,
+    r: &Resources,
+    s: &Scenario,
+    frame: i32,
+    w: u32,
+    h: u32,
+    upload: bool,
+) -> Timed {
     let mut ok = true;
+    let t = std::time::Instant::now();
     if upload {
         let v = variant(s, frame) as usize;
         for (i, d) in r.desktops.iter().enumerate() {
             ok &= gl.upload(i, &d[v], DESKTOP_W, DESKTOP_H, DESKTOP_W * 4);
         }
     }
+    let upload_us = if upload {
+        t.elapsed().as_secs_f64() * 1e6
+    } else {
+        0.0
+    };
     let (half_w, half_h) = half_fov(w, h);
     gl.set_popup(s.popup.then(|| r.popup.clone()), 1, 1.0);
     let sizes = [Size {
@@ -482,17 +509,23 @@ pub fn draw_frame(
         if s.ghost { 45.0 } else { 0.0 },
         s.drag_target,
     );
+    let t = std::time::Instant::now();
+    let view = head(frame, s.head_motion);
     ok &= gl.draw_and_swap(
         &tiles,
         &s.placements,
         s.position as i32,
         1.0 - s.zoom,
-        &head(frame, s.head_motion),
+        &view,
         half_w,
         half_h,
         None,
     );
-    ok
+    Timed {
+        ok,
+        upload_us,
+        draw_us: t.elapsed().as_secs_f64() * 1e6,
+    }
 }
 
 /// gl_bench.cpp make: an offscreen compositor with the accent, the handle atlas and the three desktops (variant 0).
