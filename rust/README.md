@@ -68,6 +68,32 @@ The tracking side ports `tools/native_spike/tracking.py`, `survive.py` and `tool
 `tests/tracking.rs` runs fake drivers in real namespaces against a temporary tree, and checks that the shipped Python
 reads a state file this wrote.
 
+### Switching runs to the Rust supervisor
+
+The Python controller picks the supervisor at every Start (`tools/xr_controller/supervisor_switch.py`), from one
+setting, `$XDG_CONFIG_HOME/viture-workspace/supervisor.json` (`{"schema": 1, "supervisor": "rust" | "python"}`). With no
+file, runs use the Python runner, as before.
+
+```sh
+python3 -m tools.xr_controller supervisor set rust     # the next Start runs `xr-workspace supervisor`
+python3 -m tools.xr_controller supervisor set python   # the way back, from the next Start; `clear` does the same
+python3 -m tools.xr_controller supervisor status       # the setting, and whether a Rust start would pass its pin check
+```
+
+Rust runs the binary `xr-workspace install` pinned: `workspace.pin.json` names the bundle in `workspace/<sha12>/`, and
+before every Rust start the controller checks the manifest's hash against the pin and the binary's hash against the
+manifest. If the setting says rust and the check fails, the Start fails with a message naming `supervisor set python`.
+It never falls back to Python without saying so, because a run that was meant to prove Rust must not run on Python
+unnoticed. Some things stay on Python whatever the setting:
+
+- Recover (`recover-run`), since the journal is frozen and the Python recovery cleans up a Rust run.
+- A Pro 2 run, since the Rust supervisor does not port that route.
+
+The Python supervisor stays installed for two releases (plan, phase 6). `tests/xr_controller/test_supervisor_switch.py`
+covers the setting, the pin checks and the spawn command. With a debug build (`cargo build -p xr-workspace`), it also
+starts the real binary on its loopback backend, using the exact command and environment `Host.spawn` passes to
+systemd-run.
+
 ## Key helper (`xr-control`)
 
 `xr-control` is the Rust port of `tools/native_spike/xr_control.py`, the helper Hyprland runs once per bound key press. It

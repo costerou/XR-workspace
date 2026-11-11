@@ -16,7 +16,7 @@ from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
-from . import pro2_route
+from . import pro2_route, supervisor_switch
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
@@ -146,7 +146,9 @@ class Host:
         return result
     def spawn(self,action,consent,journal,rules=()):
         raw=read_private_json(consent); run_id=token(raw['run_id'])
-        args=isolated('tools.xr_controller.runner','--consent',consent,'--state-dir',self.state_dir)
+        # The setting is read at every Start (supervisor_switch.py): Rust when it says so, else the Python runner. Recover is Python always.
+        args=(supervisor_switch.run_argv(raw,consent,self.state_dir,self.data_home) if action!='recover' else None) \
+            or isolated('tools.xr_controller.runner','--consent',consent,'--state-dir',self.state_dir)
         if action=='recover':
             args=isolated('tools.xr_controller','recover-run','--consent',consent,'--journal',journal,*[a for name in rules for a in ('--clear-rule',name)])
         subprocess.run(['systemd-run','--user','--unit=viture-xr-'+run_id,'--collect',
@@ -266,6 +268,20 @@ def override_command(args):
         print(f'tracking-override failed: {exc}',file=sys.stderr); return 1
 
 
+def supervisor_command(args):
+    """The hidden switch between the Python runner and the Rust supervisor (supervisor_switch.py). Takes effect at the next Start."""
+    try:
+        if args.action=='set':
+            if args.choice is None: raise ValueError('set needs '+' or '.join(supervisor_switch.CHOICES))
+            supervisor_switch.save_setting(args.choice)
+        elif args.action=='clear': supervisor_switch.clear_setting()
+        data=Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')
+        print(json.dumps(supervisor_switch.status(data)))
+        return 0
+    except (OSError,ValueError) as exc:
+        print(f'supervisor failed: {exc}',file=sys.stderr); return 1
+
+
 def install_unit(config_home):
     target=Path(config_home)/'systemd/user'
     target.mkdir(parents=True,exist_ok=True)
@@ -290,10 +306,13 @@ def main(argv=None):
     p.add_argument('--projection',type=float); p.add_argument('--mount-pitch',type=float,help='degrees; default -8.5, the alternative is -11'); p.add_argument('--pose-rate',type=int,help='60, 90, 120 or 240 Hz')
     p=sub.add_parser('tracking-override',help=argparse.SUPPRESS)
     p.add_argument('action',choices=('set','clear','status')); p.add_argument('driver',nargs='?',choices=tracking.OVERRIDES)
+    p=sub.add_parser('supervisor',help=argparse.SUPPRESS)
+    p.add_argument('action',choices=('set','clear','status')); p.add_argument('choice',nargs='?',choices=supervisor_switch.CHOICES)
     args=ap.parse_args(argv)
     if args.command=='pro2-route': return route_command(args)
     if args.command=='pro2-settings': return settings_command(args)
     if args.command=='tracking-override': return override_command(args)
+    if args.command=='supervisor': return supervisor_command(args)
     data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
     if args.command=='install':
         try:
