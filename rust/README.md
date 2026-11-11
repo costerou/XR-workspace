@@ -553,6 +553,11 @@ tests port every non-raster check of the matching ctests (`layout`, `view`, `hud
 `binds_panel`, `options_geometry`). The raster parts (atlases, card pixels, fonts) come with the GL
 port.
 
+The VR video controls card (`video::card::render_video_card`) is ported with its pixels: `tests/video_card.rs` holds
+`video_test.cpp`'s card checks and compares every case of `golden/video_card.cpp` (sizes and FNV-1a of the RGBA bytes,
+`golden/video_card.txt`) byte for byte, in the built-in pixel font and the installed `HUD_FONT_FAMILY`; the installed-font
+lines follow this machine's font file, so regenerate them (the command is in the `.cpp`) when it changes.
+
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,
 `--layout` and `--band`). `cargo test` runs `glass_contract_test.py` and
