@@ -842,6 +842,7 @@ impl Presentation {
             v.destroy();
         }
         s.frame = None;
+        s.features.immersive.close(); // its GL objects before the compositor's
         s.capture.close();
         if let Some(l) = s.layer.take() {
             l.destroy();

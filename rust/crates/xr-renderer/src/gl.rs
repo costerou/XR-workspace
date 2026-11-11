@@ -1606,6 +1606,23 @@ impl GlCompositor {
         st.frames += 1;
     }
 
+    /// The composition report's `stereo` object (gl.cpp report()), once 3D was turned on or failed to: None before.
+    pub fn stereo_report(&self) -> Option<String> {
+        let st = &self.stereo;
+        if st.pass.is_none() && st.why.is_empty() {
+            return None;
+        }
+        Some(
+            serde_json::json!({
+                "available": st.pass.is_some(),
+                "why": st.why,
+                "frames": st.frames,
+                "depth_updates": st.pass.as_ref().map_or(0, |p| p.updates()),
+            })
+            .to_string(),
+        )
+    }
+
     /// The C++ stereo_readback(): what 3D is doing, as JSON.
     pub fn stereo_readback(&self) -> String {
         let st = &self.stereo;

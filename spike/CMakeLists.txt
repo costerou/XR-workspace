@@ -807,6 +807,17 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_rust_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
         --outputs 1 --environment grid --open-panel --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_options_roundtrip capture_e2e_rust_open_panel
+      # rust: immersive
+      foreach(MODE gl-dmabuf gl-shm)
+        add_test(NAME capture_e2e_rust_immersive_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1
+          --immersive --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_immersive_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
+      add_test(NAME capture_e2e_rust_immersive_scaled COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 2 --warmup 1
+        --immersive --fractional-scale 150 --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_immersive_engine_dies COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 4
+        --warmup 1 --engine-dies 1.5 --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_immersive_scaled capture_e2e_rust_immersive_engine_dies
         PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()

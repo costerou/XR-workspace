@@ -34,6 +34,7 @@ use xr_renderer::capture::{
     Batch, Canvas, CaptureBuffers, DRM_XRGB8888, DmabufChoice, MOD_INVALID, MOD_LINEAR, ReadbackLimiter, ResizeSettle,
     SessionConstraints, TileSource, choose_dmabuf, compose_tiles, side_by_side,
 };
+use xr_renderer::desktops::MAX_DESKTOPS;
 use xr_renderer::dmabuf::{Allocator, Dmabuf, dev_from_array, render_node};
 use xr_renderer::egl::DmabufPlane;
 use xr_renderer::gl::{GlCompositor, GpuImage};
@@ -814,12 +815,13 @@ impl State {
     }
 
     /// The surface's buffer size: the fractional-scale size under a viewport (GPU composition only).
+    /// The surface's buffer (wayland.cpp px_w x px_h): the whole layer surface, both eyes in side-by-side.
     fn scaled_size(&self) -> (u32, u32) {
         if self.viewport.is_some() && self.scale120 != 0 {
             let scale = |v: u32| ((u64::from(v) * u64::from(self.scale120) + 60) / 120) as u32;
-            (scale(self.width), scale(self.height))
+            (scale(self.surface_w), scale(self.height))
         } else {
-            (self.width, self.height)
+            (self.surface_w, self.height)
         }
     }
 }
@@ -994,7 +996,6 @@ impl Presentation {
         };
         gpu.gl.resize(width, height, size.0, size.1);
         let now = monotonic_ms_f64();
-        features.immersive.before_draw(&mut gpu.gl);
         let mut sizes = Vec::with_capacity(cs.captures.len());
         for (i, c) in cs.captures.iter_mut().enumerate() {
             match c.path {
@@ -1026,6 +1027,13 @@ impl Presentation {
             c.shape.advance(c.layout_size(), now, animate);
             sizes.push(c.shape.value().unwrap_or(PLACEHOLDER));
         }
+        // Before the pose is read (wayland.cpp depth_tick), with this frame's pictures uploaded.
+        let mut frames = [0u64; MAX_DESKTOPS];
+        for (f, c) in frames.iter_mut().zip(&cs.captures) {
+            *f = c.frames;
+        }
+        let shown = cs.captures.len().min(MAX_DESKTOPS);
+        features.immersive.before_draw(&mut gpu.gl, &cs.names, &frames[..shown], cs.view.focus() as i32);
         // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
         // fill the view where it is. The features (scene.rs) then give the frame its placements, cards, glass and
         // pointer, and tracking the camera once the placements are in (Tracking::camera).
@@ -1175,7 +1183,10 @@ impl Presentation {
         // nlohmann's object keys are sorted: immersive, outputs, video; height, name, ready, width.
         let mut line = String::from("{\"owner_readback\":{\"immersive\":");
         match &cs.gpu {
-            Some(g) => line.push_str(&g.gl.stereo_readback()),
+            Some(g) => {
+                let names: Vec<&str> = cs.captures.iter().map(|c| c.name.as_str()).collect();
+                line.push_str(&self.state.features.immersive.readback(&g.gl.stereo_readback(), &names));
+            }
             None => line.push_str("null"),
         }
         line.push_str(",\"outputs\":[");
@@ -1276,6 +1287,10 @@ impl Presentation {
                     json_string(&mut out, renderer);
                     out.push_str(",\"version\":");
                     json_string(&mut out, version);
+                    if let Some(stereo) = g.gl.stereo_report() {
+                        out.push_str(",\"stereo\":");
+                        out.push_str(&stereo);
+                    }
                     out.push('}');
                 }
                 None => {
