@@ -13,6 +13,7 @@ pub mod depth_link;
 pub mod desktops;
 pub mod dmabuf;
 pub mod egl;
+pub mod environment;
 pub mod gl;
 pub mod glass;
 pub mod glass_theme;

@@ -55,6 +55,10 @@ harness = false
 name = "depth_link_render"
 harness = false
 
+[[test]]
+name = "environment_render"
+harness = false
+
 [[bench]]
 name = "gl_bench"
 harness = false

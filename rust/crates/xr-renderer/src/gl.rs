@@ -8,8 +8,8 @@
 //! Here: the off-screen compositor (a surfaceless context drawing into its own RGBA8 framebuffer; "swap" is a glFlush)
 //! with SHM uploads, the desktops, the highlight glow and border, the glass pills, panels and handles, the free pointer,
 //! the window drag, the head-locked cards and global immersive 3D (side-by-side eyes on a 3:1 buffer, each desktop
-//! warped by its depth map through [`crate::stereo_gl`]). Not yet: the Wayland window surface, dmabuf import, the
-//! background (environment) and the VR video scene; their setters are absent rather than ignored.
+//! warped by its depth map through [`crate::stereo_gl`]) and the background ([`crate::environment`], drawn in place of
+//! the clear). Not yet: the VR video scene; its setters are absent rather than ignored.
 
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -45,16 +45,17 @@ use crate::glass::{
     immersive_tail_box, immersive_tail_rect, level_bar_box, level_bar_rect, level_bar_scale,
     options_gear_box, options_hint_box, options_icon_box, options_restore_box,
 };
-use crate::hud::HudImage;
+use crate::environment::{EnvironmentPass, environment_line_color};
+use crate::hud::{Background, HudImage};
 use crate::hud_gl::GlHud;
 use crate::options_geometry::{
     options_gear, options_maximize, options_maximize_ray, options_mesh_ray, options_panel,
     options_restore_hit, options_restore_rect, options_step_scale,
 };
-use crate::pose::{Mat3, apply, transpose};
+use crate::pose::{IDENTITY as IDENTITY_M3, Mat3, apply, transpose};
 use crate::stereo::{
     STEREO_HALF_BASELINE, STEREO_STALE_MS, StereoBudget, StereoFader, StereoParams, stereo_budget,
-    stereo_clamped, stereo_limits, stereo_plane_disparity, stereo_safe_baseline, stereo_side,
+    stereo_clamped, stereo_infinity_shift, stereo_limits, stereo_plane_disparity, stereo_safe_baseline, stereo_side,
     stereo_tile_scale,
 };
 use crate::stereo_gl::StereoPass;
@@ -244,6 +245,10 @@ impl Gl {
     pub fn blend_func(&self, s: u32, d: u32) {
         count!(self, toggles);
         unsafe { self.gl.blend_func(s, d) }
+    }
+    pub fn blend_equation(&self, mode: u32) {
+        count!(self, toggles);
+        unsafe { self.gl.blend_equation(mode) }
     }
     /// glTexImage2D of a w x h RGBA8 image into the bound TEXTURE_2D (None: storage only).
     pub fn tex_image(&self, w: u32, h: u32, rgba: Option<&[u8]>) {
@@ -923,6 +928,23 @@ struct Stereo {
     frames: u64,
 }
 
+/// The background as last set (gl.cpp env_*), and this frame's eye shift.
+#[derive(Clone, Copy)]
+struct EnvironmentSet {
+    level: f32,
+    background: Background,
+    gain: f32,
+    seconds: f32,
+    view: Mat3,
+    eye: f32,
+}
+
+impl Default for EnvironmentSet {
+    fn default() -> Self {
+        Self { level: 0.0, background: Background::None, gain: 1.0, seconds: 0.0, view: IDENTITY_M3, eye: 0.0 }
+    }
+}
+
 /// Milliseconds on a monotonic clock (the C++ now_us() / 1000).
 fn now_ms() -> f64 {
     static EPOCH: OnceLock<Instant> = OnceLock::new();
@@ -992,6 +1014,11 @@ pub struct GlCompositor {
     renderer: String,
     version: String,
     stereo: Stereo,
+    /// The background: compiled at setup (not on the first frame it shows); None if its shaders failed.
+    environment: Option<EnvironmentPass>,
+    env: EnvironmentSet,
+    /// GL_MAX blending (ES 3 or EXT_blend_minmax): the highlight's glow over the grid stays under the cap.
+    blend_max: bool,
     // Last: the context outlives every object above (Drop deletes them first).
     headless: Headless,
 }
@@ -1131,6 +1158,10 @@ impl GlCompositor {
                 swizzle: true,
             });
         }
+        // optional, and now for the same reason as the cards; the run works without the grid
+        let environment = EnvironmentPass::create(raw);
+        let blend_max = version.starts_with("OpenGL ES 3")
+            || raw.supported_extensions().contains("GL_EXT_blend_minmax");
         let out = Self {
             gl: gl.clone(),
             progs,
@@ -1167,6 +1198,9 @@ impl GlCompositor {
             renderer,
             version,
             stereo: Stereo::default(),
+            environment,
+            env: EnvironmentSet::default(),
+            blend_max,
             headless,
         };
         // SAFETY: a plain GL query on the current context.
@@ -1681,6 +1715,52 @@ impl GlCompositor {
         self.drop_target = target;
     }
     /// Highlight border + glow, and the M3 scheme's seed.
+    /// The background (environment.rs): `background` drawn first, behind everything, in place of the black clear,
+    /// world-locked by `world` (environment_view; world -> eye, row-major), at fade `level` (<= 0 or Background::None:
+    /// not drawn), `brightness` in percent, `seconds` on the clock that wraps at ENVIRONMENT_LOOP_S. False: no pass
+    /// (its shaders failed): nothing is drawn then. draw_and_swap draws it by itself.
+    pub fn set_environment(
+        &mut self,
+        level: f32,
+        background: Background,
+        brightness: f32,
+        seconds: f32,
+        world: &Mat3,
+    ) -> bool {
+        self.env = EnvironmentSet {
+            level: if level.is_finite() { level.min(1.0) } else { 0.0 },
+            background,
+            gain: brightness / 100.0,
+            seconds,
+            view: *world,
+            eye: self.env.eye,
+        };
+        self.environment.is_some()
+    }
+
+    /// Draw the background set by [`GlCompositor::set_environment`] over the viewport; false when there is none to draw.
+    pub fn draw_environment(&mut self, half_w: f32, half_h: f32) -> bool {
+        let e = self.env;
+        let Some(pass) = self.environment.as_mut() else { return false };
+        if e.level <= 0.0 || e.background == Background::None {
+            return false;
+        }
+        pass.draw(
+            &self.gl,
+            e.background,
+            &e.view,
+            half_w,
+            half_h,
+            e.level,
+            e.gain,
+            environment_line_color(self.accent),
+            e.seconds,
+            e.eye,
+        );
+        self.current = pass.program(e.background);
+        true
+    }
+
     pub fn set_accent(&mut self, r: u8, g: u8, b: u8) {
         self.accent = [
             f32::from(r) / 255.0,
@@ -1712,6 +1792,7 @@ impl GlCompositor {
     ) -> bool {
         let eyes = self.stereo_eyes();
         if eyes.is_empty() {
+            self.env.eye = 0.0;
             self.draw_view(
                 tiles,
                 placements,
@@ -1810,6 +1891,13 @@ impl GlCompositor {
                 self.stereo_frame(tiles, view, &canvas, eye_w);
             }
             fp.eye_offset = stereo_side(e.eye as u32) * self.stereo.b;
+            self.env.eye = stereo_side(e.eye as u32)
+                * stereo_infinity_shift(
+                    self.stereo.b,
+                    &stereo_limits(&self.stereo.set.params, eye_w, half_w),
+                    eye_w,
+                    half_w,
+                );
         }
         self.meshes.grow(tiles.len());
         let attrib = |loc: i32, size: i32, stride: i32, offset: i32| {
@@ -1871,9 +1959,14 @@ impl GlCompositor {
             }
             self.handle_uploaded = true;
         }
-        // No background yet: the clear.
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
-        gl.clear(glow::COLOR_BUFFER_BIT);
+        // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as
+        // without it.
+        let environment = self.draw_environment(half_w, half_h);
+        if !environment {
+            gl.clear_color(0.0, 0.0, 0.0, 1.0);
+            gl.clear(glow::COLOR_BUFFER_BIT);
+        }
+        let blend_max = self.blend_max;
 
         let p = &mut self.progs;
         let m = &mut self.meshes;
@@ -1881,7 +1974,9 @@ impl GlCompositor {
         let current = &mut self.current;
         let resolved = &self.resolved;
         // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover the
-        // interior. The frame lies on the highlighted desktop's own surface (same placement and curvature).
+        // interior. The frame lies on the highlighted desktop's own surface (same placement and curvature). Over the
+        // background the glow is the brighter of the two and the border is laid over it (premultiplied), so neither
+        // blacks out a halo.
         let mut frame_of = |h: usize, alpha: f32| {
             let t = &tiles[h];
             let framed = FRect {
@@ -1896,6 +1991,14 @@ impl GlCompositor {
                 width: framed.width + 2.0 * GLOW_RADIUS_PX,
                 height: framed.height + 2.0 * GLOW_RADIUS_PX,
             };
+            if environment {
+                // the glow over the grid: the brighter of the two (else added)
+                gl.enable(glow::BLEND);
+                gl.blend_func(glow::ONE, glow::ONE);
+                if blend_max {
+                    gl.blend_equation(glow::MAX);
+                }
+            }
             program(gl, current, &mut p.glow, &fp);
             gl.uniform_4f(
                 p.glow_rect.as_ref(),
@@ -1927,13 +2030,19 @@ impl GlCompositor {
             gl.draw_arrays(glow::TRIANGLE_STRIP, 0, n);
             gl.disable_attrib(p.glow_px as u32);
             program(gl, current, &mut p.color, &fp);
+            if environment {
+                if blend_max {
+                    gl.blend_equation(glow::FUNC_ADD);
+                }
+                gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+            }
             gl.uniform_4f(
                 p.color_value.as_ref(),
                 accent[0] * alpha,
                 accent[1] * alpha,
                 accent[2] * alpha,
-                1.0,
-            ); // over black
+                if environment { alpha } else { 1.0 },
+            ); // over black (or premultiplied over the grid)
             let n = build(
                 gl,
                 scratch,
@@ -1948,6 +2057,9 @@ impl GlCompositor {
             );
             attrib(p.color_pos, 3, 5, 0);
             gl.draw_arrays(glow::TRIANGLE_STRIP, 0, n);
+            if environment {
+                gl.disable(glow::BLEND);
+            }
         };
         if let Some(pan) = pan
             && pan.left < tiles.len()
@@ -2697,6 +2809,9 @@ impl Drop for GlCompositor {
         self.binds_hud = None;
         self.meshes.each(|m| drop_mesh(raw, m));
         if let Some(pass) = self.stereo.pass.take() {
+            pass.destroy(raw);
+        }
+        if let Some(pass) = self.environment.take() {
             pass.destroy(raw);
         }
         // SAFETY: every object below was made on this context, which is current until `headless` drops after this.
