@@ -192,9 +192,10 @@ Its frames (`overview_pointer`, `roll`, `edge_pan`, `restore_band`, `resize_hand
 `Shell` (the run's `ViewState` with the defaults) and nothing polls it. `tests/overview_pointer_run.rs` replays
 `rust/corpus/pointer/overview_pointer_run.json` (`tests/native_spike/overview_pointer_run_corpus.py`: the Python's
 pointer and sampler on the shipped HyprlandClient, the dot over a desktop, at its edge and over text): the same calls
-in order, reads, broker read, stop calls and last dot. The sampler starts with the `binds` port (it binds with the bind
-helper's command line), and the run case in `tests/managed_real/cases/overview_pointer.rs` waits on it and on a trace
-that sets the sampler's clocked reads apart.
+in order, reads, broker read, stop calls and last dot. In a run the sampler binds with the `binds` port's helper
+command line; `tests/managed_real/cases/overview_pointer.rs` runs both supervisors with the cursor on XR-1 and holds the
+sampler's Lua and reads (set apart from the loop's trace, which they interleave on a clock) and its stop before the view
+binds go to the Python's.
 
 ### Switching runs to the Rust supervisor
 

@@ -1,19 +1,11 @@
 //! `view_controls::overview_pointer`'s parity cases on the scripted compositor (rust/crates/xr-workspace/VIEW_CONTROLS.md).
 //!
-//! The module is ported and held to the Python's on its own by tests/overview_pointer_run.rs (level 1). The run case
-//! below waits on two things:
-//!
-//! * the `binds` port: the sampler binds the left button with the bind helper's command line
-//!   (`binds::Binds::bind_args`), and until `Binds::open` gives one the Rust run starts no sampler;
-//! * a trace for a sampler: the Python's and the Rust's sampler threads read the cursor on a clock, in the run's own
-//!   process, between the loop's requests. The trace then holds a timing-dependent number of `j/cursorpos` (and
-//!   `j/xrspike` `cursor_shape`) reads, interleaved with the loop's. `observe` (managed_real.rs, the `socket` port's)
-//!   has to take the sampler's requests out of the trace and compare them as tests/overview_pointer_run.rs does: the
-//!   calls that are not reads, in order, and the distinct reads.
-//!
-//! oracle.py's `overview_pointer` entry stays until then: without it every Python case would sample (the unified
-//! sampler reads the cursor outside the overview too), and no Rust case would. Once both land, drop the `ignore` and
-//! delete the entry in the same commit.
+//! The module is held to the Python's on its own by tests/overview_pointer_run.rs (level 1). Here the whole run: both
+//! supervisors start the sampler with the run's bind helper, the cursor moves onto XR-1, and Stop. The sampler's
+//! clocked reads and its Lua are compared apart from the loop's trace (`set_aside_sampler` in managed_real.rs), and the
+//! sampler is stopped (its binds removed, the cursor shown) before the view binds go. Until the view is ported neither
+//! run has the overview's geometry, so the dot never enters a desktop here: the sampler reads the cursor on XR-1 and
+//! keeps the overview cursor's state; tests/overview_pointer_run.rs covers the entry.
 
 use std::fs;
 use std::time::Duration;
@@ -30,21 +22,22 @@ fn cursor_onto_xr1(s: &Session, _: Who) -> Value {
 }
 
 #[test]
-#[ignore = "needs the binds port's bind_args and a sampler-aware trace in managed_real.rs; see the module doc"]
-fn the_dot_over_a_desktop_enters_it_and_the_binds_go_before_the_view_binds() {
+fn the_sampler_runs_with_the_cursor_on_xr1_and_stops_before_the_view_binds_go() {
     let (run, _, _) = parity_acting("stop", Some(cursor_onto_xr1));
-    let lua = |needle: &str| run.trace.iter().rposition(|r| r.starts_with("/eval ") && r.contains(needle));
-    let resize = lua("xr_workspace_resize_binds = nil").expect("the sampler's binds were removed");
-    let shown = lua("xr_workspace_overview_cursor = nil").expect("the cursor was shown");
-    let view = run
-        .trace
-        .iter()
-        .rposition(|r| r.strip_prefix("/eval ") == Some(&xr_workspace::lua::view::remove_binds_lua()))
-        .expect("the view binds were removed");
-    assert!(resize < view && shown < view, "sampler.stop() before remove_view_binds");
+    // The sampler's Lua is set aside only up to the view binds' removal: none is left in the trace after it.
+    let sampler_lua = ["xr_workspace_overview_cursor", "xr_workspace_resize_binds"];
+    let remove = format!("/eval {}", xr_workspace::lua::view::remove_binds_lua());
+    assert!(run.trace.contains(&remove), "the view binds were removed");
     assert!(
-        run.trace.iter().any(|r| r.contains("xr_workspace_resize_binds = t") && r.contains("control.sock")),
-        "the sampler bound the left button with the run's helper"
+        !run.trace.iter().any(|r| *r != remove && sampler_lua.iter().any(|m| r.contains(m))),
+        "sampler.stop() before remove_view_binds: {:?}",
+        run.sampler
+    );
+    assert!(run.sampler.iter().any(|r| r == "read j/cursorpos"), "{:?}", run.sampler);
+    assert!(
+        run.sampler.iter().any(|r| r.contains("xr_workspace_overview_cursor")),
+        "the sampler's cursor Lua: {:?}",
+        run.sampler
     );
     assert_eq!(run.result["stop_reason"], "interrupted");
 }

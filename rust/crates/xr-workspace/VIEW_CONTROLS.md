@@ -127,17 +127,18 @@ supervisor's `control_request` / `serve_without_renderer`, and takes each featur
 | Entry | What it does on the Python side |
 |---|---|
 | `view` | `ViewControl.on_message`, `initial_frame`, `poll`, `on_events` send nothing; `status_reply` is `{}`; `window_context` is `{}` (the window memory's captures have no placements); `flush`, `save_setup`, `renderer_restarted` do nothing; `event_stream` and `install_options_binds` hidden |
-| `overview_pointer` | `unified_cursor.UnifiedSampler` a stand-in (the `UnifiedPointer` stays: it sends nothing by itself) |
 | `immersive` | `immersive.find_engine` gives `None` |
 | `video` | `install_video_binds` hidden, `video.VideoControl` a stand-in that hands every call to the view |
 | `desktops` | `adopt_windows` hidden (the pills' window mover) |
 
-`send`, `privacy`, `window_memory`, `binds` and `keybinds` have no entry: they are ported and run on both sides. The helpers are
+`send`, `privacy`, `window_memory`, `binds`, `keybinds` and `overview_pointer` have no entry: they are ported and run on both sides. The helpers are
 `patch(module, name, value)`, and `hide(*methods)` and `quiet(*methods)` on the client wrapper (`Client`). A port deletes its own entry, and, if a helper it used has
 no other user, may leave the helper. If its feature then needs more than deleting (a stand-in the next feature relied
 on), it says so in its report. `tests/managed_real.rs`'s module doc lists the implicit exclusions: no
 `window-memory.json` and no saved `profiles.json` in a `Session`. The `window_memory` and `setup` ports add the files
-their cases need.
+their cases need. The overview pointer's sampler is a thread of the run's process that reads on a clock: `observe`'s
+`set_aside_sampler` takes its reads (and every monitors read during its lifetime) and its Lua out of the trace into
+`Observed::sampler`, its Lua in order and its reads as a set.
 
 ## Helpers for a run case (`tests/managed_real.rs`)
 
