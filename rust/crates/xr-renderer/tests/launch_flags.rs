@@ -18,9 +18,18 @@ fn exit_code(extra: &[&str]) -> Option<i32> {
         .code()
 }
 
+/// `--pose-feed` is taken (the capture_e2e_rust_tracked and _feed_drop gates run it), as spike/src/main.cpp checks it:
+/// XRLinuxDriver's feed only, and with capture only.
 #[test]
-fn pose_feed_is_refused_until_tracking_is_wired() {
-    assert_eq!(exit_code(&["--pose-feed", "xrld"]), Some(2));
+fn pose_feed_takes_xrld_with_capture_only() {
+    assert_eq!(exit_code(&["--pose-feed", "luma"]), Some(2));
+    let base = ["--supervised-fd", "3", "--wayland-fd", "4", "--output", "DP-1", "--run-id", "r", "--session", "s"];
+    let status = Command::new(env!("CARGO_BIN_EXE_xr-renderer"))
+        .args(base)
+        .args(["--pose-feed", "xrld"])
+        .status()
+        .expect("run xr-renderer");
+    assert_eq!(status.code(), Some(2));
 }
 
 #[test]
