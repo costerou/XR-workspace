@@ -105,7 +105,7 @@ The Python side (`tests/managed_real/oracle.py`) is the shipped runner with one 
 because the Rust run has none yet. Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
-  pointer, privacy mode, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
+  pointer, privacy mode, 3D, the key bind panel, VR video, and through them the pills' desktop changes
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -132,6 +132,14 @@ recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requ
 Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
 calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
 `Tracker::poll`, `Tracker::deadline`).
+
+Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
+Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
+of the run's compositor, and `close` lets a move in flight land before the binds go and recovery starts (`notify` is
+`managed::real::notify`). `tests/send_corpus.rs` replays `corpus/send/sender.json`, recorded from the Python
+`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves. Its keys
+reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
+it.
 
 ### Switching runs to the Rust supervisor
 

@@ -1,0 +1,2133 @@
+{
+ "schema": 1,
+ "source": "tests/native_spike/send_corpus.py",
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "note": "One request per connection, each call let finish before the next. Requests and replies are UTF-8 text.",
+ "scenarios": [
+  {
+   "name": "send_glasses.selected",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"41\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "send_glasses_1",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_1",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"31\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "send_glasses_3",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_3",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"51\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "send_glasses_3.not_in_session",
+   "names": [
+    "XR-1"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_3",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [],
+   "notes": [
+    "XR-3 is not part of this session."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_glasses_4.not_in_session",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_4",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [],
+   "notes": [
+    "XR-4 is not part of this session."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "pinned.true",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": true, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "pinned.missing",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "pinned.text",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": \"yes\", \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "no_window.empty",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{}"
+    }
+   ],
+   "notes": [
+    "No focused window to send."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "no_window.blank_address",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"\"}"
+    }
+   ],
+   "notes": [
+    "No focused window to send."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "no_window.list",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "[]"
+    }
+   ],
+   "notes": [
+    "No focused window to send."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "bad_address",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0xZZ\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Could not identify the focused window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "bad_address.injection",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x1\\\"}) hl.exec(\\\"x\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Could not identify the focused window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "bad_address.number",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": 5, \"pinned\": false}"
+    }
+   ],
+   "notes": [
+    "Could not identify the focused window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "already_there",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 3, \"pinned\": false, \"workspace\": {\"id\": 41}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "already_there.bad_workspace",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 3, \"pinned\": false, \"workspace\": \"41\", \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "monitors.not_a_list",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "{\"name\": \"XR-2\"}"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "target.special_workspace",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 0}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "XR-2 is not showing a regular workspace."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "target.missing",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_2",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "XR-2 is not available."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "target.ambiguous",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses_2",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}, {\"id\": 9, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}]"
+    }
+   ],
+   "notes": [
+    "XR-2 is not available."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_back",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0xabc\", \"monitor\": 4, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"1\", follow = true, window = \"address:0xabc\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "send_back.on_fallback",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "That window is not on the glasses."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_back.on_glasses_output",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 1, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "That window is not on the glasses."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_back.unknown_monitor",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 99, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "That window is not on the glasses."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_back.no_fallback",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": null,
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [],
+   "notes": [
+    "This session has no physical monitor to send windows back to."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "send_back.pinned",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_back",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 2, \"pinned\": true, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "refused_by_hyprland",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"31\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "error: nope"
+    }
+   ],
+   "notes": [
+    "Hyprland did not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "unknown_reply",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "not json"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "invalid_op",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "zoom_in",
+     "XR-1",
+     true
+    ]
+   ],
+   "exchanges": [],
+   "notes": [],
+   "results": [
+    [
+     false,
+     "Window sender is closed or request invalid"
+    ]
+   ],
+   "moves": 0
+  },
+  {
+   "name": "verify.moved",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"41\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa01\", \"monitor\": 3, \"pinned\": false, \"workspace\": {\"id\": 41}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    [
+     true,
+     "Window target verified"
+    ]
+   ],
+   "moves": 1
+  },
+  {
+   "name": "verify.mismatch",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"41\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa01\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "Window target/workspace readback mismatch; window remains under compositor authority."
+   ],
+   "results": [
+    [
+     false,
+     "Window target/workspace readback mismatch; window remains under compositor authority."
+    ]
+   ],
+   "moves": 0
+  },
+  {
+   "name": "verify.already_there",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 3, \"pinned\": false, \"workspace\": {\"id\": 41}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    [
+     true,
+     "Window target verified"
+    ]
+   ],
+   "moves": 0
+  },
+  {
+   "name": "verify.already_there.no_workspace",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 3, \"pinned\": false, \"workspace\": {}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "Target window is not on a regular workspace"
+   ],
+   "results": [
+    [
+     false,
+     "Target window is not on a regular workspace"
+    ]
+   ],
+   "moves": 0
+  },
+  {
+   "name": "verify.refused",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": true, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    [
+     false,
+     "Pinned windows stay where they are: unpin it first."
+    ]
+   ],
+   "moves": 0
+  },
+  {
+   "name": "set_names",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "set_names",
+     [
+      "XR-1"
+     ]
+    ],
+    [
+     "request",
+     "send_glasses_2",
+     "XR-1",
+     false
+    ],
+    [
+     "set_names",
+     [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ]
+    ],
+    [
+     "request",
+     "send_glasses_2",
+     "XR-1",
+     false
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa01\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 1}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"41\", follow = true, window = \"address:0x55aa01\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [
+    "XR-2 is not part of this session."
+   ],
+   "results": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "closed",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "close"
+    ],
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     false
+    ],
+    [
+     "request",
+     "send_glasses",
+     "XR-2",
+     true
+    ],
+    [
+     "lookup",
+     "XR-1",
+     [
+      4000,
+      100
+     ]
+    ],
+    [
+     "under_cursor"
+    ],
+    [
+     "land",
+     "0x55aa01",
+     "XR-1"
+    ],
+    [
+     "drop",
+     null,
+     "XR-1",
+     [
+      4000,
+      100
+     ],
+     "XR-2"
+    ]
+   ],
+   "exchanges": [],
+   "notes": [],
+   "results": [
+    null,
+    null,
+    [
+     false,
+     "Window sender is closed or request invalid"
+    ],
+    null,
+    null,
+    null,
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "lookup.floating_over_tiled",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "lookup",
+     "XR-1",
+     [
+      4100,
+      200
+     ]
+    ],
+    [
+     "lookup",
+     "XR-1",
+     [
+      5000,
+      900
+     ]
+    ],
+    [
+     "lookup",
+     "XR-1",
+     [
+      3000,
+      10
+     ]
+    ],
+    [
+     "lookup",
+     "XR-9",
+     [
+      4100,
+      200
+     ]
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    {
+     "address": "0x55aa03",
+     "w": 640,
+     "h": 480,
+     "pinned": false
+    },
+    {
+     "address": "0x55aa02",
+     "w": 1920,
+     "h": 1080,
+     "pinned": false
+    },
+    null,
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "lookup.compositor_error",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "lookup",
+     "XR-1",
+     [
+      4100,
+      200
+     ]
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/clients",
+     "reply": "nope"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "under_cursor",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "under_cursor"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/cursorpos",
+     "reply": "{\"x\": 4100, \"y\": 200}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    {
+     "address": "0x55aa03",
+     "w": 640,
+     "h": 480,
+     "pinned": false
+    }
+   ],
+   "moves": 0
+  },
+  {
+   "name": "under_cursor.off_the_desktops",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "under_cursor"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/cursorpos",
+     "reply": "{\"x\": 100, \"y\": 200}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "under_cursor.zero_scale",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "under_cursor"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/cursorpos",
+     "reply": "{\"x\": 4100, \"y\": 200}"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.floating",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}"
+    },
+    {
+     "request": "/eval do local w = \"address:0x55aa03\" local p = hl.get_cursor_pos() hl.dispatch(hl.dsp.window.move({ workspace = \"41\", follow = false, window = w })) hl.dispatch(hl.dsp.window.move({ x = 5760, y = 100, window = w })) hl.dispatch(hl.dsp.focus({ window = w })) if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "land.tiled",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa02",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}"
+    },
+    {
+     "request": "/eval do local w = \"address:0x55aa02\" local p = hl.get_cursor_pos() hl.dispatch(hl.dsp.window.move({ workspace = \"41\", follow = false, window = w })) hl.dispatch(hl.dsp.focus({ window = w })) if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "land.already_there",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 0, \"pinned\": false, \"workspace\": {\"id\": 41}, \"floating\": false, \"at\": [100, 100], \"size\": [800, 600]}"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.other_window",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa09",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.pinned",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": true, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.not_in_session",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-7"
+    ]
+   ],
+   "exchanges": [],
+   "notes": [
+    "XR-7 is not part of this session."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.special_workspace",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 0}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.bad_geometry",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": \"big\", \"focusHistoryID\": 0}"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "land.eval_refused",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "land",
+     "0x55aa03",
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/activewindow",
+     "reply": "{\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}"
+    },
+    {
+     "request": "/eval do local w = \"address:0x55aa03\" local p = hl.get_cursor_pos() hl.dispatch(hl.dsp.window.move({ workspace = \"41\", follow = false, window = w })) hl.dispatch(hl.dsp.window.move({ x = 5760, y = 100, window = w })) hl.dispatch(hl.dsp.focus({ window = w })) if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end",
+     "reply": "error"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.found",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "w": 640,
+      "h": 480,
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"51\", follow = false, window = \"address:0x55aa03\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "drop.look_up",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     null,
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[{\"address\": \"0x55aa02\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": false, \"at\": [3840, 0], \"size\": [1920, 1080]}, {\"address\": \"0x55aa03\", \"monitor\": 2, \"pinned\": false, \"workspace\": {\"id\": 31}, \"floating\": true, \"at\": [4000, 100], \"size\": [640, 480], \"focusHistoryID\": 0}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"51\", follow = false, window = \"address:0x55aa03\" })",
+     "reply": "ok"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 1
+  },
+  {
+   "name": "drop.nothing_there",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     null,
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[]"
+    }
+   ],
+   "notes": [],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.no_point",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     null,
+     "XR-1",
+     null,
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "j/clients",
+     "reply": "[]"
+    }
+   ],
+   "notes": [
+    "Could not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.pinned",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "w": 640,
+      "h": 480,
+      "pinned": true
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "Pinned windows stay where they are: unpin it first."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.bad_address",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "x",
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-3"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "Could not identify the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.not_in_session",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-8"
+    ]
+   ],
+   "exchanges": [],
+   "notes": [
+    "XR-8 is not part of this session."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.target_missing",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3",
+    "XR-4"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-4"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "XR-4 is not available."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.special_workspace",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 0}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    }
+   ],
+   "notes": [
+    "XR-2 is not showing a regular workspace."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  },
+  {
+   "name": "drop.refused",
+   "names": [
+    "XR-1",
+    "XR-2",
+    "XR-3"
+   ],
+   "fallback": "DP-1",
+   "calls": [
+    [
+     "drop",
+     {
+      "address": "0x55aa03",
+      "pinned": false
+     },
+     "XR-1",
+     [
+      4100,
+      200
+     ],
+     "XR-2"
+    ]
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}}, {\"id\": 1, \"name\": \"DP-2\", \"x\": 1920, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}}, {\"id\": 2, \"name\": \"XR-1\", \"x\": 3840, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 31, \"name\": \"31\"}}, {\"id\": 3, \"name\": \"XR-2\", \"x\": 5760, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 41, \"name\": \"41\"}}, {\"id\": 4, \"name\": \"XR-3\", \"x\": 7680, \"y\": 0, \"width\": 1920, \"height\": 1080, \"scale\": 1.0, \"activeWorkspace\": {\"id\": 51, \"name\": \"51\"}}]"
+    },
+    {
+     "request": "/dispatch hl.dsp.window.move({ workspace = \"41\", follow = false, window = \"address:0x55aa03\" })",
+     "reply": "no"
+    }
+   ],
+   "notes": [
+    "Hyprland did not move the window."
+   ],
+   "results": [
+    null
+   ],
+   "moves": 0
+  }
+ ]
+}
