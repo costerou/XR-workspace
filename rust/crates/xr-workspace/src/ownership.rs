@@ -273,6 +273,76 @@ impl Broker {
         Ok(names)
     }
 
+    /// `create_live`: one more managed output during a run (a pill's Add): write-ahead like `create_journaled`, for a
+    /// run whose journal already holds its outputs. Its name must not belong to a live output of the run.
+    pub fn create_live(
+        &mut self,
+        client: &mut Client,
+        spec: &OutputSpec,
+        journal: &mut Journal,
+    ) -> Result<String> {
+        if journal.run_id != self.run_id || journal.session != self.session {
+            return blocked("journal identity mismatch");
+        }
+        self.require_output_ownership(client)?;
+        let live = journal.live_outputs().map_err(|e| e.to_string())?;
+        if live.iter().any(|o| o.name == spec.name) {
+            return blocked("output name already live");
+        }
+        let intent = Value::Object(vec![
+            ("kind".into(), Value::String("output".into())),
+            ("id".into(), Value::String(spec.id.clone())),
+            ("name".into(), Value::String(spec.name.clone())),
+            ("index".into(), Value::Number(spec.index.into())),
+            ("before".into(), Value::Null),
+        ]);
+        let record = journal.prepare(&intent).map_err(|e| e.to_string())?;
+        self.call(client, Op::Create(spec.clone()), None)?; // a receipt is not readback
+        let observed = self.inspect(client, &spec.id)?;
+        verify(&observed, spec)?;
+        let seen = Observed::Output {
+            id: spec.id.clone(),
+            name: spec.name.clone(),
+            physical: false,
+        };
+        journal.confirm(&record, &seen).map_err(|e| e.to_string())?;
+        Ok(spec.name.clone())
+    }
+
+    /// `reshape`: new geometry for a live managed output of this run (Ultrawide, Scale, Resolution, or a slide along
+    /// the row). The broker replaces its monitor rule, then a separate readback must match `spec` exactly; anything
+    /// else leaves the output untrusted (the run's guard then ends the run, and recovery removes it).
+    pub fn reshape(&mut self, client: &mut Client, spec: &OutputSpec) -> Result<String> {
+        self.require_output_ownership(client)?;
+        let reply = self.call(client, Op::Reshape(spec.clone()), None)?;
+        identity(&reply, &spec.id)?;
+        if reply.get("name").and_then(Value::as_str) != Some(spec.name.as_str())
+            || reply.get("state").and_then(Value::as_str) != Some("live")
+        {
+            return blocked("reshape refused or unverified");
+        }
+        let observed = self.inspect(client, &spec.id)?;
+        verify(&observed, spec)?;
+        Ok(spec.name.clone())
+    }
+
+    /// `remove_live`: one managed output removed during a run (a pill's Remove): its windows to the fallback (the
+    /// recovery path, with its reachability proof), then its journal record done. False if the broker refused: the
+    /// output stays, untouched.
+    pub fn remove_live(
+        &mut self,
+        client: &mut Client,
+        id: &str,
+        name: &str,
+        journal: &mut Journal,
+    ) -> Result<bool> {
+        if !self.evacuate_remove(client, id, name)? {
+            return Ok(false);
+        }
+        journal.output_removed(id).map_err(|e| e.to_string())?;
+        Ok(true)
+    }
+
     fn refused(&self, reply: &Value) -> String {
         let blocked = reply
             .get("blocked")
