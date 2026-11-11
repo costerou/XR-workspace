@@ -15,6 +15,7 @@ Cases (the third argument):
 - `create-fail`: the second output created does not go live.
 - `recovery-stuck`: the first `evacuate_remove` is refused with an error reply.
 - `no-glasses`: DP-2 is not there.
+- `desktops-refused`: a fourth output (a pill's Add mid-run) does not go live (`reply_desktops`).
 - anything else: everything works.
 
 `<runtime>/fake-unplug` existing takes DP-1 away (the run's guard then fails).
@@ -147,12 +148,35 @@ def events_binds():
 
 
 def reply_view(wire):
-    """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's. A view key that selects a desktop
+    gives its monitor Hyprland's focus (`view.focus_command`)."""
+    if wire.startswith('/dispatch hl.dsp.focus({monitor="XR-') and wire.endswith('"})'):
+        return 'ok'
     return None
 
 
+pointer = {}  # view_controls::overview_pointer: where the cursor is once a case put it on XR-1, moved by warps
+
+
 def reply_overview_pointer(wire):
-    """view_controls::overview_pointer's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::overview_pointer's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    While `<runtime>/fake-cursor-xr` exists (cases/overview_pointer.rs writes it once the renderer is up) the cursor is
+    mid XR-1, so the overview's dot is over a desktop and the sampler enters it; a warp (`hl.dsp.cursor.move`) moves it,
+    as Hyprland does. Otherwise the cursor is where the built-in reply has it."""
+    import re
+    if not (root / 'fake-cursor-xr').exists():
+        return None
+    if not pointer:
+        xr1 = next((r['observation'] for r in registry.values() if r['name'] == 'XR-1' and r['state'] == 'live'), None)
+        if xr1 is None:
+            return None
+        pointer.update(x=xr1['x'] + xr1['width'] // 2, y=xr1['y'] + xr1['height'] // 2)
+    if wire == 'j/cursorpos':
+        return dict(pointer)
+    warp = re.search(r'hl\.dsp\.cursor\.move\(\{ x = (-?\d+), y = (-?\d+) \}\)', wire)
+    if wire.startswith('/eval ') and warp:
+        pointer.update(x=int(warp[1]), y=int(warp[2]))
     return None
 
 
@@ -252,7 +276,22 @@ def reply_video(wire):
 
 
 def reply_desktops(wire):
-    """view_controls::desktops's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::desktops's requests (VIEW_CONTROLS.md); None: not this feature's. A pill's `reshape` (Ultrawide,
+    Scale, Resolution, a slide along the row) takes the new geometry; in the `desktops-refused` case the run's fourth
+    output (a pill's Add) does not go live."""
+    if not wire.startswith('j/xrspike '):
+        return None
+    j = json.loads(wire[len('j/xrspike '):])
+    p, op = j['payload'], j['op']
+    envelope = lambda result: dict(**{k: j[k] for k in ('schema', 'session', 'run_id', 'request_id')}, epoch=EPOCH,
+                                   result=result)
+    if op == 'reshape' and p.get('id') in registry:
+        registry[p['id']]['observation'].update({k: p[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')})
+        return envelope(registry[p['id']])
+    if op == 'create' and case == 'desktops-refused' and p['index'] == 3:
+        broker(j)
+        registry[p['id']]['state'] = 'failed'
+        return envelope(registry[p['id']])
     return None
 
 

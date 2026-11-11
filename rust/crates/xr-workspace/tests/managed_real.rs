@@ -30,12 +30,12 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `overview_pointer`, `video`, and the
-//!   `desktops` wiring). The shipped `view_controls` runs around them, with the ported socket, binds, key bind panel,
-//!   window sending, privacy mode, 3D and the window memory's tracker. Each feature's port deletes its own entry
-//!   (VIEW_CONTROLS.md, "Narrowing the oracle").
-//! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
-//!   asks for a change through the view controls.
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub: none now. The shipped `view_controls` runs with the
+//!   ported socket, view, binds, key bind panel, overview pointer (its sampler and its join with the view), VR video,
+//!   window sending, privacy mode, 3D, the pills' desktop changes and the window memory's tracker (VIEW_CONTROLS.md,
+//!   "Narrowing the oracle").
+//! - `desktops`: both runners build their `DesktopManager`, which sends nothing until a pill asks for a change through
+//!   the view controls (`cases/desktops.rs`).
 //! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
 //!   `view_controls` does; a `Session` has no `window-memory.json` unless its case writes one
 //!   (`managed_real/cases/window_memory.rs`), so `place` and `finish` send nothing in the other cases.
@@ -297,7 +297,7 @@ impl Session {
             acted = act(self, who);
         }
         match self.case {
-            "stop" | "recovery-stuck" | "hold" | "keybinds" | "binds-reload" | "switch" => {
+            "stop" | "recovery-stuck" | "hold" | "keybinds" | "binds-reload" | "switch" | "desktops-refused" => {
                 if wait_for(&started, Duration::from_secs(20)) {
                     std::thread::sleep(Duration::from_millis(300));
                     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
@@ -530,6 +530,72 @@ struct Observed {
     frames: Vec<String>,
     /// The `Start`'s files as the run left them.
     files: Vec<Option<String>>,
+    /// What the overview pointer's sampler thread sent ([`set_aside_sampler`]): its Lua in order, then its reads.
+    sampler: Vec<String>,
+}
+
+/// The sampler's own Lua (`view_controls::overview_pointer`: the cursor's hiding and showing, the grab and the lock,
+/// the left button's binds, its warps, a column's scroll), never the loop's.
+const SAMPLER_LUA: [&str; 5] = [
+    "xr_workspace_overview_cursor",
+    "xr_workspace_grab",
+    "xr_workspace_resize_binds",
+    "/eval pcall(function() hl.dispatch(hl.dsp.cursor.move(",
+    "cursor = { no_warps = true }",
+];
+
+/// The overview pointer's sampler is a thread of the run's own process, reading the cursor (and the monitors, and the
+/// broker's cursor shape) on a clock between the loop's requests: how many reads, and where among the loop's they
+/// land, is the clock's. Its requests are taken out of the trace and returned: its Lua in order, then the distinct
+/// reads. Its lifetime in the trace runs from its first monitors read (the last one before its first Lua: the loop's
+/// requests between `UnifiedSampler.start()` and its first step read no monitors) to the view binds' removal
+/// (`sampler.stop()` comes first). Inside it every `j/cursorpos`, `j/monitors all` and `cursor_shape` read and the
+/// sampler's Lua are set aside: the sampler refreshes the monitors on its clock too, sampling as often as every 4 ms,
+/// so no position tells its reads from the loop's. The loop's reads inside it (the window memory's last capture, a
+/// hold's polls) then count among the sampler's distinct reads, not in the trace. A `cursor_shape` read is the
+/// sampler's anywhere.
+fn set_aside_sampler(trace: &mut Vec<String>) -> Vec<String> {
+    let remove_binds = format!("/eval {}", xr_workspace::lua::view::remove_binds_lua());
+    // The view binds' own Lua (their removal, the Super drags' `xr_workspace_drag_run`) reads the grab too.
+    let lua = |r: &str| {
+        r.starts_with("/eval ")
+            && *r != remove_binds
+            && !r.starts_with("/eval xr_workspace_drag_run")
+            && SAMPLER_LUA.iter().any(|m| r.contains(m))
+    };
+    let shape = |r: &str| r.starts_with("j/xrspike ") && r.contains("\"op\":\"cursor_shape\"");
+    let sampled = |r: &str| r == "j/cursorpos" || shape(r) || lua(r);
+    let (start, end) = match trace.iter().position(|r| lua(r)) {
+        Some(first) => {
+            let start = trace[..first].iter().rposition(|r| r == "j/monitors all").unwrap_or(first);
+            let end = trace[first..].iter().position(|r| *r == remove_binds).map_or(trace.len(), |i| first + i);
+            (start, end)
+        }
+        None => (trace.len(), trace.len()),
+    };
+    let mine: Vec<bool> = (0..trace.len())
+        .map(|i| {
+            let r = trace[i].as_str();
+            shape(r)
+                || ((start..end).contains(&i)
+                    && (sampled(r) || r == "j/monitors all"))
+        })
+        .collect();
+    let mut calls = Vec::new();
+    let mut reads = Vec::new();
+    let mut kept = Vec::new();
+    for (r, mine) in std::mem::take(trace).into_iter().zip(mine) {
+        match (mine, lua(&r)) {
+            (false, _) => kept.push(r),
+            (true, true) => calls.push(r),
+            (true, false) => reads.push(if shape(&r) { "j/xrspike cursor_shape".to_owned() } else { r }),
+        }
+    }
+    *trace = kept;
+    reads.sort();
+    reads.dedup();
+    calls.extend(reads.into_iter().map(|r| format!("read {r}")));
+    calls
 }
 
 fn observe(s: &Session) -> (Observed, Vec<Value>) {
@@ -553,10 +619,23 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
         .map(|e| n.text(e["request"].as_str().unwrap()))
         .collect();
     let mut trace = trace;
+    let sampler = set_aside_sampler(&mut trace);
     if s.case == "hold" {
         // A hold polls the glasses' output every survive.POLL_S until they have been back survive.SETTLE_S: how many
         // reads that takes is the clock's. One read stands for a run of them.
         trace.dedup_by(|a, b| a == b && a.starts_with("j/monitors"));
+    }
+    if s.case == "binds-reload" {
+        // A config reload's style read (the view's `_style_frame`, on the loop) and its bind reinstall (`_reload_work`,
+        // off it) run at once in both supervisors: which reaches the compositor first is the scheduler's. The read is
+        // compared where the run's start makes it; the reload's style frame is compared in the frames.
+        let mut seen = false;
+        trace.retain(|r| {
+            let border = r == "j/getoption general:col.active_border";
+            let keep = !(border && seen);
+            seen |= border;
+            keep
+        });
     }
     let others: Vec<Value> = wire
         .iter()
@@ -639,6 +718,7 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
             marks,
             frames,
             files,
+            sampler,
         },
         others,
     )
@@ -713,6 +793,7 @@ fn parity_run(
         python.files, rust.files,
         "the files it started with: {context}"
     );
+    assert_eq!(python.sampler, rust.sampler, "the sampler's requests: {context}");
     assert_eq!(py_code, rs_code, "{case}: exit status");
     if !rust.renderers.is_empty() {
         // The guard is a worker process of its own; it proved the outputs through the broker.

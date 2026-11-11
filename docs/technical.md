@@ -760,11 +760,18 @@ supervisor (`rust/crates/xr-workspace`, `managed::real::renderer_flags`) reads t
 and the same refusals, word for word. The one difference is a value in another script's digits, such as `٣`: the Python takes
 it and the renderer then refuses it, the Rust supervisor refuses it before the launch.
 
-The Rust renderer's draw is slower to commit than the C++ one: it copies the frame into its own dmabuf swapchain and waits for the GPU (`glFinish`) before the commit, where the C++ hands an EGL window surface to
-`eglSwapBuffers`. That wait counts in the measured draw, so its margin is about 1.5 ms wider. On the loopback compositor
-(`capture_e2e_bench --tracking --present-lag 1 --late-latch-guard-ms 1`, 2026-11-11, load 4 to 7) its read_to_present p50 was
-about 13.3 ms against the C++ renderer's 11.6 ms, with p95 about 14 ms for both. Neither figure is the D4 gate, which needs the
-glasses.
+The Rust renderer presents as the C++ one does, without waiting for the GPU: it copies the frame into its
+own dmabuf swapchain, flushes and commits, and the compositor's read waits for the draw through the dmabuf's implicit fence. The
+C++ `eglSwapBuffers` does the same on Mesa's Wayland EGL, which flushes and has no `wp_linux_drm_syncobj` (only Mesa's Vulkan has
+it). Until 2026-11-11 the Rust renderer called `glFinish` before the commit; that wait counted in the measured draw (p50 about
+1.7 ms against the C++ 0.25 ms) and widened its margin by about 1.5 ms. On the loopback compositor
+(`capture_e2e_bench --mode gl-dmabuf --seconds 10 --tracking --present-lag 1`, 2026-11-11, the C++, Rust and old `glFinish`
+builds alternated, load 3.5 to 15.5, runs the load starved below 119 commits/s left out) with `--late-latch-guard-ms 1`:
+read_to_present p50 (median over runs) 11.6 ms for Rust (10 runs, 10.9 to 11.6) and 11.6 ms for the C++ (15 runs, 10.9 to 13.4),
+p95 12.0 ms against 13.6 ms, and a draw p50 of 0.15 to 0.25 ms for both. The old `glFinish` build gave p50 13.4 ms, p95 14.4 ms
+and a draw p50 of 1.75 ms (9 runs). Without the flag both renderers give p50 15.6 to 16.4 ms and p95 16.6 ms. On this loaded
+machine about a third of the Rust runs, old build and new alike, were starved against about one in eight of the C++ ones.
+Neither figure is the D4 gate, which needs the glasses.
 
 The Rust renderer also reports its GPU time per frame (`GL_EXT_disjoint_timer_query`, from the first upload to the copy into the
 swapchain): `gpu_p50_ms`, `gpu_p95_ms` and `gpu_max_ms` in each 1 Hz status sample (the frames since the last one), and

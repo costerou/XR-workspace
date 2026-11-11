@@ -2,8 +2,8 @@
 
 rust/corpus/view/view.json is made only by this module, from the shipped tools/native_spike/view.py (the parts outside
 ViewControl): the bytes each frame encoder writes for fixed inputs, and its refusals; ViewState scripts (a run's view
-driven op by op, each step with the view, placement panel and settings that follow); and layout.json as load_settings
-reads it and save_settings writes it. The Rust port (rust/crates/xr-workspace/src/supervisor/) replays every case and must
+driven op by op, each step with the view, placement panel and settings that follow); layout.json as load_settings
+reads it and save_settings writes it; and ViewControl op sequences (`controls`: control_cases). The Rust port (rust/crates/xr-workspace/src/supervisor/) replays every case and must
 give the same bytes, or refuse the same input.
 
 A refusal is labelled by how the Rust port refuses it: "type" when its typed inputs cannot hold the value (a bool for an
@@ -438,10 +438,135 @@ def save_cases():
     return out
 
 
+# ViewControl op sequences (the `controls` section): a run's view built as managed.view_controls builds it, from a
+# glasses profile (ProfileStore / PlacementStore in a fresh profiles.json, `profile` its text before the run or None),
+# driven step by step on a fixed clock with no other feature attached. Each step records the renderer frames it gave;
+# a script ends with the profile as the run left it, the outputs focused and the toasts told.
+#
+# A step is one of: {"op", "payload"} (on_message), {"poll": t} (the clock at t, then poll), {"initial"}
+# (initial_frame), {"status"} (status_reply({}) as compact JSON), {"events": text} (on_events), {"flush"},
+# {"save_setup"}; and {"at": t} moves the clock before it.
+D2 = [SIZE, SIZE]
+SAVED = {'schema': 2, 'profiles': {'luma-ultra': {'spacing': 60, 'prediction': True, 'desktops': [SIZE, SIZE, SIZE],
+                                                  'placements': [P1, P0, P2], 'rolls': [0, 3, -2]}}}
+GRADIENT = {'option': 'general:col.active_border', 'str': '', 'gradient': 'ee33ccff ee00ff99 45deg', 'set': True}
+
+
+def _op(op, payload=None):
+    return {'op': op, 'payload': payload or {}}
+
+
+CONTROL_SCRIPTS = (
+    ('keys', ['XR-1', 'XR-2', 'XR-3'], SAVED, None, GRADIENT, [
+        {'initial': True}, {'status': True},
+        _op('zoom_in'), _op('next'), _op('next'), _op('prev'), _op('mode_next'), _op('next'), _op('prev'), _op('zoom_out'),
+        _op('mode_next'), _op('spacing_up'), _op('spacing_down'), _op('spacing_down'), _op('prediction'),
+        _op('recenter'), _op('help'), _op('help_next'), _op('help_prev'), _op('help'), _op('help_next'),
+        _op('typing_toggle'), _op('menu_toggle'), _op('send_glasses'), _op('typing_toggle'), _op('zoom_in'),
+        {'status': True}, {'poll': 1.0}, {'save_setup': True},
+    ]),
+    ('panel', ['XR-1', 'XR-2'], None, None, {'option': 'x', 'int': 0x33ff6699, 'set': True}, [
+        {'initial': True},
+        _op('menu_toggle'), _op('menu_field_next'), _op('menu_inc'), _op('menu_inc_big'), _op('menu_dec'),
+        {'poll': 0.2}, {'poll': 1.0}, _op('menu_desktop_next'), _op('menu_inc'), _op('menu_reset'), _op('menu_reset'),
+        _op('menu_desktop_prev'), _op('menu_field_prev'), _op('menu_field_prev'), _op('menu_inc'),
+        _op('environment_toggle'), _op('menu_inc'), _op('menu_inc_big'), _op('menu_dec'), {'poll': 1.3}, {'poll': 2.0},
+        _op('menu_ultrawide'), _op('next'), _op('prev'), _op('menu_back'), _op('menu_back'),
+        _op('menu_toggle'), _op('zoom_in'),
+        _op('placement', {'desktops': [P1, P2]}), _op('placement', {'desktops': [P1, P0]}),
+        _op('placement', {'desktops': [P2, P1]}), _op('zoom_out'),
+        _op('placement', {'desktops': [P0, P1]}), _op('placement', {'desktops': [P0, P1]}),
+        _op('placement', {'desktops': [P0]}), _op('placement', {'desktops': [BAD_X, P0]}), _op('placement', {}),
+        _op('menu_toggle'), _op('placement', {'desktops': [P2, P0]}),
+        _op('stabilization', {'strength': 40}), _op('stabilization', {'strength': 101}),
+        _op('stabilization', {'strength': True}), _op('stabilization', {'strength': 5, 'x': 1}),
+        _op('environment', {'background': 'smoke', 'last': 'smoke', 'brightness': 50}),
+        _op('environment', {'background': 'fog', 'last': 'grid', 'brightness': 50}),
+        _op('environment_toggle'),
+        {'events': 'configreloaded>>\nopenwindow>>0x1,1,kitty,t\npartial'}, {'events': '>>\n'},
+        {'status': True}, {'flush': True}, {'save_setup': True},
+    ]),
+    ('idle', ['XR-2', 'XR-4'], None, None, None, [
+        {'initial': True}, _op('help'), {'poll': 29.9}, {'poll': 30.0}, {'at': 31.0}, _op('menu_toggle'),
+        _op('menu_inc'), {'poll': 31.2}, {'poll': 60.9}, {'poll': 61.0}, {'at': 70.0}, _op('help'), {'at': 99.0},
+        _op('help_next'), {'poll': 128.9}, {'poll': 129.0}, {'save_setup': True},
+    ]),
+    ('live', ['XR-1', 'XR-2'], {'schema': 2, 'profiles': {'luma-ultra': {'desktops': [WIDE, SIZE], 'placements': [P2, P1],
+                                                                         'rolls': [1, 2]}}},
+     [WIDE, SIZE], None, [
+        {'initial': True}, {'status': True}, _op('menu_toggle'), _op('menu_inc'), _op('menu_desktop_next'),
+        _op('menu_inc'), {'save_setup': True},
+    ]),
+    ('other desktops', ['XR-1', 'XR-2'], SAVED, D2, None, [{'initial': True}, {'save_setup': True}]),
+    ('corrupt', ['XR-1'], 'not json', None, None, [{'initial': True}, _op('spacing_up'), {'save_setup': True}]),
+)
+
+
+class _Desktops:
+    """The run's DesktopManager as the view reads it, with no change in flight."""
+    def __init__(self, sizes): self.sizes = sizes
+    def desktops(self): return [dict(d) for d in self.sizes]
+    def wide(self): return [d['width'] > 2 * d['height'] for d in self.sizes]
+    def busy(self): return False
+    def take_result(self): return None
+
+
+def control_cases():
+    from tools.native_spike import immersive, managed
+    from tools.native_spike.environment import environment
+    from tools.native_spike.profiles import PlacementStore, ProfileStore
+    from tools.native_spike.quality import video_quality
+    out = []
+    for name, names, profile, live, border, steps in CONTROL_SCRIPTS:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'profiles.json'
+            text = None if profile is None else (profile if isinstance(profile, str) else json.dumps(profile))
+            if text is not None: path.write_text(text)
+            now = [0.0]
+            focused, toasts = [], []
+            store = ProfileStore(path, 'luma-ultra')
+            saved = store.load()
+            placements = PlacementStore(path, 'luma-ultra')
+            desktops = _Desktops(live) if live is not None else None
+            initial, _ = managed._restored(placements, names, desktops)
+            state = view.ViewState(names, spacing=saved['spacing'], prediction=saved['prediction'],
+                                   stabilization=saved['stabilization'],
+                                   placements=managed._initial_placements(initial, names),
+                                   video_quality=video_quality(saved), environment=environment(saved),
+                                   immersive=immersive.immersive(saved))
+            control = view.ViewControl(state, ENVELOPE['run_id'], ENVELOPE['session'], focused.append, store, None,
+                                       border=(lambda: border) if border is not None else None, placements=placements,
+                                       clock=lambda: now[0])
+            control.notify = toasts.append
+            if desktops is not None:
+                control.desktops = desktops
+                state.wide, state.sizes = desktops.wide(), desktops.desktops()
+            recorded = []
+            for step in steps:
+                if 'at' in step: now[0] = step['at']
+                if 'op' in step: got = control.on_message({'op': step['op'], 'payload': step['payload']})
+                elif 'poll' in step:
+                    now[0] = step['poll']
+                    got = control.poll(now[0])
+                elif 'initial' in step: got = control.initial_frame()
+                elif 'status' in step: got = json.dumps(control.status_reply({}), separators=(',', ':')).encode()
+                elif 'events' in step: got = control.on_events(step['events'].encode())
+                elif 'flush' in step: got = control.flush()
+                elif 'save_setup' in step: got = control.save_setup()
+                else: got = None
+                control.join_focus()
+                recorded.append({**step, 'out': (got or b'').decode()})
+            control.join_focus()
+            out.append({'name': name, 'names': names, 'profile': text, 'live': live, 'border': border,
+                        'steps': recorded, 'saved': path.read_text() if path.exists() else None,
+                        'focused': focused, 'toasts': toasts})
+    return out
+
+
 def corpus():
     return {'comment': 'Made by tests/native_spike/view_corpus.py from tools/native_spike/view.py; do not edit by hand.',
             'envelope': ENVELOPE, 'frames': frame_cases(), 'scripts': script_cases(), 'load_settings': load_cases(),
-            'save_settings': save_cases()}
+            'save_settings': save_cases(), 'controls': control_cases()}
 
 
 def dumps(value):

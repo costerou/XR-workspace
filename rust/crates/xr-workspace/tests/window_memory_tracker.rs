@@ -167,7 +167,9 @@ fn replay(corpus: &Value, scenario: &Value) {
     );
     let mut client = Client::new(instance, &runtime.0).unwrap();
     client.query(Query::Monitors, DEADLINE).unwrap();
-    let names: Vec<String> = corpus["names"]
+    let names: Vec<String> = scenario
+        .get("names")
+        .unwrap_or(&corpus["names"])
         .as_array()
         .unwrap()
         .iter()
@@ -183,6 +185,7 @@ fn replay(corpus: &Value, scenario: &Value) {
                 run_id: "run",
                 session: "session",
                 capture: &names,
+                specs: &[],
                 output: "glasses",
                 fallback,
                 model,
@@ -208,6 +211,20 @@ fn replay(corpus: &Value, scenario: &Value) {
                 tracker.join();
             }
             "close" => tracker.close(&mut run!()),
+            "leaving" => tracker.leaving().call(
+                &mut client,
+                step["name"].as_str().unwrap(),
+                step["target"].as_str(),
+            ),
+            "set_names" => {
+                let names: Vec<String> = step["names"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|n| n.as_str().unwrap().to_owned())
+                    .collect();
+                tracker.set_names(&names);
+            }
             other => panic!("{name}: unknown step {other}"),
         }
         let seen = compositor.seen();
@@ -237,7 +254,7 @@ fn replay(corpus: &Value, scenario: &Value) {
 fn every_scenario_matches_the_python_tracker() {
     let corpus: Value = serde_json::from_str(CORPUS).unwrap();
     let scenarios = corpus["scenarios"].as_array().unwrap();
-    assert!(scenarios.len() >= 15);
+    assert!(scenarios.len() >= 20);
     for scenario in scenarios {
         replay(&corpus, scenario);
     }
@@ -264,6 +281,7 @@ fn marks_inside_the_delay_are_one_capture_and_nothing_marked_reads_nothing() {
             run_id: "run",
             session: "session",
             capture: &names,
+            specs: &[],
             output: "glasses",
             fallback: "DP-1",
             model: "luma-ultra",

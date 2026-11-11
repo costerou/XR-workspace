@@ -30,6 +30,7 @@ use xr_wire::run_control::Frame;
 
 use super::{Frames, Run};
 use crate::hyprland::Client;
+use crate::py::to_serde;
 use crate::supervisor::immersive::{
     self as im, CLOSE_WAIT, DepthMemory, Done, Event, ImmersiveRun, MAX_DESKTOPS, NoDeviceSbs,
     Params, ProcessEngine, SET_OP, Sbs, Setting, TOGGLE_OP,
@@ -78,7 +79,7 @@ pub struct Shown<'a> {
     pub video_active: bool,
     pub zoomed: bool,
     pub typing: bool,
-    pub next_id: &'a mut i64,
+    pub next_id: &'a mut u64,
     pub now: f64,
     pub last_input: &'a mut f64,
     /// Set when the setting changed: the view saves its settings (`self.settings.save(self.state.settings())`).
@@ -281,7 +282,7 @@ impl Immersive {
         let frame = im::renderer_frame(
             &self.run_id,
             &self.session,
-            *view.next_id,
+            *view.next_id as i64,
             &im::Frame {
                 flags: &sent.flags,
                 stereo: sent.stereo,
@@ -447,18 +448,6 @@ impl Immersive {
     }
     pub fn failures(&self) -> u32 {
         self.failures
-    }
-}
-
-fn to_serde(v: &xr_wire::json::Value) -> Value {
-    use xr_wire::json::Value as W;
-    match v {
-        W::Null => Value::Null,
-        W::Bool(b) => Value::Bool(*b),
-        W::Number(n) => Value::Number(n.clone()),
-        W::String(s) => Value::String(s.clone()),
-        W::Array(a) => Value::Array(a.iter().map(to_serde).collect()),
-        W::Object(o) => Value::Object(o.iter().map(|(k, v)| (k.clone(), to_serde(v))).collect()),
     }
 }
 

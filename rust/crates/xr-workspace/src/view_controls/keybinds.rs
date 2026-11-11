@@ -364,6 +364,14 @@ impl Keys {
         self.dispatch(Some(host));
     }
 
+    /// `keys.close()`: an open panel closes (the help card, the placement panel or typing mode takes over).
+    pub fn close(&mut self, host: &mut dyn Host, out: &mut Frames) {
+        self.collect(host);
+        let bytes = self.control.close(host);
+        out.bytes.extend_from_slice(&bytes);
+        self.dispatch(Some(host));
+    }
+
     /// When [`Keys::poll`] is next due: soon while work is out or the panel is open.
     pub fn deadline(&self, now: Instant) -> Option<Instant> {
         if self.outstanding > 0 {

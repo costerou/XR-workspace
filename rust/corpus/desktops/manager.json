@@ -1,0 +1,1889 @@
+{
+ "schema": 1,
+ "source": "tests/native_spike/desktops_corpus.py",
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "run_id": "run-1",
+ "fallback": "DP-1",
+ "note": "One request per connection. UUIDs and the session named by first appearance.",
+ "scenarios": [
+  {
+   "name": "add",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "add",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "create"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      },
+      {
+       "id": "U4",
+       "name": "XR-4",
+       "index": 3,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 9600,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3",
+      "XR-4"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U4\",\"name\":\"XR-4\",\"index\":3,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":9600,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "add_until_full",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "add",
+      2
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "create"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      },
+      {
+       "id": "U4",
+       "name": "XR-4",
+       "index": 3,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 9600,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3",
+      "XR-4"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U4\",\"name\":\"XR-4\",\"index\":3,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":9600,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos"
+     ]
+    },
+    {
+     "action": [
+      "add",
+      0
+     ],
+     "plan_error": "at most 4 desktops",
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      },
+      {
+       "id": "U4",
+       "name": "XR-4",
+       "index": 3,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 9600,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3",
+      "XR-4"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": []
+    }
+   ]
+  },
+  {
+   "name": "add_from_an_ultrawide_is_standard",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 2560,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "add",
+      1
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "create"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 2560,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 8320,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":6,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":8320,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":7,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "remove_the_middle_one",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "remove",
+      1
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "remove",
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"done\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"evacuate_remove\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"fallback\":\"physical-handle\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":11,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":5760,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":12,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "remove_the_last_one_left",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "remove",
+      0
+     ],
+     "plan_error": "a session keeps at least one desktop",
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U2\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": []
+    }
+   ]
+  },
+  {
+   "name": "ultrawide_then_back_pulls_a_window_in",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [
+    {
+     "address": "0x55aa01",
+     "index": 0,
+     "floating": true,
+     "at": [
+      5000,
+      100
+     ],
+     "size": [
+      1200,
+      600
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "action": [
+      "ultrawide",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "reshape",
+      "reshape",
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 2560,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 6400,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 8320,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":8320,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"index\":1,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":6400,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":11,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":12,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U1\",\"name\":\"XR-1\",\"index\":0,\"width\":2560,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":3840,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":13,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U1\"}}",
+      "j/cursorpos"
+     ]
+    },
+    {
+     "action": [
+      "ultrawide",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "reshape",
+      "reshape",
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 2,
+      "failures": 0,
+      "fitted": 1,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":14,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U1\",\"name\":\"XR-1\",\"index\":0,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":3840,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":15,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U1\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":16,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"index\":1,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":5760,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":17,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":18,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7680,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":19,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/clients",
+      "j/workspaces",
+      "j/monitors all",
+      "/eval local M={{\"0x55aa01\",4560,100,0,0}} for _,e in ipairs(M) do pcall(function() local s=\"address:\"..e[1] if e[4]>0 then hl.dispatch(hl.dsp.window.resize({x=e[4],y=e[5],window=s})) end hl.dispatch(hl.dsp.window.move({x=e[2],y=e[3],window=s})) end) end"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "scale_shrinks_and_slides",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [
+    {
+     "address": "0x55aa01",
+     "index": 0,
+     "floating": true,
+     "at": [
+      5000,
+      100
+     ],
+     "size": [
+      1200,
+      600
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "action": [
+      "scale",
+      0,
+      1.5
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "reshape",
+      "reshape",
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.5,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5120,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7040,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 1,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U1\",\"name\":\"XR-1\",\"index\":0,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.5,\"x\":3840,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U1\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"index\":1,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":5120,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":11,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":12,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7040,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":13,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/clients",
+      "j/workspaces",
+      "j/monitors all",
+      "/eval local M={{\"0x55aa01\",3920,100,0,0}} for _,e in ipairs(M) do pcall(function() local s=\"address:\"..e[1] if e[4]>0 then hl.dispatch(hl.dsp.window.resize({x=e[4],y=e[5],window=s})) end hl.dispatch(hl.dsp.window.move({x=e[2],y=e[3],window=s})) end) end"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "scale_that_does_not_divide",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "scale",
+      0,
+      1.75
+     ],
+     "plan_error": "scale does not divide resolution exactly",
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": []
+    }
+   ]
+  },
+  {
+   "name": "resolution",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "resolution",
+      2,
+      [
+       2560,
+       1440
+      ]
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 2560,
+       "height": 1440,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":2560,\"height\":1440,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7680,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "reset_from_four_moves_xr4_onto_xr3",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 2560,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 6400,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 2560,
+     "height": 1440,
+     "refresh_millihz": 120000,
+     "scale": 1.25,
+     "x": 8320,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111114",
+     "name": "XR-4",
+     "index": 3,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 10368,
+     "y": 0
+    }
+   ],
+   "windows": [
+    {
+     "address": "0x55aa04",
+     "index": 3,
+     "floating": false,
+     "at": [
+      9600,
+      0
+     ],
+     "size": [
+      1920,
+      1080
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "action": [
+      "reset",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "remove",
+      "reshape",
+      "reshape",
+      "reshape"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"done\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/workspaces",
+      "j/clients",
+      "/eval local C={} local W={{91,\"XR-3\"}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) local a=m and m.active_workspace if a and a.id>0 then hl.dispatch(hl.dsp.window.move({workspace=tostring(a.id),follow=false,window=\"address:\"..e[1]})) end end) end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) local w=hl.get_workspace(e[1]) if w and w.monitor and w.monitor.name==e[2] then home(e[1],e[2]) end end) end",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":11,\"epoch\":\"epoch-one\",\"op\":\"evacuate_remove\",\"payload\":{\"id\":\"U4\",\"name\":\"XR-4\",\"fallback\":\"physical-handle\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":12,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":13,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U1\",\"name\":\"XR-1\",\"index\":0,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":3840,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":14,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U1\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":15,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"index\":1,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":5760,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":16,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":17,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7680,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":18,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/clients",
+      "j/workspaces",
+      "j/monitors all"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "reset_of_the_default_does_nothing",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "reset",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": []
+    }
+   ]
+  },
+  {
+   "name": "reset_from_one_adds_two",
+   "case": "",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 2560,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "reset",
+      0
+     ],
+     "started": true,
+     "error": null,
+     "done": [
+      "reshape",
+      "create",
+      "create"
+     ],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 1,
+      "failures": 0,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":4,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U1\",\"name\":\"XR-1\",\"index\":0,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":3840,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":5,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U1\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":6,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U2\",\"name\":\"XR-2\",\"index\":1,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":5760,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":7,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U2\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7680,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/clients",
+      "j/workspaces",
+      "j/monitors all"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a_refused_create",
+   "case": "create-fail",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "add",
+      0
+     ],
+     "started": true,
+     "error": "creation incomplete; recovery required for unverified outputs",
+     "done": [],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"pending\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 1,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"create\",\"payload\":{\"id\":\"U4\",\"name\":\"XR-4\",\"index\":3,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":9600,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U4\"}}",
+      "j/cursorpos"
+     ]
+    },
+    {
+     "action": [
+      "add",
+      0
+     ],
+     "plan_error": "no free desktop name until the session restarts",
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U7\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U8\", \"operation\": {\"kind\": \"output\", \"id\": \"U4\", \"name\": \"XR-4\", \"index\": 3, \"before\": null}, \"state\": \"pending\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 1,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": []
+    }
+   ]
+  },
+  {
+   "name": "a_refused_remove",
+   "case": "remove-refused",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "remove",
+      2
+     ],
+     "started": true,
+     "error": "XR-3 could not be removed (a pinned window, or a window that would not move); it stays; recovery required for unverified outputs",
+     "done": [],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 1,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"evacuate_remove\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"fallback\":\"physical-handle\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a_refused_reshape_is_put_back",
+   "case": "reshape-fail",
+   "first": [
+    {
+     "id": "11111111-1111-4111-8111-111111111111",
+     "name": "XR-1",
+     "index": 0,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 3840,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111112",
+     "name": "XR-2",
+     "index": 1,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 5760,
+     "y": 0
+    },
+    {
+     "id": "11111111-1111-4111-8111-111111111113",
+     "name": "XR-3",
+     "index": 2,
+     "width": 1920,
+     "height": 1080,
+     "refresh_millihz": 120000,
+     "scale": 1.0,
+     "x": 7680,
+     "y": 0
+    }
+   ],
+   "windows": [],
+   "steps": [
+    {
+     "action": [
+      "ultrawide",
+      0
+     ],
+     "started": true,
+     "error": "actual geometry/workspace mismatch; previous output specs restored and verified",
+     "done": [],
+     "journal": "{\"schema\": 1, \"run_id\": \"run-1\", \"session\": \"SESSION\", \"operations\": [{\"id\": \"U4\", \"operation\": {\"kind\": \"output\", \"id\": \"U1\", \"name\": \"XR-1\", \"index\": 0, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U5\", \"operation\": {\"kind\": \"output\", \"id\": \"U2\", \"name\": \"XR-2\", \"index\": 1, \"before\": null}, \"state\": \"confirmed\"}, {\"id\": \"U6\", \"operation\": {\"kind\": \"output\", \"id\": \"U3\", \"name\": \"XR-3\", \"index\": 2, \"before\": null}, \"state\": \"confirmed\"}]}",
+     "desktops": [
+      {
+       "id": "U1",
+       "name": "XR-1",
+       "index": 0,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 3840,
+       "y": 0
+      },
+      {
+       "id": "U2",
+       "name": "XR-2",
+       "index": 1,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 5760,
+       "y": 0
+      },
+      {
+       "id": "U3",
+       "name": "XR-3",
+       "index": 2,
+       "width": 1920,
+       "height": 1080,
+       "refresh_millihz": 120000,
+       "scale": 1.0,
+       "x": 7680,
+       "y": 0
+      }
+     ],
+     "guard": [
+      "XR-1",
+      "XR-2",
+      "XR-3"
+     ],
+     "counts": {
+      "changes": 0,
+      "failures": 1,
+      "fitted": 0,
+      "fit_failures": 0
+     },
+     "requests": [
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":8,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":8320,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":9,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":10,\"epoch\":\"epoch-one\",\"op\":\"reshape\",\"payload\":{\"id\":\"U3\",\"name\":\"XR-3\",\"index\":2,\"width\":1920,\"height\":1080,\"refresh_millihz\":120000,\"scale\":1.0,\"x\":7680,\"y\":0}}",
+      "j/cursorpos",
+      "j/cursorpos",
+      "j/xrspike {\"schema\":1,\"session\":\"SESSION\",\"run_id\":\"run-1\",\"request_id\":11,\"epoch\":\"epoch-one\",\"op\":\"inspect\",\"payload\":{\"id\":\"U3\"}}",
+      "j/cursorpos"
+     ]
+    }
+   ]
+  }
+ ]
+}

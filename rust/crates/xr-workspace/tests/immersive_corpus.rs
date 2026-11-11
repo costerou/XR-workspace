@@ -299,7 +299,7 @@ fn the_views_3d_matches_the_python() {
         let mut setting = im::clean(&s["setting"]);
         let mut names: Vec<String> = serde_json::from_value(s["names"].clone()).unwrap();
         let (mut video, mut zoomed, mut typing) = (false, false, false);
-        let mut next_id = corpus["first_request_id"].as_i64().unwrap();
+        let mut next_id = corpus["first_request_id"].as_u64().unwrap();
         let mut last_input = 0.0;
         for (i, (step, want)) in s["steps"]
             .as_array()

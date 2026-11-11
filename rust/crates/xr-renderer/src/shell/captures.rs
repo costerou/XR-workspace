@@ -297,6 +297,14 @@ fn drop_dbufs(gpu: Option<&Gpu>, slots: &mut Vec<DmabufSlot>) {
     }
 }
 
+/// The timed frame's GPU time into the run's and the status window's records, once the GPU has it.
+fn take_gpu_time(gpu: &mut Gpu) {
+    if let Some(ns) = gpu.gl.take_gpu_ns() {
+        gpu.gpu_run.add(ns);
+        gpu.gpu_window.add(ns);
+    }
+}
+
 fn drop_swapchain(gpu: &mut Gpu) {
     for b in gpu.swapchain.drain(..) {
         b.proxy.destroy();
@@ -1060,6 +1068,7 @@ impl Presentation {
             return Ok(()); // all three on screen or queued: wait for a release
         };
         gpu.gl.resize(width, height, size.0, size.1);
+        take_gpu_time(gpu); // the last timed frame's result, which the flush below leaves to arrive later
         gpu.gl.begin_gpu_time(); // the frame's GPU work: uploads, depth, the draw and the copy into the swapchain
         let now = monotonic_ms_f64();
         let mut sizes = Vec::with_capacity(cs.captures.len());
@@ -1168,13 +1177,13 @@ impl Presentation {
             return Err(Error::new("gl", "present into the swapchain failed"));
         }
         gpu.gl.end_gpu_time();
-        gpu.gl.finish();
+        // Submit, do not wait (eglSwapBuffers on Mesa's Wayland platform, the C++ present, flushes and commits): the
+        // compositor's read of the buffer waits for this draw through the dmabuf's implicit fence, as it does for the
+        // C++ renderer's EGL window buffers (no wp_linux_drm_syncobj on either side).
+        gpu.gl.gl().flush();
         target.busy = true;
-        if let Some(ns) = gpu.gl.take_gpu_ns() {
-            gpu.gpu_run.add(ns);
-            gpu.gpu_window.add(ns);
-        }
         let proxy = target.proxy.clone();
+        take_gpu_time(gpu);
         let settled = overview_layout(&cs.settled_sizes(), w, h, cs.view.target_spacing());
         cs.geometry = overview_geometry_json(&settled, width, height, half_w, half_h);
         cs.dirty = false;

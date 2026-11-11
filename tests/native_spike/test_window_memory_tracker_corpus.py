@@ -11,7 +11,7 @@ class CorpusTests(unittest.TestCase):
 
     def test_every_step_kind_is_covered(self):
         steps = {s['do'] for case in corpus.scenarios() for s in case[4]}
-        self.assertEqual(steps, {'place', 'finish', 'capture', 'close'})
+        self.assertEqual(steps, {'place', 'finish', 'capture', 'close', 'leaving', 'set_names'})
 
 
 if __name__ == '__main__':

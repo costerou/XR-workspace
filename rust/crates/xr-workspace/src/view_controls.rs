@@ -43,6 +43,8 @@ pub struct Run<'a> {
     pub session: &'a str,
     /// The run's desktops (`capture`): the XR outputs' names.
     pub capture: &'a [String],
+    /// Their outputs as the broker created them (`manager.specs`); empty before the create.
+    pub specs: &'a [xr_wire::plugin::OutputSpec],
     /// The glasses' output (`output`) and the physical recovery output (`fallback`).
     pub output: &'a str,
     pub fallback: &'a str,
@@ -82,6 +84,7 @@ pub struct Features<'a> {
     pub immersive: Option<&'a mut immersive::Immersive>,
     pub windows: Option<&'a mut window_memory::Tracker>,
     pub keys: Option<&'a mut keybinds::Keys>,
+    pub binds: Option<&'a mut binds::Binds>,
 }
 
 /// Frames for the renderer and the descriptors that travel with them (`video.FdFrame`).
@@ -122,10 +125,19 @@ impl ViewControls {
         // The placements the last session left (`_restored`, `_initial_placements`), then `ViewControl`.
         controls.view = view::ViewControl::open(run);
         // The overview free pointer and its sampler (`UnifiedPointer`, `UnifiedSampler`).
-        controls.pointer =
-            overview_pointer::Pointer::open(run, controls.view.as_mut(), cursor_shape);
-        // `WindowSender` (Ctrl+Alt+G, 1-4, B).
+        let bind_args = controls.binds.as_ref().map(binds::Binds::bind_args);
+        let shared = controls.view.as_ref().map(view::ViewControl::pointer_view);
+        controls.pointer = overview_pointer::Pointer::open(run, shared, bind_args, cursor_shape);
+        // `pointer.rolls[:len(rolls)] = rolls`: the levelling rolls the last session left.
+        if let (Some(pointer), Some(view)) = (controls.pointer.as_mut(), controls.view.as_mut()) {
+            pointer.set_rolls(&view.restored_rolls);
+            view.take_pointer(Some(pointer));
+        }
+        // `WindowSender` (Ctrl+Alt+G, 1-4, B), which the pointer's window drags reach as `control.sender`.
         controls.send = send::Sender::open(run);
+        if let Some(pointer) = controls.pointer.as_mut() {
+            pointer.attach_sender(controls.send.as_mut().and_then(send::Sender::worker).map(|w| &*w));
+        }
         // `PrivacyDisplay` (Ctrl+Alt+D).
         controls.privacy = privacy::Privacy::open(run);
         // The pills' `DesktopManager`, given to the view.
@@ -134,6 +146,15 @@ impl ViewControls {
         controls.immersive = immersive::Immersive::open(run);
         // The window memory's tracker, given to the view.
         controls.windows = windows.and_then(|w| w.attach(controls.view.as_mut()));
+        // `windows.context = control.window_context`.
+        if let (Some(windows), Some(view)) = (controls.windows.as_mut(), controls.view.as_ref()) {
+            windows.set_context(view.window_context());
+        }
+        if let (Some(desktops), Some(windows)) =
+            (controls.desktops.as_mut(), controls.windows.as_ref())
+        {
+            desktops.set_leaving(windows.leaving()); // `desktops.leaving = windows.leaving`
+        }
         // `client.event_stream()` (config reloads, window changes, `xrcursor`).
         if let Some(view) = controls.view.as_mut() {
             view.open_events(run);
@@ -152,9 +173,10 @@ impl ViewControls {
             keys.startup_toast();
         }
         // `VideoControl` around the view, then `RuntimeText` and the options binds.
-        controls.video = video::Video::open(run);
+        controls.video =
+            video::Video::open(run, controls.binds.as_ref().map(binds::Binds::bind_args));
         if let Some(view) = controls.view.as_mut() {
-            view.open_options(run);
+            view.open_options(run, controls.binds.as_mut());
         }
         Ok(controls)
     }
@@ -181,6 +203,9 @@ impl ViewControls {
             immersive.close();
         }
         if let Some(view) = self.view.as_mut() {
+            if let Some(desktops) = self.desktops.as_ref() {
+                view.take_live(desktops); // what a change in flight left
+            }
             view.flush();
             view.save_setup();
         }
@@ -221,6 +246,7 @@ impl ViewControls {
                 immersive: self.immersive.as_mut(),
                 windows: self.windows.as_mut(),
                 keys: self.keys.as_mut(),
+                binds: self.binds.as_mut(),
             },
         )
     }
@@ -233,18 +259,41 @@ impl ViewControls {
         {
             return;
         }
+        self.take_pointer();
         let (view, mut features) = self.features();
         if let Some(view) = view {
             view.on_message(message, &mut features, out);
+        }
+        if let Some(video) = self.video.as_mut() {
+            video.after_view(message, self.view.as_mut());
+        }
+        self.share_pointer();
+    }
+
+    /// Before the view works: what the overview pointer's sampler changed of it ([`view::ViewControl::take_pointer`]).
+    fn take_pointer(&mut self) {
+        if let Some(view) = self.view.as_mut() {
+            view.take_pointer(self.pointer.as_mut());
+        }
+    }
+
+    /// After the view worked: its state for the overview pointer ([`view::ViewControl::share_pointer`]).
+    fn share_pointer(&mut self) {
+        if let Some(view) = self.view.as_ref() {
+            view.share_pointer(self.pointer.as_mut());
         }
     }
 
     /// `_launch`: what goes to the renderer after the start frame (`control.initial_frame()`).
     pub fn initial_frame(&mut self) -> Vec<u8> {
-        self.view
+        self.take_pointer();
+        let out = self
+            .view
             .as_mut()
             .map(|v| v.initial_frame())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        self.share_pointer();
+        out
     }
 
     /// `keep_renderer`: true while the glasses change between 2D and 3D (`ImmersiveRun.switching`).
@@ -254,16 +303,21 @@ impl ViewControls {
 
     /// `keep_renderer`: a renderer started again after a hold (`control.renderer_restarted`).
     pub fn renderer_restarted(&mut self) {
+        if let Some(video) = self.video.as_mut() {
+            video.renderer_restarted(self.view.as_mut());
+        }
         if let Some(view) = self.view.as_mut() {
-            view.renderer_restarted();
+            view.renderer_restarted(self.pointer.as_mut());
         }
     }
 
     /// `supervisor.serve_without_renderer`: a hold's wait. The panel still gets its status; a view op is dropped.
     pub fn serve_without_renderer(&mut self, seconds: Duration) {
-        let view = self.view.as_ref();
+        let (view, video) = (self.view.as_ref(), self.video.as_ref());
         match self.socket.as_mut() {
-            Some(socket) => socket.serve_without_renderer(seconds, || status_reply(view, true)),
+            Some(socket) => {
+                socket.serve_without_renderer(seconds, || status_reply(view, video, true))
+            }
             None => std::thread::sleep(seconds),
         }
     }
@@ -279,10 +333,20 @@ impl ViewControls {
     }
 }
 
-/// A `status` answer's body: the view's (`control.status_reply(status)`); `held`: during a hold, which has no
-/// measured status (`serve_without_renderer`'s `{}`). Without a view, the four header keys alone.
-fn status_reply(view: Option<&view::ViewControl>, held: bool) -> socket::Body {
-    view.map(|v| v.status_reply(held)).unwrap_or_default()
+/// A `status` answer's body: the view's (`control.status_reply(status)`), then the video's (`VideoControl.status_reply`
+/// adds `video`); `held`: during a hold, which has no measured status (`serve_without_renderer`'s `{}`). Without
+/// either, the four header keys alone.
+fn status_reply(
+    view: Option<&view::ViewControl>,
+    video: Option<&video::Video>,
+    held: bool,
+) -> socket::Body {
+    let mut body = view.map(|v| v.status_reply(held)).unwrap_or_default();
+    if let Some(video) = video {
+        body.retain(|(k, _)| k != "video");
+        body.push(("video".into(), video.snapshot(view)));
+    }
+    body
 }
 
 /// The order of [`LoopHook::sources`]: the control socket, then the event stream (the Python's `selector.register`).
@@ -306,18 +370,27 @@ impl LoopHook for ViewControls {
     }
 
     fn deadline(&mut self) -> Option<Instant> {
-        self.view
+        let (view, mut features) = self.features();
+        let view = view.and_then(|v| v.deadline(&mut features));
+        let video = self
+            .video
             .as_mut()
-            .and_then(|v| v.deadline(self.pointer.as_mut()))
+            .and_then(|v| v.deadline(self.view.as_mut(), Instant::now()));
+        view.into_iter().chain(video).min()
     }
 
     /// `control.poll(now)`: the free pointer, the debounced panel save, the overlay's idle close.
     fn poll(&mut self, now: Instant, out: &mut Vec<u8>) {
         let mut frames = Frames::default();
+        self.take_pointer();
         let (view, mut features) = self.features();
         if let Some(view) = view {
             view.poll(now, &mut features, &mut frames);
         }
+        if let Some(video) = self.video.as_mut() {
+            video.poll(self.view.as_mut(), &mut frames);
+        }
+        self.share_pointer();
         self.queue(frames, out);
     }
 
@@ -330,18 +403,21 @@ impl LoopHook for ViewControls {
         let socket_first = self.socket.is_some();
         let mut frames = Frames::default();
         let keep = if socket_first && index == SOURCE_SOCKET {
-            let view = self.view.as_ref();
+            let (view, video) = (self.view.as_ref(), self.video.as_ref());
             let request = self
                 .socket
                 .as_mut()
-                .and_then(|s| s.control_request(|| status_reply(view, false)));
+                .and_then(|s| s.control_request(|| status_reply(view, video, false)));
             if let Some(message) = request {
                 self.on_message(&message, &mut frames);
             }
             true
         } else {
+            self.take_pointer();
             let (view, mut features) = self.features();
-            view.is_none_or(|v| v.events_ready(&mut features, &mut frames))
+            let keep = view.is_none_or(|v| v.events_ready(&mut features, &mut frames));
+            self.share_pointer();
+            keep
         };
         self.queue(frames, out);
         keep
@@ -349,10 +425,12 @@ impl LoopHook for ViewControls {
 
     /// `Supervisor.status_bytes`'s view side: the measured status for `status` replies and the view's datagrams.
     fn status(&mut self, datagram: &[u8], _now: Instant) {
+        self.take_pointer();
         let (view, mut features) = self.features();
         if let Some(view) = view {
             view.status(datagram, &mut features);
         }
+        self.share_pointer();
         if let Some(video) = self.video.as_mut() {
             video.status(datagram);
         }

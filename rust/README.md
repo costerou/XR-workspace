@@ -109,8 +109,8 @@ there that neither supervisor reads the file without a pose feed, good or bad, a
 and non-UTF-8 files. The one difference is a value in another script's digits, such as `٣`. Python's `\d` takes it and
 the renderer then refuses it; the Rust supervisor refuses it before the launch.
 
-The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included, with one
-stand-in per view-controls feature the Rust run does not have yet (its `STUBS`); each port deletes its own.
+The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included. Its `STUBS`
+(one stand-in per view-controls feature the Rust run does not have yet) is empty: every feature it took out is ported.
 
 The private control socket is ported (`view_controls::socket`, `ipc.PrivateServer` with `control_request` and
 `serve_without_renderer`): `$XDG_RUNTIME_DIR/xr-workspace-spike/<run_id>/control.sock`, one frame per same-UID
@@ -118,13 +118,29 @@ connection, a `status` answered on it, any other op handed to the view controls,
 hold. `tests/control_server_corpus.rs` replays the Python serving every run frame case of `corpus/sockets/frames.json`
 and the socket's own (`corpus/sockets/server.json`, from `tests/native_spike/control_server_corpus.py`): the same
 verdict, request id and reply bytes. `managed_real`'s socket cases ask the status during a run and a hold, and send a
-key through each run's own key helper. Until the view is ported the reply is its four header keys on both sides.
+key through each run's own key helper. The reply's body is the view's `status_reply`, then VR video's `video` entry.
+
+The view is ported (`view_controls::view::ViewControl`, `view.ViewControl`): the view keys (maximize, overview, next /
+previous, spacing, recenter, the viewing mode, prediction), the help card and its pages, typing mode, the pill panel's
+keys, `placement`, `stabilization` and the background, with their renderer frames (`view`, `recenter`, `style`, `help`,
+`placement`, `placement_menu`, `environment`); `initial_frame`, the status reply's body, the measured status, `poll` (the
+debounced saves, the overlay's idle close, the key bind panel's and the window memory's polls), the Hyprland events (a
+config reload's style, window events for the window memory), `flush`, `save_setup` and `_restored` on the glasses
+profile (`setup::store`: `ProfileStore`, `PlacementStore`). `tests/view_control_corpus.rs` replays the `controls`
+section of `corpus/view/view.json` (`tests/native_spike/view_corpus.py`): the Python view built from a profile, driven op
+by op on a fixed clock, gives the same frames, status, `profiles.json`, focus and toasts. `managed_real`'s view case sends
+Ctrl+Alt+Up, Right, Left, Down, spacing and help through each run's key helper with a saved profile restored, and compares
+the frames, the focus requests and the profile left. Not ported in it: the options menu (`options_menu.OptionsMenu`, the
+`options_*` ops, `RuntimeText`), and what is another feature's state (the overview pointer's rolls, hit-test geometry and
+so bumping and `_settle`; the panel's desktop row and Ctrl+Alt+R; 3D's sync and reassert), each marked in `view.rs`.
+The panel's and typing mode's bind swaps and a config reload go to the binds (`Binds::sync_menu`, `typing`,
+`after_reload`, `enable_options`), ordered with the key bind panel by their `MenuLock`.
 
 Not ported, so a Rust run presents the desktops without these:
 
-- the glasses' view controls (`managed.view_controls`) but the socket and the Ctrl+Alt binds: the view and its frames,
-  the overview pointer, VR video, and through them the pills' desktop changes. Window sending, privacy mode, the key
-  bind panel and 3D are ported (below) but reach a run's ops only once the view is.
+- the glasses' view controls (`managed.view_controls`) but the socket, the Ctrl+Alt binds, the view, window sending,
+  privacy mode, the window memory, the key bind panel, 3D, VR video, the overview pointer and the pills' desktop changes
+  (below): the options menu, and the overview pointer's pill clicks and sliders in the view.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -148,17 +164,43 @@ pinned to the run's compositor; and the run's end takes the last capture into `w
 `tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
 recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
 `managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
-Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
-calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
-`Tracker::poll`, `Tracker::deadline`).
+Stop. The view gives it its `window_context` and polls it. A desktop removed and added again in a run is ported too:
+`Tracker::leaving` (the desktops worker's, before a removal) parks its windows' memory, and `Tracker::set_names` brings
+them home on the next capture (the corpus has `test_window_memory.RemovalTests`' scenarios).
+
+VR video (`view_controls::video`, `video.VideoControl`) is ported: a `video_open` on the control socket opens, probes and
+checks the file (or the web video, relayed through ffmpeg) on a worker thread, and the loop's next poll sends the `video`
+open frame with the file's descriptor (`Frames::fds`, SCM_RIGHTS with its first byte); then the video keys, the quality
+menu, Ctrl+Alt+C, the card's idle close, the renderer's errors and missing support (from its measured status), web seeks
+and resumes, and the options menu's deferred owners (`video::Done`). The video keys go in and out off the loop, in order,
+on a client of the video's own; `close` removes them before recovery. What it needs of the view comes through
+`video::Host`. `tests/video_control_corpus.rs` replays `corpus/video/control.json` (24 sessions of the Python control
+against a recording view, from `tests/native_spike/video_control_corpus.py`): the same frames, descriptors, status
+entry, bind calls, toasts and completions at every step. The `managed_real` case `video` opens a one-frame clip in the
+session and leaves it with Escape's helper: the same frames (one descriptor, the file) and `status` on both runners. The
+video keys go in with `binds`'s helper command line.
+
+The pills' desktop changes (`view_controls::desktops::Manager`, `desktops.DesktopManager`) are ported: Ultrawide, Add,
+Remove, Scale, Resolution and Ctrl+Alt+R plan their broker steps (`crate::desktops::plan`), which run on a worker with its
+own client pinned to the run's compositor and its own handle on the journal, through the run's one broker client
+(`create_live`, `reshape`, `remove_live`; a failure reverses what can be proven again), then pull a shrunk desktop's
+floating windows in; a reset's removed desktop's windows go to XR-3 first (`_window_mover`). A change pauses the run's
+guard and replaces it with `RealHost::guard` of the outputs as they are now (`LoopHook::guard_change`), and a later
+renderer captures them. The view's side (`desktop_action`, `_start_change`, `_desktops_done`, `layout_reset` and its
+ease) is `Manager`'s over `desktops::View`, which `ViewControl` implements. `tests/desktops_corpus.rs` runs
+`corpus/desktops/manager.json` (the Python manager through the Python broker client on a scripted plugin,
+`tests/native_spike/desktops_corpus.py`) on the same plugin: the same requests, outcomes, desktops, guard, counts and
+journal for every action, the reset, and a refused create, remove and reshape; and the view's side on a stand-in view
+(Remove twice, a refused create, Ctrl+Alt+R twice). The `managed_real` cases (`menu_add`, Ctrl+Alt+R, a refused create)
+run on both sides.
 
 Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
 of the run's compositor, and `close` lets a move in flight land before the binds go and recovery starts (`notify` is
 `managed::real::notify`). `tests/send_corpus.rs` replays `corpus/send/sender.json`, recorded from the Python
-`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves. Its keys
-reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
-it.
+`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves.
+`managed_real`'s send case sends Ctrl+Alt+G and Ctrl+Alt+B through each run's key helper: the same move Lua, and no move
+after recovery begins.
 
 The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
 before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
@@ -178,18 +220,17 @@ bind table. `MenuLock`, a ticket lock shared with the key bind panel's worker, o
 the loop asked for it, as the Python's `_menu_lock` does, and holds what is installed. `tests/binds_run.rs` replays
 `rust/corpus/supervisor/binds_run.json` (`tests/native_spike/binds_run_corpus.py`: the Python's `managed.view_controls`
 and `ViewControl` bind work, step for step, on the real client). `tests/managed_real/cases/binds.rs` compares the run's
-install and removal; its config-reload case waits on the view's event stream. Not ported: a Pro 2's mode restore after a
+install and removal, and a config reload through the view's event stream. Not ported: a Pro 2's mode restore after a
 reload (`display_restore`).
 
 Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
 compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
-display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. The press
-reaches it once the `socket` and `view` ports route `privacy_display`. `tests/privacy_transcripts.rs` replays
+display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. `tests/privacy_transcripts.rs` replays
 `corpus/supervisor/privacy.json` (recorded from the Python `PrivacyDisplay` and `privacy.wake` on the shipped
 HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, completions and notifications for the
 toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
-(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
-Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
+(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's, and Ctrl+Alt+D
+through each run's key helper: DP-1 blanked, then woken in `exit` before recovery.
 
 Immersive 3D's run side is ported (`view_controls::immersive`): `find_engine` beside the pinned renderer, the depth
 memory every renderer inherits (`--depth-fd`), `ImmersiveRun` on the engine and `make_sbs` (`sbs.ButtonSbs` on a client
@@ -204,6 +245,23 @@ display mode" notice, no settle, and pose continuity kept while the USB identity
 installed fake engine's depth memory to the renderer on both sides, and hold a renderer that ends as the glasses go side
 by side as expected, the wide mode put back for the next one. Not ported: the Pro 2 bridge's `glasses` switch (every
 change asks for the button).
+
+The overview pointer (`view_controls::overview_pointer::Pointer`) is ported: the run's `UnifiedPointer`, shared with
+the `UnifiedSampler` thread on a compositor client of its own pinned to the run's compositor, the broker's cursor read
+(`cursor_reader`, a copy of the run's broker on that client), the window sender's drags on the run's `WindowSender`
+(`control.sender`), and the teardown (`sampler.stop()` removes its binds and shows the cursor before the view binds go).
+Its frames (`overview_pointer`, `roll`, `edge_pan`, `restore_band`, `resize_handle`, `move_handle`) come from
+`Pointer::poll` and the Super and resize ops, which the view calls. The view polls it, routes it the renderer's
+geometry datagrams, `xrcursor` events, a reload's dropped binds and a restart, and hands it its state: the pointer's
+`Shell` holds a copy the view shares before each pointer call and takes back after (the Python pointer reads
+`control.state` live). The `Shell`'s other callbacks into the view (pill clicks and slides, the desktop row, scale and
+resolution picks) do nothing yet. `tests/overview_pointer_run.rs` replays
+`rust/corpus/pointer/overview_pointer_run.json` (`tests/native_spike/overview_pointer_run_corpus.py`: the Python's
+pointer and sampler on the shipped HyprlandClient, the dot over a desktop, at its edge and over text): the same calls
+in order, reads, broker read, stop calls and last dot. In a run the sampler binds with the `binds` port's helper
+command line; `tests/managed_real/cases/overview_pointer.rs` runs both supervisors with the cursor on XR-1 and holds the
+sampler's Lua and reads (set apart from the loop's trace, which they interleave on a clock) and its stop before the view
+binds go to the Python's.
 
 ### Switching runs to the Rust supervisor
 
@@ -343,10 +401,13 @@ Where the modules meet, the C++ order is kept:
   default, only with the feed) a head-tracked frame is drawn from `late_latch::LateLatch`, as wayland.cpp does: the
   frame callback scores it, `draw_desktops` waits for its start (`Presentation::pump` wakes for it to the
   nanosecond) and the commit ends its measured draw. `latency.late_latch` reports it, `{"enabled":false}` without the
-  flag. The draw it measures includes the swapchain's `glFinish`, which the C++ (`eglSwapBuffers`) does not wait for, so
-  the margin is about 1.5 ms wider than the C++ one (`docs/technical.md`, "Renderer trial flags").
+  flag. The present does not wait for the GPU: after the copy into the swapchain it flushes and commits, and the
+  compositor's read waits for the draw through the dmabuf's implicit fence, as with the C++ `eglSwapBuffers` (Mesa's
+  Wayland EGL flushes and has no `wp_linux_drm_syncobj`). `tests/present_sync.rs` checks that ordering across processes.
+  The measured draw and so the margin match the C++ ones (`docs/technical.md`, "Renderer trial flags").
 - **GPU time**: `GL_EXT_disjoint_timer_query` around each GPU frame (`GlCompositor::begin_gpu_time` to
-  `take_gpu_ns`, first upload to the copy into the swapchain). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
+  `take_gpu_ns`, first upload to the copy into the swapchain; read at the next frame's start, since the present only
+  flushes). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
   and `gpu_max_ms` for the frames since the last sample, and the exit report's `composition.gpu_time` the run's
   frames, p50, p95 and max. Both are left out without the extension. The C++ renderer has neither; `xr_wire::status`
   and the Python supervisor accept the three keys.
@@ -407,7 +468,8 @@ back, the others keep theirs, and every settled frame's tiles show the listed de
 `golden/roll_geometry.cpp`'s.
 
 Every part of the C++ renderer is ported. Its latency targets (plan task 6: read to present p50 ≤ 9 ms, p95 ≤ 11 ms)
-need a glasses run; on loopback the late-latch draw trails the C++ by about 1.5 ms (see GPU time above).
+need a glasses run; on loopback the late-latch read to present matches the C++ one (`docs/technical.md`, "Renderer trial
+flags").
 
 ### IPC
 

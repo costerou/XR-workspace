@@ -408,6 +408,11 @@ fn reset(path: &Path, model: &str) -> Result<(), OsError> {
         setup: default_setup(),
         ..load_profile(path, model)
     };
+    write_profile(path, model, &profile)
+}
+
+/// `save_profile(path, model, profile)`'s write: every other model's profile kept as it was read.
+fn write_profile(path: &Path, model: &str, profile: &Profile) -> Result<(), OsError> {
     let others: Vec<(String, Json)> = read_profiles(path)
         .into_iter()
         .filter(|(k, _)| k != model && MODELS.contains(&k.as_str()))
@@ -417,9 +422,154 @@ fn reset(path: &Path, model: &str) -> Result<(), OsError> {
         &File {
             others: &others,
             model,
-            profile: &profile,
+            profile,
         },
     )
+}
+
+/// The view's stores of one glasses model's profile (`profiles.ProfileStore`, `PlacementStore`), for
+/// `view_controls::view`: each write keeps every other field of the profile and every other model's profile. An error
+/// is the Python's `ValueError` / `OSError` text, which the view drops (its saves are best effort).
+pub mod store {
+    use super::*;
+
+    fn model_ok(model: &str) -> Result<(), String> {
+        if MODELS.contains(&model) {
+            Ok(())
+        } else {
+            Err("unknown model".into())
+        }
+    }
+
+    /// `geometry.validate_rolls(rolls, len(rolls))`.
+    fn rolls_ok(rolls: &[i64]) -> Result<(), String> {
+        if rolls.iter().all(|r| (-MAX_ROLL..=MAX_ROLL).contains(r)) {
+            Ok(())
+        } else {
+            Err(format!("roll must be an integer -{MAX_ROLL}..{MAX_ROLL}"))
+        }
+    }
+
+    fn write(path: &Path, model: &str, profile: &Profile) -> Result<(), String> {
+        write_profile(path, model, profile).map_err(|e| e.0)
+    }
+
+    /// `ProfileStore.load()`: the profile's view settings.
+    pub fn load_view(path: &Path, model: &str) -> Settings {
+        load_profile(path, model).view
+    }
+
+    /// `ProfileStore.save(view_settings)`.
+    pub fn save_view(path: &Path, model: &str, settings: &Settings) -> Result<(), String> {
+        model_ok(model)?;
+        if !settings.is_valid() {
+            return Err("invalid settings".into());
+        }
+        let profile = Profile {
+            view: settings.clone(),
+            ..load_profile(path, model)
+        };
+        write(path, model, &profile)
+    }
+
+    /// `PlacementStore.save_layout(placements, rolls)`: one placement per desktop of the profile (more dropped,
+    /// missing ones kept as saved), and the rolls cut or padded the same way (None: the saved ones stay).
+    pub fn save_layout(
+        path: &Path,
+        model: &str,
+        placements: &[Placement],
+        rolls: Option<&[i64]>,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let mut profile = load_profile(path, model);
+        let n = profile.setup.desktops.len();
+        let placements =
+            crate::geometry::validate_placements(placements).map_err(|e| e.0.to_owned())?;
+        let saved = &profile.setup.placements;
+        let mut full: Vec<Placement> = placements
+            .iter()
+            .chain(saved.iter().skip(placements.len()))
+            .copied()
+            .take(n)
+            .collect();
+        full.resize(n, DEFAULT_PLACEMENT);
+        if let Some(rolls) = rolls {
+            rolls_ok(rolls)?;
+            let mut out: Vec<i64> = rolls
+                .iter()
+                .chain(profile.setup.rolls.iter().skip(rolls.len()))
+                .copied()
+                .collect();
+            out.resize(out.len().max(n), 0);
+            out.truncate(n);
+            profile.setup.rolls = out;
+        }
+        profile.setup.placements = full;
+        write(path, model, &profile)
+    }
+
+    /// `PlacementStore.save_desktops(desktops, placements, rolls)`: the run's whole monitor setup (None: level).
+    pub fn save_desktops(
+        path: &Path,
+        model: &str,
+        desktops: &[Desktop],
+        placements: &[Placement],
+        rolls: Option<&[i64]>,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let n = desktops.len();
+        if !(1..=MAX_DESKTOPS).contains(&n) {
+            return Err(format!("1 to {MAX_DESKTOPS} desktops required"));
+        }
+        let placements =
+            crate::geometry::validate_placements(placements).map_err(|e| e.0.to_owned())?;
+        if placements.len() != n {
+            return Err(format!("exactly {n} placements required"));
+        }
+        let rolls = rolls.map_or_else(|| vec![0; n], <[i64]>::to_vec);
+        if rolls.len() != n {
+            return Err(format!("exactly {n} rolls required"));
+        }
+        rolls_ok(&rolls)?;
+        let profile = Profile {
+            setup: Setup {
+                desktops: desktops.to_vec(),
+                placements,
+                rolls,
+            },
+            ..load_profile(path, model)
+        };
+        write(path, model, &profile)
+    }
+
+    /// `PlacementStore.reset(previous)` (Ctrl+Alt+R): the setup and the spacing become the default, and the layout it
+    /// replaces (`desktops`: None or empty, the profile's) is kept as `previous_setup` unless it is the default.
+    pub fn reset(
+        path: &Path,
+        model: &str,
+        desktops: Option<&[Desktop]>,
+        placements: &[Placement],
+        rolls: &[i64],
+        spacing: i64,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let mut profile = load_profile(path, model);
+        let desktops = desktops
+            .filter(|d| !d.is_empty())
+            .unwrap_or(&profile.setup.desktops);
+        let value = serde_json::json!({"desktops": desktops, "placements": placements, "rolls": rolls,
+                                       "spacing": spacing});
+        let kept = Json::parse(&value.to_string())
+            .ok()
+            .and_then(|v| previous(Some(&v)))
+            .filter(|k| k.setup != default_setup() || k.spacing != view::DEFAULT_SPACING);
+        profile.setup = default_setup();
+        profile.view.spacing = view::DEFAULT_SPACING;
+        if kept.is_some() {
+            profile.previous_setup = kept;
+        }
+        write(path, model, &profile)
+    }
 }
 
 /// `{'schema': SCHEMA, 'profiles': {**others, model: profile}}`.
@@ -539,5 +689,39 @@ mod tests {
             &mut |_| {}
         ));
         assert_ne!(fs::read(&path).unwrap(), before);
+    }
+
+    /// `PlacementStore.save_desktops` then `reset(previous)` twice, the second of the default (which keeps the
+    /// backup): the file the Python leaves (tools/native_spike/profiles.py, recorded 2026-11-11).
+    #[test]
+    fn a_reset_keeps_the_layout_it_replaces_as_the_python_does() {
+        let dir = crate::testdir::TestDir::new("setup-reset");
+        let path = dir.path().join("profiles.json");
+        let d = [
+            Desktop {
+                width: 2560,
+                height: 1080,
+                scale: 1.0,
+            },
+            Desktop {
+                width: 1920,
+                height: 1080,
+                scale: 1.25,
+            },
+        ];
+        let moved = Placement {
+            x: 10,
+            y: -5,
+            distance: 120,
+            curvature: 30,
+        };
+        let p = [moved, DEFAULT_PLACEMENT];
+        store::save_desktops(&path, "luma-ultra", &d, &p, Some(&[300, -40])).unwrap();
+        store::reset(&path, "luma-ultra", Some(&d), &p, &[300, -40], 140).unwrap();
+        let flat = [DEFAULT_PLACEMENT; 3];
+        let spacing = view::DEFAULT_SPACING;
+        store::reset(&path, "luma-ultra", None, &flat, &[0; 3], spacing).unwrap();
+        let python = r#"{"schema": 2, "profiles": {"luma-ultra": {"spacing": 40, "mode": "anchor", "prediction": true, "stabilization": 25, "video_quality": {"filter": "catmull-rom", "deband": false}, "environment": {"background": "none", "last": "grid", "brightness": 100}, "immersive": {"global": false, "desktops": {}, "preset": "desktop", "strength": 100, "convergence": 92}, "desktops": [{"width": 1920, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.0}], "placements": [{"x": 0, "y": 0, "distance": 100, "curvature": 0}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}], "rolls": [0, 0, 0], "previous_setup": {"desktops": [{"width": 2560, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.25}], "placements": [{"x": 10, "y": -5, "distance": 120, "curvature": 30}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}], "rolls": [300, -40], "spacing": 140}, "tracking": true, "mode_switch": true, "tracking_driver": "luma", "fallback": null}}}"#;
+        assert_eq!(fs::read_to_string(&path).unwrap(), python);
     }
 }

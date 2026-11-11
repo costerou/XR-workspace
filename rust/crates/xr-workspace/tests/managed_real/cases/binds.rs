@@ -2,9 +2,8 @@
 //!
 //! The module is held to the Python's on its own by tests/binds_run.rs (level 1: the reload, the panel's and typing
 //! mode's work). Here, the whole run: both read the session mode and install the binds at the start, with the same
-//! `/eval`s, and remove them before recovery puts the windows back. A config reload during the run needs the view's
-//! event stream (`client.event_stream()`, `on_events`), which is the `view` port's: until it lands, that case is
-//! ignored.
+//! `/eval`s, and remove them before recovery puts the windows back. A config reload during the run (the view's event
+//! stream, `on_events`) reinstalls them and parks the glasses again.
 
 use std::fs;
 use std::time::{Duration, Instant};
@@ -97,7 +96,6 @@ fn reload(s: &Session, _: Who) -> Value {
 }
 
 #[test]
-#[ignore = "needs the view port's event stream (client.event_stream, on_events): until then neither run reads the reload"]
 fn a_config_reload_reinstalls_the_binds_and_parks_the_glasses() {
     let (run, _, acted) = parity_acting("binds-reload", Some(reload));
     assert_eq!(acted[0], acted[1]);
