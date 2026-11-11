@@ -114,9 +114,9 @@ key through each run's own key helper. Until the view is ported the reply is its
 
 Not ported, so a Rust run presents the desktops without these:
 
-- the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D and VR video. Window sending, privacy mode, the key bind panel and the pills' desktop changes are
-  ported (below) but reach a run's ops only once the view is.
+- the glasses' view controls (`managed.view_controls`) but the socket and the Ctrl+Alt binds: the view and its frames,
+  the overview pointer, 3D and VR video. Window sending, privacy mode, the key bind panel and the pills' desktop changes
+  are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -173,8 +173,21 @@ before the run's own go in (a run bind on keys a described Hyprland / Omarchy bi
 keys `Binds::install` takes, the panel's ops (`binds_toggle`, `binds_key`) and `binds` frames through the view, and its
 compositor work on a worker thread with its own pinned client. `tests/keybinds_run.rs` replays
 `rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
-toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
-`tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+toasts and saved file). In a run it opens with the binds (below); `tests/managed_real/cases/keybinds.rs` runs both
+runners with a described desktop bind on a run key, which both leave out, and presses Ctrl+Alt+K through each run's
+helper. Its frames come once the view routes the panel's ops.
+
+The run's Ctrl+Alt binds (`view_controls::binds::Binds`) are ported: the bind helper's command line (the bundle's
+`tools/native_spike/xr_control.py` under `/usr/bin/python3`, as the bind Lua names an interpreter and a script), the
+session mode read at the start, the install with the key bind panel's keys, the removal before recovery, and the work
+the view asks for off the loop: the reinstall after a config reload (typing mode kept, the glasses parked, then their
+session or wide mode back, then 3D reasserted), the placement panel's and options menu's modal binds, and typing mode's
+bind table. `MenuLock`, a ticket lock shared with the key bind panel's worker, orders their compositor work in the order
+the loop asked for it, as the Python's `_menu_lock` does, and holds what is installed. `tests/binds_run.rs` replays
+`rust/corpus/supervisor/binds_run.json` (`tests/native_spike/binds_run_corpus.py`: the Python's `managed.view_controls`
+and `ViewControl` bind work, step for step, on the real client). `tests/managed_real/cases/binds.rs` compares the run's
+install and removal; its config-reload case waits on the view's event stream. Not ported: a Pro 2's mode restore after a
+reload (`display_restore`).
 
 Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
 compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
@@ -269,7 +282,7 @@ pass ASCII numbers.
 
 `xr-renderer` is the complete port of the C++ renderer (`spike/src/wayland.cpp`, `main.cpp` and the files they draw
 with). It takes the same supervised launch (same arguments, descriptor checks and start frame) and every launch flag:
-`--capture`, `--pose-feed xrld`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
+`--capture`, `--pose-feed xrld`, `--late-latch-guard-ms`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
 output that takes no input. Frames are paced by the frame callback, with `wp_presentation` feedback, the
 `generated_pattern_presentation_timing` report and the fractional scale through `wp_viewporter`. Without `--capture`
 it draws the generated test pattern (SHM, static or `--animate-pattern-ms`). With it, the managed desktops are composed
@@ -320,7 +333,17 @@ Where the modules meet, the C++ order is kept:
   keeps presenting. With the Luma driver's `--read-events`, the status datagram also carries `vsync_error_ms` and
   `sensor_to_vsync_ms` (the C++ text, compared with `golden/status_vsync.cpp`'s, and read by `xr_wire::status`). The
   exit report carries `tracking` and `latency` (software read to present, from the
-  `wp_presentation` feedback in `shell.rs`).
+  `wp_presentation` feedback in `shell.rs`). With `--late-latch-guard-ms G` (the `renderer-flags` D4 trial, off by
+  default, only with the feed) a head-tracked frame is drawn from `late_latch::LateLatch`, as wayland.cpp does: the
+  frame callback scores it, `draw_desktops` waits for its start (`Presentation::pump` wakes for it to the
+  nanosecond) and the commit ends its measured draw. `latency.late_latch` reports it, `{"enabled":false}` without the
+  flag. The draw it measures includes the swapchain's `glFinish`, which the C++ (`eglSwapBuffers`) does not wait for, so
+  the margin is about 1.5 ms wider than the C++ one (`docs/technical.md`, "Renderer trial flags").
+- **GPU time**: `GL_EXT_disjoint_timer_query` around each GPU frame (`GlCompositor::begin_gpu_time` to
+  `take_gpu_ns`, first upload to the copy into the swapchain). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
+  and `gpu_max_ms` for the frames since the last sample, and the exit report's `composition.gpu_time` the run's
+  frames, p50, p95 and max. Both are left out without the extension. The C++ renderer has neither; `xr_wire::status`
+  and the Python supervisor accept the three keys.
 - **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
   as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
   the hand's dot, `pan_dot`), `desktops` (captures stop, start and restart; placements follow their desktops) and the
@@ -361,12 +384,13 @@ Where the modules meet, the C++ order is kept:
 
 ### Gates
 
-Every `capture_e2e_rust_*` ctest (44) runs the C++ test's bench arguments against the Rust binary, configured with
+Every `capture_e2e_rust_*` ctest (45) runs the C++ test's bench arguments against the Rust binary, configured with
 `-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
 (`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
 `pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
 `open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies`,
-`feed_gone_video_loss` and `desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
+`feed_gone_video_loss`, `late_latch` (D4: frames drawn on the late-latch schedule, as `capture_e2e_late_latch`) and
+`desktops_change_{gl-shm,gl-dmabuf}`. The bench's `--desktops-change` sends `desktops` mid-run
 (XR-2 removed, then added back), as the C++ `capture_e2e_desktops_change_*` does: XR-2's capture session goes and comes
 back, the others keep theirs, and every settled frame's tiles show the listed desktops' captures in order. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
 `tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
@@ -376,9 +400,8 @@ back, the others keep theirs, and every settled frame's tiles show the listed de
 `spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
 `golden/roll_geometry.cpp`'s.
 
-Not ported or not covered yet:
-
-- Late latch and the GPU timer query (plan task 6).
+Every part of the C++ renderer is ported. Its latency targets (plan task 6: read to present p50 ≤ 9 ms, p95 ≤ 11 ms)
+need a glasses run; on loopback the late-latch draw trails the C++ by about 1.5 ms (see GPU time above).
 
 ### IPC
 
@@ -466,8 +489,7 @@ cargo bench -p xr-renderer --bench gl_bench -- [--frames N] [--size WxH]
 build/release/gl_bench --bench [--frames N] [--size WxH]   # the C++ one, to compare
 ```
 
-Not ported from the C++ bench: its `report:` line and the card and font CPU timings (no font in
-Rust yet). `tests/gl_parity.rs` still checks the call counts against the C++ ones
+Not ported from the C++ bench: its `report:` line and the card and font CPU timings. `tests/gl_parity.rs` still checks the call counts against the C++ ones
 (`XR_GL_CPP_BENCH`).
 
 The scenarios (`tests/support/gl_scenarios.rs`, shared by `gl_frame`, `gl_parity`, the bench and
@@ -835,7 +857,7 @@ port.
 `late_latch` is `late_latch.cpp` (RR-72): the late-latch schedule, adaptive margin, miss boost and
 summary, with `parse_guard` going through the C library's `strtod` as the C++ does. `tests/late_latch.rs`
 ports every check of the `late_latch` ctest, and checks that a late frame boosts the margin and the
-frame after it is not late too. Wiring it into the shell is a later task.
+frame after it is not late too. The shell's tracking module drives it (`--late-latch-guard-ms`, above).
 
 `predict` is `predict.cpp` (RR-72): the look-ahead config, angular velocity from the feed's two newest samples
 (with the whole-ms timestamp mean), the bounded delta, `LatencyTracker` with its read-phase model, `PoseAge`,

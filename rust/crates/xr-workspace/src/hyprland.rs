@@ -1574,7 +1574,7 @@ fn pause(started: Instant, deadline: Instant) -> bool {
 }
 
 /// `view.session_mode`: the output's placement if it is in the granted session mode on a physical connector.
-fn session_mode(m: &Monitor) -> Option<Mode> {
+pub fn session_mode(m: &Monitor) -> Option<Mode> {
     let (w, h, r) = view::SESSION_MODE;
     let physical = lua::connector(&m.name, &["DP", "HDMI-A", "eDP"], 1, usize::MAX);
     (physical

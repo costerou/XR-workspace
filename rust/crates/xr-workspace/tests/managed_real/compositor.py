@@ -138,6 +138,15 @@ def reply_binds(wire):
     return None
 
 
+def events_binds():
+    """view_controls::binds's event lines: a config reload (Omarchy's theme switch) once the case makes
+    `<runtime>/fake-config-reload`, which is taken as it is sent."""
+    reload = root / 'fake-config-reload'
+    if not reload.exists(): return []
+    reload.unlink()
+    return [b'configreloaded>>\n']
+
+
 def reply_view(wire):
     """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's."""
     return None
@@ -329,6 +338,14 @@ def respond(wire):
 def handle(conn, kind):
     pid = None
     try:
+        if kind == 'events':
+            conn.settimeout(0.05)
+            while True:
+                try:
+                    if not conn.recv(1024): return
+                except TimeoutError:
+                    pass
+                for line in events_binds(): conn.sendall(line)
         if kind != 'rpc':
             while conn.recv(1024):
                 pass
