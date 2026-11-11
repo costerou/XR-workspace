@@ -28,7 +28,7 @@
 
 // The view side: `view.py`'s state and its frame encoders (it reads `environment`, `immersive` and `quality`).
 pub mod view;
-mod python;
+pub(crate) mod python;
 pub use python::Invalid;
 #[cfg(test)]
 mod corpus_tests;

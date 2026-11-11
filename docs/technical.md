@@ -755,9 +755,12 @@ percentiles), and `python3 -m tools.latency_baseline --latest` turns that into `
 until a 30-minute live run passes the D4 gate: read_to_present p50 at most 9 ms, p95 at most 11 ms, no missed latch.
 
 The Rust renderer (`rust/crates/xr-renderer`, its `late_latch` module) takes the same flag and draws on the same schedule,
-with the same `latency.late_latch` section, so the file works with either renderer the Python supervisor launches. The Rust
-supervisor does not read the file yet. Its draw is slower to commit than the C++ one: it copies the frame into its own
-dmabuf swapchain and waits for the GPU (`glFinish`) before the commit, where the C++ hands an EGL window surface to
+with the same `latency.late_latch` section, so the file works with either renderer either supervisor launches. The Rust
+supervisor (`rust/crates/xr-workspace`, `managed::real::renderer_flags`) reads the file at the same point with the same checks
+and the same refusals, word for word. The one difference is a value in another script's digits, such as `٣`: the Python takes
+it and the renderer then refuses it, the Rust supervisor refuses it before the launch.
+
+The Rust renderer's draw is slower to commit than the C++ one: it copies the frame into its own dmabuf swapchain and waits for the GPU (`glFinish`) before the commit, where the C++ hands an EGL window surface to
 `eglSwapBuffers`. That wait counts in the measured draw, so its margin is about 1.5 ms wider. On the loopback compositor
 (`capture_e2e_bench --tracking --present-lag 1 --late-latch-guard-ms 1`, 2026-11-11, load 4 to 7) its read_to_present p50 was
 about 13.3 ms against the C++ renderer's 11.6 ms, with p95 about 14 ms for both. Neither figure is the D4 gate, which needs the

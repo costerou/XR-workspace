@@ -165,20 +165,39 @@ pub fn notify(message: &str) {
     }
 }
 
-/// `supervisor._renderer_flags`: the saved renderer trial flags as argv, none with no file.
-pub fn renderer_flags() -> io::Result<Vec<String>> {
+/// `supervisor._renderer_flags_path`: `viture-workspace/renderer-flags` under `$XDG_CONFIG_HOME` (unset or empty:
+/// `~/.config`).
+pub fn renderer_flags_path() -> PathBuf {
     let config = std::env::var_os("XDG_CONFIG_HOME")
         .filter(|v| !v.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config")
         });
-    let path = config.join("viture-workspace/renderer-flags");
-    let text = match std::fs::read_to_string(&path) {
+    config.join("viture-workspace/renderer-flags")
+}
+
+/// `supervisor._renderer_flags`: the saved renderer trial flags as argv, none with no file.
+pub fn renderer_flags() -> io::Result<Vec<String>> {
+    renderer_flags_at(&renderer_flags_path())
+}
+
+/// `supervisor._renderer_flags` on the file at `path`. Every refusal reads as Python's `str(exc)`: the ValueError's
+/// words, `[Errno N] strerror: 'path'` for a file that cannot be read, the UnicodeDecodeError's for one not UTF-8.
+pub fn renderer_flags_at(path: &Path) -> io::Result<Vec<String>> {
+    let refuse = |message: String| io::Error::new(io::ErrorKind::InvalidData, message);
+    let raw = match std::fs::read(path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        other => other?,
+        Err(e) => return Err(refuse(crate::runner::py_os_error(&e, path))),
+        Ok(raw) => raw,
     };
-    let words: Vec<&str> = text.split_whitespace().collect();
+    let text =
+        std::str::from_utf8(&raw).map_err(|e| refuse(monitor_rules::utf8_message(&raw, e)))?;
+    // str.split(): Python's whitespace, which has four ASCII separators Rust's does not.
+    let words: Vec<&str> = text
+        .split(crate::supervisor::python::py_space)
+        .filter(|w| !w.is_empty())
+        .collect();
     let mut out: Vec<String> = Vec::new();
     let mut at = 0;
     while at < words.len() {
@@ -188,12 +207,14 @@ pub fn renderer_flags() -> io::Result<Vec<String>> {
             .find(|(f, _)| *f == flag)
             .filter(|_| !out.iter().any(|o| o == flag))
         else {
-            return Err(crate::private_file::invalid(format!(
+            return Err(refuse(format!(
                 "{} has an unknown or repeated flag: {flag}",
                 path.display()
             )));
         };
         let value = words.get(at + 1).copied().unwrap_or("");
+        // `\d{1,2}(\.\d{1,3})?` and at most 8. Python's `\d` also takes other scripts' digits, which no renderer
+        // parses; these are refused here (docs/technical.md, "Renderer trial flags").
         let shape = value
             .split_once('.')
             .map_or((value, None), |(a, b)| (a, Some(b)));
@@ -204,10 +225,7 @@ pub fn renderer_flags() -> io::Result<Vec<String>> {
             && shape.1.is_none_or(|f| digits(f, 3))
             && value.parse::<f64>().is_ok_and(|v| v <= 8.0);
         if !ok {
-            return Err(crate::private_file::invalid(format!(
-                "{}: {flag} needs a {kind}",
-                path.display()
-            )));
+            return Err(refuse(format!("{}: {flag} needs a {kind}", path.display())));
         }
         out.extend([flag.to_owned(), value.to_owned()]);
         at += 2;
@@ -605,7 +623,10 @@ impl<'a> RealHost<'a> {
         }
         if self.pose_feed() {
             spec.pose_feed = true;
-            spec.renderer_flags = renderer_flags().map_err(err)?;
+            // Read where `_launch` reads it: after its refusal of head tracking without capture.
+            if capture {
+                spec.renderer_flags = renderer_flags().map_err(err)?;
+            }
             spec.tracking_timeout = Some(Duration::from_secs_f64(
                 Tracking::new(Paths::from_env(&self.runtime)).lost_timeout(),
             ));
