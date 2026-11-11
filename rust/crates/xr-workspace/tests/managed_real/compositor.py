@@ -15,6 +15,7 @@ Cases (the third argument):
 - `create-fail`: the second output created does not go live.
 - `recovery-stuck`: the first `evacuate_remove` is refused with an error reply.
 - `no-glasses`: DP-2 is not there.
+- `desktops-refused`: a fourth output (a pill's Add mid-run) does not go live (`reply_desktops`).
 - anything else: everything works.
 
 `<runtime>/fake-unplug` existing takes DP-1 away (the run's guard then fails).
@@ -227,7 +228,22 @@ def reply_video(wire):
 
 
 def reply_desktops(wire):
-    """view_controls::desktops's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::desktops's requests (VIEW_CONTROLS.md); None: not this feature's. A pill's `reshape` (Ultrawide,
+    Scale, Resolution, a slide along the row) takes the new geometry; in the `desktops-refused` case the run's fourth
+    output (a pill's Add) does not go live."""
+    if not wire.startswith('j/xrspike '):
+        return None
+    j = json.loads(wire[len('j/xrspike '):])
+    p, op = j['payload'], j['op']
+    envelope = lambda result: dict(**{k: j[k] for k in ('schema', 'session', 'run_id', 'request_id')}, epoch=EPOCH,
+                                   result=result)
+    if op == 'reshape' and p.get('id') in registry:
+        registry[p['id']]['observation'].update({k: p[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')})
+        return envelope(registry[p['id']])
+    if op == 'create' and case == 'desktops-refused' and p['index'] == 3:
+        broker(j)
+        registry[p['id']]['state'] = 'failed'
+        return envelope(registry[p['id']])
     return None
 
 
