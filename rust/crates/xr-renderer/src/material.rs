@@ -103,7 +103,7 @@ impl Default for MdShadow {
 }
 
 // `std::clamp(v, lo, hi)`: `v < lo ? lo : hi < v ? hi : v`, so a NaN comes back unchanged.
-fn clampf(v: f32, lo: f32, hi: f32) -> f32 {
+pub(crate) fn clampf(v: f32, lo: f32, hi: f32) -> f32 {
     if v < lo {
         lo
     } else if hi < v {

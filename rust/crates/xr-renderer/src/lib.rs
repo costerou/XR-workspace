@@ -23,6 +23,7 @@ pub mod hud_gl;
 pub mod ipc;
 pub mod layout;
 pub mod material;
+pub mod material_draw;
 pub mod options_geometry;
 pub mod pose;
 pub mod stereo;
