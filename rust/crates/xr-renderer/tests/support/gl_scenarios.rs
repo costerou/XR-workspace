@@ -308,9 +308,6 @@ pub struct Resources {
     pub panel_static: Rc<HudImage>,
     pub panel_drag: Vec<Rc<HudImage>>,
     pub handles: Rc<HudImage>,
-    /// Always true: the cards are the C++ ones (the Rust rasters are byte-equal to them, card_raster), and with a dump
-    /// to compare against they were also checked equal to it.
-    pub from_cpp: bool,
 }
 
 /// A `u32 width, u32 height, RGBA` file from `gl_bench --dump`.
@@ -436,7 +433,6 @@ pub fn load_resources_from(cards: Option<&Path>) -> Resources {
         panel_static,
         panel_drag,
         handles,
-        from_cpp: true,
     }
 }
 

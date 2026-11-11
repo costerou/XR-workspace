@@ -6,8 +6,8 @@
 //! (support/pointer_raster.rs, within 1 per channel on the shape and its ring, 0 off it); level bars and caps ride on
 //! their desktop's live placement.
 //!
-//! Cards come from XR_GL_CARDS
-//! (`gl_bench --dump DIR`) when set, else are synthetic. Exit 77 (skipped) without EGL/GLES.
+//! The cards are the Rust rasters (byte-equal to the C++ ones, card_raster); with XR_GL_CARDS
+//! (`gl_bench --dump DIR`) set they are also checked equal to the dump. Exit 77 (skipped) without EGL/GLES.
 
 #[path = "support/gl_scenarios.rs"]
 mod gl_scenarios;
@@ -388,9 +388,8 @@ fn main() {
         std::process::exit(1);
     }
     println!(
-        "gl frame check passed: {} scenarios, {} frames vs fresh compositors ({} cards)",
+        "gl frame check passed: {} scenarios, {} frames vs fresh compositors",
         list.len(),
         order.len() + 2,
-        if r.from_cpp { "C++" } else { "synthetic" }
     );
 }
