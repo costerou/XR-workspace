@@ -1,0 +1,1463 @@
+{
+ "schema": 1,
+ "source": "tests/native_spike/privacy_corpus.py",
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "glasses": "DP-2",
+ "note": "One request per connection. Requests and replies are the exact bytes, as UTF-8 text.",
+ "scenarios": [
+  {
+   "name": "toggle",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+     ]
+    },
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy off: DP-1 is back on."
+     ]
+    },
+    {
+     "step": "close"
+    }
+   ],
+   "notifications": [
+    "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on.",
+    "Privacy off: DP-1 is back on."
+   ]
+  },
+  {
+   "name": "first_press_blanks_a_sleeping_display",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": false,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+     ]
+    },
+    {
+     "step": "close"
+    }
+   ],
+   "notifications": [
+    "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+   ]
+  },
+  {
+   "name": "no_fallback_the_only_candidate",
+   "fallback": null,
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+     ]
+    },
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy off: DP-1 is back on."
+     ]
+    }
+   ],
+   "notifications": [
+    "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on.",
+    "Privacy off: DP-1 is back on."
+   ]
+  },
+  {
+   "name": "two_candidates_none_the_fallback",
+   "fallback": "DP-3",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "HDMI-A-1",
+     "description": "Synthetic HDMI-A-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"HDMI-A-1\", \"description\": \"Synthetic HDMI-A-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      false,
+      "No single main display found to turn off."
+     ]
+    }
+   ],
+   "notifications": [
+    "No single main display found to turn off."
+   ]
+  },
+  {
+   "name": "the_display_will_not_turn_off",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [
+    "DP-1"
+   ],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      false,
+      "DP-1 did not turn off."
+     ]
+    }
+   ],
+   "notifications": [
+    "DP-1 did not turn off."
+   ]
+  },
+  {
+   "name": "close_wakes_and_refuses_later_presses",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+     ]
+    },
+    {
+     "step": "close"
+    },
+    {
+     "step": "press",
+     "done": [
+      false,
+      "Privacy owner closed"
+     ]
+    }
+   ],
+   "notifications": [
+    "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+   ]
+  },
+  {
+   "name": "close_without_a_blank_touches_nothing",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [],
+   "steps": [
+    {
+     "step": "close"
+    },
+    {
+     "step": "press",
+     "done": [
+      false,
+      "Privacy owner closed"
+     ]
+    }
+   ],
+   "notifications": []
+  },
+  {
+   "name": "the_watcher_blanks_a_display_something_else_woke",
+   "fallback": "DP-1",
+   "watch": 0.5,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t,g=\"DP-1\",\"DP-2\" local a,b=false,false for _,m in ipairs(hl.get_monitors()) do if m.name==t then a=true elseif m.name==g then b=true end end if a and b then hl.dispatch(hl.dsp.dpms({action=\"off\",monitor=t})) hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=g})) end",
+     "reply": "ok"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    }
+   ],
+   "steps": [
+    {
+     "step": "press",
+     "done": [
+      true,
+      "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+     ]
+    },
+    {
+     "step": "external_on:DP-1"
+    },
+    {
+     "step": "watch_reblank",
+     "requests": 5
+    },
+    {
+     "step": "close"
+    }
+   ],
+   "notifications": [
+    "Privacy on: DP-1 is off, only the glasses show content. Ctrl+Alt+D turns it back on."
+   ]
+  },
+  {
+   "name": "recovery_wakes_a_sleeping_display",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": false,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": false, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    },
+    {
+     "request": "/eval local t=\"DP-1\" for _,m in ipairs(hl.get_monitors()) do if m.name==t then hl.dispatch(hl.dsp.dpms({action=\"on\",monitor=t})) break end end",
+     "reply": "ok"
+    },
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "wake",
+     "returned": true
+    }
+   ],
+   "notifications": []
+  },
+  {
+   "name": "recovery_leaves_a_lit_display",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [
+    {
+     "request": "j/monitors all",
+     "reply": "[{\"id\": 0, \"name\": \"DP-1\", \"description\": \"Synthetic DP-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 1, \"name\": \"DP-2\", \"description\": \"VITURE Beast\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 1920, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 2, \"name\": \"2\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}, {\"id\": 2, \"name\": \"XR-1\", \"description\": \"Synthetic XR-1\", \"width\": 1920, \"height\": 1080, \"refreshRate\": 60.0, \"x\": 3840, \"y\": 0, \"scale\": 1.0, \"transform\": 0, \"disabled\": false, \"dpmsStatus\": true, \"mirrorOf\": \"none\", \"activeWorkspace\": {\"id\": 3, \"name\": \"3\"}, \"reserved\": [0, 26, 0, 0], \"availableModes\": [\"3840x1200@90.00Hz\", \"3840x1200@60.00Hz\", \"1920x1200@120.00Hz\", \"1920x1080@120.00Hz\", \"1920x1080@60.00Hz\"]}]"
+    }
+   ],
+   "steps": [
+    {
+     "step": "wake",
+     "returned": false
+    }
+   ],
+   "notifications": []
+  },
+  {
+   "name": "recovery_refuses_a_virtual_output",
+   "fallback": "DP-1",
+   "watch": 3600.0,
+   "stuck": [],
+   "monitors": [
+    {
+     "id": 0,
+     "name": "DP-1",
+     "description": "Synthetic DP-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 0,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 1,
+      "name": "1"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 1,
+     "name": "DP-2",
+     "description": "VITURE Beast",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 1920,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 2,
+      "name": "2"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    },
+    {
+     "id": 2,
+     "name": "XR-1",
+     "description": "Synthetic XR-1",
+     "width": 1920,
+     "height": 1080,
+     "refreshRate": 60.0,
+     "x": 3840,
+     "y": 0,
+     "scale": 1.0,
+     "transform": 0,
+     "disabled": false,
+     "dpmsStatus": true,
+     "mirrorOf": "none",
+     "activeWorkspace": {
+      "id": 3,
+      "name": "3"
+     },
+     "reserved": [
+      0,
+      26,
+      0,
+      0
+     ],
+     "availableModes": [
+      "3840x1200@90.00Hz",
+      "3840x1200@60.00Hz",
+      "1920x1200@120.00Hz",
+      "1920x1080@120.00Hz",
+      "1920x1080@60.00Hz"
+     ]
+    }
+   ],
+   "exchanges": [],
+   "steps": [
+    {
+     "step": "wake:XR-1",
+     "returned": false
+    }
+   ],
+   "notifications": []
+  }
+ ]
+}

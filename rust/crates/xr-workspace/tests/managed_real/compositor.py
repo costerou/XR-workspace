@@ -169,8 +169,34 @@ def reply_send(wire):
     return None
 
 
+PRIVACY = dict(asleep=False)
+
+
 def reply_privacy(wire):
-    """view_controls::privacy's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::privacy's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    The physical monitors keep a DPMS state (their `dpmsStatus`): privacy.py's blank Lua turns its first output off
+    and its second on when both exist, its wake Lua turns its output on, and the stale bind's every monitor. With
+    `<runtime>/fake-privacy-asleep` made mid-run, DP-1 goes DPMS-off at the next request (as privacy mode leaves it)."""
+    import re
+    if not PRIVACY['asleep'] and (root / 'fake-privacy-asleep').exists():
+        PRIVACY['asleep'] = True
+        for m in physical:
+            if m['name'] == 'DP-1': m['dpmsStatus'] = False
+
+    def dpms(name, on):
+        for m in physical:
+            if name is None or m['name'] == name: m['dpmsStatus'] = on
+
+    names = {m['name'] for m in monitors()}
+    if blank := re.match(r'/eval local t,g="([^"]+)","([^"]+)" ', wire):
+        if blank[1] in names and blank[2] in names: dpms(blank[1], False); dpms(blank[2], True)
+        return 'ok'
+    if wake := re.match(r'/eval local t="([^"]+)" ', wire):
+        if 'hl.dsp.dpms(' in wire: dpms(wake[1], True); return 'ok'
+    if wire == '/eval hl.dispatch(hl.dsp.dpms({action="on"}))':
+        dpms(None, True)
+        return 'ok'
     return None
 
 

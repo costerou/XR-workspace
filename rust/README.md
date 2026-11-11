@@ -106,6 +106,10 @@ because the Rust run has none yet. Not ported, so a Rust run presents the deskto
 
 - the glasses' view controls (`managed.view_controls`): the private control socket, the Ctrl+Alt binds, the overview
   pointer, privacy mode, 3D, the key bind panel, VR video, and through them the pills' desktop changes
+
+  pointer, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop changes
+- the window memory: remembered windows are not put back at the start, and no capture is taken
+- the reset of a saved setup the broker refused (`profiles.discard_unusable`)
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -148,6 +152,16 @@ compositor work on a worker thread with its own pinned client. `tests/keybinds_r
 `rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
 toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
 `tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+
+Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
+compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
+display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. The press
+reaches it once the `socket` and `view` ports route `privacy_display`. `tests/privacy_transcripts.rs` replays
+`corpus/supervisor/privacy.json` (recorded from the Python `PrivacyDisplay` and `privacy.wake` on the shipped
+HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, completions and notifications for the
+toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
+(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
+Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
 
 ### Switching runs to the Rust supervisor
 
