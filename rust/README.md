@@ -572,7 +572,7 @@ frame after it is not late too. Wiring it into the shell is a later task.
 (with the whole-ms timestamp mean), the bounded delta, `LatencyTracker` with its read-phase model, `PoseAge`,
 `VsyncMeter` and `prediction_horizon`, same fields and constants. `tests/predict.rs` ports every check of the
 `predict` ctest but the D3 ones (`motion_delta`, `motion_age_ms`, `MotionFeed::open`), which go with `motion_feed`.
-`VsyncSnapshot` lives in `predict` until `pose.rs` ports `PoseFeed::vsync`.
+`VsyncSnapshot` is declared in `pose`, next to `PoseFeed::vsync` as in `pose.hpp`, and re-exported from `predict`.
 
 `motion_smooth` is `motion_smooth.cpp` and `motion_feed` is `motion_feed.cpp` (RR-72): `MotionSmoother` (the Pro 2's
 frame-rate motion) and `MotionFeed` (the driver's `pose_prediction` wire, read through `xr_pose::prediction`, with

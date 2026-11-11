@@ -925,6 +925,20 @@ enum Source {
     Mutex,
 }
 
+/// When the glasses' panel scans out, from the Luma driver's pose_vsync segment (`xr::VsyncSnapshot` of
+/// spike/include/xr/pose.hpp; XRLinuxDriver has none). A scan-out is anchor_host_ns + k * period_ns for a whole k;
+/// anchor_feed_ms is the same moment on the feed's device_ms clock (NaN until the driver published a pose).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct VsyncSnapshot {
+    /// CLOCK_MONOTONIC.
+    pub anchor_host_ns: u64,
+    pub period_ns: f64,
+    pub anchor_feed_ms: f64,
+    pub events: u64,
+    pub resets: u32,
+    pub fit_rms_us: f32,
+}
+
 /// The pose feed (`xr::PoseFeed`): the seqlock channel when it holds a fresh calibrated pose, the SysV mutex feed
 /// otherwise. While the mutex feed's writer holds its lock (or stopped holding it) the newest sample of either source is
 /// served again, its device time unchanged, so it ages and tracking is reported lost after [`PoseState`]'s stale_ms.
@@ -994,14 +1008,14 @@ impl PoseFeed {
 
     /// When the glasses' panel scans out, from the Luma driver's pose_vsync segment (written with --read-events;
     /// XRLinuxDriver has none). `None`: no segment, not locked, mid-write on every try, or a period outside 4..50 ms.
-    pub fn vsync(&self) -> Option<crate::predict::VsyncSnapshot> {
+    pub fn vsync(&self) -> Option<VsyncSnapshot> {
         let v = self.feed.vsync_words()?;
         let (magic, v) = (v[0], &v[1..]);
         if magic != 0x3153_564c || v[8] & 1 == 0 {
             return None; // "LVS1"; not locked
         }
         let u64_at = |i: usize| u64::from(v[i]) | u64::from(v[i + 1]) << 32;
-        let out = crate::predict::VsyncSnapshot {
+        let out = VsyncSnapshot {
             anchor_host_ns: u64_at(0),
             period_ns: f64::from_bits(u64_at(2)),
             anchor_feed_ms: f64::from_bits(u64_at(4)),

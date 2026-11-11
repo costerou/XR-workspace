@@ -18,6 +18,8 @@
 
 #![allow(clippy::neg_cmp_op_on_partial_ord)] // `!(x > 0)` is true for NaN too, as in the C++
 
+/// Declared with `PoseFeed::vsync`, as `xr::VsyncSnapshot` is in pose.hpp; still reachable here.
+pub use crate::pose::VsyncSnapshot;
 use crate::pose::{FeedSample, Quat, monotonic_ns, quat_conj, quat_mul, quat_normalized};
 
 use std::f64::consts::PI;
@@ -601,21 +603,6 @@ impl PoseAge {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
-}
-
-/// When the glasses' panel scans out, from the Luma driver's pose_vsync segment (`xr::VsyncSnapshot` of
-/// spike/include/xr/pose.hpp; XRLinuxDriver has none). A scan-out is anchor_host_ns + k * period_ns for a whole k;
-/// anchor_feed_ms is the same moment on the feed's device_ms clock (NaN until the driver published a pose). Kept here
-/// until pose.rs ports `PoseFeed::vsync`.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct VsyncSnapshot {
-    /// CLOCK_MONOTONIC.
-    pub anchor_host_ns: u64,
-    pub period_ns: f64,
-    pub anchor_feed_ms: f64,
-    pub events: u64,
-    pub resets: u32,
-    pub fit_rms_us: f32,
 }
 
 /// The driver's scan-out times against what the compositor says (rust-rebuild-plan D5), per presented frame; see
