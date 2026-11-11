@@ -187,7 +187,16 @@ of `spike/tests/control_wire_check.cpp`; the control suites run against it with
 C++ build; the Rust tool gives the corpus's `rust` column.)
 
 `golden/metrics.cpp` and `golden/pattern.cpp` print the C++ timing reports and pattern frame hashes
-the unit tests compare against byte for byte. The loopback compositor drives it end to end:
+the unit tests compare against byte for byte.
+`binds_panel::render_bind_panel` draws the key bind panel's card byte-equal to the C++ in the built-in
+5x7 font and the installed font: `golden/binds_panel.cpp` prints the C++ cards' FNV-1a hashes
+(`tests/binds_panel.rs`; the installed-font lines come from this machine's font file).
+`glass_raster` draws the placement panel (`render_glass_panel`), the options menu (`render_options_panel`), the handle
+atlas (`render_handle_atlas`) and CPU lit glass (`glass_draw`) byte-equal to `spike/src/glass.cpp` in both fonts:
+`golden/glass_cards.cpp` prints the C++ images' FNV-1a hashes for 43 cases per font (`tests/card_raster.rs`; the
+glass ctest's raster checks are in `tests/glass.rs`). `tests/glass_render.rs` ports the `glass_render` ctest: the
+glass shader against `glass_shade` on surfaceless GLES, and the open panels it renders with `render_glass_panel`
+composited over the glass under the 191/255 cap, in the default and seven theme colours. The loopback compositor drives the renderer end to end:
 
 ```sh
 capture_e2e_bench --check --mode pattern --seconds 5 --warmup 1 \
@@ -220,8 +229,11 @@ ctest --test-dir build/release -R '^capture_e2e_rust_'
 - `capture_e2e_rust_maximize_{1,2,3,4}_gl-dmabuf`, `capture_e2e_rust_maximize_4_gl-shm` and
   `capture_e2e_rust_environment[_smoke]_{gl-shm,gl-dmabuf}`: the maximize and background modes,
   with the C++ tests' arguments. `tests/environment_render.rs` is the Rust twin of
-  `environment_render_test.cpp` (all but the VR video sphere, which needs the scene path; the
-  level-bar part needs a C++ handle atlas through `XR_GL_CARDS`, as `glass_render.rs` does).
+  `environment_render_test.cpp` (all but the VR video sphere, which needs the scene path). Its
+  level-bar and 3D button part always runs: the test renders the handle atlas with
+  `glass_raster::render_handle_atlas` (HudFont when it loads) and passes it by `set_handle_atlas`.
+  Without that override `GlCompositor` renders its own atlas on a theme change, as the C++ does
+  (`tests/handle_atlas.rs`).
 - `capture_e2e_rust_malloc_{pattern,cpu,gl-shm,gl-dmabuf}`: the `malloc_count.c` shim (`--malloc-shim`) in the Rust
   process. Rust uses glibc malloc, so the `LD_PRELOAD` counter sees every allocation, and
   `--check` now fails when a requested shim did not load. `--malloc-trace FILE` plus
@@ -244,6 +256,20 @@ build/release/gl_bench --bench [--frames N] [--size WxH]   # the C++ one, to com
 Not ported from the C++ bench: its `report:` line and the card and font CPU timings (no font in
 Rust yet). `tests/gl_parity.rs` still checks the call counts against the C++ ones
 (`XR_GL_CPP_BENCH`).
+
+The scenarios (`tests/support/gl_scenarios.rs`, shared by `gl_frame`, `gl_parity`, the bench and
+`environment_render`) draw the real cards: the pop-up, help card, placement panel, its 81
+slider-drag frames and the handle atlas that `gl_bench --dump` writes, rendered by the Rust rasters
+in the installed HUD font (else the pixel font, as the C++ then does). With `XR_GL_CARDS` set to a
+`gl_bench --dump DIR` directory every one of them, and the video card, must also equal the dumped
+C++ image byte for byte; `gl_parity` always checks against its fresh dump. `tests/overlay_residue.rs`
+draws the help card the C++ `HelpOverlay` draws for its rows (`render_help_card`, unbounded, page 1).
+
+`tests/gl_frame.rs` ports `gl_bench`'s check mode, including the Serif Beam against its CPU mirror:
+`tests/support/pointer_raster.rs` is `spike/tests/pointer_raster.hpp` (the flat fill rule, the same
+f64 maths in the same order), and the GL beam must match it within 1 per channel on the shape and its
+ring and exactly off it, at both grey levels. `tests/pointer_beam.rs` ports `free_pointer_test`'s
+checks on that mirror (the beam's 14 x 28 px extent, its 2 px stem, its symmetry).
 
 ## Driver real-time layer
 
@@ -632,6 +658,24 @@ holds the last pose and `PoseState` reports tracking lost. `stats()` gives the C
 the copies `PoseReader::read_counted` made again because the writer was mid-write, as the C++ counts them. `vsync()`
 decodes the `pose_vsync` segment. `tests/pose.rs` ports every check of the `pose` and `level_reference` ctests and all
 of `focus_center`.
+
+The VR video controls card (`video::card::render_video_card`) is ported with its pixels: `tests/video_card.rs` holds
+`video_test.cpp`'s card checks and compares every case of `golden/video_card.cpp` (sizes and FNV-1a of the RGBA bytes,
+`golden/video_card.txt`) byte for byte, in the built-in pixel font and the installed `HUD_FONT_FAMILY`; the installed-font
+lines follow this machine's font file, so regenerate them (the command is in the `.cpp`) when it changes.
+
+The HUD cards are ported with their pixels too: `hud::render_hud_card` (the mode, cursor, prediction, typing and
+tracking pop-ups) and `hud::render_help_card` (every page, its click targets and `help_card_fit`). `tests/hud.rs`
+(`cards_match_cpp_golden`) replays every case of `golden/hud_cards.cpp`, the overlays' `image()` after a call sequence
+included, and matches `golden/hud_cards.txt` byte for byte in both fonts. `tests/help_card.rs` ports `help_card_test.cpp`.
+
+The font and the Material drawing under them are checked on their own. `tests/hud_font.rs` ports the `hud_font` ctest and
+matches `golden/hud_font.txt` (`golden/hud_font.cpp`: metrics, measures and every plot of the ctest's queries and of
+single glyphs at five sizes in both faces) byte for byte. It also checks the no-font path: a missing family, and the system
+family with `FONTCONFIG_FILE` pointing at an empty configuration (in a child process), fail with the C++ reasons, and the
+pop-ups fall back to the 5x7 pixel font, byte-equal to the C++ fallback cards. `tests/material_draw.rs` matches
+`golden/material_draw.txt` (`golden/material_draw.cpp`: rounded containers, outlines, discs, every icon at five sizes, the
+corner caps' and icons' distance fields, the blend) byte for byte.
 
 Three dump binaries print what their C++ namesakes in `spike/tests/` print:
 `glass_geometry_dump`, `placement_geometry_dump` and `options_geometry_dump` (default mode,

@@ -1,7 +1,10 @@
-//! `spike/tests/hud_test.cpp` without the raster checks, plus a dump compared with the C++ one byte for byte.
+//! `spike/tests/hud_test.cpp`, plus a dump compared with the C++ one byte for byte. The overlays keep state only; where
+//! the C++ checks an overlay's `image()`, these render its lines (or rows) and accent the way the renderer does. Pixel
+//! parity of the cards with the C++ is in `cards_match_cpp_golden` (golden/hud_cards.cpp) and `tests/card_raster.rs`.
 
 use xr_renderer::desktops::MAX_DESKTOPS;
 use xr_renderer::hud::*;
+use xr_renderer::hud_font::HudFont;
 use xr_renderer::material::{
     MD_DEFAULT_SEED, MdRgb, md_color, md_contrast, md_elevation, md_hct, md_layer, md_tone, material_scheme,
 };
@@ -12,6 +15,33 @@ fn joined(lines: &[HudLine]) -> String {
 
 fn row(keys: &str, action: &str) -> HelpRow {
     HelpRow::new(keys, action)
+}
+
+fn lit(im: &HudImage, x: u32, y: u32) -> bool {
+    im.rgba[(y as usize * im.width as usize + x as usize) * 4 + 3] != 0
+}
+fn premultiplied(im: &HudImage) -> bool {
+    im.rgba.chunks_exact(4).all(|p| p[..3].iter().all(|&c| c <= p[3]))
+}
+fn brightest(im: &HudImage) -> u8 {
+    im.rgba.chunks_exact(4).flat_map(|p| p[..3].iter().copied()).max().unwrap_or(0)
+}
+/// The C++ `StatusPopups::image()` (pop-ups draw in the pixel font here, as the C++ ones do without `set_font`).
+fn card(p: &StatusPopups) -> HudImage {
+    render_hud_card(p.lines(), p.accent(), None)
+}
+/// The C++ `HelpOverlay::image()` of an overlay without a viewport.
+fn help_image(h: &HelpOverlay, font: Option<&dyn HudTextMetrics>) -> HudImage {
+    render_help_card(h.rows(), h.accent(), font, 0, 0, h.page()).0
+}
+fn installed_font() -> Option<HudFont> {
+    match HudFont::load(HUD_FONT_FAMILY) {
+        Ok(font) => Some(font),
+        Err(why) => {
+            eprintln!("skipped: {why}");
+            None
+        }
+    }
 }
 
 // Every interactive menu uses a quick ease-out on both entrance and exit. A reversal or an unseen interval must preserve
@@ -100,7 +130,7 @@ fn popup_lines_say_what_changed() {
 }
 
 // Pop-up triggers: first update shows the viewing mode; repeats (zoom/select/spacing frames) do not re-show it; a mode
-// change or cursor toggle shows a new card. The C++ compares card image sizes; here the lines the card is drawn from.
+// change or cursor toggle shows a new card.
 #[test]
 fn status_popups_show_only_changes() {
     let mut p = StatusPopups::new();
@@ -108,14 +138,16 @@ fn status_popups_show_only_changes() {
     assert!(p.update(0, false, 1000.0) && p.generation() == 1 && p.active(1000.0));
     assert_eq!(p.alpha(1000.0 + POPUP_FADE_IN_MS), 1.0);
     let mode_card = p.lines().to_vec();
+    let mode_width = card(&p).width;
     assert!(!p.update(0, false, 1200.0) && p.generation() == 1);
     assert!(!p.active(1000.0 + POPUP_TOTAL_MS) && p.alpha(1000.0 + POPUP_TOTAL_MS) == 0.0);
     assert!(p.update(0, true, 5000.0) && p.generation() == 2 && p.lines() != mode_card.as_slice()); // cursor card
+    assert_ne!(card(&p).width, mode_width);
     assert_eq!(joined(p.lines()), joined(&cursor_follow_lines(true)));
     assert_eq!(p.alpha(5000.0 + POPUP_FADE_IN_MS), 1.0);
     assert!(p.update(2, true, 5100.0) && p.generation() == 3 && p.alpha(5100.0 + POPUP_FADE_IN_MS) == 1.0); // restarts
-    let single = p.lines().len();
-    assert!(p.update(1, false, 9000.0) && p.lines().len() > single); // both changed: both sections
+    let single = card(&p).height;
+    assert!(p.update(1, false, 9000.0) && card(&p).height > single); // both changed: both sections
     assert_eq!(p.lines().len(), 9);
     assert_eq!(p.lines()[4], HudLine { text: String::new(), scale: 1, color: CARD_DIM, ..HudLine::default() });
     assert!(!p.update(1, false, 9001.0));
@@ -145,7 +177,7 @@ fn typing_mode_popups() {
     let mut started_typing = StatusPopups::new();
     assert!(started_typing.update_all(0, false, true, true, 0.0));
     // First update in typing mode: mode card plus the typing section.
-    assert!(started_typing.lines().len() > t.lines().len());
+    assert!(card(&started_typing).height > card(&t).height);
 }
 
 // Maximize-follow (2026-11-03): a maximize switches to follow and an un-maximize back to anchor by themselves; only a
@@ -171,18 +203,22 @@ fn accent_changes_redraw_showing_cards() {
     let mut t = StatusPopups::new();
     assert!(!t.set_accent([0.48, 0.64, 0.97], 0.0) && t.generation() == 0); // nothing shown yet
     assert!(t.update(0, false, 1000.0) && t.generation() == 1);
+    let before = card(&t).rgba;
     let a = t.alpha(1000.0 + POPUP_FADE_IN_MS + 100.0);
     assert!(t.set_accent([0.9, 0.55, 0.05], 1000.0 + POPUP_FADE_IN_MS + 100.0) && t.generation() == 2);
+    assert!(card(&t).rgba != before);
     assert_eq!(t.accent(), [0.9, 0.55, 0.05]);
     assert_eq!(t.alpha(1000.0 + POPUP_FADE_IN_MS + 100.0), a);
     assert!(!t.set_accent([0.9, 0.55, 0.05], 1200.0) && t.generation() == 2); // the same colour: nothing
     assert!(!t.set_accent([0.2, 0.8, 0.4], 1000.0 + POPUP_TOTAL_MS) && t.generation() == 2); // gone: not redrawn
-    assert!(t.update(1, false, 9000.0) && t.accent() == [0.2, 0.8, 0.4]);
+    assert!(t.update(1, false, 9000.0) && t.accent() == [0.2, 0.8, 0.4] && card(&t).rgba != before);
     let mut h = HelpOverlay::new();
     let one = [row("Ctrl+Alt+H", "Help")];
     assert!(!h.set_accent([0.9, 0.55, 0.05]) && h.generation() == 0);
     assert!(h.set(true, &one, 0.0, 0) && h.generation() == 1);
+    let help = help_image(&h, None).rgba;
     assert!(h.set_accent([0.2, 0.8, 0.4]) && h.generation() == 2 && h.visible());
+    assert!(help_image(&h, None).rgba != help);
     assert!(!h.set_accent([0.2, 0.8, 0.4]) && h.generation() == 2);
 }
 
@@ -190,14 +226,100 @@ fn help_rows() -> Vec<HelpRow> {
     vec![row("Ctrl+Alt+Up", "Zoom in"), row("Ctrl+Alt+[", "Less space"), row("Ctrl+Alt+H", "Show / hide this help")]
 }
 
-// The help card grows with rows (the C++ compares rendered card sizes).
+// Help card: brackets have real pixel glyphs; the card grows with rows, is premultiplied and rounded, and is the size its
+// fit says.
 #[test]
 fn help_card_grows_with_rows() {
+    assert!(hud_glyph(b'[') != hud_glyph(b'?') && hud_glyph(b']') != hud_glyph(b'?') && hud_glyph(b'%') != hud_glyph(b'?'));
     let rows = help_rows();
-    let all = help_card_fit(&rows, None, 0, 0);
-    let first = help_card_fit(&rows[..1], None, 0, 0);
-    assert!(all.height > first.height && all.width >= first.width);
-    assert!(help_card_fit(&[], None, 0, 0).width > 0);
+    let (hc, controls) = render_help_card(&rows, [0.5, 0.6, 0.9], None, 0, 0, 0);
+    let hc1 = render_help_card(&rows[..1], [0.5, 0.6, 0.9], None, 0, 0, 0).0;
+    assert!(hc.height > hc1.height && hc.width >= hc1.width && premultiplied(&hc) && !lit(&hc, 0, 0));
+    assert!(hc.complete() && controls == HelpCardControls::default()); // one page: nothing to click
+    let fit = help_card_fit(&rows, None, 0, 0);
+    assert!(fit.width == hc.width && fit.height == hc.height);
+    assert!(render_help_card(&[], [1.0, 1.0, 1.0], None, 0, 0, 0).0.width > 0);
+}
+
+// Pixel-font card (1:1 output pixels, font texels doubled): sized to the widest line plus padding, rounded (transparent
+// corners), an opaque outline-variant edge, premultiplied, text present.
+#[test]
+fn pixel_font_card() {
+    let white = [1.0, 1.0, 1.0];
+    let lines = [
+        HudLine { text: "VIEW MODE".into(), scale: 2, color: white, ..HudLine::default() },
+        HudLine { text: "FOLLOW".into(), scale: 4, color: white, ..HudLine::default() },
+    ];
+    let card = render_hud_card(&lines, [0.5, 0.6, 0.9], None);
+    assert!(card.width == hud_text_width("FOLLOW", 8) + 44 && card.height == 7 * 4 + 8 + 7 * 8 + 44);
+    assert!(card.complete());
+    assert!(!lit(&card, 0, 0) && !lit(&card, card.width - 1, card.height - 1));
+    let edge = (card.height / 2) as usize * card.width as usize * 4; // left edge, mid height
+    assert_eq!(card.rgba[edge + 3], 255);
+    assert!(premultiplied(&card));
+    // The edge is the scheme's outline variant (Material Design 3, from the theme colour the card is drawn with).
+    let m = material_scheme([0.5, 0.6, 0.9]);
+    for c in 0..3 {
+        assert!((i32::from(card.rgba[edge + c]) - (m.outline_variant[c] * 255.0).round() as i32).abs() <= 1);
+    }
+    let text_row = |im: &HudImage, y: u32| (22..im.width - 22).any(|x| im.rgba[(y as usize * im.width as usize + x as usize) * 4] > 200);
+    assert!(text_row(&card, 22 + 28 + 8 + 3 * 8)); // a line without a role keeps its own colour (white here)
+    assert_eq!(render_hud_card(&[], white, None).width, 44);
+}
+
+// The installed font (JetBrainsMono Nerd Font), when there is one: anti-aliased (partial coverage), wider than tall,
+// premultiplied. Absent font: reported, not fatal.
+#[test]
+fn installed_font_cards() {
+    let Some(font) = installed_font() else { return };
+    let f: Option<&dyn HudTextMetrics> = Some(&font);
+    assert!(!font.description().is_empty());
+    let fc = render_hud_card(&view_mode_lines(2), [0.5, 0.6, 0.9], f);
+    assert!(fc.width > fc.height && fc.height > 100 && premultiplied(&fc));
+    assert!(fc.rgba.chunks_exact(4).any(|p| p[0] > 30 && p[0] < 200 && p[3] > 200));
+    assert!(font.measure("Follow", 76, true) >= font.measure("Follow", 76, false) && font.measure("", 76, false) == 0);
+    let fh = render_help_card(&help_rows(), [0.5, 0.6, 0.9], f, 0, 0, 0).0;
+    assert!(fh.width > fh.height && premultiplied(&fh));
+}
+
+// Image-retention protection. The help card and every pop-up stay well below full white everywhere (text, edge,
+// dividers: Material roles under the cap), with the pixel font and with the installed font, in any theme colour.
+#[test]
+fn cards_stay_under_the_oled_cap() {
+    let rows = [row("Ctrl+Alt+H", "Show / hide this help"), row("Ctrl+Alt+L", "Placement pill of the selected desktop")];
+    let installed = installed_font();
+    let mut fonts: Vec<Option<&dyn HudTextMetrics>> = vec![None];
+    if let Some(font) = &installed {
+        fonts.push(Some(font));
+    }
+    for font in fonts {
+        let mut help = HelpOverlay::new();
+        help.set(true, &rows, 0.0, 0);
+        let b = brightest(&help_image(&help, font));
+        assert!((140..=CARD_MAX_LEVEL).contains(&b), "help {b}"); // still clearly readable
+        // Typing mode pop-up (Ctrl+Alt+T): a switch alone draws only dimmed card colours, either way.
+        let mut typing = StatusPopups::new();
+        let typing_card = |p: &StatusPopups| render_hud_card(p.lines(), p.accent(), font);
+        assert!(typing.update_all(0, false, true, false, 0.0)); // first: the viewing mode card
+        assert!(typing.update_all(0, false, true, true, 5000.0));
+        let b = brightest(&typing_card(&typing));
+        assert!((140..=CARD_MAX_LEVEL).contains(&b), "typing {b}");
+        assert!(typing.update_all(0, false, true, false, 9000.0));
+        assert!(brightest(&typing_card(&typing)) <= CARD_MAX_LEVEL);
+        for accent in [[1.0, 1.0, 1.0], [0.48, 0.64, 0.97], [1.0, 0.0, 0.0]] {
+            let mut p = StatusPopups::new();
+            p.set_accent(accent, 0.0);
+            assert!(p.update_all(2, true, true, false, 0.0));
+            let b = brightest(&typing_card(&p));
+            assert!((120..=CARD_MAX_LEVEL).contains(&b), "pop-up {accent:?} {b}");
+            let mut themed = HelpOverlay::new(); // the C++ one has no font
+            themed.set_accent(accent);
+            themed.set(true, &rows, 0.0, 0);
+            let b = brightest(&help_image(&themed, None));
+            assert!((140..=CARD_MAX_LEVEL).contains(&b), "help {accent:?} {b}");
+        }
+    }
+    const _: () = assert!(CARD_MAX_LEVEL as f32 <= 0.75 * 255.0);
 }
 
 // Help fade: hidden until shown; eases in, holds while visible, eases out; monotonic both ways; toggling mid-fade
@@ -391,8 +513,10 @@ fn tracking_hint() {
     assert!(hint.update(true, 100.0));
     assert!(!hint.update(true, 110.0));
     assert_eq!(hint.alpha(100.0 + TRACKING_HINT_FADE_IN_MS), 1.0);
-    // One line, shorter than a pop-up card (the C++ compares image heights).
-    assert!(tracking_hint_lines().len() * 2 < view_mode_lines(0).len());
+    // One small line, never mistaken for a pop-up card.
+    let image = render_hud_card(&tracking_hint_lines(), hint.accent(), None);
+    assert!(image.height > 0 && image.complete());
+    assert!(image.height * 2 < render_hud_card(&view_mode_lines(0), MD_DEFAULT_SEED, None).height);
     let mut popups = StatusPopups::new();
     popups.update(0, false, 0.0);
     assert_ne!(hint.generation(), popups.generation()); // they share the renderer's pop-up texture
@@ -428,6 +552,7 @@ fn installed_font_metrics_are_used() {
         fn measure(&self, utf8: &str, px: u32, bold: bool) -> u32 {
             utf8.chars().count() as u32 * (px * 3 / 5 + u32::from(bold))
         }
+        fn draw(&self, _: &str, _: u32, _: bool, _: i32, _: i32, _: &mut dyn FnMut(i32, i32, f32)) {}
     }
     let line = HudLine { text: "Follow".into(), scale: 4, bold: true, ..HudLine::default() };
     assert_eq!(line_box(&line, Some(&Mono)), LineBox { width: 6 * (76 * 3 / 5 + 1), ascent: 57, descent: 19 });
@@ -642,4 +767,292 @@ fn hud_and_material_match_cpp_bit_for_bit() {
         h = h.wrapping_mul(0x0100_0000_01b3);
     }
     assert_eq!((format!("{h:016x}"), dump.len()), ("3799bc4a60fb3e35".to_string(), 35_140));
+}
+
+// --- Pixel parity with the C++ rasterisers ----------------------------------------------------------------------------
+//
+// golden/hud_cards.txt is printed by golden/hud_cards.cpp (spike/src/hud.cpp's render_hud_card, help_card_fit,
+// render_help_card and the overlays' image()). The same cases here must print the same lines, byte-equal cards included.
+// The overlays keep state only; like the renderer, the replay draws a card again only when the overlay's generation bumps.
+
+const HUD_CARDS: &str = include_str!("../golden/hud_cards.txt");
+
+fn fnv(im: &HudImage) -> u64 {
+    im.rgba.iter().fold(0xcbf2_9ce4_8422_2325_u64, |h, &b| (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3))
+}
+fn line(text: &str, scale: u32, color: [f32; 3], bold: bool, px: u32, role: HudRole) -> HudLine {
+    HudLine { text: text.into(), scale, color, bold, px, role }
+}
+fn rect_text(r: &HelpRect) -> String {
+    format!(" {},{},{},{}", r.x, r.y, r.w, r.h)
+}
+fn controls_text(c: &HelpCardControls) -> String {
+    rect_text(&c.prev) + &rect_text(&c.indicator) + &rect_text(&c.next)
+}
+/// golden/hud_cards.cpp's many_rows.
+fn golden_many_rows(n: usize, section: usize) -> Vec<HelpRow> {
+    (0..n)
+        .map(|i| HelpRow {
+            keys: format!("Ctrl+Alt+{}", i % 10),
+            action: format!("Example action number {}", i + 1),
+            section: i > 0 && i % section == 0,
+        })
+        .collect()
+}
+fn golden_help_rows() -> Vec<HelpRow> {
+    let sect = |k: &str, a: &str| HelpRow { keys: k.into(), action: a.into(), section: true };
+    vec![
+        row("Ctrl+Alt+Up", "Maximize the selected desktop"),
+        row("Ctrl+Alt+Down", "Overview: any desktop; pills, bar, corners"),
+        row("Ctrl+Alt+Left / Right", "Previous / next desktop"),
+        row("Ctrl+Alt+[ / ]", "Less / more space between desktops"),
+        row("Ctrl+Alt+Space / R", "Recenter / reset to 3 flat desktops"),
+        sect("Ctrl+Alt+V", "Maximized: follow / locked"),
+        row("Ctrl+Alt+P", "Toggle pose prediction"),
+        row("Ctrl+Alt+T", "Typing mode: XR keys off / on"),
+        row("Ctrl+Alt+D", "Privacy: main display off / on"),
+        row("Ctrl+Alt+E / I", "Background / immersive 3D: on or off"),
+        sect("Ctrl+Alt+L", "Placement pill; R in it resets, levels"),
+        row("Ctrl+Alt+O / U / C", "VR video: file / web link / hide controls"),
+        sect("Ctrl+Alt+H / K", "Help/binds; Ctrl+Alt+G/B: window to XR/back"),
+        row("Ctrl+Alt+PgUp / PgDn", "Help: previous / next page"),
+    ]
+}
+
+struct GoldenOut {
+    font: &'static str,
+    out: Vec<String>,
+}
+impl GoldenOut {
+    fn put(&mut self, name: &str, im: &HudImage, extra: &str) {
+        self.out.push(format!("{name} {} {} {} {}{extra}", self.font, im.width, im.height, fnv(im)));
+    }
+}
+
+fn golden_hud_cards(g: &mut GoldenOut, font: Option<&dyn HudTextMetrics>) {
+    let accents = [MD_DEFAULT_SEED, [0.5, 0.6, 0.9], [0.9, 0.55, 0.05], [1.0, 1.0, 1.0], [0.0, 0.0, 0.0]];
+    for (a, &accent) in accents.iter().enumerate() {
+        let s = format!("_a{a}");
+        for mode in 0..4u8 {
+            g.put(&format!("view_mode{mode}{s}"), &render_hud_card(&view_mode_lines(mode), accent, font), "");
+        }
+        for on in [false, true] {
+            let n = u8::from(on);
+            g.put(&format!("cursor{n}{s}"), &render_hud_card(&cursor_follow_lines(on), accent, font), "");
+            g.put(&format!("prediction{n}{s}"), &render_hud_card(&prediction_lines(on), accent, font), "");
+            g.put(&format!("typing{n}{s}"), &render_hud_card(&typing_lines(on), accent, font), "");
+        }
+        g.put(&format!("tracking{s}"), &render_hud_card(&tracking_hint_lines(), accent, font), "");
+    }
+    use HudRole as R;
+    let w = [1.0, 1.0, 1.0];
+    g.put("empty", &render_hud_card(&[], w, font), "");
+    g.put("blank_line", &render_hud_card(&[line("", 1, [0.46, 0.46, 0.46], false, 0, R::None)], MD_DEFAULT_SEED, font), "");
+    let own = [
+        line("VIEW MODE", 2, w, false, 0, R::None),
+        line("FOLLOW", 4, w, false, 0, R::None),
+        line("tiny 1", 1, [0.2, 0.9, 0.4], false, 0, R::None),
+        line("Bold 3", 3, [0.9, 0.1, 0.6], true, 0, R::None),
+        line("huge", 8, [0.5, 0.5, 1.0], false, 0, R::None),
+    ];
+    g.put("own_colours", &render_hud_card(&own, [0.5, 0.6, 0.9], font), "");
+    let px = [
+        line("px 2", 1, w, false, 2, R::None),
+        line("px 13", 1, w, true, 13, R::None),
+        line("px 29", 1, w, false, 29, R::None),
+        line("px 300", 1, w, false, 300, R::Primary),
+    ];
+    g.put("px_sizes", &render_hud_card(&px, MD_DEFAULT_SEED, font), "");
+    let glyphs = [
+        line("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 1, w, false, 0, R::None),
+        line("abcdefghijklmnopqrstuvwxyz 0123456789", 1, w, false, 0, R::None),
+        line(" :-+./[]% ?!@#~,;'\"", 2, w, false, 0, R::Outline),
+        line("60\u{b0} caf\u{e9} \u{2190}\u{2192}", 2, w, true, 0, R::OnSecondaryContainer),
+    ];
+    g.put("glyphs", &render_hud_card(&glyphs, [0.48, 0.64, 0.97], font), "");
+    let z = [0.0; 3];
+    let roles = [
+        line("on surface", 2, z, false, 0, R::OnSurface),
+        line("variant", 2, z, false, 0, R::OnSurfaceVariant),
+        line("outline", 2, z, false, 0, R::Outline),
+        line("primary", 2, z, true, 0, R::Primary),
+        line("on secondary container", 2, z, false, 0, R::OnSecondaryContainer),
+    ];
+    g.put("roles", &render_hud_card(&roles, [0.2, 0.8, 0.4], font), "");
+}
+
+fn golden_help_cards(g: &mut GoldenOut, font: Option<&dyn HudTextMetrics>) {
+    let sets: Vec<(&str, Vec<HelpRow>)> = vec![
+        ("none", vec![]),
+        ("one", vec![row("Ctrl+Alt+H", "Show / hide this help")]),
+        ("real", golden_help_rows()),
+        ("r16", golden_many_rows(16, 5)),
+        ("r40", golden_many_rows(40, 5)),
+        ("r64", golden_many_rows(64, 7)),
+        ("s30", golden_many_rows(30, 30)),
+        (
+            "wide",
+            vec![row(
+                "Ctrl+Alt+Shift+Super+F12",
+                "An action described in far more words than any surface can hold in one line of text",
+            )],
+        ),
+    ];
+    let surfaces = [(0, 0), (1536, 960), (1920, 1200), (960, 600), (1280, 800), (1920, 400), (300, 200)];
+    let accent = [0.48, 0.64, 0.97];
+    for (set, rows) in &sets {
+        for &(w, h) in &surfaces {
+            let fit = help_card_fit(rows, font, w, h);
+            let pages = fit.page_rows.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+            let name = format!("help_{set}_{w}x{h}");
+            g.out.push(format!("{name}_fit {} {} {} {} {} {pages}", g.font, fit.width, fit.height, fit.row_px, i32::from(fit.fits)));
+            let n = fit.pages();
+            // The C++ list is unsigned: pages() - 1 wraps on a fit without pages.
+            let shown = [0, 1, n.wrapping_sub(1), n, n + 1];
+            for i in 0..shown.len() {
+                if i > 0 && shown[i] == shown[i - 1] {
+                    continue;
+                }
+                if n == 1 && i > 1 {
+                    break;
+                }
+                let (im, c) = render_help_card(rows, accent, font, w, h, shown[i]);
+                g.put(&format!("{name}_p{}", shown[i]), &im, &controls_text(&c));
+            }
+        }
+    }
+    g.put("help_accent_white", &render_help_card(&golden_help_rows(), [1.0, 1.0, 1.0], font, 1536, 960, 0).0, "");
+    g.put("help_accent_black", &render_help_card(&golden_help_rows(), [0.0, 0.0, 0.0], font, 960, 600, 1).0, "");
+}
+
+fn golden_overlays(g: &mut GoldenOut, font: Option<&dyn HudTextMetrics>) {
+    let load = || -> Option<Box<dyn HudTextMetrics>> {
+        font?;
+        Some(Box::new(HudFont::load(HUD_FONT_FAMILY).expect("the font loaded once")))
+    };
+    {
+        let mut p = StatusPopups::new();
+        let (mut image, mut drawn) = (HudImage::default(), 0);
+        let mut step = 0;
+        let mut shot = |g: &mut GoldenOut, p: &StatusPopups, changed: bool| {
+            if p.generation() != drawn {
+                image = render_hud_card(p.lines(), p.accent(), font);
+                drawn = p.generation();
+            }
+            g.put(&format!("popups{step}"), &image, &format!(" {} {}", u8::from(changed), p.generation()));
+            step += 1;
+        };
+        let c = p.update(0, false, 1000.0);
+        shot(g, &p, c);
+        let c = p.update(0, true, 5000.0);
+        shot(g, &p, c);
+        let c = p.update(2, true, 5100.0);
+        shot(g, &p, c);
+        let c = p.update(1, false, 9000.0);
+        shot(g, &p, c);
+        let c = p.set_accent([0.9, 0.55, 0.05], 9100.0);
+        shot(g, &p, c);
+        let c = p.update_prediction(1, false, true, 9200.0);
+        shot(g, &p, c);
+        let c = p.update_all(1, false, true, true, 9300.0);
+        shot(g, &p, c);
+        let c = p.update_all(0, true, false, false, 9400.0);
+        shot(g, &p, c);
+        let c = p.set_accent([0.2, 0.8, 0.4], 99999.0); // gone: not redrawn
+        shot(g, &p, c);
+        let c = p.update_all(2, true, false, false, 100_000.0);
+        shot(g, &p, c);
+    }
+    {
+        let mut t = StatusPopups::new();
+        t.update_all(0, false, true, true, 0.0);
+        g.put("popups_typing_first", &render_hud_card(t.lines(), t.accent(), font), "");
+    }
+    {
+        let mut h = HelpOverlay::new();
+        h.set_font(load());
+        let (mut image, mut drawn) = (HudImage::default(), 0);
+        let mut viewport;
+        let mut step = 0;
+        let mut shot = |g: &mut GoldenOut, h: &HelpOverlay, viewport: (u32, u32), changed: bool| {
+            if h.generation() != drawn {
+                let (im, c) = render_help_card(h.rows(), h.accent(), font, viewport.0, viewport.1, h.page());
+                assert_eq!(&c, h.controls(), "overlay{step}: the overlay's controls are the drawn card's");
+                image = im;
+                drawn = h.generation();
+            }
+            let extra = format!(" {} {} {}{}", u8::from(changed), h.page(), h.pages(), controls_text(h.controls()));
+            g.put(&format!("overlay{step}"), &image, &extra);
+            step += 1;
+        };
+        let rows40 = golden_many_rows(40, 5);
+        viewport = (960, 600);
+        let c = h.set_viewport(viewport.0, viewport.1);
+        shot(g, &h, viewport, c);
+        let c = h.set(true, &rows40, 0.0, 0);
+        shot(g, &h, viewport, c);
+        let c = h.set(true, &rows40, 10.0, 1);
+        shot(g, &h, viewport, c);
+        let c = h.set(true, &rows40, 20.0, -1);
+        shot(g, &h, viewport, c);
+        let c = h.set(true, &rows40, 30.0, -1);
+        shot(g, &h, viewport, c);
+        let c = h.set_accent([0.9, 0.55, 0.05]);
+        shot(g, &h, viewport, c);
+        viewport = (1920, 1200);
+        let c = h.set_viewport(viewport.0, viewport.1);
+        shot(g, &h, viewport, c);
+        let rows = golden_help_rows();
+        let c = h.set(true, &rows, 40.0, 0);
+        shot(g, &h, viewport, c);
+        let c = h.set(false, &rows, 50.0, 0);
+        shot(g, &h, viewport, c);
+        let c = h.set(true, &rows, 60.0, 0);
+        shot(g, &h, viewport, c);
+    }
+    {
+        let mut t = TrackingHint::new();
+        if font.is_some() {
+            t.font_changed();
+        }
+        let card = |t: &TrackingHint| render_hud_card(&tracking_hint_lines(), t.accent(), font);
+        t.generation();
+        g.put("tracking_hint", &card(&t), "");
+        t.set_accent([0.9, 0.55, 0.05]);
+        t.generation();
+        g.put("tracking_hint_accent", &card(&t), "");
+    }
+}
+
+#[test]
+fn cards_match_cpp_golden() {
+    let real_desc = HUD_CARDS.lines().find_map(|l| l.strip_prefix("font ")).map(str::to_owned);
+    let mut g = GoldenOut { font: "pixel", out: Vec::new() };
+    golden_hud_cards(&mut g, None);
+    golden_help_cards(&mut g, None);
+    golden_overlays(&mut g, None);
+    let mut want: Vec<&str> = HUD_CARDS.lines().take_while(|l| !l.starts_with("font ")).collect();
+    let real = installed_font();
+    match (&real, &real_desc) {
+        (Some(f), Some(d)) if f.description() == d => {
+            g.out.push(format!("font {d}"));
+            g.font = "real";
+            golden_hud_cards(&mut g, Some(f));
+            golden_help_cards(&mut g, Some(f));
+            golden_overlays(&mut g, Some(f));
+            want = HUD_CARDS.lines().collect();
+        }
+        (f, d) => eprintln!(
+            "real-font cards not compared: golden font {d:?}, here {:?}",
+            f.as_ref().map(HudFont::description)
+        ),
+    }
+    let bad: Vec<String> = want
+        .iter()
+        .zip(&g.out)
+        .filter(|(w, o)| *w != o)
+        .map(|(w, o)| format!("  cpp:  {w}\n  rust: {o}"))
+        .collect();
+    assert!(bad.is_empty(), "{} of {} cards differ from the C++:\n{}", bad.len(), want.len(), bad.join("\n"));
+    assert_eq!(g.out.len(), want.len(), "the replay printed a different number of lines");
 }

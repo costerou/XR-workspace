@@ -1,9 +1,9 @@
 //! The frame scenarios of spike/tests/gl_bench.cpp, shared by the GlCompositor tests (gl_frame, gl_parity): the same
 //! synthetic desktops, the same scenario list (the ones drawn without a background or video), the same per-frame inputs.
 //!
-//! The cards (pop-up, help, glass panels, handle atlas) are rendered on the CPU by code not ported yet (the font). With
-//! XR_GL_CARDS set to a directory written by `gl_bench --dump DIR` the scenarios draw the C++ cards themselves, so the
-//! frames can be compared with the C++ ones; without it they draw synthetic cards of the same kind.
+//! The cards (pop-up, help, glass panels, handle atlas) are the ones gl_bench.cpp renders and `--dump` writes, drawn by
+//! the Rust rasters (byte-equal to the C++ ones) in the installed HUD font, else the pixel font. With XR_GL_CARDS set to
+//! a `gl_bench --dump DIR` directory each card is also checked equal to the dumped C++ one.
 
 #![allow(dead_code)]
 
@@ -12,11 +12,17 @@ use std::path::Path;
 use std::rc::Rc;
 
 use xr_renderer::gl::GlCompositor;
-use xr_renderer::glass::{GLASS_HOVER, GlassFrame, HANDLE_ATLAS_H, HANDLE_ATLAS_W, LevelSegment};
-use xr_renderer::hud::HudImage;
+use xr_renderer::glass::{GlassFrame, LevelSegment, GLASS_HOVER};
+use xr_renderer::glass_raster::{render_glass_panel, render_handle_atlas};
+use xr_renderer::glass_theme::GLASS_THEME_DEFAULT;
+use xr_renderer::hud::{
+    prediction_lines, render_help_card, render_hud_card, view_mode_lines, HelpRow, HudImage,
+    HudTextMetrics, PlacementMenuState, HUD_FONT_FAMILY,
+};
+use xr_renderer::hud_font::HudFont;
 use xr_renderer::pose::Mat3;
 use xr_renderer::view::{
-    FREE_POINTER_HELD_LEVEL, FREE_POINTER_LEVEL, Placement, PointerLook, Size, blended_layout,
+    blended_layout, Placement, PointerLook, Size, FREE_POINTER_HELD_LEVEL, FREE_POINTER_LEVEL,
 };
 
 pub const DESKTOP_W: u32 = 1920;
@@ -302,8 +308,6 @@ pub struct Resources {
     pub panel_static: Rc<HudImage>,
     pub panel_drag: Vec<Rc<HudImage>>,
     pub handles: Rc<HudImage>,
-    /// The cards are the C++ ones (XR_GL_CARDS), not synthetic.
-    pub from_cpp: bool,
 }
 
 /// A `u32 width, u32 height, RGBA` file from `gl_bench --dump`.
@@ -326,67 +330,109 @@ pub fn read_image(path: &Path) -> Result<HudImage, String> {
     }
 }
 
-/// A premultiplied card: a dim rounded-ish block with a lighter band at row `band` (a slider's position, a text line).
-fn synthetic_card(width: u32, height: u32, band: u32, tint: [u8; 3]) -> HudImage {
-    let mut rgba = vec![0u8; (width * height * 4) as usize];
-    for y in 0..height {
-        for x in 0..width {
-            let edge = x.min(width - 1 - x).min(y).min(height - 1 - y);
-            let a: u32 = if edge == 0 { 90 } else { 210 };
-            let lit = (y / 4 == band / 4 && x > width / 8 && x < width * 7 / 8)
-                || ((x / 6 + y / 9) % 7 == 0);
-            let p = &mut rgba[((y * width + x) * 4) as usize..][..4];
-            for c in 0..3 {
-                let v = if lit {
-                    u32::from(tint[c])
-                } else {
-                    u32::from(tint[c]) / 5
-                };
-                p[c] = (v * a / 255) as u8;
-            }
-            p[3] = a as u8;
+/// gl_bench.cpp kAccent: the cards' theme colour (ACCENT as floats).
+pub fn accent() -> [f32; 3] {
+    ACCENT.map(|c| f32::from(c) / 255.0)
+}
+
+/// gl_bench.cpp panel_state: desktop 1's placement panel open on the x field, at `x` tenths of a degree.
+pub fn panel_state(x: i32) -> PlacementMenuState {
+    let mut st = PlacementMenuState {
+        open: true,
+        desktop: 1,
+        field: 0,
+        ..PlacementMenuState::default()
+    };
+    st.placements[1] = [x, 0, 100, 0];
+    st
+}
+
+/// gl_bench.cpp drag_x: the x slider (tenths of a degree) swept back and forth.
+pub fn drag_x(frame: u32) -> i32 {
+    -40 + (frame as i32 * 7) % 81
+}
+
+/// gl_bench.cpp load_resources's help rows.
+pub fn help_rows() -> Vec<HelpRow> {
+    let mut rows = vec![
+        HelpRow::new("Ctrl+Alt+H", "Show / hide this help"),
+        HelpRow::new("Ctrl+Alt+L", "Placement pill of the selected desktop"),
+        HelpRow::new("Ctrl+Alt+Z", "Zoom in / out"),
+        HelpRow::new("Ctrl+Alt+Left/Right", "Select a desktop"),
+        HelpRow::new("Ctrl+Alt+R", "Recentre"),
+        HelpRow::new("Ctrl+Alt+M", "Viewing mode"),
+        HelpRow::new("Ctrl+Alt+T", "Typing mode"),
+    ];
+    rows[5].section = true;
+    rows
+}
+
+/// The installed HUD font as gl_bench.cpp loads it, else None (the cards use the pixel font, as the C++ ones then do).
+pub fn hud_font() -> Option<HudFont> {
+    match HudFont::load(HUD_FONT_FAMILY) {
+        Ok(f) => Some(f),
+        Err(why) => {
+            eprintln!("note: {why}; cards use the pixel font");
+            None
         }
-    }
-    HudImage {
-        width,
-        height,
-        rgba,
     }
 }
 
-/// The cards from XR_GL_CARDS when set, else synthetic ones.
+/// The cards, checked against XR_GL_CARDS when set.
 pub fn load_resources() -> Resources {
     load_resources_from(std::env::var_os("XR_GL_CARDS").as_deref().map(Path::new))
 }
 
+/// gl_bench.cpp load_resources at DEFAULT_W x DEFAULT_H: the desktops and every card its `--dump` writes for these
+/// scenarios, by the Rust rasters. With `cards` (a `gl_bench --dump DIR` directory) each card must equal the dumped
+/// C++ one byte for byte (both draw in the installed font, or both in the pixel font); a difference panics.
 pub fn load_resources_from(cards: Option<&Path>) -> Resources {
     let desktops = [0, 1, 2].map(|i| [desktop_pixels(i, 0), desktop_pixels(i, 1)]);
-    if let Some(dir) = cards {
-        let get = |name: &str| match read_image(&dir.join(format!("{name}.rgba"))) {
-            Ok(im) => Rc::new(im),
-            Err(e) => panic!("cards: {e}"),
-        };
-        return Resources {
-            desktops,
-            popup: get("popup"),
-            help: get("help"),
-            panel_static: get("panel"),
-            panel_drag: (0..81).map(|f| get(&format!("panel_drag{f}"))).collect(),
-            handles: get("handles"),
-            from_cpp: true,
-        };
-    }
-    let tint = [0xc8, 0xd2, 0xe6];
+    let font = hud_font();
+    let f = font.as_ref().map(|f| f as &dyn HudTextMetrics);
+    let a = accent();
+    let check = |name: &str, im: HudImage| {
+        if let Some(dir) = cards {
+            let cpp = read_image(&dir.join(format!("{name}.rgba")))
+                .unwrap_or_else(|e| panic!("cards: {e}"));
+            assert!(
+                cpp.width == im.width && cpp.height == im.height && cpp.rgba == im.rgba,
+                "card {name}: Rust {}x{} differs from the C++ {}x{} in {}",
+                im.width,
+                im.height,
+                cpp.width,
+                cpp.height,
+                dir.display()
+            );
+        }
+        Rc::new(im)
+    };
+    let popup = check("popup", render_hud_card(&view_mode_lines(0), a, f));
+    check("video", render_hud_card(&prediction_lines(true), a, f));
+    let help = check(
+        "help",
+        render_help_card(&help_rows(), a, f, DEFAULT_W, DEFAULT_H, 0).0,
+    );
+    let panel_static = check(
+        "panel",
+        render_glass_panel(&panel_state(15), f, GLASS_THEME_DEFAULT),
+    );
+    let panel_drag = (0..81)
+        .map(|i| {
+            check(
+                &format!("panel_drag{i}"),
+                render_glass_panel(&panel_state(drag_x(i)), f, GLASS_THEME_DEFAULT),
+            )
+        })
+        .collect();
+    let handles = check("handles", render_handle_atlas(a, f));
     Resources {
         desktops,
-        popup: Rc::new(synthetic_card(420, 96, 40, tint)),
-        help: Rc::new(synthetic_card(980, 520, 120, tint)),
-        panel_static: Rc::new(synthetic_card(480, 300, 60, tint)),
-        panel_drag: (0..81)
-            .map(|f| Rc::new(synthetic_card(480, 300, 60 + f * 2, tint)))
-            .collect(),
-        handles: Rc::new(synthetic_card(HANDLE_ATLAS_W, HANDLE_ATLAS_H, 30, ACCENT)),
-        from_cpp: false,
+        popup,
+        help,
+        panel_static,
+        panel_drag,
+        handles,
     }
 }
 

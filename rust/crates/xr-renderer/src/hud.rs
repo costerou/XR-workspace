@@ -1,16 +1,22 @@
-//! Head-locked HUD logic (`spike/include/xr/hud.hpp`, `spike/src/hud.cpp`) without the rasterisation: the status
-//! pop-ups' text and timing, the keyboard help card's fit, pages and click targets, the eased card fade, the placement
-//! panel's state and value formatting, the built-in 5x7 pixel font's glyphs and metrics, and the backgrounds list.
+//! Head-locked HUD (`spike/include/xr/hud.hpp`, `spike/src/hud.cpp`): the status pop-ups' text and timing, the keyboard
+//! help card's fit, pages and click targets, the eased card fade, the placement panel's state and value formatting, the
+//! built-in 5x7 pixel font's glyphs and metrics, the backgrounds list, and the CPU rasterisers that draw the pop-up, help
+//! and VR video cards ([`render_hud_card`], [`render_help_card`], [`render_video_card`]).
 //!
 //! The pop-ups show the viewing mode (anchor / follow / locked), cursor follow, prediction and typing mode. Text uses an
-//! installed system font when one is given (a [`HudTextMetrics`]); without one, the built-in 5x7 pixel font.
+//! installed system font when one is given (a [`HudTextMetrics`], in practice [`crate::hud_font::HudFont`]); without one,
+//! the built-in 5x7 pixel font. The overlays keep state only: the renderer draws their lines or rows with the
+//! rasterisers.
 //!
-//! All maths is `f32` / `f64` in the C++ order, so results match it bit for bit.
+//! All maths is `f32` / `f64` in the C++ order, so results match it bit for bit, and the cards match it byte for byte
+//! (`tests/card_raster.rs`).
 
 use std::cell::Cell;
 
 use crate::desktops::MAX_DESKTOPS;
-use crate::material::{MD_DEFAULT_SEED, MD_SHAPE_EXTRA_LARGE, MaterialScheme};
+use crate::glass_theme::glass_theme_scheme;
+use crate::material::{MD_DEFAULT_SEED, MD_SHAPE_EXTRA_LARGE, MaterialScheme, clampf};
+use crate::material_draw::{cmax, cmin};
 use crate::pose::{project, transpose};
 
 // --- Text lines ----------------------------------------------------------------------------------------------------
@@ -47,7 +53,7 @@ impl Default for HudLine {
     }
 }
 
-fn hud_line(text: impl Into<String>, scale: u32, color: [f32; 3], bold: bool, px: u32, role: HudRole) -> HudLine {
+pub(crate) fn hud_line(text: impl Into<String>, scale: u32, color: [f32; 3], bold: bool, px: u32, role: HudRole) -> HudLine {
     HudLine { text: text.into(), scale, color, bold, px, role }
 }
 
@@ -70,12 +76,16 @@ pub struct FontMetrics {
     pub descent: u32,
 }
 
-/// What the layout needs from an installed scalable font (the C++ `HudFont`: fontconfig + FreeType, ported elsewhere).
-/// Without one, the built-in pixel font's metrics are used.
+/// What a card needs from an installed scalable font ([`crate::hud_font::HudFont`], the C++ `HudFont`: fontconfig +
+/// FreeType): the metrics and widths it is laid out with, and the text it is drawn with. Without one, the built-in pixel
+/// font.
 pub trait HudTextMetrics {
     fn metrics(&self, px: u32, bold: bool) -> FontMetrics;
     /// Advance width of `utf8` in pixels.
     fn measure(&self, utf8: &str, px: u32, bold: bool) -> u32;
+    /// Rasterises `utf8` with its baseline at `baseline`, starting at `left`: `plot(x, y, coverage)` once per covered
+    /// pixel, coverage in (0, 1].
+    fn draw(&self, utf8: &str, px: u32, bold: bool, left: i32, baseline: i32, plot: &mut dyn FnMut(i32, i32, f32));
 }
 
 /// Omarchy's monospace font.
@@ -236,6 +246,192 @@ pub fn line_box(line: &HudLine, font: Option<&dyn HudTextMetrics>) -> LineBox {
     };
     let m = font.metrics(em_px(line), line.bold);
     LineBox { width: font.measure(&line.text, em_px(line), line.bold), ascent: m.ascent, descent: m.descent }
+}
+
+// --- Card rasterisation ------------------------------------------------------------------------------------------------
+
+// Premultiplied "over": paint colour `c` with coverage `a` on top of what is there. (Not md_over: this one lets a NaN
+// coverage through, as the C++ `over` does.)
+fn over(im: &mut HudImage, x: i32, y: i32, c: [f32; 3], a: f32) {
+    if x < 0 || y < 0 || x as u32 >= im.width || y as u32 >= im.height || a <= 0.0 {
+        return;
+    }
+    let a = cmin(a, 1.0);
+    let i = (y as usize * im.width as usize + x as usize) * 4;
+    let p = &mut im.rgba[i..i + 4];
+    for k in 0..3 {
+        p[k] = clampf(c[k] * a * 255.0 + f32::from(p[k]) * (1.0 - a), 0.0, 255.0).round() as u8;
+    }
+    p[3] = clampf(a * 255.0 + f32::from(p[3]) * (1.0 - a), 0.0, 255.0).round() as u8;
+}
+
+// Signed distance (pixels, negative inside) from pixel centre to a rounded rectangle.
+fn rounded_distance(px: f32, py: f32, w: f32, h: f32, r: f32) -> f32 {
+    let qx = (px - w / 2.0).abs() - (w / 2.0 - r);
+    let qy = (py - h / 2.0).abs() - (h / 2.0 - r);
+    let (ox, oy) = (cmax(qx, 0.0), cmax(qy, 0.0));
+    (ox * ox + oy * oy).sqrt() + cmin(cmax(qx, qy), 0.0) - r
+}
+
+// A `width` x `height` image painted with the rounded translucent card (M3 surface container high) and its
+// outline-variant edge.
+pub(crate) fn allocate_card(width: u32, height: u32, m: &MaterialScheme) -> HudImage {
+    let back = m.surface_container_high;
+    let rim = m.outline_variant;
+    let mut im = HudImage { width, height, rgba: vec![0; width as usize * height as usize * 4] };
+    let (w, h) = (width as f32, height as f32);
+    // Most of the card is plain translucent background. Outside the corner squares the signed distance is minus the
+    // distance to the nearest edge, so a pixel at least BORDER + 0.5 inside is exactly the background: fill it directly
+    // instead of evaluating the rounded rectangle (the same bytes; ~20x faster on a menu-sized card).
+    let mut fill = [0u8; 4];
+    for i in 0..3 {
+        fill[i] = (back[i] * BACKGROUND_ALPHA * 255.0).round() as u8;
+    }
+    fill[3] = (BACKGROUND_ALPHA * 255.0).round() as u8;
+    for y in 0..height {
+        for x in 0..width {
+            let (cx, cy) = (x as f32 + 0.5, y as f32 + 0.5);
+            let edge = cmin(cmin(cmin(cx, cy), w - cx), h - cy);
+            let band = (cx >= RADIUS && cx <= w - RADIUS) || (cy >= RADIUS && cy <= h - RADIUS);
+            let i = (y as usize * width as usize + x as usize) * 4;
+            if band && edge >= BORDER + 0.5 {
+                im.rgba[i..i + 4].copy_from_slice(&fill);
+                continue;
+            }
+            let d = rounded_distance(cx, cy, w, h, RADIUS);
+            let outer = clampf(0.5 - d, 0.0, 1.0); // anti-aliased card edge
+            let inner = clampf(0.5 - (d + BORDER), 0.0, 1.0); // inside the border
+            if outer <= 0.0 {
+                continue;
+            }
+            over(&mut im, x as i32, y as i32, rim, outer);
+            if inner > 0.0 {
+                // Replace the edge colour with the translucent background inside the border.
+                let p = &mut im.rgba[i..i + 4];
+                for k in 0..3 {
+                    p[k] = ((back[k] * BACKGROUND_ALPHA * inner + rim[k] * outer * (1.0 - inner)) * 255.0).round() as u8;
+                }
+                p[3] = ((BACKGROUND_ALPHA * inner + outer * (1.0 - inner)) * 255.0).round() as u8;
+            }
+        }
+    }
+    im
+}
+
+// Draw one line in `color` (its role's colour: hud_line_color) with its top edge at `top` and left edge at `left`.
+// Unsigned sums cast to int wrap as in the C++.
+fn draw_line(
+    im: &mut HudImage,
+    line: &HudLine,
+    color: [f32; 3],
+    b: &LineBox,
+    left: i32,
+    top: u32,
+    font: Option<&dyn HudTextMetrics>,
+) {
+    if let Some(font) = font {
+        let baseline = top.wrapping_add(b.ascent) as i32;
+        font.draw(&line.text, em_px(line), line.bold, left, baseline, &mut |x, y, coverage| over(im, x, y, color, coverage));
+        return;
+    }
+    let z = pixel_zoom(line);
+    let mut x = left;
+    for ch in line.text.bytes() {
+        let g = hud_glyph(ch);
+        for row in 0..GLYPH_H {
+            for col in 0..GLYPH_W {
+                if u32::from(g[row as usize]) & (0x10 >> col) == 0 {
+                    continue;
+                }
+                for sy in 0..z {
+                    for sx in 0..z {
+                        let px = x.wrapping_add(col.wrapping_mul(z).wrapping_add(sx) as i32);
+                        let py = top.wrapping_add(row.wrapping_mul(z)).wrapping_add(sy) as i32;
+                        over(im, px, py, color, 1.0);
+                    }
+                }
+            }
+        }
+        x = x.wrapping_add(((GLYPH_W + 1) * z) as i32);
+    }
+}
+
+/// A pop-up card: `lines` centred one under another on the rounded card, sized to the widest line plus padding, in the
+/// Material scheme of `accent` (via [`glass_theme_scheme`]), in `font` or (None) the pixel font.
+pub fn render_hud_card(lines: &[HudLine], accent: [f32; 3], font: Option<&dyn HudTextMetrics>) -> HudImage {
+    let m = glass_theme_scheme(accent);
+    let boxes: Vec<LineBox> = lines.iter().map(|line| line_box(line, font)).collect();
+    let (mut content_w, mut content_h) = (0u32, 0u32);
+    for (i, b) in boxes.iter().enumerate() {
+        content_w = content_w.max(b.width);
+        content_h += b.height() + if i > 0 { LINE_GAP as u32 } else { 0 };
+    }
+    let mut im = allocate_card(content_w + 2 * PAD as u32, content_h + 2 * PAD as u32, &m);
+    let mut top = PAD as u32;
+    for (line, b) in lines.iter().zip(&boxes) {
+        let left = (im.width.wrapping_sub(b.width) / 2) as i32;
+        draw_line(&mut im, line, hud_line_color(line, &m), b, left, top, font);
+        top += b.height() + LINE_GAP as u32;
+    }
+    im
+}
+
+// Help and video card building blocks: both cards are drawn from these, so type, colours, sizes and spacing cannot
+// drift apart.
+
+/// A card text cell: its line (colour from its role at draw time) and the line's box.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct TextCell {
+    pub(crate) line: HudLine,
+    pub(crate) b: LineBox,
+}
+
+pub(crate) fn text_cell(line: HudLine, font: Option<&dyn HudTextMetrics>) -> TextCell {
+    let b = line_box(&line, font);
+    TextCell { line, b }
+}
+
+// Draw `c` on the baseline `ascent` below `top` (cells sharing one baseline: row_ascent).
+pub(crate) fn draw_cell(im: &mut HudImage, c: &TextCell, m: &MaterialScheme, left: i32, top: u32, ascent: u32, font: Option<&dyn HudTextMetrics>) {
+    draw_line(im, &c.line, hud_line_color(&c.line, m), &c.b, left, top.wrapping_add(ascent).wrapping_sub(c.b.ascent), font);
+}
+
+pub(crate) fn draw_centered(im: &mut HudImage, c: &TextCell, m: &MaterialScheme, top: u32, font: Option<&dyn HudTextMetrics>) {
+    let left = (im.width.wrapping_sub(c.b.width) / 2) as i32;
+    draw_line(im, &c.line, hud_line_color(&c.line, m), &c.b, left, top, font);
+}
+
+// Divider across the card's padded width, centred in the section gap that ends at `section_top`.
+pub(crate) fn draw_divider(im: &mut HudImage, section_top: u32, m: &MaterialScheme) {
+    let y = section_top.wrapping_sub(SECTION_GAP as u32 / 2) as i32;
+    for x in HELP_PAD as u32..im.width.saturating_sub(HELP_PAD as u32) {
+        over(im, x as i32, y, m.outline_variant, DIVIDER_ALPHA);
+    }
+}
+
+// Arrow pointing left (dir -1) or right (+1) in the square at (x, y) of side `size`, anti-aliased (4x4 samples).
+fn draw_arrow(im: &mut HudImage, x: i32, y: i32, size: u32, dir: i32, color: [f32; 3]) {
+    let s = size as f32;
+    let half = s / 2.0;
+    let (tip, base) = if dir < 0 { (0.0, s * 0.8) } else { (s, s * 0.2) };
+    for py in 0..size {
+        for px in 0..size {
+            let mut inside = 0;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let fx = px as f32 + (sx as f32 + 0.5) / 4.0;
+                    let fy = py as f32 + (sy as f32 + 0.5) / 4.0;
+                    let t = (fx - base) / (tip - base); // 0 at the base, 1 at the tip
+                    if (0.0..=1.0).contains(&t) && (fy - half).abs() <= half * (1.0 - t) {
+                        inside += 1;
+                    }
+                }
+            }
+            if inside != 0 {
+                over(im, x.wrapping_add(px as i32), y.wrapping_add(py as i32), color, inside as f32 / 16.0);
+            }
+        }
+    }
 }
 
 // --- Status pop-ups ----------------------------------------------------------------------------------------------------
@@ -678,18 +874,18 @@ fn help_footer_text() -> String {
     format!("Ctrl+Alt+H to close. Help and menu close after {OVERLAY_IDLE_CLOSE_S} s idle.")
 }
 
-/// A help-card text cell's box: one line at `px`, bold or not (the colours do not change the layout).
-fn cell(text: &str, px: u32, bold: bool, font: Option<&dyn HudTextMetrics>) -> LineBox {
-    line_box(&hud_line(text, 1, CARD_TEXT, bold, px, HudRole::None), font)
+/// A help-card text cell: one line at `px` in its role (the colours do not change the layout).
+fn cell(text: &str, color: [f32; 3], bold: bool, px: u32, role: HudRole, font: Option<&dyn HudTextMetrics>) -> TextCell {
+    text_cell(hud_line(text, 1, color, bold, px, role), font)
 }
 
 #[derive(Clone, Debug, Default)]
 struct HelpLayout {
     style: HelpStyle,
-    title: LineBox,
-    footer: LineBox,
-    hint: LineBox,
-    table: Vec<(LineBox, LineBox)>,
+    title: TextCell,
+    footer: TextCell,
+    hint: TextCell,
+    table: Vec<(TextCell, TextCell)>,
     /// Row i starts a section (never row 0).
     starts: Vec<bool>,
     /// [begin, end) rows per page.
@@ -704,14 +900,14 @@ struct HelpLayout {
     nav_gap: u32,
 }
 
-fn card_size(content: u32) -> u32 {
+pub(crate) fn card_size(content: u32) -> u32 {
     content + 2 * HELP_PAD as u32
 }
 
 // Cells sharing one baseline: tallest ascent above it, deepest descent below it.
 fn row_height(l: &HelpLayout, i: usize) -> u32 {
     let (k, a) = &l.table[i];
-    k.ascent.max(a.ascent) + k.descent.max(a.descent)
+    k.b.ascent.max(a.b.ascent) + k.b.descent.max(a.b.descent)
 }
 
 fn gap_before(l: &HelpLayout, i: usize) -> u32 {
@@ -726,8 +922,8 @@ fn rows_height(l: &HelpLayout, b: usize, e: usize) -> u32 {
     h
 }
 
-fn page_indicator(l: &HelpLayout, page: usize, font: Option<&dyn HudTextMetrics>) -> LineBox {
-    cell(&format!("{} / {}", page + 1, l.pages.len()), l.style.footer_px, true, font)
+fn page_indicator(l: &HelpLayout, page: usize, font: Option<&dyn HudTextMetrics>) -> TextCell {
+    cell(&format!("{} / {}", page + 1, l.pages.len()), CARD_TEXT, true, l.style.footer_px, HudRole::OnSurface, font)
 }
 
 // Rows below the title and above the footer: one page if `avail` (0 = unbounded) holds them all, else greedy pages that
@@ -770,13 +966,13 @@ fn paginate(l: &mut HelpLayout, avail: u32) {
 
 // Fixed parts around the rows: title + gap above, gap + footer below (a paged card adds the indicator line and the hint).
 fn head_height(l: &HelpLayout) -> u32 {
-    l.title.height() + l.style.section_gap
+    l.title.b.height() + l.style.section_gap
 }
 
 fn foot_height(l: &HelpLayout, paged: bool) -> u32 {
-    let mut h = l.style.section_gap + l.footer.height();
+    let mut h = l.style.section_gap + l.footer.b.height();
     if paged {
-        h += l.nav_h + l.style.row_gap + l.hint.height() + l.style.row_gap / 2;
+        h += l.nav_h + l.style.row_gap + l.hint.b.height() + l.style.row_gap / 2;
     }
     h
 }
@@ -784,23 +980,23 @@ fn foot_height(l: &HelpLayout, paged: bool) -> u32 {
 fn layout_help(rows: &[HelpRow], font: Option<&dyn HudTextMetrics>, st: HelpStyle, max_h: u32) -> HelpLayout {
     let mut l = HelpLayout {
         style: st,
-        title: cell("Keyboard shortcuts", st.title_px, true, font),
-        footer: cell(&help_footer_text(), st.footer_px, false, font),
-        hint: cell(HELP_PAGE_HINT, st.footer_px, false, font),
+        title: cell("Keyboard shortcuts", CARD_TEXT, true, st.title_px, HudRole::OnSurface, font),
+        footer: cell(&help_footer_text(), CARD_DIM, false, st.footer_px, HudRole::Outline, font),
+        hint: cell(HELP_PAGE_HINT, CARD_DIM, false, st.footer_px, HudRole::Outline, font),
         ..HelpLayout::default()
     };
     let mut actions_w = 0;
     for (i, r) in rows.iter().enumerate() {
-        let k = cell(&r.keys, st.row_px, true, font);
-        let a = cell(&r.action, st.row_px, false, font);
+        let k = cell(&r.keys, CARD_TEXT, true, st.row_px, HudRole::OnSurface, font);
+        let a = cell(&r.action, CARD_DIM, false, st.row_px, HudRole::OnSurfaceVariant, font);
+        l.keys_w = l.keys_w.max(k.b.width);
+        actions_w = actions_w.max(a.b.width);
         l.table.push((k, a));
         l.starts.push(i > 0 && r.section);
-        l.keys_w = l.keys_w.max(k.width);
-        actions_w = actions_w.max(a.width);
     }
     l.table_w = if l.table.is_empty() { 0 } else { l.keys_w + st.column_gap + actions_w };
     // Paged footer line: "<  12 / 34  >" with drawn arrows sized to the indicator's capitals.
-    let probe = cell("0 / 0", st.footer_px, true, font);
+    let probe = cell("0 / 0", CARD_TEXT, true, st.footer_px, HudRole::None, font).b;
     l.arrow = (probe.ascent * 4 / 5).max(10);
     l.nav_h = probe.height().max(l.arrow);
     l.nav_gap = st.column_gap;
@@ -811,10 +1007,10 @@ fn layout_help(rows: &[HelpRow], font: Option<&dyn HudTextMetrics>, st: HelpStyl
     paginate(&mut l, if one_page { 0 } else if max_h > fixed { max_h - fixed } else { 1 });
     let paged = l.pages.len() > 1;
     let tallest = l.pages.iter().map(|&(b, e)| rows_height(&l, b, e)).fold(0, u32::max);
-    l.content_w = l.title.width.max(l.footer.width).max(l.table_w);
+    l.content_w = l.title.b.width.max(l.footer.b.width).max(l.table_w);
     if paged {
-        let nav_w = 2 * l.arrow + 2 * l.nav_gap + page_indicator(&l, l.pages.len() - 1, font).width;
-        l.content_w = l.content_w.max(l.hint.width).max(nav_w);
+        let nav_w = 2 * l.arrow + 2 * l.nav_gap + page_indicator(&l, l.pages.len() - 1, font).b.width;
+        l.content_w = l.content_w.max(l.hint.b.width).max(nav_w);
     }
     l.content_h = head_height(&l) + tallest + foot_height(&l, paged);
     l
@@ -854,8 +1050,109 @@ pub fn help_card_fit(
     }
 }
 
-/// The click targets the C++ `render_help_card` reports for `page` (taken modulo the page count): all empty on a
-/// one-page card. Card pixels from its top-left.
+// The paged footer's navigation line for page `shown`: arrows either side of the indicator, centred on a `width` card
+// whose footer starts at `top`. int(...) of unsigned sums: modular, as in the C++.
+struct HelpNav {
+    indicator: TextCell,
+    nav_left: i32,
+    arrow_top: i32,
+    text_left: i32,
+    next_left: i32,
+}
+
+fn help_nav(l: &HelpLayout, shown: usize, width: u32, top: u32, font: Option<&dyn HudTextMetrics>) -> HelpNav {
+    let indicator = page_indicator(l, shown, font);
+    let nav_w = 2 * l.arrow + 2 * l.nav_gap + indicator.b.width;
+    let nav_left = (width.wrapping_sub(nav_w) / 2) as i32;
+    let arrow_top = top.wrapping_add(l.nav_h.wrapping_sub(l.arrow) / 2) as i32;
+    let text_left = nav_left.wrapping_add((l.arrow + l.nav_gap) as i32);
+    let next_left = text_left.wrapping_add((indicator.b.width + l.nav_gap) as i32);
+    HelpNav { indicator, nav_left, arrow_top, text_left, next_left }
+}
+
+// Generous click targets: each half of the gap, and the line's height plus half a gap either side.
+fn help_controls(l: &HelpLayout, nav: &HelpNav, top: u32) -> HelpCardControls {
+    let st = l.style;
+    let pad = (l.nav_gap / 2) as i32;
+    let y = (top as i32).wrapping_sub(st.row_gap as i32);
+    let h = (l.nav_h + 2 * st.row_gap) as i32;
+    HelpCardControls {
+        prev: HelpRect { x: nav.nav_left - pad, y, w: l.arrow as i32 + 2 * pad, h },
+        indicator: HelpRect { x: nav.text_left - pad / 2, y, w: nav.indicator.b.width as i32 + pad, h },
+        next: HelpRect { x: nav.next_left - pad, y, w: l.arrow as i32 + 2 * pad, h },
+    }
+}
+
+// The footer sits at the bottom: on a short last page the rows end higher, the card keeps its size.
+fn footer_top(l: &HelpLayout, height: u32, paged: bool) -> u32 {
+    height.wrapping_sub(HELP_PAD as u32).wrapping_sub(foot_height(l, paged)).wrapping_add(l.style.section_gap)
+}
+
+/// The keyboard help card for an output surface of `max_width` x `max_height` (0 = unbounded): `rows` at the largest
+/// text that fits on one page, else in pages with `page` (modulo the page count) shown, in the Material scheme of
+/// `accent`, in `font` or (None) the pixel font. Also returns the page arrows' click targets (all empty on a one-page
+/// card), card pixels from its top-left.
+pub fn render_help_card(
+    rows: &[HelpRow],
+    accent: [f32; 3],
+    font: Option<&dyn HudTextMetrics>,
+    max_width: u32,
+    max_height: u32,
+    page: u32,
+) -> (HudImage, HelpCardControls) {
+    let m = glass_theme_scheme(accent);
+    let l = choose_help_layout(rows, font, max_width, max_height);
+    let st = l.style;
+    let pages = l.pages.len();
+    let shown = page as usize % pages;
+    let paged = pages > 1;
+    let mut controls = HelpCardControls::default();
+    let mut im = allocate_card(card_size(l.content_w), card_size(l.content_h), &m);
+    let mut top = HELP_PAD as u32;
+    draw_centered(&mut im, &l.title, &m, top, font);
+    top += l.title.b.height() + st.section_gap;
+    let rule_y = top.wrapping_sub(st.section_gap / 2) as i32;
+    for x in HELP_PAD as u32..im.width.saturating_sub(HELP_PAD as u32) {
+        over(&mut im, x as i32, rule_y, m.outline_variant, DIVIDER_ALPHA); // divider in the gap's middle
+    }
+    let left = (im.width.wrapping_sub(l.table_w) / 2) as i32;
+    let (b, e) = l.pages[shown];
+    for i in b..e {
+        let (k, a) = &l.table[i];
+        if i > b {
+            top += gap_before(&l, i);
+            if l.starts[i] {
+                // A fainter divider between sections, across the table.
+                let y = top.wrapping_sub(st.section_gap / 2) as i32;
+                for x in 0..l.table_w {
+                    over(&mut im, left.wrapping_add(x as i32), y, m.outline_variant, SECTION_RULE_ALPHA);
+                }
+            }
+        }
+        let ascent = k.b.ascent.max(a.b.ascent);
+        draw_cell(&mut im, k, &m, left, top, ascent, font);
+        draw_cell(&mut im, a, &m, left.wrapping_add((l.keys_w + st.column_gap) as i32), top, ascent, font);
+        top += ascent + k.b.descent.max(a.b.descent);
+    }
+    top = footer_top(&l, im.height, paged);
+    if paged {
+        let nav = help_nav(&l, shown, im.width, top, font);
+        // M3 icon buttons (arrow_left / arrow_right) either side of the indicator.
+        draw_arrow(&mut im, nav.nav_left, nav.arrow_top, l.arrow, -1, m.on_surface_variant);
+        let indicator_top = top.wrapping_add(l.nav_h.wrapping_sub(nav.indicator.b.height()) / 2);
+        draw_cell(&mut im, &nav.indicator, &m, nav.text_left, indicator_top, nav.indicator.b.ascent, font);
+        draw_arrow(&mut im, nav.next_left, nav.arrow_top, l.arrow, 1, m.on_surface_variant);
+        controls = help_controls(&l, &nav, top);
+        top += l.nav_h + st.row_gap;
+        draw_centered(&mut im, &l.hint, &m, top, font);
+        top += l.hint.b.height() + st.row_gap / 2;
+    }
+    draw_centered(&mut im, &l.footer, &m, top, font);
+    (im, controls)
+}
+
+/// The click targets [`render_help_card`] reports for `page` (taken modulo the page count), without drawing: all empty
+/// on a one-page card. Card pixels from its top-left.
 pub fn help_card_controls(
     rows: &[HelpRow],
     font: Option<&dyn HudTextMetrics>,
@@ -864,30 +1161,14 @@ pub fn help_card_controls(
     page: u32,
 ) -> HelpCardControls {
     let l = choose_help_layout(rows, font, max_width, max_height);
-    let st = l.style;
     let pages = l.pages.len();
-    let shown = page as usize % pages;
     if pages <= 1 {
         return HelpCardControls::default();
     }
     let (width, height) = (card_size(l.content_w), card_size(l.content_h));
-    // The footer sits at the bottom: on a short last page the rows end higher, the card keeps its size.
-    let top = height - HELP_PAD as u32 - foot_height(&l, true) + st.section_gap;
-    let indicator = page_indicator(&l, shown, font);
-    let nav_w = 2 * l.arrow + 2 * l.nav_gap + indicator.width;
-    // int((width - nav_w) / 2) and int(...) of unsigned sums: modular, as in the C++.
-    let nav_left = (width.wrapping_sub(nav_w) / 2) as i32;
-    let text_left = nav_left.wrapping_add((l.arrow + l.nav_gap) as i32);
-    let next_left = text_left.wrapping_add((indicator.width + l.nav_gap) as i32);
-    // Generous click targets: each half of the gap, and the line's height plus half a gap either side.
-    let pad = (l.nav_gap / 2) as i32;
-    let y = top as i32 - st.row_gap as i32;
-    let h = (l.nav_h + 2 * st.row_gap) as i32;
-    HelpCardControls {
-        prev: HelpRect { x: nav_left - pad, y, w: l.arrow as i32 + 2 * pad, h },
-        indicator: HelpRect { x: text_left - pad / 2, y, w: indicator.width as i32 + pad, h },
-        next: HelpRect { x: next_left - pad, y, w: l.arrow as i32 + 2 * pad, h },
-    }
+    let top = footer_top(&l, height, true);
+    let nav = help_nav(&l, page as usize % pages, width, top, font);
+    help_controls(&l, &nav, top)
 }
 
 /// The supervisor's free-pointer hit testing for the help card: one status line

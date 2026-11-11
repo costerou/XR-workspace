@@ -3,20 +3,19 @@
 //! opaque desktop tile, then the help card at its fade alpha. After each close the read-back frame must equal the frame
 //! from before anything opened. Port of spike/tests/overlay_residue_test.cpp.
 //!
-//! The card's pixels come from XR_GL_CARDS (`gl_bench --dump`, the C++ help card) when set, else a synthetic card of
-//! the same kind (the card renderer is not ported yet); the fade, placement and draw are the Rust ones either way.
-//! Exit 77 (skipped) without EGL/GLES.
-
-#[path = "support/gl_scenarios.rs"]
-mod gl_scenarios;
+//! The card is the one the C++ HelpOverlay draws for these rows: render_help_card in the overlay's accent, unbounded, page
+//! 1, in the installed HUD font (else the pixel font). Exit 77 (skipped) without EGL/GLES.
 
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use glow::HasContext;
 use xr_renderer::egl::Headless;
-use xr_renderer::gl::{Gl, compile_program};
-use xr_renderer::hud::{HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HelpOverlay, HelpRow};
+use xr_renderer::gl::{compile_program, Gl};
+use xr_renderer::hud::{
+    render_help_card, HelpOverlay, HelpRow, HELP_FADE_IN_MS, HELP_FADE_OUT_MS, HUD_FONT_FAMILY,
+};
+use xr_renderer::hud_font::HudFont;
 use xr_renderer::hud_gl::GlHud;
 
 static FAILURES: AtomicUsize = AtomicUsize::new(0);
@@ -73,13 +72,20 @@ fn main() {
         std::process::exit(1);
     };
     let tile_pos = unsafe { raw.get_attrib_location(tile, "pos") }.expect("pos");
-    let card = gl_scenarios::load_resources().help;
 
     let mut help = HelpOverlay::new();
+    help.set_font(
+        HudFont::load(HUD_FONT_FAMILY)
+            .ok()
+            .map(|f| Box::new(f) as _),
+    );
     let rows = [
         HelpRow::new("Ctrl+Alt+H", "Show / hide this help"),
         HelpRow::new("Ctrl+Alt+L", "Placement pill of the selected desktop"),
     ];
+    // HelpOverlay::image in the C++: the rows never change and no viewport is set, so one card for the whole test.
+    let font = HudFont::load(HUD_FONT_FAMILY).ok();
+    let card = render_help_card(&rows, help.accent(), font.as_ref().map(|f| f as _), 0, 0, 0).0;
     let mut pixels = vec![0u8; (W * H * 4) as usize];
     let mut before: Vec<u8>;
 
