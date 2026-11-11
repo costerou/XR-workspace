@@ -115,8 +115,8 @@ key through each run's own key helper. Until the view is ported the reply is its
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
-  bind panel are ported (below) but reach a run's ops only once the view is.
+  overview pointer, VR video, and through them the pills' desktop changes. Window sending, privacy mode, the key bind
+  panel and 3D are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -169,6 +169,20 @@ HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, compl
 toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
 (`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
 Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
+
+Immersive 3D's run side is ported (`view_controls::immersive`): `find_engine` beside the pinned renderer, the depth
+memory every renderer inherits (`--depth-fd`), `ImmersiveRun` on the engine and `make_sbs` (`sbs.ButtonSbs` on a client
+pinned to the run's compositor when the consent has the 3D scope, `NoDeviceSbs` otherwise), its close before recovery,
+and `keep_renderer`'s expected exit: a renderer that ends while the glasses change mode is held with the "Switching
+display mode" notice, no settle, and pose continuity kept while the USB identity holds. The view's 3D methods
+(`_immersive_sync`, `_immersive_tick`, the toggle, the panel's setting, the 3D button's clicks and hover, the status) are
+`Immersive`'s, taking the view's state as a `Shown`; they reach a run's ops once the `view` port routes them.
+`tests/immersive_corpus.rs` replays `corpus/immersive/sbs.json` (`ButtonSbs` and the mode helpers, from
+`tests/native_spike/sbs_corpus.py`) and `corpus/immersive/view.json` (the view's 3D on a stand-in run, from
+`tests/native_spike/immersive_view_corpus.py`). The run cases (`tests/managed_real/cases/immersive.rs`) give an
+installed fake engine's depth memory to the renderer on both sides, and hold a renderer that ends as the glasses go side
+by side as expected, the wide mode put back for the next one. Not ported: the Pro 2 bridge's `glasses` switch (every
+change asks for the button).
 
 ### Switching runs to the Rust supervisor
 
