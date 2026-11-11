@@ -227,8 +227,9 @@ fn scenario(name: &str) {
         model: "luma-ultra",
         renderer: Path::new("/nonexistent/xr-native-spike"),
         sbs_mode: false,
+        specs: &[],
     };
-    let mut pointer = Pointer::open(&run, Some(args.clone()), reader).expect("a pointer on the run's desktops");
+    let mut pointer = Pointer::open(&run, None, Some(args.clone()), reader).expect("a pointer on the run's desktops");
     let geometry = pyjson::Json::parse(&corpus["geometry"].to_string()).unwrap();
     pointer.set_geometry(Some(parse_overview_geometry(&geometry).unwrap()));
 

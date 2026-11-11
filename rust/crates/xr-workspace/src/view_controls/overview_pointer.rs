@@ -117,6 +117,10 @@ pub struct Shell {
     next_id: u64,
     clock: Monotonic,
     sender: Option<WindowSender>,
+    /// What the pointer asked of the view since it last took them (`control.save_due = ...`, `control.last_input =
+    /// ...`): [`Pointer::give_back`] hands them to the view.
+    save_due: Option<f64>,
+    last_input: Option<f64>,
 }
 
 impl Shell {
@@ -130,6 +134,8 @@ impl Shell {
             next_id: 1,
             clock: Monotonic,
             sender: None,
+            save_due: None,
+            last_input: None,
         })
     }
 }
@@ -161,8 +167,12 @@ impl Control for Shell {
     fn set_next_id(&mut self, id: u64) {
         self.next_id = id;
     }
-    fn set_save_due(&mut self, _: f64) {}
-    fn set_last_input(&mut self, _: f64) {}
+    fn set_save_due(&mut self, at: f64) {
+        self.save_due = Some(at);
+    }
+    fn set_last_input(&mut self, at: f64) {
+        self.last_input = Some(at);
+    }
     fn clock(&mut self) -> f64 {
         self.clock.now()
     }
@@ -295,10 +305,15 @@ impl Pointer {
     /// lock the pointer. `None`: desktops the view refuses, or no wake fd.
     pub fn open(
         run: &Run<'_>,
+        view: Option<(&ViewState, u64)>,
         bind_args: Option<Vec<String>>,
         cursor_shape: Option<CursorShape>,
     ) -> Option<Pointer> {
-        let shell = Shell::new(run.capture, run.run_id, run.session)?;
+        let mut shell = Shell::new(run.capture, run.run_id, run.session)?;
+        if let Some((state, next_id)) = view {
+            shell.state = state.clone(); // `control.state`: the view's, restored placements and all
+            shell.next_id = next_id;
+        }
         let pointer = UnifiedPointer::new(shell, pointer_host::monotonic()).ok()?;
         let mut p = Pointer::with(SharedPointer::unified(pointer));
         if let Some(bind_args) = bind_args {
@@ -358,6 +373,82 @@ impl Pointer {
         p.rolls[..n].copy_from_slice(&rolls[..n]);
     }
 
+    /// The view's state and its next frame id, put in the shell before the view calls the pointer and after any view op
+    /// (the Python pointer reads `control.state` live; the sampler reads it here).
+    pub fn share(&mut self, state: &ViewState, next_id: u64) {
+        {
+            let mut p = self.lock();
+            if p.control.state != *state {
+                p.control.state = state.clone();
+            }
+            p.control.next_id = next_id;
+        }
+        self.wake();
+    }
+
+    /// What a pointer call changed in the view's state, its next frame id, and the save and input times it asked for
+    /// (`control.save_due`, `control.last_input`), handed back to the view.
+    pub fn give_back(&mut self, state: &mut ViewState, next_id: &mut u64) -> (Option<f64>, Option<f64>) {
+        let mut p = self.lock();
+        if p.control.state != *state {
+            *state = p.control.state.clone();
+        }
+        *next_id = p.control.next_id;
+        (p.control.save_due.take(), p.control.last_input.take())
+    }
+
+    /// `_rolls()`: each desktop's levelling roll in `names` order (`pointer.rolls` by `roll_names`).
+    pub fn rolls(&self, names: &[String]) -> Vec<i64> {
+        let p = self.lock();
+        let by: &[String] = if p.roll_names.is_empty() { names } else { &p.roll_names };
+        names
+            .iter()
+            .map(|n| by.iter().position(|m| m == n).and_then(|k| p.rolls.get(k)).copied().unwrap_or(0))
+            .collect()
+    }
+
+    /// `renderer_restarted`'s part: no maximize geometry, and the levelling rolls sent again on the next poll
+    /// (`roll_sent = None`).
+    pub fn renderer_restarted(&mut self) {
+        {
+            let mut p = self.lock();
+            let _ = p.set_maximize_geometry(&Json::Null);
+            p.roll_sent = Json::Null;
+        }
+        self.wake();
+    }
+
+    /// `overview_pointer.summon()` (zooming out).
+    pub fn summon(&mut self) {
+        self.lock().summon();
+        self.wake();
+    }
+
+    /// `overview_pointer.level(i)` (R on an open panel): the `roll` frame.
+    pub fn level(&mut self, i: usize) -> Vec<u8> {
+        let frames = self.lock().level(i as i64);
+        self.wake();
+        frames
+    }
+
+    /// `overview_pointer.desktops_changed()`.
+    pub fn desktops_changed(&mut self) {
+        self.lock().desktops_changed();
+        self.wake();
+    }
+
+    /// A config reload dropped the runtime binds (`overview_pointer.binds_dropped = True`): the sampler redoes them.
+    pub fn binds_dropped(&mut self) {
+        self.lock().binds_dropped = true;
+        self.wake();
+    }
+
+    /// `set_help_geometry`'s `overview_pointer.set_help_geometry(geometry)`.
+    pub fn set_help_geometry(&mut self, geometry: Option<crate::supervisor::free_pointer::HelpGeometry>) {
+        self.lock().set_help_geometry(geometry);
+        self.wake();
+    }
+
     /// The sampler's idle wait ends: what the pointer reports to it may have changed.
     fn wake(&self) {
         if let Some(sampler) = &self.sampler {
@@ -394,7 +485,11 @@ impl Pointer {
 
     /// `overview_pointer.set_maximize_geometry(geometry)` (`Json::Null`: none, as the `finally` clears it).
     pub fn set_maximize_geometry(&mut self, geometry: &Json) {
-        let _ = self.lock().set_maximize_geometry(geometry);
+        let mut p = self.lock();
+        if p.set_maximize_geometry(geometry).is_err() {
+            let _ = p.set_maximize_geometry(&Json::Null); // `except ValueError: handler(None)`
+        }
+        drop(p);
         self.wake();
     }
 

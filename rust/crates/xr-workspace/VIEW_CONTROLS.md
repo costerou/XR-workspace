@@ -126,10 +126,9 @@ supervisor's `control_request` / `serve_without_renderer`, and takes each featur
 
 | Entry | What it does on the Python side |
 |---|---|
-| `view` | `ViewControl.on_message`, `initial_frame`, `poll`, `on_events` send nothing; `status_reply` is `{}`; `window_context` is `{}` (the window memory's captures have no placements); `flush`, `save_setup`, `renderer_restarted` do nothing; `event_stream` and `install_options_binds` hidden |
 | `desktops` | `adopt_windows` hidden (the pills' window mover) |
 
-`send`, `privacy`, `window_memory`, `binds`, `keybinds`, `overview_pointer` and `video` have no entry: they are ported and run on both sides. The helpers are
+`view`, `send`, `privacy`, `window_memory`, `binds`, `keybinds`, `immersive`, `video` and `overview_pointer` have no entry: they are ported and run on both sides. The helpers are
 `patch(module, name, value)`, and `hide(*methods)` and `quiet(*methods)` on the client wrapper (`Client`). A port deletes its own entry, and, if a helper it used has
 no other user, may leave the helper. If its feature then needs more than deleting (a stand-in the next feature relied
 on), it says so in its report. `tests/managed_real.rs`'s module doc lists the implicit exclusions: no
@@ -269,8 +268,8 @@ There are two levels. Use both.
 - **Ported** (this module): `view_controls::binds` (`Binds`, `MenuLock`). The view calls `Binds::sync_menu`
   (`_sync_menu_binds`), `Binds::typing` (`_sync_typing_binds`), `Binds::after_reload` then `Keys::after_reload` (the
   reload), and `Binds::enable_options` (`options_binds`); its module doc says how. Level 1: `tests/binds_run.rs`. Level 2:
-  `cases/binds.rs` (install and removal; the reload case waits on the view's event stream, and `compositor.py`'s
-  `events_binds` sends the line).
+  `cases/binds.rs` (install and removal; the reload through the view's event stream, the line sent by `compositor.py`'s
+  `events_binds`).
 - **Renderer ops**: none. The style frame after a reload is the view's.
 - **Python tests**:
   - `test_view.py`, the bind install cases

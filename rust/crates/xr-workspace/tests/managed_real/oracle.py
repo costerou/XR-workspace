@@ -41,33 +41,10 @@ def patch(module, name, value):
     setattr(module, name, value)
 
 
-class Nothing:
-    """A stand-in feature object: every method does nothing and gives None (a key bind panel's `bind_kwargs`: {})."""
-    def __init__(self, *args, **kwargs): pass
-    def bind_kwargs(self): return {}
-    def start(self): return self
-    def __getattr__(self, name): return lambda *args, **kwargs: None
-
-
-def stub_view(view):
-    """`view`: the hub stays (the server, the state, the routing), but sends nothing and answers a bare status."""
-    patch(view.ViewControl, 'on_message', lambda self, message: b'')
-    patch(view.ViewControl, 'initial_frame', lambda self: b'')
-    patch(view.ViewControl, 'status_reply', lambda self, status: {})
-    patch(view.ViewControl, 'poll', lambda self, now: b'')
-    patch(view.ViewControl, 'on_events', lambda self, data: b'')
-    patch(view.ViewControl, 'flush', lambda self: None)
-    patch(view.ViewControl, 'save_setup', lambda self: None)
-    patch(view.ViewControl, 'renderer_restarted', lambda self: None)
-    patch(view.ViewControl, 'window_context', lambda self: {})  # the window memory's captures: no placements yet
-    hide('event_stream', 'install_options_binds')
-
-
 def apply_stubs():
-    from tools.native_spike import managed, view
+    from tools.native_spike import managed
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
-        'view': lambda: stub_view(view),
         'desktops': lambda: hide('adopt_windows'),
     }
     for stub in STUBS.values(): stub()

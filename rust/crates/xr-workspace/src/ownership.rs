@@ -23,7 +23,7 @@ pub type Result<T> = std::result::Result<T, String>;
 pub const CURSOR_TIMEOUT: Duration = Duration::from_millis(250);
 
 /// ownership.CURSOR_NAME: `[A-Za-z0-9][A-Za-z0-9_.-]{0,63}`, the whole name.
-fn cursor_name(s: &str) -> bool {
+pub(crate) fn cursor_name(s: &str) -> bool {
     let b = s.as_bytes();
     (1..=64).contains(&b.len())
         && b[0].is_ascii_alphanumeric()

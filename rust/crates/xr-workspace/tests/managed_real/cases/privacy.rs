@@ -1,16 +1,44 @@
 //! `view_controls::privacy`'s parity cases on the scripted compositor (rust/crates/xr-workspace/VIEW_CONTROLS.md).
 //! `reply_privacy` in compositor.py keeps each physical monitor's `dpmsStatus` and applies privacy.py's Lua to it.
 //!
+//! - Ctrl+Alt+D during the run, through each run's own key helper: DP-1 (the fallback) blanked, the glasses (DP-2)
+//!   kept on; Stop wakes DP-1 inside `exit`, before recovery removes the desktops.
 //! - Recovery's wake: the fallback goes DPMS-off mid-run (as privacy mode, or a crash in it, leaves it), the guard
 //!   tolerates that, and after Stop both supervisors' recovery turns it back on before it removes the desktops. (A
 //!   run cannot start with it asleep: both refuse, "presentation requires an independent usable desktop".)
-//!
-//! Not yet: Ctrl+Alt+D during the run (DP-1 blanked, the glasses kept on, DP-1 woken in `exit` before the binds go),
-//! which needs the `socket` port's control-frame action and the shipped `view_controls` in oracle.py, minus its
-//! `privacy.PrivacyDisplay` patch (VIEW_CONTROLS.md, "Narrowing the oracle"). Until then the Python side builds no
-//! `PrivacyDisplay`, and the Rust one builds it and, with no press, sends nothing.
 
 use super::*;
+
+fn blank(s: &Session, who: Who) -> Value {
+    // The window memory's capture a second after adoption (`window_memory::CAPTURE_DELAY`) first: the keys never race it.
+    std::thread::sleep(Duration::from_millis(1500));
+    let sent = s.control(who, "privacy_display", &[]);
+    std::thread::sleep(Duration::from_millis(300)); // the worker's blank done before Stop
+    json!(sent)
+}
+
+#[test]
+fn ctrl_alt_d_blanks_the_main_display_and_the_runs_end_wakes_it() {
+    let (run, _, [python, rust]) = parity_acting("stop", Some(blank));
+    assert_eq!(python, rust);
+    assert_eq!(rust, json!(0), "a run listened");
+    let at = |what: &dyn Fn(&String) -> bool| run.trace.iter().position(|r| what(r));
+    let blanked = at(&|r| r.starts_with(r#"/eval local t,g="DP-1","DP-2" "#))
+        .unwrap_or_else(|| panic!("DP-1 blanked: {:?}", run.trace));
+    let woken = at(&|r| r.starts_with(r#"/eval local t="DP-1" "#) && r.contains("hl.dsp.dpms("))
+        .unwrap_or_else(|| panic!("DP-1 woken: {:?}", run.trace));
+    let recovery = at(&|r| r.contains("\"op\":\"evacuate_remove\""))
+        .unwrap_or_else(|| panic!("recovery removed the outputs: {:?}", run.trace));
+    assert!(
+        blanked < woken && woken < recovery,
+        "blank, then the exit's wake, then recovery: {:?}",
+        run.trace
+    );
+    assert!(
+        run.frames.iter().all(|f| !f.contains("privacy")),
+        "the renderer is told nothing"
+    );
+}
 
 /// A run stopped as `stop` is (SIGINT 300 ms after the renderer is up), with DP-1 put DPMS-off before the Stop.
 fn asleep(who: Who) -> (Session, i32, String) {

@@ -118,14 +118,29 @@ connection, a `status` answered on it, any other op handed to the view controls,
 hold. `tests/control_server_corpus.rs` replays the Python serving every run frame case of `corpus/sockets/frames.json`
 and the socket's own (`corpus/sockets/server.json`, from `tests/native_spike/control_server_corpus.py`): the same
 verdict, request id and reply bytes. `managed_real`'s socket cases ask the status during a run and a hold, and send a
-key through each run's own key helper. Until the view is ported the reply is its header keys and VR video's `video`
-entry on both sides.
+key through each run's own key helper. The reply's body is the view's `status_reply`, then VR video's `video` entry.
+
+The view is ported (`view_controls::view::ViewControl`, `view.ViewControl`): the view keys (maximize, overview, next /
+previous, spacing, recenter, the viewing mode, prediction), the help card and its pages, typing mode, the pill panel's
+keys, `placement`, `stabilization` and the background, with their renderer frames (`view`, `recenter`, `style`, `help`,
+`placement`, `placement_menu`, `environment`); `initial_frame`, the status reply's body, the measured status, `poll` (the
+debounced saves, the overlay's idle close, the key bind panel's and the window memory's polls), the Hyprland events (a
+config reload's style, window events for the window memory), `flush`, `save_setup` and `_restored` on the glasses
+profile (`setup::store`: `ProfileStore`, `PlacementStore`). `tests/view_control_corpus.rs` replays the `controls`
+section of `corpus/view/view.json` (`tests/native_spike/view_corpus.py`): the Python view built from a profile, driven op
+by op on a fixed clock, gives the same frames, status, `profiles.json`, focus and toasts. `managed_real`'s view case sends
+Ctrl+Alt+Up, Right, Left, Down, spacing and help through each run's key helper with a saved profile restored, and compares
+the frames, the focus requests and the profile left. Not ported in it: the options menu (`options_menu.OptionsMenu`, the
+`options_*` ops, `RuntimeText`), and what is another feature's state (the overview pointer's rolls, hit-test geometry and
+so bumping and `_settle`; the panel's desktop row and Ctrl+Alt+R; 3D's sync and reassert), each marked in `view.rs`.
+The panel's and typing mode's bind swaps and a config reload go to the binds (`Binds::sync_menu`, `typing`,
+`after_reload`, `enable_options`), ordered with the key bind panel by their `MenuLock`.
 
 Not ported, so a Rust run presents the desktops without these:
 
-- the glasses' view controls (`managed.view_controls`) but the socket and the Ctrl+Alt binds: the view and its frames,
-  the overview pointer's frames, and through them the pills' desktop changes. Window sending, privacy mode, the key
-  bind panel, 3D, VR video and the overview pointer are ported (below) but reach a run's ops only once the view is.
+- the glasses' view controls (`managed.view_controls`) but the socket, the Ctrl+Alt binds, the view, window sending,
+  privacy mode, the window memory, the key bind panel, 3D, VR video and the overview pointer (below): the options menu,
+  the overview pointer's pill clicks and sliders in the view, and through them the pills' desktop changes.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
@@ -149,9 +164,8 @@ pinned to the run's compositor; and the run's end takes the last capture into `w
 `tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
 recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
 `managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
-Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
-calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
-`Tracker::poll`, `Tracker::deadline`).
+Stop. The view gives it its `window_context` and polls it. Not ported yet: `set_names` and `leaving` (a desktop removed
+and added again in a run), which the `desktops` port calls.
 
 VR video (`view_controls::video`, `video.VideoControl`) is ported: a `video_open` on the control socket opens, probes and
 checks the file (or the web video, relayed through ffmpeg) on a worker thread, and the loop's next poll sends the `video`
@@ -171,9 +185,9 @@ Window sending (`view_controls::send`) is ported: `WindowSender` runs the send k
 Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
 of the run's compositor, and `close` lets a move in flight land before the binds go and recovery starts (`notify` is
 `managed::real::notify`). `tests/send_corpus.rs` replays `corpus/send/sender.json`, recorded from the Python
-`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves. Its keys
-reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
-it.
+`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves.
+`managed_real`'s send case sends Ctrl+Alt+G and Ctrl+Alt+B through each run's key helper: the same move Lua, and no move
+after recovery begins.
 
 The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
 before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
@@ -193,18 +207,17 @@ bind table. `MenuLock`, a ticket lock shared with the key bind panel's worker, o
 the loop asked for it, as the Python's `_menu_lock` does, and holds what is installed. `tests/binds_run.rs` replays
 `rust/corpus/supervisor/binds_run.json` (`tests/native_spike/binds_run_corpus.py`: the Python's `managed.view_controls`
 and `ViewControl` bind work, step for step, on the real client). `tests/managed_real/cases/binds.rs` compares the run's
-install and removal; its config-reload case waits on the view's event stream. Not ported: a Pro 2's mode restore after a
+install and removal, and a config reload through the view's event stream. Not ported: a Pro 2's mode restore after a
 reload (`display_restore`).
 
 Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
 compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
-display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. The press
-reaches it once the `socket` and `view` ports route `privacy_display`. `tests/privacy_transcripts.rs` replays
+display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. `tests/privacy_transcripts.rs` replays
 `corpus/supervisor/privacy.json` (recorded from the Python `PrivacyDisplay` and `privacy.wake` on the shipped
 HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, completions and notifications for the
 toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
-(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
-Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
+(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's, and Ctrl+Alt+D
+through each run's key helper: DP-1 blanked, then woken in `exit` before recovery.
 
 Immersive 3D's run side is ported (`view_controls::immersive`): `find_engine` beside the pinned renderer, the depth
 memory every renderer inherits (`--depth-fd`), `ImmersiveRun` on the engine and `make_sbs` (`sbs.ButtonSbs` on a client
@@ -225,8 +238,11 @@ the `UnifiedSampler` thread on a compositor client of its own pinned to the run'
 (`cursor_reader`, a copy of the run's broker on that client), the window sender's drags on the run's `WindowSender`
 (`control.sender`), and the teardown (`sampler.stop()` removes its binds and shows the cursor before the view binds go).
 Its frames (`overview_pointer`, `roll`, `edge_pan`, `restore_band`, `resize_handle`, `move_handle`) come from
-`Pointer::poll` and the Super and resize ops, which the view calls; until the view is ported the pointer drives a
-`Shell` (the run's `ViewState` with the defaults) and nothing polls it. `tests/overview_pointer_run.rs` replays
+`Pointer::poll` and the Super and resize ops, which the view calls. The view polls it, routes it the renderer's
+geometry datagrams, `xrcursor` events, a reload's dropped binds and a restart, and hands it its state: the pointer's
+`Shell` holds a copy the view shares before each pointer call and takes back after (the Python pointer reads
+`control.state` live). The `Shell`'s other callbacks into the view (pill clicks and slides, the desktop row, scale and
+resolution picks) do nothing yet. `tests/overview_pointer_run.rs` replays
 `rust/corpus/pointer/overview_pointer_run.json` (`tests/native_spike/overview_pointer_run_corpus.py`: the Python's
 pointer and sampler on the shipped HyprlandClient, the dot over a desktop, at its edge and over text): the same calls
 in order, reads, broker read, stop calls and last dot. In a run the sampler binds with the `binds` port's helper

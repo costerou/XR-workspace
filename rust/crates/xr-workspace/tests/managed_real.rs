@@ -30,10 +30,9 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view` and the `desktops` wiring). The shipped
-//!   `view_controls` runs around them, with the ported socket, binds, key bind panel, overview pointer, VR video,
-//!   window sending, privacy mode, 3D and the window memory's tracker. Each feature's port deletes its own entry
-//!   (VIEW_CONTROLS.md, "Narrowing the oracle").
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (the `desktops` wiring). The shipped `view_controls` runs around them, with the ported socket, view, binds, key bind
+//!   panel, overview pointer (its sampler and its join with the view), VR video, window sending, privacy mode, 3D and the window memory's tracker.
+//!   Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
 //!   asks for a change through the view controls.
 //! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
@@ -624,6 +623,18 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
         // A hold polls the glasses' output every survive.POLL_S until they have been back survive.SETTLE_S: how many
         // reads that takes is the clock's. One read stands for a run of them.
         trace.dedup_by(|a, b| a == b && a.starts_with("j/monitors"));
+    }
+    if s.case == "binds-reload" {
+        // A config reload's style read (the view's `_style_frame`, on the loop) and its bind reinstall (`_reload_work`,
+        // off it) run at once in both supervisors: which reaches the compositor first is the scheduler's. The read is
+        // compared where the run's start makes it; the reload's style frame is compared in the frames.
+        let mut seen = false;
+        trace.retain(|r| {
+            let border = r == "j/getoption general:col.active_border";
+            let keep = !(border && seen);
+            seen |= border;
+            keep
+        });
     }
     let others: Vec<Value> = wire
         .iter()

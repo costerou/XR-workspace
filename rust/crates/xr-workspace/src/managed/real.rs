@@ -448,6 +448,7 @@ macro_rules! view_run {
             run_id: &$host.consent.run_id,
             session: &$host.session,
             capture: $names,
+            specs: &$host.specs,
             output: &$host.consent.output,
             fallback: &$host.consent.recovery_output,
             model: &$host.consent.model,

@@ -147,7 +147,10 @@ def events_binds():
 
 
 def reply_view(wire):
-    """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's. A view key that selects a desktop
+    gives its monitor Hyprland's focus (`view.focus_command`)."""
+    if wire.startswith('/dispatch hl.dsp.focus({monitor="XR-') and wire.endswith('"})'):
+        return 'ok'
     return None
 
 

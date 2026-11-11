@@ -79,7 +79,7 @@ pub struct Shown<'a> {
     pub video_active: bool,
     pub zoomed: bool,
     pub typing: bool,
-    pub next_id: &'a mut i64,
+    pub next_id: &'a mut u64,
     pub now: f64,
     pub last_input: &'a mut f64,
     /// Set when the setting changed: the view saves its settings (`self.settings.save(self.state.settings())`).
@@ -282,7 +282,7 @@ impl Immersive {
         let frame = im::renderer_frame(
             &self.run_id,
             &self.session,
-            *view.next_id,
+            *view.next_id as i64,
             &im::Frame {
                 flags: &sent.flags,
                 stereo: sent.stereo,
