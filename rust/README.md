@@ -264,7 +264,8 @@ Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments agains
 `feed_gone_video_loss`. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
 `tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
 `tests/video_owner_events.rs`, `tests/immersive.rs`, `tests/free_pointer.rs` and the `options_evidence` unit test in
-`shell/menus.rs`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
+`shell/menus.rs`. `restore_band_wire`'s twin is in `tests/restore_band.rs`: `restore_band_dump --dump` (byte-equal to
+`restore_band_test --dump`, `cpp_parity.sh`) read by `spike/tests/restore_band_wire_test.py`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
 `spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
 `golden/roll_geometry.cpp`'s.
 
@@ -272,7 +273,6 @@ Not ported or not covered yet:
 
 - Late latch and the GPU timer query (plan task 6).
 - `desktops` has no end-to-end test: the bench never sends that op.
-- The restore band's wire ctest (the binary's `--dump` read by the Python supervisor) has no twin.
 
 ### IPC
 
