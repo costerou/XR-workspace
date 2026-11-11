@@ -18,6 +18,7 @@ pub mod gl;
 pub mod glass;
 pub mod glass_theme;
 pub mod hud;
+pub mod hud_font;
 pub mod hud_gl;
 pub mod ipc;
 pub mod layout;
