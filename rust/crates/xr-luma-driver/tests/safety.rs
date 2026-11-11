@@ -107,13 +107,23 @@ fn wait_running(dir: &Path, child: &mut Child) {
     std::thread::sleep(Duration::from_millis(300));
 }
 
-/// A realtime replay, once it says `luma: connected`: the line it logs once its lock, signal handlers and feed are up, the
-/// one the C++ test waits for. Returns the log so far. ftok keys hold 16 bits of the inode, so a private feed can land on a
-/// key another segment holds and the driver refuses with "key in use"; it removes its files then, so the next start gets
-/// new inodes and new keys (as xr-pose's `open_private` and spike/tests/fake_feed.hpp retry).
+/// ftok keys hold 16 bits of the inode, so a private feed can land on a key another segment holds and the driver refuses
+/// with "key in use". It removes its files then, so the next start gets new inodes and new keys (as xr-pose's
+/// `open_private` and spike/tests/fake_feed.hpp retry). Only that refusal is retried: every other exit is the test's.
+fn key_in_use(status: std::process::ExitStatus, log: &str) -> bool {
+    status.code() == Some(4) && log.contains("reason=feed key in use: ")
+}
+
+/// A realtime replay, once it says `luma: connected`.
 fn start_replay(dir: &Path, cap: &Path) -> (Child, String) {
+    start_running(|| replay(dir, cap, true))
+}
+
+/// The driver `make` builds, once it says `luma: connected`: the line it logs once its lock, signal handlers and feed are
+/// up, the one the C++ test waits for. Returns the log so far. Started again on [`key_in_use`].
+fn start_running(mut make: impl FnMut() -> Command) -> (Child, String) {
     for _ in 0..64 {
-        let mut child = replay(dir, cap, true).spawn().unwrap();
+        let mut child = make().spawn().unwrap();
         let err = child.stderr.as_mut().unwrap();
         let (mut log, mut line, mut byte) = (String::new(), Vec::new(), [0u8]);
         // Byte by byte, so nothing after the line is taken from the pipe; it ends at the driver's exit.
@@ -129,10 +139,23 @@ fn start_replay(dir: &Path, cap: &Path) -> (Child, String) {
         }
         log += &String::from_utf8_lossy(&line);
         let status = exit_within(&mut child, Duration::from_secs(5));
-        if status.code() == Some(4) && log.contains("reason=feed key in use: ") {
+        if key_in_use(status, &log) {
             continue;
         }
         panic!("the driver exited early, {status}: {log}");
+    }
+    panic!("no free SysV keys for a private feed")
+}
+
+/// The driver `make` builds, run to its exit within `timeout`: its status and log. Run again on [`key_in_use`].
+fn run_to_exit(mut make: impl FnMut() -> Command, timeout: Duration) -> (std::process::ExitStatus, String) {
+    for _ in 0..64 {
+        let mut child = make().spawn().unwrap();
+        let status = exit_within(&mut child, timeout);
+        let log = stderr_of(&mut child);
+        if !key_in_use(status, &log) {
+            return (status, log);
+        }
     }
     panic!("no free SysV keys for a private feed")
 }
@@ -651,9 +674,7 @@ fn seccomp_filter_kills_a_socket_call() {
 fn s1_s2_replay_makes_no_network_or_reset_syscall() {
     let dir = scratch("seccomp");
     let cap = capture(&dir, Some(3000));
-    let mut child = filtered(replay(&dir, &cap, false)).spawn().unwrap();
-    let status = exit_within(&mut child, Duration::from_secs(60));
-    let log = stderr_of(&mut child);
+    let (status, log) = run_to_exit(|| filtered(replay(&dir, &cap, false)), Duration::from_secs(60));
     assert_eq!(status.signal(), None, "killed by the seccomp filter:\n{log}");
     assert_eq!(status.code(), Some(0), "{log}");
     assert!(log.contains("luma: calibrated"), "{log}");
@@ -667,12 +688,13 @@ fn s1_s2_replay_makes_no_network_or_reset_syscall() {
 fn s1_s6_running_process_has_no_network_and_no_input_device() {
     let dir = scratch("proc");
     let cap = capture(&dir, None);
-    let mut c = Command::new("unshare");
-    c.args(["--user", "--net", "--"]).arg(BIN);
-    c.arg("--replay").arg(&cap).arg("--ipc-prefix").arg(prefix(&dir)).arg("--replay-realtime");
-    c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
-    let mut child = c.spawn().unwrap();
-    wait_running(&dir, &mut child);
+    let (mut child, _) = start_running(|| {
+        let mut c = Command::new("unshare");
+        c.args(["--user", "--net", "--"]).arg(BIN);
+        c.arg("--replay").arg(&cap).arg("--ipc-prefix").arg(prefix(&dir)).arg("--replay-realtime");
+        c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+        c
+    });
     // unshare execs the driver in place, so the child's pid is the driver's.
     let pid = child.id();
     let exe = fs::read_link(format!("/proc/{pid}/exe")).unwrap();
@@ -716,8 +738,8 @@ fn s1_s6_running_process_has_no_network_and_no_input_device() {
 fn s8_second_copy_refuses_to_start() {
     let dir = scratch("s8");
     let cap = capture(&dir, None);
-    let mut first = replay(&dir, &cap, true).spawn().unwrap();
-    wait_running(&dir, &mut first);
+    let (mut first, _) = start_replay(&dir, &cap);
+    // The second copy is refused at the lock, before it opens a feed, so it never meets a key in use.
     let mut second = replay(&dir, &cap, true).spawn().unwrap();
     let status = exit_within(&mut second, Duration::from_secs(5));
     let log = stderr_of(&mut second);
@@ -751,16 +773,13 @@ fn s9_sigterm_stops_cleanly() {
 fn s9_kill_9_leaves_the_lock_free() {
     let dir = scratch("kill9");
     let cap = capture(&dir, None);
-    let mut child = replay(&dir, &cap, true).spawn().unwrap();
-    wait_running(&dir, &mut child);
+    let (mut child, _) = start_replay(&dir, &cap);
     signal(&child, libc::SIGKILL);
     assert_eq!(exit_within(&mut child, Duration::from_secs(1)).signal(), Some(libc::SIGKILL));
     // A replay makes private segments and removes them as it closes; kill -9 leaves them (the live feed's are shared and
     // reused, so only a test prefix has this). Remove them, then the next copy goes on the same prefix: the lock is free.
     remove_private_segments(&dir);
-    let mut again = replay(&dir, &cap, false).spawn().unwrap();
-    let status = exit_within(&mut again, Duration::from_secs(60));
-    let log = stderr_of(&mut again);
+    let (status, log) = run_to_exit(|| replay(&dir, &cap, false), Duration::from_secs(60));
     assert!(!log.contains("already-running"), "{log}");
     assert_eq!(status.code(), Some(0), "{log}");
 }
@@ -811,8 +830,7 @@ fn viture_plugged_in() -> bool {
 fn s10_running_driver_has_no_privilege() {
     let dir = scratch("s10");
     let cap = capture(&dir, None);
-    let mut child = replay(&dir, &cap, true).spawn().unwrap();
-    wait_running(&dir, &mut child);
+    let (mut child, _) = start_replay(&dir, &cap);
     assert_no_capabilities(&child);
     signal(&child, libc::SIGTERM);
     assert_eq!(exit_within(&mut child, Duration::from_secs(2)).code(), Some(0));
