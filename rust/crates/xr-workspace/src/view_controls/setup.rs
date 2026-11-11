@@ -408,6 +408,11 @@ fn reset(path: &Path, model: &str) -> Result<(), OsError> {
         setup: default_setup(),
         ..load_profile(path, model)
     };
+    write_profile(path, model, &profile)
+}
+
+/// `save_profile(path, model, profile)`'s write: every other model's profile kept as it was read.
+fn write_profile(path: &Path, model: &str, profile: &Profile) -> Result<(), OsError> {
     let others: Vec<(String, Json)> = read_profiles(path)
         .into_iter()
         .filter(|(k, _)| k != model && MODELS.contains(&k.as_str()))
@@ -417,9 +422,125 @@ fn reset(path: &Path, model: &str) -> Result<(), OsError> {
         &File {
             others: &others,
             model,
-            profile: &profile,
+            profile,
         },
     )
+}
+
+/// The view's stores of one glasses model's profile (`profiles.ProfileStore`, `PlacementStore`), for
+/// `view_controls::view`: each write keeps every other field of the profile and every other model's profile. An error
+/// is the Python's `ValueError` / `OSError` text, which the view drops (its saves are best effort).
+pub mod store {
+    use super::*;
+
+    fn model_ok(model: &str) -> Result<(), String> {
+        if MODELS.contains(&model) {
+            Ok(())
+        } else {
+            Err("unknown model".into())
+        }
+    }
+
+    /// `geometry.validate_rolls(rolls, len(rolls))`.
+    fn rolls_ok(rolls: &[i64]) -> Result<(), String> {
+        if rolls.iter().all(|r| (-MAX_ROLL..=MAX_ROLL).contains(r)) {
+            Ok(())
+        } else {
+            Err(format!("roll must be an integer -{MAX_ROLL}..{MAX_ROLL}"))
+        }
+    }
+
+    fn write(path: &Path, model: &str, profile: &Profile) -> Result<(), String> {
+        write_profile(path, model, profile).map_err(|e| e.0)
+    }
+
+    /// `ProfileStore.load()`: the profile's view settings.
+    pub fn load_view(path: &Path, model: &str) -> Settings {
+        load_profile(path, model).view
+    }
+
+    /// `ProfileStore.save(view_settings)`.
+    pub fn save_view(path: &Path, model: &str, settings: &Settings) -> Result<(), String> {
+        model_ok(model)?;
+        if !settings.is_valid() {
+            return Err("invalid settings".into());
+        }
+        let profile = Profile {
+            view: settings.clone(),
+            ..load_profile(path, model)
+        };
+        write(path, model, &profile)
+    }
+
+    /// `PlacementStore.save_layout(placements, rolls)`: one placement per desktop of the profile (more dropped,
+    /// missing ones kept as saved), and the rolls cut or padded the same way (None: the saved ones stay).
+    pub fn save_layout(
+        path: &Path,
+        model: &str,
+        placements: &[Placement],
+        rolls: Option<&[i64]>,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let mut profile = load_profile(path, model);
+        let n = profile.setup.desktops.len();
+        let placements =
+            crate::geometry::validate_placements(placements).map_err(|e| e.0.to_owned())?;
+        let saved = &profile.setup.placements;
+        let mut full: Vec<Placement> = placements
+            .iter()
+            .chain(saved.iter().skip(placements.len()))
+            .copied()
+            .take(n)
+            .collect();
+        full.resize(n, DEFAULT_PLACEMENT);
+        if let Some(rolls) = rolls {
+            rolls_ok(rolls)?;
+            let mut out: Vec<i64> = rolls
+                .iter()
+                .chain(profile.setup.rolls.iter().skip(rolls.len()))
+                .copied()
+                .collect();
+            out.resize(out.len().max(n), 0);
+            out.truncate(n);
+            profile.setup.rolls = out;
+        }
+        profile.setup.placements = full;
+        write(path, model, &profile)
+    }
+
+    /// `PlacementStore.save_desktops(desktops, placements, rolls)`: the run's whole monitor setup (None: level).
+    pub fn save_desktops(
+        path: &Path,
+        model: &str,
+        desktops: &[Desktop],
+        placements: &[Placement],
+        rolls: Option<&[i64]>,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let n = desktops.len();
+        if !(1..=MAX_DESKTOPS).contains(&n) {
+            return Err(format!("1 to {MAX_DESKTOPS} desktops required"));
+        }
+        let placements =
+            crate::geometry::validate_placements(placements).map_err(|e| e.0.to_owned())?;
+        if placements.len() != n {
+            return Err(format!("exactly {n} placements required"));
+        }
+        let rolls = rolls.map_or_else(|| vec![0; n], <[i64]>::to_vec);
+        if rolls.len() != n {
+            return Err(format!("exactly {n} rolls required"));
+        }
+        rolls_ok(&rolls)?;
+        let profile = Profile {
+            setup: Setup {
+                desktops: desktops.to_vec(),
+                placements,
+                rolls,
+            },
+            ..load_profile(path, model)
+        };
+        write(path, model, &profile)
+    }
 }
 
 /// `{'schema': SCHEMA, 'profiles': {**others, model: profile}}`.
