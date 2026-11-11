@@ -1,0 +1,6780 @@
+{
+ "schema": 1,
+ "source": "tests/native_spike/window_memory_tracker_corpus.py",
+ "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+ "model": "luma-ultra",
+ "fallback": "DP-1",
+ "names": [
+  "XR-1",
+  "XR-2",
+  "XR-3"
+ ],
+ "note": "One request per connection. Requests and replies are the exact bytes, as UTF-8 text.",
+ "scenarios": [
+  {
+   "name": "a_mark_saves_after_the_delay",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "capture",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "the_memory_is_only_written_when_it_changed",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "capture",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 2,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "at": [
+         4200,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 61,
+        "name": "61",
+        "monitor": "XR-1",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4200, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           104,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 3,
+      "writes": 2,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_failed_read_keeps_what_was_saved_and_tries_again",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "capture",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "fail": true,
+     "state": {
+      "clients": [],
+      "workspaces": [
+       {
+        "id": 61,
+        "name": "61",
+        "monitor": "XR-1",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "unknown request"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 2,
+      "writes": 1,
+      "failures": 1,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "at": [
+         4100,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 61,
+        "name": "61",
+        "monitor": "XR-1",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 3,
+      "writes": 1,
+      "failures": 1,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "an_empty_capture_never_replaces_a_memory",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "capture",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "state": {
+      "clients": [],
+      "workspaces": [
+       {
+        "id": 61,
+        "name": "61",
+        "monitor": "XR-1",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 2,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "close",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 3,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "the_last_capture_is_at_the_end",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "close",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "capture",
+     "exchanges": [],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "close",
+     "exchanges": [],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "the_context_comes_from_the_view",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "at": [
+       4100,
+       26
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 61,
+      "name": "61",
+      "monitor": "XR-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": {
+    "XR-1": {
+     "placement": {
+      "x": 100,
+      "y": 0,
+      "distance": 90,
+      "curvature": 0
+     },
+     "roll": -300
+    }
+   },
+   "steps": [
+    {
+     "do": "close",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 61, \"name\": \"61\"}, \"at\": [4100, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 61, \"name\": \"61\", \"monitor\": \"XR-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": {
+           "x": 100,
+           "y": 0,
+           "distance": 90,
+           "curvature": 0
+          },
+          "roll": -300
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-1",
+          "index": 0,
+          "workspace": 61,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           4,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "nothing_saved_does_nothing",
+   "before": null,
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [],
+     "file": null,
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [],
+     "file": null,
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "an_unusable_memory_does_nothing",
+   "before": "{not json",
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [],
+     "file": {
+      "raw": "{not json"
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [],
+     "file": {
+      "raw": "{not json"
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "moves_then_settles_with_one_plan",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-2\",71}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xa\",0,800,600}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "focus_is_read_before_anything_moves",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": true
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {
+     "address": "0xa"
+    }
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": true}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{\"address\": \"0xa\"}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-2\",71}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xa\",0,800,600}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local F={} local A={} local P=\"0xa\" local PM=\"DP-1\" local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() for _,e in ipairs(F) do D(hl.dsp.window.fullscreen_state,{internal=e[2],client=e[3],action=\"set\",window=\"address:\"..e[1]}) end for _,e in ipairs(A) do local w=win(e[2]) local x=w and w.workspace local m=hl.get_monitor(e[1]) if x and m and x.monitor and x.monitor.name==e[1] then pcall(function() m:set_workspace({workspace=x.name}) end) end end if P~=\"\" and win(P) then D(hl.dsp.focus,{window=\"address:\"..P}) elseif PM~=\"\" and hl.get_monitor(PM) then D(hl.dsp.focus,{monitor=PM}) end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_compositor_failure_leaves_the_windows_to_adoption",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "fail": true,
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "unknown request"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_refused_move_does_not_stop_the_run",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "eval": "refused",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-2\",71}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "refused"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_refused_settle_does_not_stop_the_run",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-2\",71}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "eval": "refused",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "refused"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "the_address_needs_the_same_session",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "older",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "foot",
+        "title": "vim",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "firefox",
+      "title": "x",
+      "initialTitle": "x",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     },
+     {
+      "address": "0xb",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "foot",
+      "title": "vim",
+      "initialTitle": "vim",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"firefox\", \"title\": \"x\", \"initialTitle\": \"x\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}, {\"address\": \"0xb\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"foot\", \"title\": \"vim\", \"initialTitle\": \"vim\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={{\"0xb\",\"XR-2\",71,0}} local W={} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "older",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "foot",
+          "title": "vim",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xb\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xb\",0,800,600}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "older",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "foot",
+          "title": "vim",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "the_first_capture_after_a_start_replaces_the_old_memory",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-2",
+        "index": 1,
+        "workspace": 71,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       },
+       {
+        "address": "0xb",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-3",
+        "index": 2,
+        "workspace": 81,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-2\",71}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         },
+         {
+          "address": "0xb",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-3",
+          "index": 2,
+          "workspace": 81,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xa\",0,800,600}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         },
+         {
+          "address": "0xb",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-3",
+          "index": 2,
+          "workspace": 81,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    },
+    {
+     "do": "close",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "at": [
+         6016,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 71,
+        "name": "71",
+        "monitor": "XR-2",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 71, \"name\": \"71\"}, \"at\": [6016, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 71, \"name\": \"71\", \"monitor\": \"XR-2\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_window_on_a_missing_desktop_stays_parked_there",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-4",
+        "index": 3,
+        "workspace": 91,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-3\",91}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xa\",0,0,0}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    },
+    {
+     "do": "close",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 82,
+         "name": "82"
+        },
+        "at": [
+         7936,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 82,
+        "name": "82",
+        "monitor": "XR-3",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 82, \"name\": \"82\"}, \"at\": [7936, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 82, \"name\": \"82\", \"monitor\": \"XR-3\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": true,
+          "landing": "XR-3"
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "a_parked_window_moved_elsewhere_is_no_longer_parked",
+   "before": {
+    "schema": 1,
+    "models": {
+     "luma-ultra": {
+      "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+      "windows": [
+       {
+        "address": "0xa",
+        "class": "kitty",
+        "title": "term",
+        "initial_title": "term",
+        "pid": 100,
+        "output": "XR-4",
+        "index": 3,
+        "workspace": 91,
+        "layout": "master",
+        "floating": false,
+        "at": [
+         0,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "fullscreen": 0,
+        "client": 0,
+        "order": 0,
+        "column": 0,
+        "parked": false,
+        "landing": null
+       }
+      ],
+      "desktops": {
+       "XR-1": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-2": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       },
+       "XR-3": {
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "active": null,
+        "placement": null,
+        "roll": null
+       }
+      }
+     }
+    }
+   },
+   "state": {
+    "clients": [
+     {
+      "address": "0xa",
+      "workspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "at": [
+       0,
+       0
+      ],
+      "size": [
+       800,
+       600
+      ],
+      "class": "kitty",
+      "title": "term",
+      "initialTitle": "term",
+      "pid": 100,
+      "floating": false,
+      "fullscreen": 0,
+      "fullscreenClient": 0,
+      "pinned": false,
+      "grouped": [],
+      "mapped": true,
+      "hidden": false
+     }
+    ],
+    "workspaces": [
+     {
+      "id": 1,
+      "name": "1",
+      "monitor": "DP-1",
+      "tiledLayout": "master",
+      "windows": 1
+     }
+    ],
+    "monitors": [
+     {
+      "name": "DP-1",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 1,
+       "name": "1"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-1",
+      "x": 4096,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 61,
+       "name": "61"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-2",
+      "x": 6016,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 71,
+       "name": "71"
+      },
+      "focused": false
+     },
+     {
+      "name": "XR-3",
+      "x": 7936,
+      "y": 0,
+      "width": 1920,
+      "height": 1200,
+      "scale": 1.0,
+      "reserved": [
+       0,
+       26,
+       0,
+       0
+      ],
+      "activeWorkspace": {
+       "id": 81,
+       "name": "81"
+      },
+      "focused": false
+     }
+    ],
+    "activewindow": {}
+   },
+   "context": null,
+   "steps": [
+    {
+     "do": "place",
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 1, \"name\": \"1\"}, \"at\": [0, 0], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 1, \"name\": \"1\", \"monitor\": \"DP-1\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      },
+      {
+       "request": "j/activewindow",
+       "reply": "{}"
+      },
+      {
+       "request": "/eval local C={} local W={{1,\"XR-3\",91}} local ow=type(o)==\"table\" and type(o.workspaces)==\"table\" and o.workspaces or nil local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end local function home(id,name,s) if not ow or type(ow.workspace_id)~=\"function\" then return end local m=hl.get_monitor(name) local w=hl.get_workspace(id) if not m or not w or not w.monitor or w.monitor.name~=name then return end local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end local x=hl.get_workspace(want) if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end if x and inb then return end local n=(not x) and want or free(b) if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end local G={} local function pick(m,id,own) local b=ow and type(ow.workspace_id)==\"function\" and ow.workspace_id(m,1)-1 or nil if b and not (id>b and id<=b+10) then id=b+(id-1)%10+1 end local x=hl.get_workspace(id) if x and ((x.monitor and x.monitor.name~=m.name) or (own and (x.windows or 0)>0)) then id=b and free(b) or nil end return id end for _,e in ipairs(W) do pcall(function() hl.dispatch(hl.dsp.workspace.move({workspace=tostring(e[1]),monitor=e[2]})) home(e[1],e[2],e[3]) end) end for _,e in ipairs(C) do pcall(function() local m=hl.get_monitor(e[2]) if not m then return end local k=e[2]..\":\"..e[3] local id=G[k] or pick(m,e[3],e[4]==1) or (m.active_workspace and m.active_workspace.id) if not id or id<=0 then return end G[k]=id hl.dispatch(hl.dsp.window.move({workspace=tostring(id),follow=false,window=\"address:\"..e[1]})) local x=hl.get_workspace(id) if x and x.monitor and x.monitor.name~=e[2] then hl.dispatch(hl.dsp.workspace.move({workspace=tostring(id),monitor=e[2]})) end end) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 0
+     }
+    },
+    {
+     "do": "finish",
+     "exchanges": [
+      {
+       "request": "/eval local L={{\"0xa\",\"master\"}} local S={} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end for _,e in ipairs(L) do local w=win(e[1]) local x=w and w.workspace if x and x.tiled_layout and x.tiled_layout~=e[2] then pcall(hl.workspace_rule,{workspace=tostring(x.id),layout=e[2]}) end end for _,e in ipairs(S) do local w=win(e[1]) if w then local s=\"address:\"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action=\"set\",window=s}) end if w.floating~=(e[2]==1) then D(hl.dsp.window.float,{action=e[2]==1 and \"on\" or \"off\",window=s}) end if e[2]==1 then if e[5]>0 and e[6]>0 then D(hl.dsp.window.resize,{x=e[5],y=e[6],window=s}) end D(hl.dsp.window.move,{x=e[3],y=e[4],window=s}) end end end",
+       "reply": "ok"
+      },
+      {
+       "request": "/eval local G={{\"0xa\",0,0,0}} local function D(f,a) pcall(function() hl.dispatch(f(a)) end) end local function win(a) return hl.get_window(\"address:\"..a) end local p=hl.get_cursor_pos() local function tl(w) return w and not w.floating and not w.group and (w.fullscreen or 0)==0 end local function xy(a,b) if a.x~=b.x then return a.x<b.x end if a.y~=b.y then return a.y<b.y end return a.a<b.a end local id for _,r in ipairs(G) do local w=win(r[1]) if w and w.workspace then id=w.workspace.id break end end local R={} for _,r in ipairs(G) do local w=win(r[1]) if tl(w) and w.workspace.id==id then R[#R+1]=r end end local function slots() local cur,inq,g={}, {}, {} for _,r in ipairs(R) do inq[r[1]]=true g[#g+1]=r[1] end for _,w in ipairs(hl.get_windows()) do if tl(w) and w.workspace and w.workspace.id==id then cur[#cur+1]={a=w.address,x=w.at.x,y=w.at.y} end end table.sort(cur,xy) for _,c in ipairs(cur) do if not inq[c.a] then g[#g+1]=c.a end end local pos={} for i,c in ipairs(cur) do pos[c.a]=i end for k,a in ipairs(g) do local b=cur[k] and cur[k].a if b and pos[a] and b~=a then D(hl.dsp.window.swap,{window=\"address:\"..a,target=\"address:\"..b}) local i=pos[a] cur[i],cur[k]=cur[k],cur[i] pos[b],pos[a]=i,k end end end local function col(a) local w=win(a) return w and w.layout and w.layout.column end local function fo(a) D(hl.dsp.focus,{window=\"address:\"..a}) end local function M(m) D(hl.dsp.layout,m) end if id then slots() local ok,d=pcall(hl.get_config,\"scrolling.direction\") local h=not (ok and (d==\"left\" or d==\"up\" or d==\"down\")) if R[1] and col(R[1][1]) then if h then local bad=false for i=2,#R do local a,b=col(R[i-1][1]),col(R[i][1]) if (R[i][2]==R[i-1][2])~=((a and b and a.index==b.index) or false) then bad=true end end if bad then for _,r in ipairs(R) do local c=col(r[1]) local n=c and #c.windows or 1 if n>1 then fo(r[1]) for _=2,n do M(\"expel\") end end end slots() local i=1 while i<=#R do local j=i while R[j+1] and R[j+1][2]==R[i][2] do j=j+1 end if j>i then fo(R[i][1]) for _=i+1,j do M(\"consume\") end end i=j+1 end end local last for _,r in ipairs(R) do if r[2]~=last then last=r[2] local w,c=win(r[1]),col(r[1]) if w and c and r[3]>0 and w.size.x>0 and math.abs(w.size.x-r[3])>8 then fo(r[1]) M(string.format(\"colresize %.4f\",math.max(0.05,math.min(1,c.width*r[3]/w.size.x)))) end end end end else for _,r in ipairs(R) do local w=win(r[1]) if w and r[3]>0 and r[4]>0 and (math.abs(w.size.x-r[3])>2 or math.abs(w.size.y-r[4])>2) then D(hl.dsp.window.resize,{x=r[3],y=r[4],window=\"address:\"..r[1]}) end end end end if p then D(hl.dsp.cursor.move,{x=p.x,y=p.y}) end",
+       "reply": "ok"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ],
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": null,
+          "placement": null,
+          "roll": null
+         }
+        }
+       }
+      }
+     },
+     "counts": {
+      "captures": 0,
+      "writes": 0,
+      "failures": 0,
+      "restored": 1
+     }
+    },
+    {
+     "do": "capture",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 82,
+         "name": "82"
+        },
+        "at": [
+         7936,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 82,
+        "name": "82",
+        "monitor": "XR-3",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 82, \"name\": \"82\"}, \"at\": [7936, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 82, \"name\": \"82\", \"monitor\": \"XR-3\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-4",
+          "index": 3,
+          "workspace": 91,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": true,
+          "landing": "XR-3"
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 1,
+      "writes": 1,
+      "failures": 0,
+      "restored": 1
+     }
+    },
+    {
+     "do": "close",
+     "state": {
+      "clients": [
+       {
+        "address": "0xa",
+        "workspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "at": [
+         6016,
+         26
+        ],
+        "size": [
+         800,
+         600
+        ],
+        "class": "kitty",
+        "title": "term",
+        "initialTitle": "term",
+        "pid": 100,
+        "floating": false,
+        "fullscreen": 0,
+        "fullscreenClient": 0,
+        "pinned": false,
+        "grouped": [],
+        "mapped": true,
+        "hidden": false
+       }
+      ],
+      "workspaces": [
+       {
+        "id": 71,
+        "name": "71",
+        "monitor": "XR-2",
+        "tiledLayout": "master",
+        "windows": 1
+       }
+      ],
+      "monitors": [
+       {
+        "name": "DP-1",
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 1,
+         "name": "1"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-1",
+        "x": 4096,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 61,
+         "name": "61"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-2",
+        "x": 6016,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 71,
+         "name": "71"
+        },
+        "focused": false
+       },
+       {
+        "name": "XR-3",
+        "x": 7936,
+        "y": 0,
+        "width": 1920,
+        "height": 1200,
+        "scale": 1.0,
+        "reserved": [
+         0,
+         26,
+         0,
+         0
+        ],
+        "activeWorkspace": {
+         "id": 81,
+         "name": "81"
+        },
+        "focused": false
+       }
+      ],
+      "activewindow": {}
+     },
+     "exchanges": [
+      {
+       "request": "j/clients",
+       "reply": "[{\"address\": \"0xa\", \"workspace\": {\"id\": 71, \"name\": \"71\"}, \"at\": [6016, 26], \"size\": [800, 600], \"class\": \"kitty\", \"title\": \"term\", \"initialTitle\": \"term\", \"pid\": 100, \"floating\": false, \"fullscreen\": 0, \"fullscreenClient\": 0, \"pinned\": false, \"grouped\": [], \"mapped\": true, \"hidden\": false}]"
+      },
+      {
+       "request": "j/workspaces",
+       "reply": "[{\"id\": 71, \"name\": \"71\", \"monitor\": \"XR-2\", \"tiledLayout\": \"master\", \"windows\": 1}]"
+      },
+      {
+       "request": "j/monitors all",
+       "reply": "[{\"name\": \"DP-1\", \"x\": 0, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"focused\": false}, {\"name\": \"XR-1\", \"x\": 4096, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 61, \"name\": \"61\"}, \"focused\": false}, {\"name\": \"XR-2\", \"x\": 6016, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 71, \"name\": \"71\"}, \"focused\": false}, {\"name\": \"XR-3\", \"x\": 7936, \"y\": 0, \"width\": 1920, \"height\": 1200, \"scale\": 1.0, \"reserved\": [0, 26, 0, 0], \"activeWorkspace\": {\"id\": 81, \"name\": \"81\"}, \"focused\": false}]"
+      }
+     ],
+     "file": {
+      "schema": 1,
+      "models": {
+       "luma-ultra": {
+        "instance": "0123456789abcdef0123456789abcdef01234567_1700000000_1",
+        "desktops": {
+         "XR-1": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 61,
+          "placement": null,
+          "roll": null
+         },
+         "XR-2": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 71,
+          "placement": null,
+          "roll": null
+         },
+         "XR-3": {
+          "width": 1920,
+          "height": 1200,
+          "scale": 1.0,
+          "active": 81,
+          "placement": null,
+          "roll": null
+         }
+        },
+        "windows": [
+         {
+          "address": "0xa",
+          "class": "kitty",
+          "title": "term",
+          "initial_title": "term",
+          "pid": 100,
+          "output": "XR-2",
+          "index": 1,
+          "workspace": 71,
+          "layout": "master",
+          "floating": false,
+          "at": [
+           0,
+           26
+          ],
+          "size": [
+           800,
+           600
+          ],
+          "fullscreen": 0,
+          "client": 0,
+          "order": 0,
+          "column": 0,
+          "parked": false,
+          "landing": null
+         }
+        ]
+       }
+      }
+     },
+     "counts": {
+      "captures": 2,
+      "writes": 2,
+      "failures": 0,
+      "restored": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1351,6 +1351,11 @@ impl HelpOverlay {
         self.font = font;
     }
 
+    /// The font the card is laid out in (None: the pixel font).
+    pub fn font(&self) -> Option<&dyn HudTextMetrics> {
+        self.font.as_deref()
+    }
+
     /// The theme colour the card is drawn in; a change re-renders a rendered card (true).
     pub fn set_accent(&mut self, accent: [f32; 3]) -> bool {
         if accent == self.accent {

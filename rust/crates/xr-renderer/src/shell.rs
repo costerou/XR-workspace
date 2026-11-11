@@ -45,6 +45,22 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 };
 
 mod captures;
+mod scene;
+// One module per feature: its state, its Presentation calls and its share of the frame (scene.rs, rust/README.md).
+mod cards;
+mod continuity_shell;
+mod handles;
+mod immersive;
+mod menus;
+mod pointer;
+mod roll;
+mod scene_layout;
+mod tracking;
+mod video_shell;
+
+pub use continuity_shell::continuity_fd_supported;
+pub use immersive::depth_fd_supported;
+pub use tracking::{POSE_PREFIX, pose_feed_supported};
 
 use crate::metrics::{Metrics, Presented};
 use crate::pattern::{
@@ -99,6 +115,8 @@ struct Feedback {
     ticket: u64,
     selected_output: bool,
     other_output: bool,
+    /// The device time of the pose the frame drew; -1: none (tracking's VsyncMeter).
+    sample_ms: f32,
 }
 
 /// One XRGB8888 shared-memory buffer. Its pixels are written only while the compositor does not hold it.
@@ -199,6 +217,9 @@ struct State {
     scale120: u32,
     configured: bool,
     closed: bool,
+    /// Every feature's state (scene.rs). Before `capture`, so it drops first: the VR video's player and sphere free
+    /// GL objects while the compositor's context is still current.
+    features: scene::Features,
     /// Managed-output capture and the composition of the captured desktops (none: the test pattern).
     capture: captures::CaptureState,
 }
@@ -225,6 +246,7 @@ impl State {
             *f = None; // the proxy is dropped; its late events find no slot
         }
         self.metrics.abandon();
+        self.features.tracking.abandon();
     }
 }
 
@@ -323,6 +345,7 @@ impl Dispatch<WpPresentation, ()> for State {
     ) {
         if let wp_presentation::Event::ClockId { clk_id } = event {
             s.metrics.clock(clk_id);
+            s.features.tracking.clock(clk_id);
         }
     }
 }
@@ -361,7 +384,7 @@ impl Dispatch<WpPresentationFeedback, usize> for State {
                     WEnum::Value(k) => k.bits(),
                     WEnum::Unknown(raw) => raw,
                 };
-                let (ticket, on_selected) = (f.ticket, f.selected_output && !f.other_output);
+                let (ticket, on_selected, sample_ms) = (f.ticket, f.selected_output && !f.other_output, f.sample_ms);
                 s.feedbacks[*slot] = None;
                 let p = Presented {
                     sec_hi: tv_sec_hi,
@@ -373,11 +396,17 @@ impl Dispatch<WpPresentationFeedback, usize> for State {
                     flags,
                 };
                 s.metrics.presented(ticket, p, on_selected);
+                let present_ns = ((u64::from(tv_sec_hi) << 32) | u64::from(tv_sec_lo))
+                    .wrapping_mul(1_000_000_000)
+                    .wrapping_add(u64::from(tv_nsec));
+                let refresh = s.metrics.snapshot().last_refresh_prediction_ns;
+                s.features.tracking.presented(ticket, present_ns, refresh, sample_ms);
             }
             wp_presentation_feedback::Event::Discarded => {
                 let ticket = f.ticket;
                 s.feedbacks[*slot] = None;
                 s.metrics.discarded(ticket);
+                s.features.tracking.discarded(ticket);
             }
             _ => {}
         }
@@ -409,6 +438,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for State {
                 s.height = height;
                 s.configured = true;
                 s.cadence.invalidate();
+                s.features.cards.configured(s.width, height); // the help card's text size comes from the output height
                 s.apply_scale();
                 s.capture.invalidate();
             }
@@ -711,14 +741,22 @@ impl Presentation {
                 .submit()
                 .ok_or_else(|| Error::new("feedback", "feedback capacity invariant failed"))?;
             let proxy = presentation.feedback(surface, &self.qh, slot);
+            // A GPU frame's pose read time, for the software latency (tracking.rs).
+            let mut sample_ms = -1.0;
+            if let Some((read_ns, drawn_ms)) = s.features.tracking.take_read() {
+                s.features.tracking.read(ticket, read_ns);
+                sample_ms = drawn_ms;
+            }
             s.feedbacks[slot] = Some(Feedback {
                 proxy,
                 ticket,
                 selected_output: false,
                 other_output: false,
+                sample_ms,
             });
         } else {
             s.metrics.submit();
+            s.features.tracking.take_read(); // no feedback: no latency sample
         }
         surface.commit();
         match self.conn.flush() {
@@ -804,6 +842,7 @@ impl Presentation {
             v.destroy();
         }
         s.frame = None;
+        s.features.immersive.close(); // its GL objects before the compositor's
         s.capture.close();
         if let Some(l) = s.layer.take() {
             l.destroy();

@@ -147,13 +147,59 @@ def reply_overview_pointer(wire):
     return None
 
 
+sent = {}  # view_controls::send: the focused window's monitor and workspace once a send key moved it
+
+
 def reply_send(wire):
-    """view_controls::send's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::send's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    A send key's move (`dispatch hl.dsp.window.move({ workspace = "N", follow = true, window = "address:0x1" })`) puts
+    the one window (CLIENT, focused) on the monitor showing workspace N, so Ctrl+Alt+G then Ctrl+Alt+B reads it on an
+    XR desktop and moves it back to DP-1. Until a move, the built-in replies answer."""
+    import re
+    move = re.fullmatch(r'/dispatch hl\.dsp\.window\.move\(\{ workspace = "(\d+)", follow = (?:true|false), '
+                        r'window = "address:(0x[0-9a-f]+)" \}\)', wire)
+    if move:
+        workspace = int(move[1])
+        shown = [m for m in monitors() if m['activeWorkspace']['id'] == workspace]
+        if move[2] != CLIENT['address'] or len(shown) != 1:
+            return 'error: no such window or workspace'
+        sent.update(monitor=shown[0]['id'], workspace=dict(id=workspace, name=str(workspace)))
+        return 'ok'
+    if sent and wire in ('j/activewindow', 'j/clients'):
+        window = dict(CLIENT, **sent)
+        return window if wire == 'j/activewindow' else [window]
     return None
 
 
+PRIVACY = dict(asleep=False)
+
+
 def reply_privacy(wire):
-    """view_controls::privacy's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::privacy's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    The physical monitors keep a DPMS state (their `dpmsStatus`): privacy.py's blank Lua turns its first output off
+    and its second on when both exist, its wake Lua turns its output on, and the stale bind's every monitor. With
+    `<runtime>/fake-privacy-asleep` made mid-run, DP-1 goes DPMS-off at the next request (as privacy mode leaves it)."""
+    import re
+    if not PRIVACY['asleep'] and (root / 'fake-privacy-asleep').exists():
+        PRIVACY['asleep'] = True
+        for m in physical:
+            if m['name'] == 'DP-1': m['dpmsStatus'] = False
+
+    def dpms(name, on):
+        for m in physical:
+            if name is None or m['name'] == name: m['dpmsStatus'] = on
+
+    names = {m['name'] for m in monitors()}
+    if blank := re.match(r'/eval local t,g="([^"]+)","([^"]+)" ', wire):
+        if blank[1] in names and blank[2] in names: dpms(blank[1], False); dpms(blank[2], True)
+        return 'ok'
+    if wake := re.match(r'/eval local t="([^"]+)" ', wire):
+        if 'hl.dsp.dpms(' in wire: dpms(wake[1], True); return 'ok'
+    if wire == '/eval hl.dispatch(hl.dsp.dpms({action="on"}))':
+        dpms(None, True)
+        return 'ok'
     return None
 
 
@@ -162,8 +208,16 @@ def reply_immersive(wire):
     return None
 
 
+# The desktop's own binds (plain `hyprctl binds`, as Hyprland 0.56 prints it). In the `keybinds` case a described
+# desktop bind holds Ctrl+Alt+P, the run's default prediction toggle: both runs must leave that bind out.
+DESKTOP_BINDS = ('bindd\n\tmodmask: 12\n\tsubmap: \n\tkey: P\n\tkeycode: 0\n\tcatchall: false\n'
+                 '\tdescription: Pick a color\n\tdispatcher: exec\n\targ: hyprpicker\n\n')
+
+
 def reply_keybinds(wire):
     """view_controls::keybinds's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    if wire == 'binds':  # the key bind panel's read of the desktop's binds (`client.binds_text`)
+        return DESKTOP_BINDS if case == 'keybinds' else ''
     return None
 
 
@@ -177,8 +231,26 @@ def reply_desktops(wire):
     return None
 
 
+remembered = []  # case `window-memory`: the window memory put workspace 1 back on XR-2
+
+
 def reply_window_memory(wire):
-    """view_controls::window_memory's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    """view_controls::window_memory's requests (VIEW_CONTROLS.md); None: not this feature's.
+
+    Case `window-memory`: window-memory.json remembers the window 0x1 on XR-2. Once the placement's eval moves its
+    workspace there whole, the window is on XR-2's workspace 71, at the same place
+    inside it, so the run's last capture finds it there. The placement's moves eval names it as the row `{1,"XR-2",...}`."""
+    if case != 'window-memory':
+        return None
+    if wire.startswith('/eval ') and '{{1,"XR-2",' in wire:
+        remembered.append(wire)
+        return 'ok'
+    if wire == 'j/clients' and remembered:
+        live = [r['observation'] for r in registry.values() if r['state'] == 'live' and r['name'] == 'XR-2']
+        if live:
+            o = live[0]
+            return [dict(CLIENT, at=[o['x'] + 10, o['y'] + 10], workspace=dict(id=o['workspace'], name=str(o['workspace'])),
+                         monitor=11)]
     return None
 
 

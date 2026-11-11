@@ -595,6 +595,11 @@ impl BindPanelOverlay {
         self.font = font;
     }
 
+    /// The font the card is laid out in (None: the pixel font).
+    pub fn font(&self) -> Option<&dyn HudTextMetrics> {
+        self.font.as_deref()
+    }
+
     /// Re-renders a rendered card (true).
     pub fn set_accent(&mut self, accent: MdRgb) -> bool {
         if accent == self.accent {

@@ -1,0 +1,86 @@
+case unmeasured 0
+{"roll_geometry":{"tilt":[]}}
+case unmeasured 1
+{"roll_geometry":{"tilt":[null]}}
+case unmeasured 2
+{"roll_geometry":{"tilt":[null,null]}}
+case unmeasured 3
+{"roll_geometry":{"tilt":[null,null,null]}}
+case unmeasured 4
+{"roll_geometry":{"tilt":[null,null,null,null]}}
+case placed, level
+{"roll_geometry":{"tilt":[0,0,0]}}
+case rolled, level
+{"roll_geometry":{"tilt":[0,0,0]}}
+case anchored, level
+{"roll_geometry":{"tilt":[210,-468,-141]}}
+case placed, live
+{"roll_geometry":{"tilt":[-16626,-16097,-16085]}}
+case rolled, live
+{"roll_geometry":{"tilt":[-16136,-16242,16765]}}
+case anchored, live
+{"roll_geometry":{"tilt":[-17413,-16799,-16937]}}
+case placed, upside down on a desk
+{"roll_geometry":{"tilt":[-18000,18000,-18000]}}
+case rolled, upside down on a desk
+{"roll_geometry":{"tilt":[18000,18000,-18000]}}
+case anchored, upside down on a desk
+{"roll_geometry":{"tilt":[-17790,17532,17859]}}
+case placed, lying on one arm
+{"roll_geometry":{"tilt":[-9233,-8420,-9275]}}
+case rolled, lying on one arm
+{"roll_geometry":{"tilt":[-8639,-9000,9191]}}
+case anchored, lying on one arm
+{"roll_geometry":{"tilt":[-10688,-9456,-8775]}}
+case placed, hanging, lenses down
+{"roll_geometry":{"tilt":[-5356,7457,14305]}}
+case rolled, hanging, lenses down
+{"roll_geometry":{"tilt":[5124,null,7201]}}
+case anchored, hanging, lenses down
+{"roll_geometry":{"tilt":[-7201,-312,-10315]}}
+case placed, hanging, lenses up
+{"roll_geometry":{"tilt":[5043,-6720,-1585]}}
+case rolled, hanging, lenses up
+{"roll_geometry":{"tilt":[-6159,-1701,-5183]}}
+case anchored, hanging, lenses up
+{"roll_geometry":{"tilt":[8005,null,3995]}}
+case placed, tipped
+{"roll_geometry":{"tilt":[-1186,-987,-1239]}}
+case rolled, tipped
+{"roll_geometry":{"tilt":[-1160,-1193,1134]}}
+case anchored, tipped
+{"roll_geometry":{"tilt":[-643,-1709,-1226]}}
+case placed, tipped and pitched
+{"roll_geometry":{"tilt":[1192,2969,2771]}}
+case rolled, tipped and pitched
+{"roll_geometry":{"tilt":[2502,2263,-881]}}
+case anchored, tipped and pitched
+{"roll_geometry":{"tilt":[-530,1391,599]}}
+case placed, plausible
+{"roll_geometry":{"tilt":[-2820,-829,-2500]}}
+case rolled, plausible
+{"roll_geometry":{"tilt":[-1688,-2272,2972]}}
+case anchored, plausible
+{"roll_geometry":{"tilt":[-3108,-2807,-3289]}}
+case four, roll -20 pitch 0
+{"roll_geometry":{"tilt":[1918,1990,1990,1918]}}
+case four, roll -20 pitch -20
+{"roll_geometry":{"tilt":[2478,2188,1788,1317]}}
+case four, roll -20 pitch 25
+{"roll_geometry":{"tilt":[1142,1730,2242,2628]}}
+case four, roll 20 pitch 0
+{"roll_geometry":{"tilt":[-1918,-1990,-1990,-1918]}}
+case four, roll 20 pitch -20
+{"roll_geometry":{"tilt":[-1317,-1788,-2188,-2478]}}
+case four, roll 20 pitch 25
+{"roll_geometry":{"tilt":[-2628,-2242,-1730,-1142]}}
+case fewer placements
+{"roll_geometry":{"tilt":[-863,-895,-895,-861]}}
+case widest spacing
+{"roll_geometry":{"tilt":[null,null,null,null]}}
+case overhead
+{"roll_geometry":{"tilt":[null,-895]}}
+case upside down
+{"roll_geometry":{"tilt":[-17999,-17999]}}
+case half turn
+{"roll_geometry":{"tilt":[-18000,-18000]}}

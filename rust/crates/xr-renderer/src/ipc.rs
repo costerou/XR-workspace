@@ -154,18 +154,23 @@ pub struct StatusExtras {
     pub tracking: Option<bool>,
     /// Only when there are captures: the longest run of failed frames.
     pub capture_failure_run: Option<u64>,
+    /// Only when the newest pose came from the seqlock channel: read time minus sample time, in ns (sent as ms, 3
+    /// decimals, as the C++ `%.3f`).
+    pub pose_age_ns: Option<u64>,
     /// Only when every capture has a frame and all read the same way.
     pub capture_path: Option<CapturePath>,
 }
 
 /// One status sample, without its newline: the metrics' object (`missed`, `presented_hz`) and then
-/// `video`, `tracking`, `capture_failure_run` and `capture_path`, as the C++ appends them.
+/// `video`, `tracking`, `capture_failure_run`, `pose_age_ms` and `capture_path`, as the C++ appends them.
 pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
     let mut j: Map<String, Value> = match serde_json::from_str(metrics) {
         Ok(Value::Object(o)) => o.into_iter().collect(),
         _ => Map::new(),
     };
-    let mut fields: Vec<(String, Value)> = std::mem::take(&mut j).into_iter().collect();
+    // Each value as its JSON text, so a field can keep the C++ number format (pose_age_ms).
+    let mut fields: Vec<(String, String)> =
+        std::mem::take(&mut j).into_iter().map(|(k, v)| (k, v.to_string())).collect();
     if let Some(v) = extras.video.filter(|v| *v != Video::Off) {
         let name = match v {
             Video::Off => "off",
@@ -175,20 +180,23 @@ pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
             Video::Ended => "ended",
             Video::Error => "error",
         };
-        fields.push(("video".into(), name.into()));
+        fields.push(("video".into(), Value::from(name).to_string()));
     }
     if let Some(t) = extras.tracking {
-        fields.push(("tracking".into(), t.into()));
+        fields.push(("tracking".into(), t.to_string()));
     }
     if let Some(run) = extras.capture_failure_run {
-        fields.push(("capture_failure_run".into(), run.into()));
+        fields.push(("capture_failure_run".into(), run.to_string()));
+    }
+    if let Some(ns) = extras.pose_age_ns {
+        fields.push(("pose_age_ms".into(), format!("{:.3}", ns as f64 / 1e6)));
     }
     if let Some(path) = extras.capture_path {
         let name = match path {
             CapturePath::Dmabuf => "dmabuf",
             CapturePath::Shm => "shm",
         };
-        fields.push(("capture_path".into(), name.into()));
+        fields.push(("capture_path".into(), Value::from(name).to_string()));
     }
     // Written by hand so the order holds whatever serde_json's map keeps.
     let body: Vec<String> = fields
@@ -311,6 +319,7 @@ mod tests {
                 video: Some(Video::Playing),
                 tracking: Some(true),
                 capture_failure_run: Some(0),
+                pose_age_ns: None,
                 capture_path: Some(CapturePath::Dmabuf),
             },
         );
@@ -340,5 +349,18 @@ mod tests {
             status_dict(r#"{"missed":0}"#, &StatusExtras::default()),
             r#"{"missed":0}"#
         );
+    }
+
+    #[test]
+    fn pose_age_keeps_the_cpp_three_decimals() {
+        let extras = StatusExtras {
+            capture_failure_run: Some(0),
+            pose_age_ns: Some(1_500_000),
+            ..Default::default()
+        };
+        let line = status_dict("{}", &extras);
+        assert_eq!(line, r#"{"capture_failure_run":0,"pose_age_ms":1.500}"#);
+        let Datagram::Status(s) = status::decode(line.as_bytes()).unwrap() else { panic!("{line}") };
+        assert_eq!(s.pose_age_ms, Some(1.5));
     }
 }

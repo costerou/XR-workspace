@@ -30,22 +30,26 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `binds`, `overview_pointer`, `send`,
-//!   `privacy`, `immersive`, `keybinds`, `video`, the `desktops` wiring, and `window_memory`'s tracker with its last
-//!   capture). The shipped `view_controls` runs around them: its private control socket is the ported `socket`.
-//!   Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (`view`, `binds`, `overview_pointer`, `immersive`,
+//!   `keybinds`, which needs `binds`'s helper command line, `video`, and the `desktops` wiring). The shipped
+//!   `view_controls` runs around them, with the ported socket, window sending, privacy mode and the window memory's
+//!   tracker. Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
 //! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
 //!   asks for a change through the view controls.
-//! - `window_memory`: Python's `tracker_for` gives a tracker (the runner's `ProfileStore`), but no `Session` has a
-//!   `window-memory.json`, so its `place` and `finish` send nothing. The port's cases write one.
-//! - `setup`: no `Session` has a saved `profiles.json`, so Python's `_setup_failed` in `create-fail` resets nothing
-//!   (`profiles.discard_unusable` finds nothing saved). The port's case saves a setup and compares the file.
+//! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
+//!   `view_controls` does; a `Session` has no `window-memory.json` unless its case writes one
+//!   (`managed_real/cases/window_memory.rs`), so `place` and `finish` send nothing in the other cases.
+//! - `setup`: ported. A `Session` has no saved `profiles.json` unless its case writes one (`cases/setup.rs`).
+//!
+//! A case can start from more than the defaults (`Start`, `parity_from`): its consent's desktops, and files written
+//! before the run, which `parity` compares as the runs left them (`cases/setup.rs`: a saved `profiles.json`).
 
 use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
@@ -112,12 +116,30 @@ enum Who {
     Rust,
 }
 
+/// What a case starts from besides its compositor script: the consent's desktops, and files (relative to the
+/// session's folder) written before the run. `parity` compares each file as the run left it.
+struct Start {
+    desktops: Value,
+    files: Vec<(&'static str, String)>,
+}
+
+impl Default for Start {
+    fn default() -> Start {
+        let desktop = json!({"width": 1920, "height": 1080, "scale": 1.0});
+        Start {
+            desktops: json!([desktop, desktop]),
+            files: Vec::new(),
+        }
+    }
+}
+
 /// One run's folders and its compositor, removed and stopped on drop.
 struct Session {
     root: PathBuf,
     case: &'static str,
     compositor: Child,
     consent: PathBuf,
+    files: Vec<&'static str>,
 }
 
 impl Drop for Session {
@@ -129,13 +151,18 @@ impl Drop for Session {
 }
 
 impl Session {
+    /// A session from the defaults.
     fn new(case: &'static str, who: Who) -> Session {
-        // Numbered: two tests may run the same case at once.
-        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Session::start(case, who, &Start::default())
+    }
+
+    fn start(case: &'static str, who: Who, start: &Start) -> Session {
+        // Numbered too: two tests may run the same case at once.
+        static SESSIONS: AtomicUsize = AtomicUsize::new(0);
         let root = std::env::temp_dir().join(format!(
-            "xr-managed-real-{case}-{who:?}-{}-{n}",
-            std::process::id()
+            "xr-managed-real-{case}-{who:?}-{}-{}",
+            std::process::id(),
+            SESSIONS.fetch_add(1, Ordering::Relaxed)
         ));
         let _ = fs::remove_dir_all(&root);
         for sub in ["", "run", "state", "config", "home", "consents"] {
@@ -162,12 +189,16 @@ impl Session {
             pins.to_string(),
         )
         .unwrap();
-        let desktop = json!({"width": 1920, "height": 1080, "scale": 1.0});
+        for (file, body) in &start.files {
+            let path = root.join(file);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, body).unwrap();
+        }
         let consent = json!({
             "schema": 1, "gate": "P2-panel", "run_id": "r1", "instance": INSTANCE, "output": "DP-2",
             "recovery_output": "DP-1", "model": "luma-ultra", "allow": ["headless-outputs", "capture-managed-outputs"],
             "capture": "managed-outputs", "tracking": false, "mode_switch": false, "plugin": pins["plugin"],
-            "renderer": pins["renderer"], "desktops": [desktop, desktop], "input": false, "sdk": false,
+            "renderer": pins["renderer"], "desktops": start.desktops, "input": false, "sdk": false,
         });
         let consent_path = root.join("consents/r1.json");
         private(&consent_path, consent.to_string().as_bytes());
@@ -189,6 +220,7 @@ impl Session {
             case,
             compositor,
             consent: consent_path,
+            files: start.files.iter().map(|(f, _)| *f).collect(),
         }
     }
 
@@ -466,6 +498,8 @@ struct Observed {
     marks: Vec<String>,
     /// Every frame the renderers got after their start frame (`renderer.py`): `<launch> <frame> <descriptors>`.
     frames: Vec<String>,
+    /// The `Start`'s files as the run left them.
+    files: Vec<Option<String>>,
 }
 
 fn observe(s: &Session) -> (Observed, Vec<Value>) {
@@ -560,6 +594,11 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
             format!("{} {text} {}", v["launch"], v["fds"])
         })
         .collect();
+    let files = s
+        .files
+        .iter()
+        .map(|f| fs::read_to_string(s.root.join(f)).ok().map(|t| n.text(&t)))
+        .collect();
     (
         Observed {
             trace,
@@ -569,6 +608,7 @@ fn observe(s: &Session) -> (Observed, Vec<Value>) {
             renderers,
             marks,
             frames,
+            files,
         },
         others,
     )
@@ -591,17 +631,31 @@ fn diff(a: &[String], b: &[String]) -> String {
 
 /// Both supervisors on `case`; the Rust one's session is returned for more checks.
 fn parity(case: &'static str) -> (Observed, Session) {
-    let (run, session, _) = parity_acting(case, None);
+    parity_from(case, &Start::default())
+}
+
+/// `parity` from `start`.
+fn parity_from(case: &'static str, start: &Start) -> (Observed, Session) {
+    let (run, session, _) = parity_run(case, start, None);
     (run, session)
 }
 
 /// [`parity`] with `act` on both runs once the renderer is up; what it gave back on each, Python's first.
 fn parity_acting(case: &'static str, act: Option<Act>) -> (Observed, Session, [Value; 2]) {
-    let py = Session::new(case, Who::Python);
+    parity_run(case, &Start::default(), act)
+}
+
+/// [`parity_from`] with `act` (as [`parity_acting`]).
+fn parity_run(
+    case: &'static str,
+    start: &Start,
+    act: Option<Act>,
+) -> (Observed, Session, [Value; 2]) {
+    let py = Session::start(case, Who::Python, start);
     let (py_code, py_err, py_acted) = py.run(Who::Python, act);
     let (python, _) = observe(&py);
     drop(py);
-    let rs = Session::new(case, Who::Rust);
+    let rs = Session::start(case, Who::Rust, start);
     let (rs_code, rs_err, rs_acted) = rs.run(Who::Rust, act);
     let (rust, others) = observe(&rs);
     assert_eq!(
@@ -624,6 +678,10 @@ fn parity_acting(case: &'static str, act: Option<Act>) -> (Observed, Session, [V
         rust.frames,
         "renderer frames: {}\n{context}",
         diff(&python.frames, &rust.frames)
+    );
+    assert_eq!(
+        python.files, rust.files,
+        "the files it started with: {context}"
     );
     assert_eq!(py_code, rs_code, "{case}: exit status");
     if !rust.renderers.is_empty() {

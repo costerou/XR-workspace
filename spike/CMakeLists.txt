@@ -772,6 +772,56 @@ if(XR_ENABLE_PRESENTATION)
         set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
           PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       endforeach()
+      # rust: tracking
+      add_test(NAME capture_e2e_rust_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
+        --tracking --renderer "${XR_RUST_RENDERER}")
+      # capture_e2e_rust_bad_control: its good frame after the bad ones opens the placement panel (menus).
+      add_test(NAME capture_e2e_rust_bad_control COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --bad-control --control-errors log --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_bad_control_fatal COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --bad-control --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_control_closed COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+        --warmup 1 --outputs 1 --close-control --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_tracked capture_e2e_rust_bad_control capture_e2e_rust_bad_control_fatal
+        capture_e2e_rust_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      add_test(NAME capture_e2e_rust_feed_drop COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 25 --warmup 1
+        --feed-drop 20 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_feed_drop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90)
+      add_test(NAME capture_e2e_rust_feed_gone_video_loss COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 8
+        --warmup 1 --video-loss 5 --feed-drop 1000 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_feed_gone_video_loss PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: scene_layout
+      # The hand's pan from desktop 1 to desktop 3 by `edge_pan` frames and the landing, as for the C++ renderer above.
+      add_test(NAME capture_e2e_rust_edge_pan_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 3.5
+        --warmup 1 --outputs 4 --maximize 3 --edge-pan --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_edge_pan_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: handles
+      add_test(NAME capture_e2e_rust_restore_band COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5 --warmup 1
+        --outputs 2 --maximize 2 --restore-band --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_restore_band PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: pointer
+      add_test(NAME capture_e2e_rust_pointer_look_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5
+        --warmup 1 --outputs 1 --capture-hz 30 --pointer-look --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_pointer_look_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: menus
+      add_test(NAME capture_e2e_rust_options_roundtrip COMMAND capture_e2e_bench --check --mode gl-shm --seconds 4.5 --warmup 1
+        --outputs 2 --options-roundtrip --control-errors log --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1
+        --outputs 1 --environment grid --open-panel --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_options_roundtrip capture_e2e_rust_open_panel
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: immersive
+      foreach(MODE gl-dmabuf gl-shm)
+        add_test(NAME capture_e2e_rust_immersive_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1
+          --immersive --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_immersive_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
+      add_test(NAME capture_e2e_rust_immersive_scaled COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 2 --warmup 1
+        --immersive --fractional-scale 150 --renderer "${XR_RUST_RENDERER}")
+      add_test(NAME capture_e2e_rust_immersive_engine_dies COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 4
+        --warmup 1 --engine-dies 1.5 --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_immersive_scaled capture_e2e_rust_immersive_engine_dies
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).

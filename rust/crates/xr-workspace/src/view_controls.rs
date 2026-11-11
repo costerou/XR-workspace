@@ -140,7 +140,8 @@ impl ViewControls {
         }
         // The key bind panel (`keybinds.BindControl`), then `client.install_view_binds` with its keys,
         // `keys.installed()`, `keys.startup_toast()`.
-        controls.keys = keybinds::Keys::open(run);
+        let bind_args = controls.binds.as_ref().map(binds::Binds::bind_args);
+        controls.keys = keybinds::Keys::open(run, bind_args);
         if let Some(binds) = controls.binds.as_mut() {
             binds.install(run, controls.keys.as_ref());
         }

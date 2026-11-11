@@ -34,21 +34,22 @@ use xr_renderer::capture::{
     Batch, Canvas, CaptureBuffers, DRM_XRGB8888, DmabufChoice, MOD_INVALID, MOD_LINEAR, ReadbackLimiter, ResizeSettle,
     SessionConstraints, TileSource, choose_dmabuf, compose_tiles, side_by_side,
 };
+use xr_renderer::desktops::MAX_DESKTOPS;
 use xr_renderer::dmabuf::{Allocator, Dmabuf, dev_from_array, render_node};
 use xr_renderer::egl::DmabufPlane;
 use xr_renderer::gl::{GlCompositor, GpuImage};
 use xr_wire::status::CapturePath;
 use xr_renderer::options_geometry::json_string;
-use xr_renderer::pose::IDENTITY;
 use xr_renderer::environment::{ENVIRONMENT_LOOP_S, EnvironmentFade};
 use xr_renderer::hud::{BRIGHTNESS_DEFAULT, Background};
-use xr_renderer::options_geometry::maximize_geometry_json;
+use xr_renderer::options_geometry::{maximize_geometry_json, options_step_scale, options_stepped};
 use xr_renderer::view::{
-    Canvas as ViewCanvas, Leaving, Placement, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
+    Canvas as ViewCanvas, Leaving, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
     overview_geometry_json, overview_layout, zoomed_placements_with,
 };
 use xr_wire::control::{Environment, View};
 
+use super::scene::Scene;
 use super::{Error, MAX_BUFFERS, Presentation, ShmBuffer, State, monotonic_ms, monotonic_ms_f64};
 
 /// A stopped session starts again this long after it stopped, at most this many times in a run.
@@ -61,8 +62,6 @@ const SHM_SLOTS: usize = 2;
 const SWAPCHAIN: usize = 3;
 /// The layout's size of a desktop with no frame yet.
 const PLACEHOLDER: Size = Size { w: 1920.0, h: 1080.0 };
-/// The diagonal field of view filled at the centre pose when nothing else sets it, in degrees.
-const FOV_DEG: f32 = 46.0;
 /// Buffer ids at or above this are capture buffers: the compositor never releases them as surface buffers.
 const CAPTURE_BUFFER_ID: u64 = u64::MAX;
 
@@ -102,6 +101,8 @@ struct SwapBuffer {
 
 struct Capture {
     name: String,
+    /// Stable for the capture's life: its proxies' user data (its index moves when set_desktops adds or drops one).
+    id: usize,
     output_global: Option<u32>,
     source: Option<ExtImageCaptureSourceV1>,
     session: Option<ExtImageCopyCaptureSessionV1>,
@@ -142,9 +143,10 @@ struct Capture {
 }
 
 impl Capture {
-    fn new(name: &str) -> Self {
+    fn new(name: &str, id: usize) -> Self {
         Self {
             name: name.to_owned(),
+            id,
             output_global: None,
             source: None,
             session: None,
@@ -221,7 +223,7 @@ pub(super) struct CaptureState {
     geometry_sent: String,
     readback: ReadbackLimiter,
     /// The `view` op's zoom, selection and spacing (maximize is a zoomed view), eased.
-    view: ViewAnimator,
+    pub(super) view: ViewAnimator,
     /// The `environment` op: the background's fade, the one drawn (None's fade-out keeps the last), its brightness.
     environment: EnvironmentFade,
     background: Background,
@@ -230,6 +232,8 @@ pub(super) struct CaptureState {
     environment_drawn: bool,
     maximize: String,
     maximize_sent: String,
+    /// The next capture's id.
+    next_id: usize,
 }
 
 /// Destroys dmabuf slots: their wl_buffers and GL images (the buffer objects go with them).
@@ -267,15 +271,12 @@ fn plane(buf: &Dmabuf) -> DmabufPlane {
     }
 }
 
-/// The view's half extents at the centre pose for a `width` x `height` canvas filling the diagonal FOV.
-fn half_extents(width: u32, height: u32) -> (f32, f32) {
-    let d = (FOV_DEG * std::f32::consts::PI / 360.0).tan();
-    let a = width as f32 / height.max(1) as f32;
-    let n = (1.0 + a * a).sqrt();
-    (d * a / n, d / n)
-}
-
 impl CaptureState {
+    /// The GPU compositor, once composition runs on the GPU (the VR video's GL context).
+    pub(super) fn gl_mut(&mut self) -> Option<&mut GlCompositor> {
+        self.gpu.as_mut().map(|g| &mut g.gl)
+    }
+
     pub(super) fn new(names: &[String]) -> Self {
         Self {
             names: names.to_vec(),
@@ -288,6 +289,32 @@ impl CaptureState {
 
     fn active(&self) -> bool {
         !self.names.is_empty()
+    }
+
+    fn new_capture(&mut self, name: &str) -> Capture {
+        self.next_id += 1;
+        Capture::new(name, self.next_id - 1)
+    }
+
+    /// The index of the capture with this id (None: it was dropped by set_desktops).
+    fn index_of(&self, id: usize) -> Option<usize> {
+        self.captures.iter().position(|c| c.id == id)
+    }
+
+    /// GPU composition is on (wayland.cpp's `impl_->gl`).
+    pub(super) fn gpu(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    /// The desktops' sizes as drawn (wayland.cpp capture_sizes): each one's eased shape, or its frame's size.
+    pub(super) fn capture_sizes(&self) -> Vec<Size> {
+        self.captures.iter().map(|c| c.shape.value().unwrap_or_else(|| c.layout_size())).collect()
+    }
+
+    /// What the layout is heading for (wayland.cpp settled_sizes): each desktop's frame size, the supervisor's hit
+    /// testing.
+    pub(super) fn settled_sizes(&self) -> Vec<Size> {
+        self.captures.iter().map(Capture::layout_size).collect()
     }
 
     /// Registry: the capture globals, bound only when there is something to capture.
@@ -332,6 +359,26 @@ impl CaptureState {
     /// The surface's size or scale changed: draw again.
     pub(super) fn invalidate(&mut self) {
         self.dirty = true;
+    }
+
+    /// The desktops are composed on the GPU (head tracking needs it; wayland.cpp's `gl`).
+    pub(super) fn gpu_composition(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    /// The desktops the GPU composition draws, 0 without it (take_roll_geometry's `!gl || captures.empty()`).
+    pub(super) fn gpu_desktops(&self) -> usize {
+        self.gpu.as_ref().map_or(0, |_| self.captures.len())
+    }
+
+    /// The view's eased zoom now (0 overview, 1 zoomed in).
+    pub(super) fn zoom(&self) -> f32 {
+        self.view.zoom()
+    }
+
+    /// The captured desktops' names, capture order.
+    pub(super) fn capture_names(&self) -> impl Iterator<Item = &str> {
+        self.captures.iter().map(|c| c.name.as_str())
     }
 
     pub(super) fn close(&mut self) {
@@ -387,7 +434,7 @@ impl State {
             return false;
         };
         let source = sources.create_source(&output, qh, ());
-        let session = copies.create_session(&source, Options::PaintCursors, qh, i);
+        let session = copies.create_session(&source, Options::PaintCursors, qh, cs.captures[i].id);
         let c = &mut cs.captures[i];
         c.output_global = Some(global);
         c.source = Some(source);
@@ -556,7 +603,7 @@ impl State {
             slots.push(DmabufSlot { buf, image: Some(image), proxy: None });
         }
         for (j, slot) in slots.iter().enumerate() {
-            let params = linux_dmabuf.create_params(qh, (i, c.generation, j));
+            let params = linux_dmabuf.create_params(qh, (c.id, c.generation, j));
             let b = &slot.buf;
             params.add(b.fd.as_fd(), 0, b.offset, b.stride, (b.modifier >> 32) as u32, b.modifier as u32);
             params.create(width as i32, height as i32, b.fourcc, Flags::empty());
@@ -616,7 +663,7 @@ impl State {
             }
             Path::None => return,
         };
-        let frame = session.create_frame(qh, i);
+        let frame = session.create_frame(qh, c.id);
         frame.attach_buffer(&buffer);
         frame.damage_buffer(0, 0, width as i32, height as i32);
         frame.capture();
@@ -710,13 +757,77 @@ impl State {
         }
     }
 
+    /// The capture half of set_desktops (wayland.cpp Impl::set_desktops): the captures not in `names` (a parsed,
+    /// sorted capture list) stop and go, the missing ones go in at their place and the `renew` ones start again. Each
+    /// index as it goes or comes is handed to the layout (its placements). Returns the names before, or None when
+    /// captures cannot change (no capture run, not opened yet, or no capture globals).
+    pub(super) fn change_captures(
+        &mut self,
+        names: &[String],
+        renew: &[String],
+        qh: &QueueHandle<State>,
+    ) -> Option<Vec<String>> {
+        let cs = &self.capture;
+        if !cs.active() || cs.captures.is_empty() || cs.source_manager.is_none() || cs.copy_manager.is_none() {
+            return None;
+        }
+        let was: Vec<String> = cs.captures.iter().map(|c| c.name.clone()).collect();
+        for i in (0..self.capture.captures.len()).rev() {
+            // back to front: indices below stay valid
+            if names.contains(&self.capture.captures[i].name) {
+                continue;
+            }
+            self.stop_session(i);
+            let cs = &mut self.capture;
+            let mut c = cs.captures.remove(i);
+            drop_dbufs(cs.gpu.as_ref(), &mut c.held_dbufs);
+            if let Some(gpu) = &mut cs.gpu {
+                gpu.gl.remove_source(i);
+            }
+            self.features.layout.desktop_removed(i);
+        }
+        for (i, name) in names.iter().enumerate() {
+            // both sorted: what is missing goes in at its place
+            if self.capture.captures.get(i).is_some_and(|c| &c.name == name) {
+                continue;
+            }
+            let c = self.capture.new_capture(name);
+            self.capture.captures.insert(i, c);
+            if let Some(gpu) = &mut self.capture.gpu {
+                gpu.gl.insert_source(i);
+            }
+            self.features.layout.desktop_inserted(i);
+        }
+        for name in renew {
+            for i in 0..self.capture.captures.len() {
+                if &self.capture.captures[i].name != name {
+                    continue;
+                }
+                if self.capture.captures[i].session.is_some() {
+                    self.stop_session(i);
+                }
+                let c = &mut self.capture.captures[i];
+                c.output_global = None;
+                c.gone = false;
+                c.stopped = false;
+                c.restart_ms = None;
+                c.restarts = 0;
+            }
+        }
+        self.capture.names = names.to_vec();
+        self.service_captures(qh, monotonic_ms());
+        self.capture.dirty = true;
+        Some(was)
+    }
+
     /// The surface's buffer size: the fractional-scale size under a viewport (GPU composition only).
+    /// The surface's buffer (wayland.cpp px_w x px_h): the whole layer surface, both eyes in side-by-side.
     fn scaled_size(&self) -> (u32, u32) {
         if self.viewport.is_some() && self.scale120 != 0 {
             let scale = |v: u32| ((u64::from(v) * u64::from(self.scale120) + 60) / 120) as u32;
-            (scale(self.width), scale(self.height))
+            (scale(self.surface_w), scale(self.height))
         } else {
-            (self.width, self.height)
+            (self.surface_w, self.height)
         }
     }
 }
@@ -742,7 +853,9 @@ impl Presentation {
         }
         let n = self.state.capture.names.len();
         let s = &mut self.state;
-        s.capture.captures = s.capture.names.iter().map(|n| Capture::new(n)).collect();
+        let names = s.capture.names.clone();
+        let captures = names.iter().map(|n| s.capture.new_capture(n)).collect();
+        s.capture.captures = captures;
         let (width, height) = (s.width, s.height);
         let gpu = match (&s.capture.linux_dmabuf, s.capture.main_device) {
             (None, _) => Err("compositor lacks zwp_linux_dmabuf_v1"),
@@ -764,6 +877,7 @@ impl Presentation {
                     imported_frames: 0,
                     uploaded_bytes: 0,
                 });
+                s.features.cards.load_fonts(); // the cards' text font; the built-in pixel font is the reported fallback
             }
             Err(why) => s.capture.cpu_reason = why,
         }
@@ -794,7 +908,7 @@ impl Presentation {
         let gl = s.capture.gpu.is_some();
         let env = &s.capture.environment;
         let animating = s.capture.captures.iter().any(|c| c.shape.animating())
-            || (gl && (s.capture.view.animating() || env.animating(t)))
+            || (gl && (s.capture.view.animating() || env.animating(t) || s.features.animating(t)))
             || (s.capture.environment_drawn && !env.on());
         if s.frame.is_some() || !s.metrics.can_submit() || !(s.capture.dirty || animating) {
             return Ok(());
@@ -881,6 +995,7 @@ impl Presentation {
         }
         let s = &mut self.state;
         let cs = &mut s.capture;
+        let features = &mut s.features;
         let gpu = cs.gpu.as_mut().expect("gpu composition");
         let Some(k) = gpu.swapchain.iter().position(|b| !b.busy) else {
             return Ok(()); // all three on screen or queued: wait for a release
@@ -918,36 +1033,76 @@ impl Presentation {
             c.shape.advance(c.layout_size(), now, animate);
             sizes.push(c.shape.value().unwrap_or(PLACEHOLDER));
         }
+        // Before the pose is read (wayland.cpp depth_tick), with this frame's pictures uploaded.
+        let mut frames = [0u64; MAX_DESKTOPS];
+        for (f, c) in frames.iter_mut().zip(&cs.captures) {
+            *f = c.frames;
+        }
+        let shown = cs.captures.len().min(MAX_DESKTOPS);
+        features.immersive.before_draw(&mut gpu.gl, &frames[..shown], cs.view.focus() as i32);
         // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
-        // fill the view where it is. No placements op in this build: every desktop at its default placement, so the
-        // camera never turns (identity, the untracked view; ModeController's focus aim is not ported).
+        // fill the view where it is. The features (scene.rs) then give the frame its placements, cards, glass and
+        // pointer, and tracking the camera once the placements are in (Tracking::camera).
         let view = &mut cs.view;
         view.advance(now);
         let (w, h) = (width as f32, height as f32);
         let leaving = Leaving { zoom: view.left_zoom(), index: view.left() as usize };
         let tiles = blended_layout_leaving(&sizes, w, h, view.spacing(), view.zoom(), view.position(), leaving);
-        let (half_w, half_h) = half_extents(width, height);
+        let fov = features.tracking.fov(width, height);
+        let mut scene = Scene::new(now, (width, height), fov, tiles);
+        scene.overview = view.zoom() < 0.01 && !view.switching();
+        scene.switching = view.switching();
+        scene.overview_pan_landing = view.pan_overview() && view.pan_landing();
+        scene.zoom = view.zoom();
+        scene.focus = view.focus() as usize;
+        scene.sizes.clone_from(&sizes);
+        features.contribute(&mut scene);
+        features.tracking.camera(&mut scene, view);
+        let (half_w, half_h) = (scene.half_w, scene.half_h);
         let canvas = ViewCanvas::new(w, h, half_w, half_h);
         let overview = overview_layout(&sizes, w, h, view.spacing());
-        let own = vec![Placement::default(); tiles.len()];
-        let options = ZoomOptions { leaving, ..ZoomOptions::default() };
-        let placements = zoomed_placements_with(&canvas, &overview, &tiles, &own, view.zoom(), view.position(), options);
+        let options = ZoomOptions { leaving, keep_size: features.tracking.keep_size() };
+        let tiles = &scene.tiles;
+        let mut placements =
+            zoomed_placements_with(&canvas, &overview, tiles, &scene.own, view.zoom(), view.position(), options);
+        // The Step-Back Band: the maximized desktop eases back about the view's centre; no tile, aim or saved placement
+        // moves (wayland.cpp resolved_placements).
         let focus = view.focus() as usize;
+        let mut unstepped = None;
+        let e = features.handles.restore_step().value(now);
+        if e > 0.0 && focus < placements.len() && focus < tiles.len() {
+            unstepped = Some(placements[focus]);
+            placements[focus] = options_stepped(placements[focus], options_step_scale(&tiles[focus]), e);
+        }
+        // The edge pan's dot (the hand's) in place of the free pointer: the real cursor is hidden and held.
+        if let Some(dot) = features.layout.pan_dot(&canvas, &sizes, view, tiles, &placements, &features.roll) {
+            scene.pointer = Some(dot);
+        }
         cs.maximize = if view.zoom() >= 0.99 && !view.switching() && focus < tiles.len() {
-            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &IDENTITY)
+            let placed = unstepped.as_ref().unwrap_or(&placements[focus]);
+            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], placed, &scene.head)
         } else {
             String::from("{\"maximize_geometry\":null}")
         };
-        // The background behind everything (untracked: world-locked at the identity view).
+        // The background behind everything, world-locked and level (identity untracked).
         let level = cs.environment.level(now);
         let seconds = ((now / 1000.0) % ENVIRONMENT_LOOP_S) as f32;
-        gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &IDENTITY);
+        gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &scene.environment_world);
         cs.environment_drawn = level > 0.0;
-        let pan = view.pan_layers();
-        let (highlight, alpha) = (view.focus() as i32, view.highlight_alpha());
-        if !gpu.gl.draw_and_swap(&tiles, &placements, highlight, alpha, &IDENTITY, half_w, half_h, pan.as_ref()) {
+        scene.apply(&mut gpu.gl);
+        let video = features.video.draw(&mut gpu.gl, &scene);
+        let drawn = match video {
+            Some(drawn) => drawn, // a VR video replaces the desktops
+            None => {
+                let pan = view.pan_layers();
+                let (highlight, alpha) = (view.focus() as i32, view.highlight_alpha());
+                gpu.gl.draw_and_swap(tiles, &placements, highlight, alpha, &scene.head, half_w, half_h, pan.as_ref())
+            }
+        };
+        if !drawn {
             return Err(Error::new("gl", "draw failed"));
         }
+        features.menus.drawn(video.is_none());
         let target = &mut gpu.swapchain[k];
         if !gpu.gl.present_into(target.rb) {
             return Err(Error::new("gl", "present into the swapchain failed"));
@@ -955,7 +1110,7 @@ impl Presentation {
         gpu.gl.finish();
         target.busy = true;
         let proxy = target.proxy.clone();
-        let settled = overview_layout(&sizes, w, h, cs.view.target_spacing());
+        let settled = overview_layout(&cs.settled_sizes(), w, h, cs.view.target_spacing());
         cs.geometry = overview_geometry_json(&settled, width, height, half_w, half_h);
         cs.dirty = false;
         self.commit(&proxy, size.0, size.1)
@@ -1015,6 +1170,8 @@ impl Presentation {
         let options = TargetOptions { center: v.center, cut: v.cut, pan: v.pan };
         cs.view.set_target_with(v.zoomed, v.selected.min(last), v.spacing, monotonic_ms_f64(), options);
         cs.dirty = true;
+        self.view_tracking(v);
+        self.view_popups(v);
     }
 
     /// The `environment` op (Presentation::set_environment): a background fades in, `none` fades the last one out.
@@ -1042,7 +1199,10 @@ impl Presentation {
         // nlohmann's object keys are sorted: immersive, outputs, video; height, name, ready, width.
         let mut line = String::from("{\"owner_readback\":{\"immersive\":");
         match &cs.gpu {
-            Some(g) => line.push_str(&g.gl.stereo_readback()),
+            Some(g) => {
+                let names: Vec<&str> = cs.captures.iter().map(|c| c.name.as_str()).collect();
+                line.push_str(&self.state.features.immersive.readback(&g.gl.stereo_readback(), &names));
+            }
             None => line.push_str("null"),
         }
         line.push_str(",\"outputs\":[");
@@ -1064,7 +1224,9 @@ impl Presentation {
             json_string(&mut line, &c.name);
             line.push_str(&format!(",\"ready\":{ready},\"width\":{w}}}"));
         }
-        line.push_str("],\"video\":null}}");
+        line.push_str("],\"video\":");
+        self.state.features.video.owner_readback(&mut line);
+        line.push_str("}}");
         if !self.state.capture.readback.due(&line, now_ms) {
             return None;
         }
@@ -1111,6 +1273,7 @@ impl Presentation {
         }
         out.push(']');
         if cs.active() {
+            s.features.report_before_surface(&mut out);
             let (bw, bh) = if cs.gpu.is_some() { s.scaled_size() } else { (s.width, s.height) };
             out.push_str(&format!(
                 ",\"surface\":{{\"logical\":[{},{}],\"buffer\":[{bw},{bh}],\"scale120\":{},\"viewport\":{}}}",
@@ -1119,6 +1282,7 @@ impl Presentation {
                 s.scale120,
                 s.viewport.is_some()
             ));
+            s.features.report_before_composition(&mut out, &cs.view);
             out.push_str(",\"composition\":");
             match &cs.gpu {
                 Some(g) => {
@@ -1139,6 +1303,10 @@ impl Presentation {
                     json_string(&mut out, renderer);
                     out.push_str(",\"version\":");
                     json_string(&mut out, version);
+                    if let Some(stereo) = g.gl.stereo_report() {
+                        out.push_str(",\"stereo\":");
+                        out.push_str(&stereo);
+                    }
                     out.push('}');
                 }
                 None => {
@@ -1147,6 +1315,7 @@ impl Presentation {
                     out.push('}');
                 }
             }
+            s.features.report_after_composition(&mut out);
         }
         out.push('}');
         out
@@ -1158,11 +1327,14 @@ impl Dispatch<ExtImageCopyCaptureSessionV1, usize> for State {
         s: &mut Self,
         _: &ExtImageCopyCaptureSessionV1,
         event: ext_image_copy_capture_session_v1::Event,
-        &i: &usize,
+        &id: &usize,
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
         use ext_image_copy_capture_session_v1::Event;
+        let Some(i) = s.capture.index_of(id) else {
+            return;
+        };
         let c = &mut s.capture.captures[i];
         match event {
             Event::BufferSize { width, height } => c.constraints.size(width, height),
@@ -1205,10 +1377,13 @@ impl Dispatch<ExtImageCopyCaptureFrameV1, usize> for State {
         s: &mut Self,
         _: &ExtImageCopyCaptureFrameV1,
         event: ext_image_copy_capture_frame_v1::Event,
-        &i: &usize,
+        &id: &usize,
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
+        let Some(i) = s.capture.index_of(id) else {
+            return;
+        };
         match event {
             ext_image_copy_capture_frame_v1::Event::Ready => s.frame_ready(i, qh),
             ext_image_copy_capture_frame_v1::Event::Failed { reason } => s.frame_failed(i, reason, qh),
@@ -1222,19 +1397,21 @@ impl Dispatch<ZwpLinuxBufferParamsV1, (usize, u64, usize)> for State {
         s: &mut Self,
         params: &ZwpLinuxBufferParamsV1,
         event: zwp_linux_buffer_params_v1::Event,
-        &(i, generation, j): &(usize, u64, usize),
+        &(id, generation, j): &(usize, u64, usize),
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
         params.destroy();
-        if i == usize::MAX {
+        if id == usize::MAX {
             // A swapchain buffer (create_immed): one the compositor cannot import ends the run.
             if let zwp_linux_buffer_params_v1::Event::Failed = event {
                 s.closed = true;
             }
             return;
         }
-        let current = s.capture.captures.get(i).is_some_and(|c| c.generation == generation);
+        let index = s.capture.index_of(id);
+        let current = index.is_some_and(|i| s.capture.captures[i].generation == generation);
+        let i = index.unwrap_or(usize::MAX);
         match event {
             zwp_linux_buffer_params_v1::Event::Created { buffer } => {
                 if !current {
@@ -1282,15 +1459,3 @@ delegate_noop!(State: ExtOutputImageCaptureSourceManagerV1);
 delegate_noop!(State: ExtImageCopyCaptureManagerV1);
 delegate_noop!(State: ignore ExtImageCaptureSourceV1);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn half_extents_fill_the_diagonal() {
-        let (w, h) = half_extents(1920, 1200);
-        let d = (23.0f32).to_radians().tan();
-        assert!(((w * w + h * h).sqrt() - d).abs() < 1e-6);
-        assert!((w / h - 1.6).abs() < 1e-5);
-    }
-}

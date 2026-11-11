@@ -3,7 +3,6 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::AsFd;
-use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
@@ -11,6 +10,9 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+#[path = "support/script.rs"]
+mod script;
 
 use xr_workspace::supervisor::{
     GUARD_DEADLINE, GUARD_PERIOD, HEARTBEAT_TIMEOUT, Launch, POLL_INTERVAL, Peer, Renderer,
@@ -568,16 +570,14 @@ fn the_start_frame_matches_the_corpus() {
 fn fake_renderer(dir: &Path, body: &str) -> PathBuf {
     let path = dir.join("renderer.sh");
     let out = dir.display();
-    std::fs::write(
+    script::write_script(
         &path,
-        format!(
+        &format!(
             "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{out}/argv'\nls -l /proc/$$/fd > '{out}/fds'\n\
              printf '%s' \"$MESA_SHADER_CACHE_DISABLE\" > '{out}/mesa'\n\
              sup=; while [ $# -gt 0 ]; do [ \"$1\" = --supervised-fd ] && sup=$2; shift; done\n{body}\n"
         ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     path
 }
 

@@ -13,12 +13,9 @@ An entry is one of two kinds:
 - patch a module attribute (a class or a function) with a stand-in: `patch(module, name, value)`
 - change the client `view_controls` is given (`Client`): `hide` a method (`view_controls` gates on `hasattr`), or
   `quiet` one (it is called, does nothing and returns None)
-- `withhold` one of `view_controls`'s arguments (it gets None), for a feature `_run_owned` builds and hands it
 """
 import contextlib
-import inspect
 import sys
-import types
 
 
 class Client:
@@ -38,12 +35,6 @@ class Client:
 
 def hide(*names): Client.hidden.update(names)
 def quiet(*names): Client.quieted.update(names)
-
-
-WITHHELD = set()
-
-
-def withhold(*names): WITHHELD.update(names)
 
 
 def patch(module, name, value):
@@ -75,6 +66,7 @@ def stub_view(view):
     patch(view.ViewControl, 'flush', lambda self: None)
     patch(view.ViewControl, 'save_setup', lambda self: None)
     patch(view.ViewControl, 'renderer_restarted', lambda self: None)
+    patch(view.ViewControl, 'window_context', lambda self: {})  # the window memory's captures: no placements yet
     hide('event_stream', 'install_options_binds')
 
 
@@ -94,29 +86,23 @@ def stub_binds(managed):
 
 
 def apply_stubs():
-    from tools.native_spike import immersive, keybinds, managed, send, unified_cursor, video, view
+    from tools.native_spike import immersive, keybinds, managed, unified_cursor, video, view
     # One entry per feature still a stub in Rust. A port deletes its own line.
     STUBS = {
         'view': lambda: stub_view(view),
         'binds': lambda: stub_binds(managed),
         'overview_pointer': lambda: patch(unified_cursor, 'UnifiedSampler', Nothing),
-        'send': lambda: patch(send, 'WindowSender', Nothing),
-        'privacy': lambda: hide('set_dpms'),
         'immersive': lambda: patch(immersive, 'find_engine', lambda renderer: None),
         'keybinds': lambda: (hide('binds_text', 'open_key_panel'), patch(keybinds, 'BindControl', Nothing)),
         'video': lambda: (hide('install_video_binds'), patch(video, 'VideoControl', NoVideo)),
         'desktops': lambda: hide('adopt_windows'),
-        'window_memory': lambda: withhold('windows'),
     }
     for stub in STUBS.values(): stub()
     shipped = managed.view_controls
-    signature = inspect.signature(shipped)
 
     @contextlib.contextmanager
     def view_controls(client, *args, **kwargs):
-        bound = signature.bind(Client(client), *args, **kwargs)
-        for name in WITHHELD: bound.arguments[name] = None
-        with shipped(*bound.args, **bound.kwargs) as control:
+        with shipped(Client(client), *args, **kwargs) as control:
             yield control
     managed.view_controls = view_controls
 

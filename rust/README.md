@@ -115,18 +115,60 @@ key through each run's own key helper. Until the view is ported the reply is its
 Not ported, so a Rust run presents the desktops without these:
 
 - the glasses' view controls (`managed.view_controls`) but the socket: the Ctrl+Alt binds, the view and its frames, the
-  overview pointer, privacy mode, window sending, 3D, the key bind panel, VR video, and through them the pills' desktop
-  changes
-- the window memory: remembered windows are not put back at the start, and no capture is taken
-- the reset of a saved setup the broker refused (`profiles.discard_unusable`)
+  overview pointer, 3D, VR video, and through them the pills' desktop changes. Window sending, privacy mode and the key
+  bind panel are ported (below) but reach a run's ops only once the view is.
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
 Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
 the run loop (`supervisor::hook::LoopHook`: its sources, status datagrams, frame descriptors and guard changes) where the
 Python calls the original, in the Python's order. With every stub off, a run is the plain one above.
+Ported: the reset of a saved setup the broker refused (`view_controls::setup`: `managed._setup_failed` with
+`profiles.discard_unusable`). When the consent's desktops are not the default three and the broker refuses their outputs
+(`UNCREATABLE`), the glasses profile in `profiles.json` goes back to the default three, as `save_profile` writes it, and
+the log keeps the setup it replaced. `tests/setup_corpus.rs` replays the Python's resets
+(`rust/corpus/setup/discard.json`, from `tests/native_spike/setup_corpus.py`), and `managed_real`'s `create-fail` case
+with a saved four-desktop `profiles.json` compares the file both runners leave.
+
 `crates/xr-workspace/VIEW_CONTROLS.md` is the hand-off for each port: the Python to port, the renderer ops, the parity
 tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
 and a fake-compositor reply function per feature.
+
+Ported: the window memory (`view_controls::window_memory::Tracker`, `window_memory.WindowTracker`). Before adoption the
+windows XR last held go back to their desktops (`place_windows` moves), after it the settling evals run and windows whose
+desktop is missing are parked; a mark (a Super drag's end) is captured a second later on a worker with its own client,
+pinned to the run's compositor; and the run's end takes the last capture into `window-memory.json` before recovery.
+`tests/window_memory_tracker.rs` replays `corpus/window_memory/tracker.json` (the Python tracker on the Python client,
+recorded by `tests/native_spike/window_memory_tracker_corpus.py`): the same requests, file and counts at every step. The
+`managed_real` case `window-memory` writes a memory before the run and compares the `place_windows` Lua and the file after
+Stop. Not ported yet: `set_names` and `leaving` (a desktop removed and added again in a run), which the `desktops` port
+calls, and the view's `window_context` and `poll` wiring, which the `view` port does (`Tracker::set_context`,
+`Tracker::poll`, `Tracker::deadline`).
+
+Window sending (`view_controls::send`) is ported: `WindowSender` runs the send keys (Ctrl+Alt+G, Ctrl+Alt+1-4,
+Ctrl+Alt+B) and the overview drag's lookups and moves on worker threads, one move at a time, each job on its own client
+of the run's compositor, and `close` lets a move in flight land before the binds go and recovery starts (`notify` is
+`managed::real::notify`). `tests/send_corpus.rs` replays `corpus/send/sender.json`, recorded from the Python
+`WindowSender` by `tests/native_spike/send_corpus.py`: the same requests, notifications, results and moves. Its keys
+reach it once the control socket and the view are ported; until then the oracle's whole `view_controls` exclusion covers
+it.
+
+The key bind panel (`view_controls::keybinds::Keys`) is ported: the saved `keybinds.json`, the desktop's binds read
+before the run's own go in (a run bind on keys a described Hyprland / Omarchy bind holds is left out, and said once), the
+keys `Binds::install` takes, the panel's ops (`binds_toggle`, `binds_key`) and `binds` frames through the view, and its
+compositor work on a worker thread with its own pinned client. `tests/keybinds_run.rs` replays
+`rust/corpus/supervisor/keybinds_run.json` (`tests/native_spike/keybinds_run_corpus.py`, the Python's requests, frames,
+toasts and saved file). It comes on in a run with the `binds` port (no bind helper, no panel), and its run case in
+`tests/managed_real/cases/keybinds.rs` waits on the `socket`, `view` and `binds` ports.
+
+Privacy mode (Ctrl+Alt+D) is ported: `view_controls::privacy` builds `supervisor::privacy::PrivacyDisplay` on a
+compositor client pinned to the run's verified compositor and session, toggles it off the loop, and closes it (the main
+display back on) in `ViewControls::exit` before 3D and the binds; recovery wakes the fallback again first. The press
+reaches it once the `socket` and `view` ports route `privacy_display`. `tests/privacy_transcripts.rs` replays
+`corpus/supervisor/privacy.json` (recorded from the Python `PrivacyDisplay` and `privacy.wake` on the shipped
+HyprlandClient by `tests/native_spike/privacy_corpus.py`): the same bytes, completions and notifications for the
+toggle, its refusals, close's wake, the watcher's re-blank and recovery's wake. The run case
+(`tests/managed_real/cases/privacy.rs`) holds recovery's wake of a fallback left DPMS-off to the Python's; the
+Ctrl+Alt+D run case waits for the `socket` port's control-frame action.
 
 ### Switching runs to the Rust supervisor
 
@@ -209,23 +251,127 @@ pass ASCII numbers.
 
 ## Renderer
 
-`xr-renderer` so far is the presentation shell of `spike/src/wayland.cpp` and `main.cpp`: the
-supervised launch (same arguments, descriptor checks and start frame), an overlay layer surface on
-the named output that takes no input, frame-callback pacing, `wp_presentation` feedback and the
-`generated_pattern_presentation_timing` report, and the fractional scale through `wp_viewporter`. It
-draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). `--capture`,
-`--pose-feed`, `--depth-fd` and `--continuity-fd` exit 2 until those parts are ported.
+`xr-renderer` is the complete port of the C++ renderer (`spike/src/wayland.cpp`, `main.cpp` and the files they draw
+with). It takes the same supervised launch (same arguments, descriptor checks and start frame) and every launch flag:
+`--capture`, `--pose-feed xrld`, `--depth-fd` and `--continuity-fd`. It shows an overlay layer surface on the named
+output that takes no input. Frames are paced by the frame callback, with `wp_presentation` feedback, the
+`generated_pattern_presentation_timing` report and the fractional scale through `wp_viewporter`. Without `--capture`
+it draws the generated test pattern (SHM, static or `--animate-pattern-ms`). With it, the managed desktops are composed
+on the GPU (dmabuf, or SHM uploads) or on the CPU. The default renderer stays `xr-native-spike` until RR-82's gate
+(see "Switching runs to the Rust renderer").
 
-Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
+### Scene wiring
+
+Each feature has one module under `crates/xr-renderer/src/shell/`. The module holds the feature's state, its
+`Presentation` calls and its share of a GPU frame. `main.rs` routes every op and launch flag to its module, as
+`spike/src/main.cpp` does. `select`, `recover` and `status` are receipted only, as in the C++.
+
+A GPU frame (`captures.rs` `draw_gpu`) builds one `Scene` (`shell/scene.rs`):
+
+1. The core fills the context: the time, the canvas, `overview`, `switching`, `zoom`, `focus` and the eased sizes.
+   It also fills the defaults: the identity camera, the view's blended tiles and flat placements.
+2. `Features::contribute` calls each module in wayland.cpp's order: tracking, scene_layout, roll, cards, handles,
+   menus, immersive, pointer. `Tracking::camera` then sets the camera once the placements are in.
+3. The core resolves the zoomed placements (anchor mode's `keep_size`, then the Step-Back Band's step on the maximized
+   desktop). It sets the edge pan's dot in place of the free pointer, writes the maximize geometry and sets the
+   background. Then `Scene::apply` hands the inputs to `GlCompositor`.
+4. A VR video (`video_shell`) draws in place of the desktops. Otherwise the core calls `draw_and_swap`.
+
+An `Option` input that a feature leaves `None` leaves that `GlCompositor` input as it was. Each module's
+`animating(now_ms)` is part of the redraw test, and each module has hooks for its status datagram and exit report
+fields, written in wayland.cpp's order.
+
+Where the modules meet, the C++ order is kept:
+
+- The levelling roll is part of each desktop's target placement (`SceneLayout::target_placement`), so it eases with the
+  rest of the placement. A roll change ends a placement glide. The menus place a held slider's panel on the target
+  placement, not the eased one.
+- `style` (`set_accent`) recolours the GL accent, the cards and pop-ups, the tracking hint, both panels and the video
+  card.
+- `desktops` (`set_desktops`) changes the captures, closes an options panel whose monitor is gone and restarts the
+  depth channels.
+- The tracking hint takes the pop-ups' place on `scene.popup`. A mode pop-up goes first.
+- A VR video hides the help card and the bind panel, and the help geometry is off while it plays.
+- Continuity carries the view, tracking's pose, stabilization, modes and centre, and roll's rolls.
+
+### What each module draws
+
+- **`tracking`**: `--pose-feed xrld`. A GPU frame reads the pose late (the feed and the motion wire are opened, and
+  retried once a second), then stabilizes, predicts and smooths it. `ModeController` gives the frame its camera:
+  anchor, follow and locked, the focus aim, the landed switch turns and the anchor-mode view turn. The FOV comes from
+  the driver when it publishes one, else from the supervisor's projection, else 46 degrees. A feed that stops holds
+  the last pose, raises the "Reconnecting tracking..." pop-up, reports `tracking:false` in the status datagram and
+  keeps presenting. The exit report carries `tracking` and `latency` (software read to present, from the
+  `wp_presentation` feedback in `shell.rs`).
+- **`scene_layout`**: `placement` (eased toward the latest at the display's rate, or glided along one smootherstep,
+  as `view.rs` `step_placements`), `style` (and the exit report's `theme`), `edge_pan` (`ViewAnimator::set_pan`, and
+  the hand's dot, `pan_dot`), `desktops` (captures stop, start and restart; placements follow their desktops) and the
+  Ctrl+Alt+R tile ease (`TileEase`). The exit report's `view` section lists the placements. Captures key their Wayland
+  proxies by a stable id, since `desktops` moves their indices.
+- **`roll`**: the `roll` op's levelling rolls and the glass level bars. `take_roll_geometry` hands the supervisor its
+  `roll_geometry` line. It is rate-limited to `ROLL_GEOMETRY_MS` once measured, never sends the same line twice, and
+  is resent after a failed send. A tilt is measured from tracking's level reference in settled anchor mode with no
+  video, on the settled sizes and the target placements; otherwise it is `null`.
+- **`handles`**: `resize_handle`, `move_handle` and `restore_band` light the corner caps and ease the pills' and
+  gears' hover levels. They also fade the Step-Back Band's Restore pill and step the maximized desktop back. The exit
+  report carries `restore_band`, `resize_handle` and `move_handle`.
+- **`pointer`**: the overview free pointer (the dot, or the dot turned to a direction), its look's marks or the Serif
+  Beam, and a window drag's ghost with its drop target. It shows in the overview and through the overview pan's
+  landing, and is hidden while the view switches. The exit report's `overview_pointer` counts the times it was shown.
+- **`cards`**: the `help` and `binds` ops and the mode pop-ups of `view` (viewing mode, cursor follow, prediction,
+  typing; a maximize or un-maximize changes the mode without a pop-up), drawn head-locked. Each card is rasterised by
+  the ported `hud.rs` / `binds_panel.rs` code from the overlay state the C++ draws it from, so its pixels are the C++
+  ones. The exit report's `popup_font` names the font family or the pixel-font fallback. The `help_geometry` line
+  goes to the supervisor at once on a show or hide, then at most every `HELP_GEOMETRY_MS` while the card is up on the
+  overview.
+- **`menus`**: `options_menu` and `placement_menu` open the options panel and the placement panel from the overview's
+  glass (`options_overlay.hpp`, `options_evidence.hpp`). The exit report carries `placement_menu` and `options_menu`.
+- **`video_shell`**: the eight `video` actions play the file through `video::mode::Mode` (libmpv), made on the first
+  open with the compositor's GL context. Without GPU composition the file is closed, as in C++. While a video is
+  open, it is drawn in place of the desktops through `GlCompositor::draw_scene_and_swap`, world-locked, over the
+  background, with the controls card and the status pop-up head-locked in each eye. The status datagram carries
+  `video`, the exit report has its `video` section, and the owner readback's `video` is the open video's report or
+  the next video's quality defaults.
+- **`immersive`**: `set_immersive` lights the 3D buttons and hands the stereo settings to the compositor before the
+  frame is laid out. The depth engine's memory (`--depth-fd`) is linked on the first frame that has a 3D desktop,
+  fed and read each frame after the uploads, and dropped when nothing is 3D. Memory that is not an `XRD1` block of
+  the right size never makes a link: the reason goes to the owner readback's `engine_error`. An engine that stops
+  beating is not fed any more, and its desktops ease flat. Either way the buttons still light. The exit report carries
+  `depth` and the composition report carries `stereo`.
+- **`continuity_shell`**: `--continuity-fd`. The view and the pose are restored after open and saved before close,
+  in `continuity.rs`'s format.
+
+### Gates
+
+Every `capture_e2e_rust_*` ctest (42) runs the C++ test's bench arguments against the Rust binary, configured with
+`-DXR_RUST_RENDERER=/path/to/rust/target/release/xr-renderer`; run them one at a time
+(`ctest -R capture_e2e_rust`). The scene wiring adds `tracked`, `edge_pan_gl-dmabuf`, `restore_band`,
+`pointer_look_gl-shm`, `feed_drop`, `bad_control`, `bad_control_fatal`, `control_closed`, `options_roundtrip`,
+`open_panel`, `immersive_{gl-dmabuf,gl-shm}`, `immersive_scaled`, `immersive_engine_dies` and
+`feed_gone_video_loss`. The ctest twins are Rust tests: `tests/level_frame_reference.rs`, `tests/roll_level.rs`,
+`tests/resize_handle.rs`, `tests/restore_band.rs`, `tests/native_help.rs`, `tests/owner_readback.rs`,
+`tests/video_owner_events.rs`, `tests/immersive.rs`, `tests/free_pointer.rs` and the `options_evidence` unit test in
+`shell/menus.rs`. `tests/continuity_launch.rs` runs the continuity flag end to end. `pan_dot` is checked frame by frame against
+`spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
+`golden/roll_geometry.cpp`'s.
+
+Not ported or not covered yet:
+
+- The status fields `vsync_error_ms` and `sensor_to_vsync_ms`.
+- Late latch and the GPU timer query (plan task 6).
+- `desktops` has no end-to-end test: the bench never sends that op.
+- The restore band's wire ctest (the binary's `--dump` read by the Python supervisor) has no twin.
+
+### IPC
+
+The renderer's IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
 on any refusal except a malformed display-only payload, refused frames are logged redacted to
 their protocol words, and the `SCM_RIGHTS` descriptors a `video` open brings are kept (at most two,
-close-on-exec) and handed to its open. `stop`, `view` (overview and maximize, through
-`ViewAnimator`; `ModeController` is not ported yet, so focus aim, prediction and stabilization are
-ignored) and `environment` (the grid and smoke backgrounds, faded as in C++) act; the other ops are
-logged once and a video file is closed unread until the player is wired in. While a desktop is
-maximized the status socket carries the `maximize_geometry` line. `control_wire_check` is the Rust twin
+close-on-exec) and handed to its open. Every op acts as in the C++ (`environment` fades the grid
+and smoke backgrounds). While a desktop is maximized the status socket carries the
+`maximize_geometry` line. `control_wire_check` is the Rust twin
 of `spike/tests/control_wire_check.cpp`; the control suites run against it with
 
     cargo build -p xr-renderer --bins
@@ -697,6 +843,15 @@ three-argument `std::hypot`. `tests/stabilization.rs` ports the `stabilization` 
 `continuity` ctest. It restores `golden/continuity_{mid,end}.bin`, which `golden/continuity.cpp` writes from the C++,
 and matches every byte except padding and the hash. It also keeps `golden/continuity_{mid,end}_rust.bin` current
 (`XR_WRITE_GOLDENS=1`), and `continuity.cpp read` restores those in C++ with the same continuation.
+
+The renderer takes `--continuity-fd` (`shell/continuity_shell.rs`, wayland.cpp `restore_continuity` and
+`save_continuity`). After open it restores the file once, resumed at the integer monotonic clock. It puts the view into
+the capture's `ViewAnimator`, and the pose, stabilization, modes, maximized flag, last drawn head, landed-turn centre
+and rolls into tracking's and roll's state. At an orderly exit it saves them back. Until tracking and roll hold that
+state, the shell keeps it and saves it unchanged. `tests/continuity_launch.rs` ports the real-renderer case of
+`tests/native_spike/test_continuity.py`, both ways. With `XR_CPP_BUILD` set to a `spike/` build, the C++ loopback bench
+runs the Rust renderer on a memfd holding `golden/continuity_end.bin`. The renderer restores the blob and saves the
+same state. The C++ renderer then restores the saved blob. Without `XR_CPP_BUILD` the test says so and passes.
 
 `pose` is `pose.hpp` and `pose.cpp` (RR-72): the quaternion maths, `PoseState` (reference, recentre, level, stale
 tracking), `ModeController` (anchor, follow and locked, with the maximize hold and restore) and `PoseFeed`. `PoseFeed`
