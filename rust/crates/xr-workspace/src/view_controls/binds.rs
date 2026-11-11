@@ -27,6 +27,12 @@ impl Binds {
         None
     }
 
+    /// `bind_args`: the bind helper's command line (`python, client, control_socket, run_id, session`), which the key
+    /// bind panel's worker binds with.
+    pub fn bind_args(&self) -> Vec<String> {
+        Vec::new()
+    }
+
     /// `client.install_view_binds(*bind_args, **control.keys.bind_kwargs())`.
     pub fn install(&mut self, _run: &mut Run<'_>, _keys: Option<&Keys>) {}
 
