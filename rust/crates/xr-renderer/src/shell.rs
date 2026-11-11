@@ -427,6 +427,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for State {
                 s.height = height;
                 s.configured = true;
                 s.cadence.invalidate();
+                s.features.cards.configured(s.width, height); // the help card's text size comes from the output height
                 s.apply_scale();
                 s.capture.invalidate();
             }

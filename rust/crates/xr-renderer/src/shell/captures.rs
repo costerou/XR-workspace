@@ -334,6 +334,16 @@ impl CaptureState {
         self.dirty = true;
     }
 
+    /// The desktops are composed on the GPU (wayland.cpp's `gl`).
+    pub(super) fn gpu_composition(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    /// The view's eased zoom now (0 overview, 1 zoomed in).
+    pub(super) fn zoom(&self) -> f32 {
+        self.view.zoom()
+    }
+
     pub(super) fn close(&mut self) {
         let gpu = self.gpu.as_ref();
         for c in &mut self.captures {
@@ -764,6 +774,7 @@ impl Presentation {
                     imported_frames: 0,
                     uploaded_bytes: 0,
                 });
+                s.features.cards.load_fonts(); // the cards' text font; the built-in pixel font is the reported fallback
             }
             Err(why) => s.capture.cpu_reason = why,
         }
