@@ -101,6 +101,14 @@ case, Python's `recover-run` then finishes the run the Rust supervisor started. 
 and the descriptor numbers are normalized. When a renderer exits on its own, `renderer-closed` against no stop reason is
 a race in both supervisors, so it is not compared.
 
+A head-tracked launch reads the renderer trial flags (`renderer-flags`, `docs/technical.md` "Renderer trial flags") as
+`supervisor._renderer_flags` does (`managed::real::renderer_flags`) and puts them after `--pose-feed xrld`, for either
+renderer. The scripted compositor's runs are not head-tracked, so `tests/managed_real/cases/renderer_flags.rs` shows
+there that neither supervisor reads the file without a pose feed, good or bad, and holds the reader itself to
+`_renderer_flags` on a corpus of files: accepted values, every refusal and its words, Python's whitespace, unreadable
+and non-UTF-8 files. The one difference is a value in another script's digits, such as `٣`. Python's `\d` takes it and
+the renderer then refuses it; the Rust supervisor refuses it before the launch.
+
 The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included, with one
 stand-in per view-controls feature the Rust run does not have yet (its `STUBS`); each port deletes its own.
 

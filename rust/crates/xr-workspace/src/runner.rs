@@ -492,7 +492,7 @@ pub fn load_installed(data_home: &Path) -> Res<Installed> {
 }
 
 /// `str(OSError)` for a failed open of `path`: `[Errno N] strerror: 'path'`; other errors as they read.
-fn py_os_error(e: &io::Error, path: &Path) -> String {
+pub(crate) fn py_os_error(e: &io::Error, path: &Path) -> String {
     let Some(errno) = e.raw_os_error() else { return e.to_string() };
     let text = e.to_string();
     let strerror = text.strip_suffix(&format!(" (os error {errno})")).unwrap_or(&text);

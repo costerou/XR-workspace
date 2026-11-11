@@ -598,6 +598,7 @@ fn launch_hands_the_renderer_exactly_its_descriptors() {
     let mut spec = Launch::new(&renderer, "DP-2", "run", "session", peer);
     spec.capture = Some(&["XR-1", "XR-2"]);
     spec.pose_feed = true;
+    spec.renderer_flags = vec!["--late-latch-guard-ms".into(), "2".into()];
     spec.depth_fd = Some(depth.as_fd());
     // Any other descriptor of ours must not reach the renderer.
     let stray = std::fs::File::open("/dev/null").unwrap();
@@ -639,12 +640,18 @@ fn launch_hands_the_renderer_exactly_its_descriptors() {
             "--status-fd",
             "--depth-fd",
             "--capture",
-            "--pose-feed"
+            "--pose-feed",
+            "--late-latch-guard-ms"
         ]
     );
     assert_eq!(
-        (value("--output"), value("--capture"), value("--pose-feed")),
-        ("DP-2".into(), "XR-1,XR-2".into(), "xrld".into())
+        (
+            value("--output"),
+            value("--capture"),
+            value("--pose-feed"),
+            value("--late-latch-guard-ms")
+        ),
+        ("DP-2".into(), "XR-1,XR-2".into(), "xrld".into(), "2".into())
     );
     let fds = std::fs::read_to_string(dir.join("fds")).unwrap();
     let mut open: Vec<i32> = fds

@@ -220,7 +220,7 @@ fn read(path: &Path) -> io::Result<String> {
 }
 
 /// Python's UnicodeDecodeError text, so a reason reads the same whichever side wrote it.
-fn utf8_message(raw: &[u8], e: std::str::Utf8Error) -> String {
+pub(crate) fn utf8_message(raw: &[u8], e: std::str::Utf8Error) -> String {
     let at = e.valid_up_to();
     let lead = raw[at];
     let codec = "'utf-8' codec can't decode";
@@ -230,6 +230,10 @@ fn utf8_message(raw: &[u8], e: std::str::Utf8Error) -> String {
             raw.len() - 1
         ),
         None => format!("{codec} byte 0x{lead:02x} in position {at}: unexpected end of data"),
+        Some(n) if n > 1 => format!(
+            "{codec} bytes in position {at}-{}: invalid continuation byte",
+            at + n - 1
+        ),
         Some(_) if (0xc2..=0xf4).contains(&lead) => {
             format!("{codec} byte 0x{lead:02x} in position {at}: invalid continuation byte")
         }

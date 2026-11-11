@@ -859,6 +859,8 @@ mod case_keybinds;
 mod case_overview_pointer;
 #[path = "managed_real/cases/privacy.rs"]
 mod case_privacy;
+#[path = "managed_real/cases/renderer_flags.rs"]
+mod case_renderer_flags;
 #[path = "managed_real/cases/send.rs"]
 mod case_send;
 #[path = "managed_real/cases/setup.rs"]
