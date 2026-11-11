@@ -178,6 +178,12 @@ drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and chec
 2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
 gate tests and the `GlCompositor` inputs it feeds.
 
+`shell/pointer.rs` draws the overview free pointer: the `overview_pointer` op's dot (or, with a direction, the dot turned
+there), its look's marks or the Serif Beam, and a window drag's ghost with its drop target. It is drawn in the overview
+and through the overview pan's landing, and hidden while the view switches. The exit report's `overview_pointer` counts
+how many times it was shown. The edge pan's hand dot, which takes the pointer's place during an edge pan, comes with
+`scene_layout`'s `pan_dot`.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops
