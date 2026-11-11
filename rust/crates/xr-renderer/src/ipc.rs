@@ -146,7 +146,7 @@ pub fn receive(
 
 /// What the presentation adds to a status sample (`Presentation::status_json`); `None` leaves a
 /// field out.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct StatusExtras {
     /// Left out while the player is off.
     pub video: Option<Video>,
@@ -159,10 +159,14 @@ pub struct StatusExtras {
     pub pose_age_ns: Option<u64>,
     /// Only when every capture has a frame and all read the same way.
     pub capture_path: Option<CapturePath>,
+    /// Only with GL_EXT_disjoint_timer_query and a frame timed since the last sample: its frames' GPU time, (p50,
+    /// p95, max) in ms (sent as `gpu_p50_ms`, `gpu_p95_ms`, `gpu_max_ms`, 3 decimals).
+    pub gpu_ms: Option<(f64, f64, f64)>,
 }
 
 /// One status sample, without its newline: the metrics' object (`missed`, `presented_hz`) and then
-/// `video`, `tracking`, `capture_failure_run`, `pose_age_ms` and `capture_path`, as the C++ appends them.
+/// `video`, `tracking`, `capture_failure_run`, `pose_age_ms` and `capture_path`, as the C++ appends them, and the GPU
+/// time (`gpu_p50_ms`, `gpu_p95_ms`, `gpu_max_ms`), which only this renderer sends.
 pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
     let mut j: Map<String, Value> = match serde_json::from_str(metrics) {
         Ok(Value::Object(o)) => o.into_iter().collect(),
@@ -197,6 +201,11 @@ pub fn status_dict(metrics: &str, extras: &StatusExtras) -> String {
             CapturePath::Shm => "shm",
         };
         fields.push(("capture_path".into(), Value::from(name).to_string()));
+    }
+    if let Some((p50, p95, max)) = extras.gpu_ms {
+        fields.push(("gpu_p50_ms".into(), format!("{p50:.3}")));
+        fields.push(("gpu_p95_ms".into(), format!("{p95:.3}")));
+        fields.push(("gpu_max_ms".into(), format!("{max:.3}")));
     }
     // Written by hand so the order holds whatever serde_json's map keeps.
     let body: Vec<String> = fields
@@ -321,6 +330,7 @@ mod tests {
                 capture_failure_run: Some(0),
                 pose_age_ns: None,
                 capture_path: Some(CapturePath::Dmabuf),
+                gpu_ms: None,
             },
         );
         assert_eq!(
@@ -335,6 +345,7 @@ mod tests {
             video: Some(Video::Playing),
             tracking: Some(true),
             capture_failure_run: Some(0),
+            ..Status::default()
         };
         assert_eq!(
             status::decode(line.as_bytes()).unwrap(),
@@ -362,5 +373,16 @@ mod tests {
         assert_eq!(line, r#"{"capture_failure_run":0,"pose_age_ms":1.500}"#);
         let Datagram::Status(s) = status::decode(line.as_bytes()).unwrap() else { panic!("{line}") };
         assert_eq!(s.pose_age_ms, Some(1.5));
+    }
+
+    #[test]
+    fn gpu_time_goes_last_with_three_decimals_and_decodes() {
+        let extras = StatusExtras { gpu_ms: Some((0.4125, 1.0, 2.25)), ..Default::default() };
+        let line = status_dict(r#"{"missed":0}"#, &extras);
+        assert_eq!(line, r#"{"missed":0,"gpu_p50_ms":0.412,"gpu_p95_ms":1.000,"gpu_max_ms":2.250}"#);
+        let Datagram::Status(s) = status::decode(line.as_bytes()).unwrap() else { panic!("{line}") };
+        assert_eq!((s.gpu_p50_ms, s.gpu_p95_ms, s.gpu_max_ms), (Some(0.412), Some(1.0), Some(2.25)));
+        // Absent without the extension.
+        assert_eq!(status_dict(r#"{"missed":0}"#, &StatusExtras::default()), r#"{"missed":0}"#);
     }
 }

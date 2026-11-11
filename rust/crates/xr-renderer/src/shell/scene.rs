@@ -272,12 +272,14 @@ impl Presentation {
     /// `select`, `recover` and `status`: receipted only, as spike/src/main.cpp (no Presentation call).
     pub fn receipted_only(&mut self, _op: Op) {}
 
-    /// What the presentation adds to a status sample: the capture fields and each feature's.
-    pub fn status_extras(&self) -> StatusExtras {
+    /// What the presentation adds to a status sample: the capture fields, the GPU time and each feature's.
+    /// The GPU time is the frames' since the last sample.
+    pub fn status_extras(&mut self) -> StatusExtras {
         let (capture_failure_run, capture_path) = self.capture_status();
         let mut extras = StatusExtras {
             capture_failure_run,
             capture_path,
+            gpu_ms: self.take_gpu_time(),
             ..StatusExtras::default()
         };
         self.state.features.status(&mut extras);

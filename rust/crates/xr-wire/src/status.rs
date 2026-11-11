@@ -73,6 +73,10 @@ pub struct Status {
     pub video: Option<Video>,
     pub tracking: Option<bool>,
     pub capture_failure_run: Option<u64>,
+    /// The renderer's GPU time per frame since the last sample (GL_EXT_disjoint_timer_query; the Rust renderer only).
+    pub gpu_p50_ms: Option<f64>,
+    pub gpu_p95_ms: Option<f64>,
+    pub gpu_max_ms: Option<f64>,
 }
 
 /// One decoded line.
@@ -146,6 +150,9 @@ pub fn decode(line: &[u8]) -> Result<Datagram, Error> {
         let ok = match key.as_str() {
             "presented_hz" => measure(v).map(|x| status.presented_hz = Some(x)),
             "pose_age_ms" => measure(v).map(|x| status.pose_age_ms = Some(x)),
+            "gpu_p50_ms" => measure(v).map(|x| status.gpu_p50_ms = Some(x)),
+            "gpu_p95_ms" => measure(v).map(|x| status.gpu_p95_ms = Some(x)),
+            "gpu_max_ms" => measure(v).map(|x| status.gpu_max_ms = Some(x)),
             "missed" => count(v).map(|n| status.missed = Some(n)),
             "capture_failure_run" => count(v).map(|n| status.capture_failure_run = Some(n)),
             "capture_path" => match v.as_str() {
@@ -262,6 +269,7 @@ mod tests {
                 video: Some(Video::Paused),
                 tracking: Some(true),
                 capture_failure_run: Some(2),
+                ..Status::default()
             })
         );
         for line in [
@@ -273,6 +281,8 @@ mod tests {
             r#"{"capture_path":"gpu"}"#,
             r#"{"video":"stopped"}"#,
             r#"{"tracking":1}"#,
+            r#"{"gpu_p50_ms":-0.1}"#,
+            r#"{"gpu_max_ms":"1"}"#,
             r#"{"fps":1}"#,
             r#"{"missed":1,"missed":2}"#,
             r#"{"presented_hz":NaN}"#,

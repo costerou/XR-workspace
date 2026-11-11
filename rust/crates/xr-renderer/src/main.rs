@@ -24,6 +24,7 @@ use rustix::net::{RecvFlags, SendFlags, recv, send};
 
 use shell::{Presentation, monotonic_ms, monotonic_ms_f64};
 use xr_renderer::ipc::{self, ControlStream, Descriptors};
+use xr_renderer::late_latch::LateLatch;
 use xr_renderer::view::PointerLook;
 use xr_wire::control::{
     self, Corner, Ghost, Message, Op, Payload, PointerLook as WireLook, Refused, RollSide, Video,
@@ -41,6 +42,8 @@ Optional --control-errors fatal, for tests: a bad control frame stops the render
 Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n\
 Or --capture XR-1[,XR-2[,XR-3[,XR-4]]]: show only the app's own managed outputs (managed-output capture consent),\n\
   optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n\
+  With the feed, optional --late-latch-guard-ms 0..8: draw each head-tracked frame just before the compositor's\n\
+  next latch (D4 trial, off by default; the status latency.late_latch object reports it).\n\
 Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
 
 static STOPPING: AtomicBool = AtomicBool::new(false);
@@ -240,7 +243,7 @@ fn run(argv: &[String]) -> u8 {
         "--run-id",
         "--session",
     ];
-    const OPTIONAL: [&str; 7] = [
+    const OPTIONAL: [&str; 8] = [
         "--status-fd",
         "--control-errors",
         "--animate-pattern-ms",
@@ -248,6 +251,7 @@ fn run(argv: &[String]) -> u8 {
         "--pose-feed",
         "--depth-fd",
         "--continuity-fd",
+        "--late-latch-guard-ms",
     ];
     if !REQUIRED.iter().all(|k| args.contains_key(k))
         || !args
@@ -269,6 +273,14 @@ fn run(argv: &[String]) -> u8 {
     if pose_feed && (args["--pose-feed"] != "xrld" || !args.contains_key("--capture")) {
         return 2;
     }
+    // D4 late latch (xr_renderer::late_latch): head-tracked frames only, off unless given.
+    let late_latch_guard = match args.get("--late-latch-guard-ms") {
+        Some(v) => match LateLatch::parse_guard(Some(v)) {
+            Some(g) if pose_feed => Some(g),
+            _ => return 2,
+        },
+        None => None,
+    };
     let depth = match args.get("--depth-fd") {
         Some(v) => match number(v) {
             Some(n) => Some(n),
@@ -369,13 +381,16 @@ fn run(argv: &[String]) -> u8 {
             None
         }
     };
-    // As spike/src/main.cpp: depth, tracking, continuity, then the animation.
+    // As spike/src/main.cpp: depth, tracking, late latch, continuity, then the animation.
     if let Some(p) = &mut presentation {
         if let Some(fd) = depth {
             p.set_depth_fd(fd);
         }
         if pose_feed {
             p.enable_tracking(shell::POSE_PREFIX, 0.0, 0.0, false); // XRLinuxDriver IPC (fixed path)
+        }
+        if let Some(guard) = late_latch_guard {
+            p.enable_late_latch(guard);
         }
         if p.restore_continuity(continuity) {
             eprintln!("continuity: restored");

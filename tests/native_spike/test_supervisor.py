@@ -354,6 +354,16 @@ class StatusTests(unittest.TestCase):
             w.status_bytes(bad)
             self.assertEqual(w.status, {}, bad)
 
+    def test_gpu_time_is_a_measured_value(self):
+        # The Rust renderer's GPU time per frame since the last sample (GL_EXT_disjoint_timer_query).
+        w = Supervisor(None, None, now=0)
+        w.status_bytes(b'{"missed":0,"gpu_p50_ms":0.412,"gpu_p95_ms":1.0,"gpu_max_ms":2.25}\n')
+        self.assertEqual(w.status, {'missed': 0, 'gpu_p50_ms': 0.412, 'gpu_p95_ms': 1.0, 'gpu_max_ms': 2.25})
+        for bad in (b'{"gpu_p50_ms":-1}\n', b'{"gpu_max_ms":NaN}\n', b'{"gpu_p95_ms":"1"}\n'):
+            w = Supervisor(None, None, now=0)
+            w.status_bytes(bad)
+            self.assertEqual(w.status, {}, bad)
+
     def test_heartbeat_channel_still_H_only(self):
         class Child:
             done=False
