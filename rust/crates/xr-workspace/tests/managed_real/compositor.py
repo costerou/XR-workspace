@@ -120,7 +120,79 @@ def broker(j):
     return registry[p['id']]
 
 
+# One reply function per view-controls feature (rust/crates/xr-workspace/VIEW_CONTROLS.md): a feature's port answers
+# its own requests in its own function, so ports in parallel never edit the same lines. Asked first, in this order.
+
+
+def reply_socket(wire):
+    """view_controls::socket's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_binds(wire):
+    """view_controls::binds's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_view(wire):
+    """view_controls::view's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_overview_pointer(wire):
+    """view_controls::overview_pointer's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_send(wire):
+    """view_controls::send's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_privacy(wire):
+    """view_controls::privacy's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_immersive(wire):
+    """view_controls::immersive's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_keybinds(wire):
+    """view_controls::keybinds's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_video(wire):
+    """view_controls::video's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_desktops(wire):
+    """view_controls::desktops's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_window_memory(wire):
+    """view_controls::window_memory's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+def reply_setup(wire):
+    """view_controls::setup's requests (VIEW_CONTROLS.md); None: not this feature's."""
+    return None
+
+
+FEATURE_REPLIES = (reply_socket, reply_binds, reply_view, reply_overview_pointer, reply_send, reply_privacy,
+                   reply_immersive, reply_keybinds, reply_video, reply_desktops, reply_window_memory, reply_setup)
+
+
 def respond(wire):
+    for reply in FEATURE_REPLIES:
+        answer = reply(wire)
+        if answer is not None:
+            return answer
     if wire == 'j/cursorpos':
         return dict(x=100, y=100)
     if wire in ('j/monitors', 'j/monitors all'):

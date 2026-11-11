@@ -110,6 +110,13 @@ because the Rust run has none yet. Not ported, so a Rust run presents the deskto
 - the reset of a saved setup the broker refused (`profiles.discard_unusable`)
 - the isolated-VM broker (schema 2) and the Pro 2 route, as before
 
+Each of these but the last has a stub module in `crates/xr-workspace/src/view_controls/`, called by `managed::real` and
+the run loop (`supervisor::hook::LoopHook`: its sources, status datagrams, frame descriptors and guard changes) where the
+Python calls the original, in the Python's order. With every stub off, a run is the plain one above.
+`crates/xr-workspace/VIEW_CONTROLS.md` is the hand-off for each port: the Python to port, the renderer ops, the parity
+tests, and the shared edit each port owns. `tests/managed_real.rs` lists the Python side's exclusions, and has a case file
+and a fake-compositor reply function per feature.
+
 ### Switching runs to the Rust supervisor
 
 The Python controller picks the supervisor at every Start (`tools/xr_controller/supervisor_switch.py`), from one

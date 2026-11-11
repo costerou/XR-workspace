@@ -17,8 +17,9 @@
 //!   closed) costs the loop nothing.
 //!
 //! Not here yet (later phase 6 tasks): the run control socket, Hyprland events, the overview pointer itself (its state
-//! machine and the `ViewControl` around it; the loop's seam for it is [`hook`]), the status dict's parsing (each status
-//! line goes to a caller's handler), the journal recovery and the start-up marks.
+//! machine and the `ViewControl` around it; the loop's seam for it is [`hook`], whose sources, status datagrams and
+//! frame descriptors carry them, and `crate::view_controls` has a stub per feature), the status dict's parsing (each
+//! status line goes to a caller's handler), the journal recovery and the start-up marks.
 //!
 //! The pure parts sit in submodules, each mirroring one Python module (`immersive`, `quality`, `view` and the rest;
 //! `geometry` is the crate's). Inputs are typed, so what the Python refuses by type (a bool for an int, a float for an
@@ -96,7 +97,7 @@ use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-pub use hook::{LoopHook, WakeFd};
+pub use hook::{GuardChange, LoopHook, WakeFd};
 
 /// Two sequential IPC requests, each bounded at two seconds, plus scheduling allowance. Separate from (and never
 /// extending) the heartbeat's two seconds.
@@ -537,6 +538,7 @@ impl<C: Renderer, R> Supervisor<C, R> {
         let mut heartbeat_open = true;
         let mut status_open = status.is_some();
         let hook_fd = hook.as_ref().map(|h| h.wake_fd().as_fd().as_raw_fd());
+        let mut sources = hook.as_ref().map(|h| h.sources()).unwrap_or_default();
         let mut frames = Vec::new();
         while !self.finished {
             let now = Instant::now();
@@ -559,7 +561,12 @@ impl<C: Renderer, R> Supervisor<C, R> {
             let wait =
                 deadline.map_or(interval, |d| d.saturating_duration_since(now).min(interval));
             let timeout = wait.as_micros().div_ceil(1000) as libc::c_int;
-            let mut fds = Vec::with_capacity(3);
+            let mut fds = Vec::with_capacity(3 + sources.len());
+            fds.extend(sources.iter().map(|&fd| libc::pollfd {
+                fd,
+                events: libc::POLLIN,
+                revents: 0,
+            }));
             if let Some(fd) = hook_fd {
                 fds.push(libc::pollfd {
                     fd,
@@ -596,6 +603,15 @@ impl<C: Renderer, R> Supervisor<C, R> {
                 if self.finished {
                     break;
                 }
+                if let Some(hook) = hook.as_deref_mut()
+                    && let Some(index) = sources.iter().position(|&fd| fd == ready.fd)
+                {
+                    if !hook.ready(index, now, &mut frames) {
+                        sources[index] = -1; // ended: poll(2) skips a negative fd (`selector.unregister`)
+                    }
+                    self.send_hooked(heartbeat, hook, &mut frames);
+                    continue;
+                }
                 if let Some(hook) = hook.as_deref()
                     && Some(ready.fd) == hook_fd
                 {
@@ -608,7 +624,12 @@ impl<C: Renderer, R> Supervisor<C, R> {
                     let mut data = [0u8; STATUS_LINE_LIMIT + 1];
                     match status.recv(&mut data) {
                         Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
-                        Ok(n) if n > 0 => self.status_bytes(&data[..n], now),
+                        Ok(n) if n > 0 => {
+                            self.status_bytes(&data[..n], now);
+                            if let Some(hook) = hook.as_deref_mut() {
+                                hook.status(&data[..n], now);
+                            }
+                        }
                         _ => status_open = false,
                     }
                     continue;
@@ -636,16 +657,33 @@ impl<C: Renderer, R> Supervisor<C, R> {
                 && (woken || deadline.is_some_and(|d| now >= d))
             {
                 hook.poll(now, &mut frames);
-                if !frames.is_empty() {
-                    self.send(heartbeat, &frames, Vec::new());
-                    frames.clear();
-                }
+                self.send_hooked(heartbeat, hook, &mut frames);
             }
         }
         Ok(self
             .result
             .take()
             .expect("a finished run has its recovery's result"))
+    }
+
+    /// What a hook appended, with the descriptors it hands over, on the bounded send path.
+    fn send_hooked(
+        &mut self,
+        heartbeat: &UnixStream,
+        hook: &mut dyn LoopHook,
+        frames: &mut Vec<u8>,
+    ) {
+        let fds = hook.take_fds();
+        if !frames.is_empty() {
+            self.send(heartbeat, frames, fds);
+            frames.clear();
+        }
+        match hook.guard_change() {
+            Some(GuardChange::Pause) => self.pause_guard(),
+            // A worker that cannot start is the view's fault, kept from the run as `_contained` keeps it.
+            Some(GuardChange::Replace(guard)) => drop(self.replace_guard(guard)),
+            None => {}
+        }
     }
 
     /// Stop the renderer (no reason) and wait for its reaping and recovery, 50 ms at a time.

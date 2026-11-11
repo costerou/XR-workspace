@@ -32,6 +32,7 @@ pub mod restore;
 pub mod runner;
 pub mod send;
 pub mod supervisor;
+pub mod view_controls;
 // Shared with the binary's tests, which use all of it.
 #[cfg(test)]
 #[allow(dead_code)]

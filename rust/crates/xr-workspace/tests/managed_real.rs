@@ -12,6 +12,23 @@
 //! fails, falls silent or is stopped; a broker that refuses the hello, a create that does not go live, a removal it
 //! refuses (then Python's Recover finishes the run the Rust supervisor started); the glasses missing at the start and
 //! the fallback monitor lost mid-run.
+//!
+//! # What the Python side leaves out, and whose port takes each exclusion away
+//!
+//! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
+//! the Python side runs none of those features either. Each exclusion, by the module that removes it:
+//!
+//! - `oracle.py`, `managed.view_controls = no_view_controls`: all of `view_controls` (`socket`, `binds`, `view`,
+//!   `overview_pointer`, `send`, `privacy`, `immersive`, `keybinds`, `video`, and the `desktops` and
+//!   `window_memory` wiring with its last capture). It stays whole until `socket`, `view` and `binds` are ported;
+//!   then oracle.py runs the shipped `view_controls` with one patch per feature still stubbed, and each feature's port
+//!   deletes its own patch (VIEW_CONTROLS.md, "Narrowing the oracle").
+//! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
+//!   asks for a change through the view controls.
+//! - `window_memory`: Python's `tracker_for` gives a tracker (the runner's `ProfileStore`), but no `Session` has a
+//!   `window-memory.json`, so its `place` and `finish` send nothing. The port's cases write one.
+//! - `setup`: no `Session` has a saved `profiles.json`, so Python's `_setup_failed` in `create-fail` resets nothing
+//!   (`profiles.discard_unusable` finds nothing saved). The port's case saves a setup and compares the file.
 
 use std::collections::HashMap;
 use std::fs;
@@ -606,3 +623,29 @@ fn python_recovers_a_run_the_rust_supervisor_left() {
         "Recover unloads the plugin it kept (last request: {last})"
     );
 }
+
+// Each view-controls feature's cases, in its own file (VIEW_CONTROLS.md): ports in parallel never edit the same lines.
+#[path = "managed_real/cases/binds.rs"]
+mod case_binds;
+#[path = "managed_real/cases/desktops.rs"]
+mod case_desktops;
+#[path = "managed_real/cases/immersive.rs"]
+mod case_immersive;
+#[path = "managed_real/cases/keybinds.rs"]
+mod case_keybinds;
+#[path = "managed_real/cases/overview_pointer.rs"]
+mod case_overview_pointer;
+#[path = "managed_real/cases/privacy.rs"]
+mod case_privacy;
+#[path = "managed_real/cases/send.rs"]
+mod case_send;
+#[path = "managed_real/cases/setup.rs"]
+mod case_setup;
+#[path = "managed_real/cases/socket.rs"]
+mod case_socket;
+#[path = "managed_real/cases/video.rs"]
+mod case_video;
+#[path = "managed_real/cases/view.rs"]
+mod case_view;
+#[path = "managed_real/cases/window_memory.rs"]
+mod case_window_memory;

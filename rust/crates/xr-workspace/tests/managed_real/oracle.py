@@ -5,6 +5,8 @@
 The change: `managed.view_controls` yields no view control, as the Rust supervisor's managed run has none yet (the glasses'
 Ctrl+Alt controls, the overview pointer, the panel's control socket: rust/README.md). Everything else (the consent, the
 pins, the plugin, the broker, the journal, adoption, the renderer launch and its watchdog, recovery) is the shipped code.
+Which Rust port takes this (and the other, implicit, exclusions) away: tests/managed_real.rs's module doc and
+rust/crates/xr-workspace/VIEW_CONTROLS.md.
 """
 import contextlib
 import sys

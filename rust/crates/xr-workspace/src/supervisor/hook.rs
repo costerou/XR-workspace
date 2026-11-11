@@ -1,6 +1,7 @@
-//! What the run loop hosts beside the watchdog: the overview pointer, so far (later, anything else that turns events
-//! into renderer frames). [`super::Supervisor::run_hosting`] waits on the hook's [`WakeFd`] with the heartbeat and
-//! status sockets, and on nothing else of it.
+//! What the run loop hosts beside the watchdog: the overview pointer, and in a managed run the glasses' view controls
+//! around it (`crate::view_controls`, rust/crates/xr-workspace/VIEW_CONTROLS.md). [`super::Supervisor::run_hosting`]
+//! waits on the hook's [`WakeFd`] and its [`LoopHook::sources`] with the heartbeat and status sockets, and hands it
+//! each status datagram.
 //!
 //! The Python loop (`supervisor.Supervisor.run`) calls `control.poll(now)` after every pass: each heartbeat (120 Hz),
 //! each status datagram, each sampler poke (up to 250 Hz) and each 50 ms timeout, overview open or not. What it needs
@@ -16,7 +17,7 @@
 //! ([`super::sampler::SampledPointer`]) calls [`WakeFd::signal`] from `feed` when the sample changed anything.
 
 use std::io;
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd};
 use std::time::Instant;
 
 /// An eventfd the hook's producers signal from any thread and the loop waits on. Signals before the loop drains it
@@ -65,6 +66,39 @@ pub trait LoopHook {
     /// Run once per signal or deadline. Frames for the renderer are appended to `out` (empty: none); the loop sends
     /// them in one bounded send.
     fn poll(&mut self, now: Instant, out: &mut Vec<u8>);
+    /// More descriptors the loop waits on (the run's control socket, the Hyprland event stream: the Python's
+    /// `selector.register` of `control.server.socket` and `control.events`). Read once, when the loop starts; none by
+    /// default.
+    fn sources(&self) -> Vec<RawFd> {
+        Vec::new()
+    }
+    /// `sources()[index]` is readable (`_control_ready`, `_events_ready`): read what is there, or the loop wakes
+    /// again at once. Frames for the renderer go to `out`. False: the source ended and is waited on no more (the
+    /// event stream's EOF). Called while the run stops too, as the Python's selector does; the frames are then dropped.
+    fn ready(&mut self, _index: usize, _now: Instant, _out: &mut Vec<u8>) -> bool {
+        true
+    }
+    /// One datagram from the renderer's status socket, after the watchdog's own handling (`Supervisor.status_bytes`:
+    /// the measured status the panel's `status` reply carries, and the view control's geometry and receipts).
+    fn status(&mut self, _datagram: &[u8], _now: Instant) {}
+    /// Descriptors to send with the frames just appended (a VR video's file: `video.FdFrame`); none by default.
+    fn take_fds(&mut self) -> Vec<OwnedFd> {
+        Vec::new()
+    }
+    /// A change to the run's guard that the hook's last call asked for: a pill's desktop change pauses it and then
+    /// replaces it for the outputs as they are now (`ViewControl.supervisor.pause_guard()` / `replace_guard(...)`).
+    fn guard_change(&mut self) -> Option<GuardChange> {
+        None
+    }
+}
+
+/// What [`LoopHook::guard_change`] asks of the watchdog.
+#[derive(Debug)]
+pub enum GuardChange {
+    /// `Supervisor.pause_guard`.
+    Pause,
+    /// `Supervisor.replace_guard`: a new worker of this command, or none.
+    Replace(Option<std::process::Command>),
 }
 
 #[cfg(test)]

@@ -11,7 +11,8 @@
 //! private control socket, the Ctrl+Alt binds, the overview pointer, privacy mode, window sending, 3D, the key bind
 //! panel, VR video), and with them the pills' desktop changes and the window memory's captures; putting remembered
 //! windows back at the start (`WindowTracker.place`); resetting a saved setup the broker refused
-//! (`profiles.discard_unusable`).
+//! (`profiles.discard_unusable`). Each has a stub in [`crate::view_controls`], called here where `_run_owned`,
+//! `keep_renderer` and `_launch` call the Python's (rust/crates/xr-workspace/VIEW_CONTROLS.md).
 
 use std::ffi::OsString;
 use std::io::{self, Write};
@@ -39,7 +40,8 @@ use crate::restore::{self, Snapshot};
 use crate::runner::PanelConsent;
 use crate::supervisor::survive::{self, Holds, Model};
 use crate::supervisor::tracking::{Paths, Tracking};
-use crate::supervisor::{self, Launch, privacy};
+use crate::supervisor::{self, Launch, LoopHook, privacy};
+use crate::view_controls::{self, ViewControls, desktops, overview_pointer, setup, window_memory};
 
 /// Stop: SIGINT, as the controller sends it to the run's main process (`systemctl kill --signal=SIGINT`).
 pub static INTERRUPT: AtomicBool = AtomicBool::new(false);
@@ -415,6 +417,30 @@ pub struct RealHost<'a> {
     /// startup.py: the first renderer spawned, and its first status line with `missed` (0: none yet).
     renderer_ns: Option<i64>,
     first_status: std::sync::Arc<std::sync::atomic::AtomicI64>,
+    /// `_run_owned`'s `manager` and `memory`, and the broker's cursor read, until `view_controls` takes them.
+    desktops: Option<desktops::Manager>,
+    windows: Option<window_memory::Tracker>,
+    cursor_shape: Option<overview_pointer::CursorShape>,
+    /// `view_controls`'s `control`, from its enter to its exit.
+    controls: Option<ViewControls>,
+}
+
+/// The [`view_controls::Run`] of one call, from the host's fields (a macro, so the borrows stay per field).
+macro_rules! view_run {
+    ($host:expr, $names:expr) => {
+        view_controls::Run {
+            client: &mut *$host.client,
+            runtime: &$host.runtime,
+            run_id: &$host.consent.run_id,
+            session: &$host.session,
+            capture: $names,
+            output: &$host.consent.output,
+            fallback: &$host.consent.recovery_output,
+            model: &$host.consent.model,
+            renderer: &$host.renderer,
+            sbs_mode: $host.consent.sbs_mode,
+        }
+    };
 }
 
 impl<'a> RealHost<'a> {
@@ -440,7 +466,15 @@ impl<'a> RealHost<'a> {
             continuity: None,
             renderer_ns: None,
             first_status: Default::default(),
+            desktops: None,
+            windows: None,
+            cursor_shape: None,
+            controls: None,
         }
+    }
+
+    fn names(&self) -> Vec<String> {
+        self.specs.iter().map(|s| s.name.clone()).collect()
     }
 
     /// survive.py's record of this run's holds.
@@ -519,7 +553,7 @@ impl<'a> RealHost<'a> {
     }
 
     /// The run's guard (`ManagedGuard`), as a worker process of this binary.
-    fn guard(&mut self) -> Result<Command> {
+    fn guard(&mut self, specs: &[OutputSpec]) -> Result<Command> {
         let identity = self
             .client
             .identity()
@@ -534,7 +568,7 @@ impl<'a> RealHost<'a> {
             "identity": {"pid": identity.pid, "uid": identity.uid, "gid": identity.gid, "start": identity.start},
             "session": self.session, "run_id": broker.run_id, "output": self.consent.output,
             "fallback_name": broker.approved_physical, "epoch": broker.epoch, "fallback": broker.fallback,
-            "request_id": broker.request_id, "specs": self.specs.iter().map(wire_spec).collect::<Vec<_>>(),
+            "request_id": broker.request_id, "specs": specs.iter().map(wire_spec).collect::<Vec<_>>(),
         });
         let exe = std::env::current_exe().map_err(err)?;
         let mut command = Command::new(exe);
@@ -550,8 +584,14 @@ impl<'a> RealHost<'a> {
             .client
             .peer()
             .ok_or_else(|| Error("no verified compositor peer yet".into()))?;
-        let guard = self.guard()?;
-        let names: Vec<&str> = self.specs.iter().map(|s| s.name.as_str()).collect();
+        // A later renderer: the desktops as they are now, which a pill may have changed since the start.
+        let live = self
+            .controls
+            .as_ref()
+            .and_then(ViewControls::live_specs)
+            .unwrap_or_else(|| self.specs.clone());
+        let guard = self.guard(&live)?;
+        let names: Vec<&str> = live.iter().map(|s| s.name.as_str()).collect();
         let renderer = self.renderer.clone();
         let run_id = self.consent.run_id.clone();
         let mut spec = Launch::new(
@@ -572,6 +612,13 @@ impl<'a> RealHost<'a> {
             ));
         }
         spec.continuity_fd = self.continuity.as_ref().map(|fd| fd.as_fd());
+        let depth = self
+            .controls
+            .as_ref()
+            .and_then(ViewControls::depth_fd)
+            .map(|fd| std::os::fd::AsRawFd::as_raw_fd(&fd));
+        // SAFETY: the depth memory is the view controls', which live past this launch and close it only at their exit.
+        spec.depth_fd = depth.map(|fd| unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) });
         spec.guard = Some(guard);
         let first = self.first_status.clone();
         spec.status_handler = Some(Box::new(move |line| {
@@ -583,6 +630,10 @@ impl<'a> RealHost<'a> {
         }));
         self.renderer_ns
             .get_or_insert_with(crate::runner::monotonic_ns);
+        if let Some(controls) = self.controls.as_mut() {
+            spec.initial_frames = controls.initial_frame(); // saved spacing, overview
+            spec.hook = Some(controls as &mut dyn LoopHook);
+        }
         let outcome = supervisor::launch(spec, wayland, returncode, &INTERRUPT).map_err(err)?;
         self.stop_reason = outcome.stop_reason.map(|r| r.as_str().to_owned());
         Ok(outcome.result)
@@ -781,12 +832,14 @@ impl Host for RealHost<'_> {
             .map_err(Error)
     }
 
-    fn discard_unusable_setup(&mut self, _error: &Error) -> Result<()> {
-        Ok(()) // profiles.discard_unusable is not ported; the runner never asks for it (RunOptions::saved_setup)
+    fn discard_unusable_setup(&mut self, error: &Error) -> Result<()> {
+        // The runner never asks for it yet (RunOptions::saved_setup); view_controls::setup's port does.
+        setup::discard_unusable(&self.consent.model, error).map_err(err)
     }
 
     fn desktop_manager(&mut self, _specs: &[Spec]) -> Result<()> {
-        Ok(()) // the pills' changes come through the view controls, which are not ported
+        self.desktops = desktops::Manager::open(&self.specs); // the pills' Ultrawide / Add / Remove
+        Ok(())
     }
 
     fn broker_verify(&mut self, spec: &Spec) -> Result<()> {
@@ -831,11 +884,16 @@ impl Host for RealHost<'_> {
         Some(snapshot)
     }
 
-    fn window_memory(&mut self, _names: &[String]) -> Result<bool> {
-        Ok(false) // WindowTracker is not ported: adoption takes every window, as on a first run
+    fn window_memory(&mut self, names: &[String]) -> Result<bool> {
+        self.windows = window_memory::Tracker::open(&mut view_run!(self, names));
+        Ok(self.windows.is_some())
     }
 
-    fn window_memory_place(&mut self, _names: &[String]) -> Result<()> {
+    fn window_memory_place(&mut self, names: &[String]) -> Result<()> {
+        if let Some(mut windows) = self.windows.take() {
+            windows.place(&mut view_run!(self, names));
+            self.windows = Some(windows);
+        }
         Ok(())
     }
 
@@ -882,18 +940,39 @@ impl Host for RealHost<'_> {
     }
 
     fn window_memory_finish(&mut self) -> Result<()> {
+        let names = self.names();
+        if let Some(mut windows) = self.windows.take() {
+            windows.finish(&mut view_run!(self, &names));
+            self.windows = Some(windows);
+        }
         Ok(())
     }
 
     fn cursor_reader(&mut self) -> Result<()> {
-        Ok(()) // the overview pointer's cursor-shape read has no reader without the view controls
+        self.cursor_shape = self
+            .broker
+            .as_ref()
+            .and_then(overview_pointer::cursor_reader);
+        Ok(())
     }
 
     fn view_controls_enter(&mut self) -> Result<()> {
+        let names = self.names();
+        let (desktops, windows, shape) = (
+            self.desktops.take(),
+            self.windows.take(),
+            self.cursor_shape.take(),
+        );
+        let controls = ViewControls::enter(&mut view_run!(self, &names), desktops, windows, shape);
+        self.controls = Some(controls.map_err(err)?);
         Ok(())
     }
 
     fn view_controls_exit(&mut self) -> Result<()> {
+        let names = self.names();
+        if let Some(controls) = self.controls.take() {
+            controls.exit(&mut view_run!(self, &names));
+        }
         Ok(())
     }
 
@@ -919,7 +998,8 @@ impl Host for RealHost<'_> {
             let usb_before = self.usb();
             trace("renderer: launch");
             let code = self.launch(capture)?;
-            let expected = false; // the glasses change mode only through the view controls' 3D
+            // The glasses change mode only through the view controls' 3D (view_controls::immersive).
+            let expected = self.controls.as_ref().is_some_and(ViewControls::switching);
             trace(&format!(
                 "renderer: ended {code} {} expected={}",
                 self.stop_reason.as_deref().unwrap_or("None"),
@@ -956,7 +1036,11 @@ impl Host for RealHost<'_> {
                     || this.borrow_mut().restore_output(),
                     |wait| {
                         if !INTERRUPT.load(Ordering::SeqCst) {
-                            std::thread::sleep(wait);
+                            let mut host = this.borrow_mut();
+                            match host.controls.as_mut() {
+                                Some(controls) => controls.serve_without_renderer(wait),
+                                None => std::thread::sleep(wait),
+                            }
                         }
                     },
                     // Stop while waiting ends the wait at once.
@@ -983,6 +1067,9 @@ impl Host for RealHost<'_> {
             ));
             if back {
                 self.truncate_continuity();
+                if let Some(controls) = self.controls.as_mut() {
+                    controls.renderer_restarted();
+                }
                 if !self.revive() {
                     notify("XR is back without head tracking: the tracking driver did not start.");
                 }
