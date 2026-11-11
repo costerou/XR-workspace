@@ -19,6 +19,17 @@ use crate::recovery::{BackendError, OutputView, RecoveryBackend, WorkspaceView};
 /// A refusal, in the Python's words.
 pub type Result<T> = std::result::Result<T, String>;
 
+/// ownership.CURSOR_TIMEOUT: a cursor-shape read waits no longer than the sampler's own cursor reads.
+pub const CURSOR_TIMEOUT: Duration = Duration::from_millis(250);
+
+/// ownership.CURSOR_NAME: `[A-Za-z0-9][A-Za-z0-9_.-]{0,63}`, the whole name.
+fn cursor_name(s: &str) -> bool {
+    let b = s.as_bytes();
+    (1..=64).contains(&b.len())
+        && b[0].is_ascii_alphanumeric()
+        && b[1..].iter().all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(c))
+}
+
 fn blocked<T>(why: &str) -> Result<T> {
     Err(why.to_owned())
 }
@@ -222,6 +233,21 @@ impl Broker {
             self.fallback = None;
         }
         hello
+    }
+
+    /// `cursor_shape()`: the name of the cursor the app under the pointer asked for while the pointer is on one of this
+    /// run's live XR outputs, `None` if there is none (elsewhere, or a cursor given as a picture). A read-only glance
+    /// (`CURSOR_TIMEOUT`, no session proof round it); fails as any broker call.
+    pub fn cursor_shape(&mut self, client: &mut Client) -> Result<Option<String>> {
+        let result = self.call(client, Op::CursorShape, Some(CURSOR_TIMEOUT))?;
+        let shape = match (result.keys(), result.get("shape")) {
+            (Some(keys), Some(Value::String(shape))) if keys.len() == 1 => shape.clone(),
+            _ => return blocked("invalid cursor shape"),
+        };
+        if !shape.is_empty() && !cursor_name(&shape) {
+            return blocked("invalid cursor shape");
+        }
+        Ok(Some(shape).filter(|s| !s.is_empty()))
     }
 
     pub fn inspect(&mut self, client: &mut Client, id: &str) -> Result<Value> {
