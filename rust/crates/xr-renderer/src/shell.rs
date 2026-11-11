@@ -45,6 +45,22 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 };
 
 mod captures;
+mod scene;
+// One module per feature: its state, its Presentation calls and its share of the frame (scene.rs, SCENE_WIRING.md).
+mod cards;
+mod continuity_shell;
+mod handles;
+mod immersive;
+mod menus;
+mod pointer;
+mod roll;
+mod scene_layout;
+mod tracking;
+mod video_shell;
+
+pub use continuity_shell::continuity_fd_supported;
+pub use immersive::depth_fd_supported;
+pub use tracking::{POSE_PREFIX, pose_feed_supported};
 
 use crate::metrics::{Metrics, Presented};
 use crate::pattern::{
@@ -201,6 +217,8 @@ struct State {
     closed: bool,
     /// Managed-output capture and the composition of the captured desktops (none: the test pattern).
     capture: captures::CaptureState,
+    /// Every feature's state (scene.rs).
+    features: scene::Features,
 }
 
 impl State {

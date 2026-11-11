@@ -169,6 +169,15 @@ the named output that takes no input, frame-callback pacing, `wp_presentation` f
 draws the generated test pattern only (SHM, static or `--animate-pattern-ms`). `--capture`,
 `--pose-feed`, `--depth-fd` and `--continuity-fd` exit 2 until those parts are ported.
 
+The scene wiring has one module per feature under `crates/xr-renderer/src/shell/` (tracking, scene_layout, roll, handles,
+pointer, cards, menus, video_shell, immersive, continuity_shell). Each module holds its state and its `Presentation`
+calls, and puts its share of a GPU frame into one `Scene` (`shell/scene.rs`), which the composition hands to
+`GlCompositor`. Each module also has a hook for its status and exit-report fields. `main.rs` routes every op and launch
+flag to its module, as `spike/src/main.cpp` does. The modules are stubs so far: an op they get is logged once as not
+drawn, and `--pose-feed`, `--depth-fd` and `--continuity-fd` are parsed and checked as the C++ does, then refused (exit
+2). [`crates/xr-renderer/SCENE_WIRING.md`](crates/xr-renderer/SCENE_WIRING.md) lists, per module, the C++ to port, its
+gate tests and the `GlCompositor` inputs it feeds.
+
 Its IPC (`xr_renderer::ipc`) is the C++ `ControlStream` and `main.cpp` socket handling on
 `xr_wire::control`: every one of the 23 ops is decoded and receipted (`control_applied` or
 `control_refused` on the status socket) exactly as the C++ does, `--control-errors fatal` stops

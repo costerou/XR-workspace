@@ -39,16 +39,16 @@ use xr_renderer::egl::DmabufPlane;
 use xr_renderer::gl::{GlCompositor, GpuImage};
 use xr_wire::status::CapturePath;
 use xr_renderer::options_geometry::json_string;
-use xr_renderer::pose::IDENTITY;
 use xr_renderer::environment::{ENVIRONMENT_LOOP_S, EnvironmentFade};
 use xr_renderer::hud::{BRIGHTNESS_DEFAULT, Background};
 use xr_renderer::options_geometry::maximize_geometry_json;
 use xr_renderer::view::{
-    Canvas as ViewCanvas, Leaving, Placement, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
+    Canvas as ViewCanvas, Leaving, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
     overview_geometry_json, overview_layout, zoomed_placements_with,
 };
 use xr_wire::control::{Environment, View};
 
+use super::scene::Scene;
 use super::{Error, MAX_BUFFERS, Presentation, ShmBuffer, State, monotonic_ms, monotonic_ms_f64};
 
 /// A stopped session starts again this long after it stopped, at most this many times in a run.
@@ -794,7 +794,7 @@ impl Presentation {
         let gl = s.capture.gpu.is_some();
         let env = &s.capture.environment;
         let animating = s.capture.captures.iter().any(|c| c.shape.animating())
-            || (gl && (s.capture.view.animating() || env.animating(t)))
+            || (gl && (s.capture.view.animating() || env.animating(t) || s.features.animating(t)))
             || (s.capture.environment_drawn && !env.on());
         if s.frame.is_some() || !s.metrics.can_submit() || !(s.capture.dirty || animating) {
             return Ok(());
@@ -881,12 +881,14 @@ impl Presentation {
         }
         let s = &mut self.state;
         let cs = &mut s.capture;
+        let features = &mut s.features;
         let gpu = cs.gpu.as_mut().expect("gpu composition");
         let Some(k) = gpu.swapchain.iter().position(|b| !b.busy) else {
             return Ok(()); // all three on screen or queued: wait for a release
         };
         gpu.gl.resize(width, height, size.0, size.1);
         let now = monotonic_ms_f64();
+        features.immersive.before_draw(&mut gpu.gl);
         let mut sizes = Vec::with_capacity(cs.captures.len());
         for (i, c) in cs.captures.iter_mut().enumerate() {
             match c.path {
@@ -919,33 +921,47 @@ impl Presentation {
             sizes.push(c.shape.value().unwrap_or(PLACEHOLDER));
         }
         // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
-        // fill the view where it is. No placements op in this build: every desktop at its default placement, so the
-        // camera never turns (identity, the untracked view; ModeController's focus aim is not ported).
+        // fill the view where it is. The features (scene.rs) then give the frame its camera, placements, cards, glass
+        // and pointer; until they are wired every desktop is at its default placement and the camera is the identity
+        // (the untracked view; ModeController's focus aim is not ported).
         let view = &mut cs.view;
         view.advance(now);
         let (w, h) = (width as f32, height as f32);
         let leaving = Leaving { zoom: view.left_zoom(), index: view.left() as usize };
         let tiles = blended_layout_leaving(&sizes, w, h, view.spacing(), view.zoom(), view.position(), leaving);
         let (half_w, half_h) = half_extents(width, height);
+        let mut scene = Scene::new(now, (width, height), (half_w, half_h), tiles);
+        scene.overview = view.zoom() < 0.01 && !view.switching();
+        scene.zoom = view.zoom();
+        scene.focus = view.focus() as usize;
+        scene.sizes.clone_from(&sizes);
+        features.contribute(&mut scene);
         let canvas = ViewCanvas::new(w, h, half_w, half_h);
         let overview = overview_layout(&sizes, w, h, view.spacing());
-        let own = vec![Placement::default(); tiles.len()];
         let options = ZoomOptions { leaving, ..ZoomOptions::default() };
-        let placements = zoomed_placements_with(&canvas, &overview, &tiles, &own, view.zoom(), view.position(), options);
+        let tiles = &scene.tiles;
+        let placements = zoomed_placements_with(&canvas, &overview, tiles, &scene.own, view.zoom(), view.position(), options);
         let focus = view.focus() as usize;
         cs.maximize = if view.zoom() >= 0.99 && !view.switching() && focus < tiles.len() {
-            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &IDENTITY)
+            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &scene.head)
         } else {
             String::from("{\"maximize_geometry\":null}")
         };
-        // The background behind everything (untracked: world-locked at the identity view).
+        // The background behind everything, world-locked and level (identity untracked).
         let level = cs.environment.level(now);
         let seconds = ((now / 1000.0) % ENVIRONMENT_LOOP_S) as f32;
-        gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &IDENTITY);
+        gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &scene.environment_world);
         cs.environment_drawn = level > 0.0;
-        let pan = view.pan_layers();
-        let (highlight, alpha) = (view.focus() as i32, view.highlight_alpha());
-        if !gpu.gl.draw_and_swap(&tiles, &placements, highlight, alpha, &IDENTITY, half_w, half_h, pan.as_ref()) {
+        scene.apply(&mut gpu.gl);
+        let drawn = match features.video.draw(&mut gpu.gl, &scene) {
+            Some(drawn) => drawn, // a VR video replaces the desktops
+            None => {
+                let pan = view.pan_layers();
+                let (highlight, alpha) = (view.focus() as i32, view.highlight_alpha());
+                gpu.gl.draw_and_swap(tiles, &placements, highlight, alpha, &scene.head, half_w, half_h, pan.as_ref())
+            }
+        };
+        if !drawn {
             return Err(Error::new("gl", "draw failed"));
         }
         let target = &mut gpu.swapchain[k];
@@ -1015,6 +1031,8 @@ impl Presentation {
         let options = TargetOptions { center: v.center, cut: v.cut, pan: v.pan };
         cs.view.set_target_with(v.zoomed, v.selected.min(last), v.spacing, monotonic_ms_f64(), options);
         cs.dirty = true;
+        self.view_tracking(v);
+        self.view_popups(v);
     }
 
     /// The `environment` op (Presentation::set_environment): a background fades in, `none` fades the last one out.
@@ -1064,7 +1082,9 @@ impl Presentation {
             json_string(&mut line, &c.name);
             line.push_str(&format!(",\"ready\":{ready},\"width\":{w}}}"));
         }
-        line.push_str("],\"video\":null}}");
+        line.push_str("],\"video\":");
+        self.state.features.video.owner_readback(&mut line);
+        line.push_str("}}");
         if !self.state.capture.readback.due(&line, now_ms) {
             return None;
         }
@@ -1111,6 +1131,7 @@ impl Presentation {
         }
         out.push(']');
         if cs.active() {
+            s.features.report_before_surface(&mut out);
             let (bw, bh) = if cs.gpu.is_some() { s.scaled_size() } else { (s.width, s.height) };
             out.push_str(&format!(
                 ",\"surface\":{{\"logical\":[{},{}],\"buffer\":[{bw},{bh}],\"scale120\":{},\"viewport\":{}}}",
@@ -1119,6 +1140,7 @@ impl Presentation {
                 s.scale120,
                 s.viewport.is_some()
             ));
+            s.features.report_before_composition(&mut out);
             out.push_str(",\"composition\":");
             match &cs.gpu {
                 Some(g) => {
@@ -1147,6 +1169,7 @@ impl Presentation {
                     out.push('}');
                 }
             }
+            s.features.report_after_composition(&mut out);
         }
         out.push('}');
         out
