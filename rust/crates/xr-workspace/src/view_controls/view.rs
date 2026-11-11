@@ -173,8 +173,9 @@ impl ViewControl {
         Vec::new()
     }
 
-    /// `ViewControl.status_reply(status)`: the `status` answer's body (`StatusReply`).
-    pub fn status_reply(&self) -> Vec<(String, xr_wire::json::Value)> {
+    /// `ViewControl.status_reply(status)`: the `status` answer's body (`StatusReply`). `held`: asked during a hold
+    /// (`serve_without_renderer`), whose `status` is `{}` rather than the renderer's last measured one.
+    pub fn status_reply(&self, _held: bool) -> Vec<(String, xr_wire::json::Value)> {
         Vec::new()
     }
 
