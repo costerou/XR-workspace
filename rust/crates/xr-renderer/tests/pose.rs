@@ -1173,6 +1173,55 @@ fn feed_stats_count_sources_switches_and_waits_and_serve_a_seqlock_sample_again(
     assert!(feed.read().is_none() && !feed.stats().seqlock_source && feed.stats().mutex_reads == 2);
 }
 
+/// A writer stopped mid-record (its sequence held odd): every one of the 4,096 copies is retried and counted, as the
+/// C++ counts them, and the mutex feed serves the read. Once the record is whole again a read retries nothing.
+#[test]
+fn feed_stats_count_seqlock_retries_against_a_writer_mid_record() {
+    let (scratch, mut fake) = fake_feed(private);
+    let channel = Channel::new("retries");
+    let mut feed = PoseFeed::open(&scratch.prefix(), &channel.name).unwrap();
+    write(&mut fake, axis_angle(0.0, 0.0, 1.0, 5.0), 500.0);
+    channel.publish(axis_angle(0.0, 0.0, 1.0, 30.0), 0, 2);
+    assert!(feed.read().is_some() && feed.stats().retries == 0);
+    // The slot's sequence: offset 64 of the 128-byte object (xr_pose::seqlock's layout, checked against the C++).
+    let c = CString::new(channel.name.as_str()).unwrap();
+    // SAFETY: a NUL-terminated name; a fresh descriptor, closed below.
+    let fd = unsafe { libc::shm_open(c.as_ptr(), libc::O_RDWR, 0) };
+    assert!(fd >= 0);
+    // SAFETY: a shared mapping of the whole object, unmapped below.
+    let addr = unsafe {
+        libc::mmap(
+            std::ptr::null_mut(),
+            128,
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_SHARED,
+            fd,
+            0,
+        )
+    };
+    assert!(addr != libc::MAP_FAILED);
+    // SAFETY: offset 64 is the 8-aligned u64 sequence, only touched atomically.
+    let seq = unsafe {
+        &*addr
+            .cast::<u8>()
+            .add(64)
+            .cast::<std::sync::atomic::AtomicU64>()
+    };
+    let even = seq.load(Ordering::SeqCst);
+    assert!(even != 0 && even & 1 == 0);
+    seq.store(even + 1, Ordering::SeqCst);
+    assert!(device_ms(&mut feed) == Some(500.0)); // the mutex feed's sample
+    let s = feed.stats();
+    assert!(s.retries == 4096 && s.seqlock_reads == 1 && s.mutex_reads == 1);
+    seq.store(even, Ordering::SeqCst);
+    assert!(feed.read().unwrap().sample_ns != 0 && feed.stats().retries == 4096);
+    // SAFETY: mapped and opened above.
+    unsafe {
+        libc::munmap(addr, 128);
+        libc::close(fd);
+    }
+}
+
 /// A pose_vsync segment of the test's own, at the feed's prefix (spike/driver/include/luma/vsync.hpp VsyncWire).
 struct VsyncSegment {
     id: libc::c_int,

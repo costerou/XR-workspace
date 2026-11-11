@@ -838,8 +838,7 @@ pub struct PoseReaderStats {
     /// Reads that returned a sample, by source.
     pub seqlock_reads: u64,
     pub mutex_reads: u64,
-    /// Seqlock reads that met the writer mid-write and copied again. Always 0 here: xr-pose's seqlock reader spins
-    /// inside its load and does not say how often.
+    /// Seqlock copies that met the writer mid-write and were made again (a spin, never a sleep).
     pub retries: u64,
     /// Mutex reads that found the lock held and blocked on it.
     pub waits: u64,
@@ -1100,7 +1099,12 @@ impl PoseFeed {
         }
         const FRESH_NS: u64 = (PoseFeed::SEQLOCK_FRESH_MS * 1e6) as u64;
         const FUTURE_NS: u64 = 1_000_000;
-        let r = self.seqlock.as_ref().and_then(|s| s.read());
+        // Still mid-record after 4,096 tries: a writer preempted while writing, or dead. The mutex feed serves this read.
+        let (r, retries) = self
+            .seqlock
+            .as_ref()
+            .map_or((None, 0), |s| s.read_counted());
+        self.counts.retries += u64::from(retries);
         let none = |me: &mut Self, now: u64| {
             if now >= me.seqlock_good_ns.wrapping_add(FRESH_NS) && now >= me.seqlock_retry_ns {
                 me.seqlock = None;

@@ -107,24 +107,30 @@ impl Slot {
         self.seq.store(s.wrapping_add(2), Ordering::Release);
     }
 
-    fn load(&self) -> Option<PoseRecord> {
+    /// The record and how many tries failed before it (the C++ feed's `counts.retries`: a try that met the sequence
+    /// odd or changed mid-copy). Giving up counts every try; never written counts none.
+    fn load(&self) -> (Option<PoseRecord>, u32) {
+        let mut retries = 0;
         for _ in 0..READ_TRIES {
             let before = self.seq.load(Ordering::Acquire);
             if before == 0 {
-                return None;
+                return (None, retries);
             }
             if before & 1 != 0 {
                 core::hint::spin_loop();
+                retries += 1;
                 continue;
             }
             // Acquire on each word keeps the second sequence load after it.
             let raw: [u64; WORDS] = core::array::from_fn(|i| self.words[i].load(Ordering::Acquire));
             if self.seq.load(Ordering::Relaxed) == before {
                 // SAFETY: every bit pattern is a valid PoseRecord (floats and integers only).
-                return Some(unsafe { core::mem::transmute::<[u64; WORDS], PoseRecord>(raw) });
+                let r = unsafe { core::mem::transmute::<[u64; WORDS], PoseRecord>(raw) };
+                return (Some(r), retries);
             }
+            retries += 1;
         }
-        None
+        (None, retries)
     }
 }
 
@@ -319,6 +325,12 @@ impl PoseReader {
 
     /// `None` if nothing was ever written, or the writer died mid-write. Never hangs.
     pub fn read(&self) -> Option<PoseRecord> {
+        self.read_counted().0
+    }
+
+    /// [`read`](Self::read), and how many copies it retried because the writer was mid-write: 0 for a clean read,
+    /// up to 4,096 for one that gave up on a sequence held odd.
+    pub fn read_counted(&self) -> (Option<PoseRecord>, u32) {
         self.map.slot().load()
     }
 }
@@ -362,9 +374,13 @@ mod tests {
         let name = Name::new("rt");
         let w = PoseWriter::create(&name.0).unwrap();
         let r = PoseReader::open(&name.0).unwrap();
-        assert_eq!(r.read(), None, "never written");
+        assert_eq!(r.read_counted(), (None, 0), "never written: no retries");
         w.publish(&record(42));
-        assert_eq!(r.read(), Some(record(42)));
+        assert_eq!(
+            r.read_counted(),
+            (Some(record(42)), 0),
+            "no writer racing: no retries"
+        );
     }
 
     #[test]
@@ -439,11 +455,49 @@ mod tests {
         assert_eq!(seq.load(Ordering::SeqCst), 2);
         seq.store(3, Ordering::SeqCst);
         assert_eq!(r.read(), None, "odd forever reads as nothing, and returns");
+        assert_eq!(
+            r.read_counted(),
+            (None, READ_TRIES as u32),
+            "every try met the writer mid-write"
+        );
         let w = PoseWriter::create(&name.0).unwrap();
         assert_eq!(seq.load(Ordering::SeqCst), 4);
         w.publish(&record(9));
         assert_eq!(r.read(), Some(record(9)), "the old reader keeps working");
         unsafe { libc::munmap(addr.as_ptr().cast(), TOTAL) };
+    }
+
+    // A writer publishing flat out bumps the sequence mid-copy sooner or later: the read that copies again says so,
+    // and still returns one whole write.
+    #[test]
+    fn retries_are_counted_against_a_racing_writer() {
+        let name = Name::new("retry");
+        let writer = PoseWriter::create(&name.0).unwrap();
+        writer.publish(&record(1));
+        let r = PoseReader::open(&name.0).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let w = {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let mut i = 1u64;
+                while !stop.load(Ordering::Relaxed) {
+                    i += 1;
+                    writer.publish(&record(i));
+                }
+            })
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let mut retried = 0u64;
+        while retried == 0 && std::time::Instant::now() < deadline {
+            let (p, n) = r.read_counted();
+            if let Some(p) = p {
+                assert_eq!(p, record(p.t_raw_ns), "torn read");
+            }
+            retried += u64::from(n);
+        }
+        stop.store(true, Ordering::Relaxed);
+        w.join().unwrap();
+        assert!(retried > 0, "no read met the writer mid-write in 5 s");
     }
 
     // Torn-read stress through real shared memory: one writer at full speed, readers on their own
