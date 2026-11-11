@@ -276,6 +276,11 @@ fn half_extents(width: u32, height: u32) -> (f32, f32) {
 }
 
 impl CaptureState {
+    /// The GPU compositor, once composition runs on the GPU (the VR video's GL context).
+    pub(super) fn gl_mut(&mut self) -> Option<&mut GlCompositor> {
+        self.gpu.as_mut().map(|g| &mut g.gl)
+    }
+
     pub(super) fn new(names: &[String]) -> Self {
         Self {
             names: names.to_vec(),
