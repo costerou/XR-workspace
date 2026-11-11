@@ -60,6 +60,10 @@ harness = false
 name = "environment_render"
 harness = false
 
+[[test]]
+name = "present_sync"
+harness = false
+
 [[bench]]
 name = "gl_bench"
 harness = false

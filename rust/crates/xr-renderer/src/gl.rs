@@ -1451,7 +1451,8 @@ impl GlCompositor {
         }
     }
 
-    /// Wait for the GPU: the drawn buffer is complete before the compositor reads it.
+    /// Wait for the GPU (the offline checks, before a readback). The present does not: it flushes, and the dmabuf's
+    /// implicit fence orders the compositor's read after the draw.
     pub fn finish(&self) {
         // SAFETY: a plain GL call on the current context.
         unsafe { self.gl.raw().finish() };
@@ -1486,8 +1487,8 @@ impl GlCompositor {
         }
     }
 
-    /// The timed frame's GPU time in ns once the GPU has it (after [`Self::finish`] it has); None while it is not
-    /// ready, without a timed frame, or when the GPU's timer was disjoint meanwhile (the result is not trusted).
+    /// The timed frame's GPU time in ns once the GPU has it (after [`Self::finish`] it has; after a flush, a frame or
+    /// so later); None while it is not ready, without a timed frame, or when the GPU's timer was disjoint meanwhile (the result is not trusted).
     pub fn take_gpu_ns(&mut self) -> Option<u64> {
         let t = self.timer.as_mut().filter(|t| t.pending)?;
         let mut available = 0u32;

@@ -343,10 +343,13 @@ Where the modules meet, the C++ order is kept:
   default, only with the feed) a head-tracked frame is drawn from `late_latch::LateLatch`, as wayland.cpp does: the
   frame callback scores it, `draw_desktops` waits for its start (`Presentation::pump` wakes for it to the
   nanosecond) and the commit ends its measured draw. `latency.late_latch` reports it, `{"enabled":false}` without the
-  flag. The draw it measures includes the swapchain's `glFinish`, which the C++ (`eglSwapBuffers`) does not wait for, so
-  the margin is about 1.5 ms wider than the C++ one (`docs/technical.md`, "Renderer trial flags").
+  flag. The present does not wait for the GPU: after the copy into the swapchain it flushes and commits, and the
+  compositor's read waits for the draw through the dmabuf's implicit fence, as with the C++ `eglSwapBuffers` (Mesa's
+  Wayland EGL flushes and has no `wp_linux_drm_syncobj`). `tests/present_sync.rs` checks that ordering across processes.
+  The measured draw and so the margin match the C++ ones (`docs/technical.md`, "Renderer trial flags").
 - **GPU time**: `GL_EXT_disjoint_timer_query` around each GPU frame (`GlCompositor::begin_gpu_time` to
-  `take_gpu_ns`, first upload to the copy into the swapchain). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
+  `take_gpu_ns`, first upload to the copy into the swapchain; read at the next frame's start, since the present only
+  flushes). The status datagram carries `gpu_p50_ms`, `gpu_p95_ms`
   and `gpu_max_ms` for the frames since the last sample, and the exit report's `composition.gpu_time` the run's
   frames, p50, p95 and max. Both are left out without the extension. The C++ renderer has neither; `xr_wire::status`
   and the Python supervisor accept the three keys.
@@ -407,7 +410,8 @@ back, the others keep theirs, and every settled frame's tiles show the listed de
 `golden/roll_geometry.cpp`'s.
 
 Every part of the C++ renderer is ported. Its latency targets (plan task 6: read to present p50 ≤ 9 ms, p95 ≤ 11 ms)
-need a glasses run; on loopback the late-latch draw trails the C++ by about 1.5 ms (see GPU time above).
+need a glasses run; on loopback the late-latch read to present matches the C++ one (`docs/technical.md`, "Renderer trial
+flags").
 
 ### IPC
 
