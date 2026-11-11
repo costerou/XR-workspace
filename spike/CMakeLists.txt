@@ -791,6 +791,10 @@ if(XR_ENABLE_PRESENTATION)
         --warmup 1 --outputs 1 --close-control --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_tracked capture_e2e_rust_bad_control capture_e2e_rust_bad_control_fatal
         capture_e2e_rust_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      # rust: tracking (D4 late latch trial): drawn on the late-latch schedule, as capture_e2e_late_latch above.
+      add_test(NAME capture_e2e_rust_late_latch COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 3 --warmup 1
+        --tracking --present-lag 1 --late-latch-guard-ms 1.0 --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_late_latch PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
       add_test(NAME capture_e2e_rust_feed_drop COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 25 --warmup 1
         --feed-drop 20 --feed-script "$<TARGET_FILE:feed_script>" --renderer "${XR_RUST_RENDERER}")
       set_tests_properties(capture_e2e_rust_feed_drop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90)
