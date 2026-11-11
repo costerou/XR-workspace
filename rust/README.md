@@ -371,8 +371,8 @@ back, the others keep theirs, and every settled frame's tiles show the listed de
 `spike/tests/edge_pan_trace.cpp` (`tests/fixtures/edge_pan_dot.txt`). The roll geometry lines are byte-equal to
 `golden/roll_geometry.cpp`'s.
 
-Not ported or not covered yet:
-
+Every part of the C++ renderer is ported. Its latency targets (plan task 6: read to present p50 ≤ 9 ms, p95 ≤ 11 ms)
+need a glasses run; on loopback the late-latch draw trails the C++ by about 1.5 ms (see GPU time above).
 
 ### IPC
 
@@ -460,8 +460,7 @@ cargo bench -p xr-renderer --bench gl_bench -- [--frames N] [--size WxH]
 build/release/gl_bench --bench [--frames N] [--size WxH]   # the C++ one, to compare
 ```
 
-Not ported from the C++ bench: its `report:` line and the card and font CPU timings (no font in
-Rust yet). `tests/gl_parity.rs` still checks the call counts against the C++ ones
+Not ported from the C++ bench: its `report:` line and the card and font CPU timings. `tests/gl_parity.rs` still checks the call counts against the C++ ones
 (`XR_GL_CPP_BENCH`).
 
 The scenarios (`tests/support/gl_scenarios.rs`, shared by `gl_frame`, `gl_parity`, the bench and
