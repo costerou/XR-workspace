@@ -203,6 +203,9 @@ impl ViewControls {
             immersive.close();
         }
         if let Some(view) = self.view.as_mut() {
+            if let Some(desktops) = self.desktops.as_ref() {
+                view.take_live(desktops); // what a change in flight left
+            }
             view.flush();
             view.save_setup();
         }

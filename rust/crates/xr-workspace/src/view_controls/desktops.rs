@@ -18,9 +18,9 @@
 //! has a renderer (the first launch built the same command); if it did, the change is replaced by no guard, as the
 //! Python's `_contained` keeps a failed `replace_guard` from ending the run.
 //!
-//! Not here: the view itself. [`View`] is what the view's port implements on `ViewControl` (its state, frames and
-//! listeners); until then the run's view is the stub and no change starts. The profile store
-//! (`profiles.PlacementStore.save_desktops`) is the view's too, handed in as [`Manager::store`].
+//! Not here: the view itself. [`View`] is what `ViewControl` gives the manager for one call (its state, frames and
+//! listeners: `view::Changing`). The profile store (`profiles.PlacementStore.save_desktops`) is the view's too,
+//! handed in as [`Manager::store`].
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -486,7 +486,8 @@ impl Manager {
 
     /// The `view_controls` wiring: the reset's window mover (`desktops.move_windows = _window_mover(client)`). The
     /// view's port takes `wide()` and `desktops()` into its state (`control.state.wide`, `control.state.sizes`).
-    pub fn attach(mut self, _run: &Run<'_>, _view: Option<&mut ViewControl>) -> Option<Manager> {
+    pub fn attach(mut self, _run: &Run<'_>, view: Option<&mut ViewControl>) -> Option<Manager> {
+        self.store = view.and_then(|v| v.desktops_store()); // `desktops.store = placements`
         self.worker.move_windows = Some(window_mover());
         Some(self)
     }
@@ -893,8 +894,22 @@ impl Manager {
     /// The desktops' share of `ViewControl.poll(now)`: the reset's ease, a change done, Remove disarmed after a
     /// while.
     pub fn poll(&mut self, view: &mut dyn View) -> Vec<u8> {
+        let mut out = self.tick(view);
+        out.extend(self.poll_done(view));
+        out
+    }
+
+    /// The first part of [`Manager::poll`], which `ViewControl.poll` runs before the overview pointer's: the reset's
+    /// ease (its rolls go out with the pointer's `roll` frame).
+    pub fn tick(&mut self, view: &mut dyn View) -> Vec<u8> {
         let now = view.now();
-        let mut out = self.reset_tick(view, now);
+        self.reset_tick(view, now)
+    }
+
+    /// The rest of [`Manager::poll`], after the view's saves: a change done, Remove disarmed after a while.
+    pub fn poll_done(&mut self, view: &mut dyn View) -> Vec<u8> {
+        let now = view.now();
+        let mut out = Vec::new();
         if let Some(outcome) = self.take_result() {
             out.extend(self.desktops_done(view, outcome));
         }

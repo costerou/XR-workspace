@@ -11,13 +11,14 @@
 //! close, the key bind panel's and the window memory's polls), `on_events` (a config reload's style frame, window
 //! events for the window memory), `flush`, `save_setup`, `window_context`, `renderer_restarted`, `_restored` and
 //! `_initial_placements`, the profile stores (`ProfileStore`, `PlacementStore`: `setup::store`), and the key bind
-//! panel's [`Host`](crate::supervisor::keybinds::Host).
+//! panel's [`Host`](crate::supervisor::keybinds::Host); the desktops' side (the panel's desktop row on keys,
+//! Ctrl+Alt+R, `_desktops_changed`, the manager's share of `poll`) through `Changing`, the view as the
+//! `desktops::Manager` sees it.
 //!
 //! Not ported here: the options menu (`options_menu.OptionsMenu`, the `options_*` ops, `RuntimeText`), whose
 //! `keyboard_owned` is always false; and the parts that are another feature's state, each marked where it goes: the
-//! overview pointer's (its rolls, `summon`, `level`, the geometry it hit-tests on, and so bumping and `_settle`), the
-//! desktops' (the panel's desktop row, Ctrl+Alt+R) and 3D's (`_immersive_sync`, its reassert after a reload, the status
-//! reply's run fields). The panel's and typing mode's bind swaps, a reload's reinstall and the options binds go to
+//! overview pointer's (its rolls, `summon`, `level`, the geometry it hit-tests on, and so bumping and `_settle`) and
+//! 3D's (`_immersive_sync`, its reassert after a reload, the status reply's run fields). The panel's and typing mode's bind swaps, a reload's reinstall and the options binds go to
 //! `binds::Binds` (`sync_menu`, `typing`, `after_reload`, `enable_options`; `settle` in `join_focus`).
 
 use std::os::fd::{AsFd, AsRawFd, RawFd};
@@ -30,8 +31,10 @@ use serde::Serialize;
 use xr_wire::run_control::Frame;
 
 use super::binds::{Binds, MenuState};
+use super::desktops::{self, Manager};
 use super::overview_pointer::Pointer;
 use super::{Features, Frames, Run, setup};
+use crate::desktops::Action;
 use crate::geometry::{DEFAULT_PLACEMENT, Desktop, Placement};
 use crate::hyprland::{Client, EventStream, Query};
 use crate::pyjson::{self, Json};
@@ -70,8 +73,6 @@ pub const MODE_OVERVIEW_TOAST: &str = "The overview always stays fixed in the ro
 /// `view.PLACE_HELD_TOAST`.
 pub const PLACE_HELD_TOAST: &str =
     "Placement change kept: it applies when you go back to the overview.";
-/// `view.MENU_DESKTOP_OPS`: the open panel's desktop row on keys (the desktops' port).
-const MENU_DESKTOP_OPS: [&str; 3] = ["menu_ultrawide", "menu_add", "menu_delete"];
 /// `view.WINDOW_EVENT`'s events: what changes where windows are.
 /// `ownership.CURSOR_EVENT`: the cursor an app asks for changed, then its name or nothing.
 const CURSOR_EVENT: &str = "xrcursor>>";
@@ -847,7 +848,17 @@ impl ViewControl {
             .as_deref()
             .filter(|_| !self.state.desktops_busy)
             .and_then(|w| w.deadline());
-        timed.chain(keys).chain(pointer).chain(windows).min()
+        let desktops = f
+            .desktops
+            .as_deref()
+            .and_then(Manager::poll_in)
+            .map(|d| wall + d);
+        timed
+            .chain(keys)
+            .chain(pointer)
+            .chain(windows)
+            .chain(desktops)
+            .min()
     }
 
     /// `ViewControl.poll(now)`: the debounced saves once due, the window memory's capture, the help card and an open
@@ -855,16 +866,24 @@ impl ViewControl {
     pub fn poll(&mut self, at: Instant, f: &mut Features<'_>, out: &mut Frames) {
         let now = self.now();
         self.note_keys(f);
-        // Ctrl+Alt+R's ease (desktops): its port. Then the overview pointer: pill / corner drags, sliders, the rolls.
+        // Ctrl+Alt+R's ease (its rolls go out with the pointer's `roll` frame). Then the overview pointer: pill /
+        // corner drags, sliders, the rolls.
+        let eased = self.desktops(f, Manager::tick).unwrap_or_default();
+        out.bytes.extend(eased);
         self.pointed(f, |p| p.poll(at, out));
-        self.watch_rolls(now);
+        if !f.desktops.as_deref().is_some_and(Manager::resetting) {
+            self.watch_rolls(now);
+        }
         if self.save_due.is_some_and(|due| now >= due) {
             self.flush();
         }
         if self.environment_save_due.is_some_and(|due| now >= due) {
             self.save_environment();
         }
-        // The desktops' result, `_settle` (the pointer's geometry), `_immersive_tick`: their ports.
+        // A desktop change done; Remove disarms after a while.
+        let done = self.desktops(f, Manager::poll_done).unwrap_or_default();
+        out.bytes.extend(done);
+        // `_settle` (the pointer's geometry), `_immersive_tick`: their ports.
         if !self.state.desktops_busy
             && let Some(windows) = f.windows.as_deref_mut()
         {
@@ -979,15 +998,47 @@ impl ViewControl {
         })
     }
 
-    /// `_desktops_changed`: the run's desktops changed (the desktops' port calls it); the sender's worker knows them.
+    /// `_desktops_changed`: the run's desktops changed; the overview pointer, the sender's worker and the desktop
+    /// listeners (the sampler's `set_names`, then the window memory's) take the new names.
     pub fn desktops_changed(&mut self, f: &mut Features<'_>) {
+        let names = self.state.names.clone();
+        self.pointed(f, Pointer::desktops_changed);
         if let Some(worker) = f.send.as_deref_mut().and_then(|s| s.worker()) {
-            worker.set_names(&self.state.names);
+            worker.set_names(&names);
         }
-        if let Some(pointer) = f.pointer.as_deref_mut() {
-            pointer.desktops_changed();
-            pointer.set_names(&self.state.names);
+        self.pointed(f, |p| p.set_names(&names));
+        if let Some(windows) = f.windows.as_deref_mut() {
+            windows.set_names(&names);
         }
+    }
+
+    /// A call on the run's `DesktopManager` with the view as its [`desktops::View`]. `live` (the status reply's and
+    /// `save_setup`'s `desktops.desktops()`) follows the manager on each call. `None`: the run has no manager.
+    fn desktops<'a, R>(
+        &mut self,
+        f: &mut Features<'a>,
+        call: impl FnOnce(&mut Manager, &mut dyn desktops::View) -> R,
+    ) -> Option<R> {
+        let m = f.desktops.take()?;
+        self.live = Some(m.desktops());
+        let r = call(m, &mut Changing { view: self, f });
+        self.live = Some(m.desktops());
+        f.desktops = Some(m);
+        Some(r)
+    }
+
+    /// The manager's desktops as they are now, for the run's last `save_setup`.
+    pub fn take_live(&mut self, manager: &Manager) {
+        self.live = Some(manager.desktops());
+    }
+
+    /// `desktops.store = placements`: the profile takes the run's desktops after each change (best effort).
+    pub fn desktops_store(&self) -> Option<desktops::Store> {
+        let (path, model) = self.settings.as_ref().and_then(Store::placements)?;
+        let (path, model) = (path.to_owned(), model.to_owned());
+        Some(Box::new(move |d, p, r| {
+            let _ = setup::store::save_desktops(&path, &model, d, p, r);
+        }))
     }
 
     // --- binds --------------------------------------------------------------------------------------------------
@@ -1064,8 +1115,11 @@ impl ViewControl {
             return self.on_menu(op, f);
         }
         if op == RESET_OP {
-            // View: `desktops.layout_reset(self)` once `ViewControl` implements `desktops::View`.
-            return Vec::new();
+            // shortcut: without a desktop manager Ctrl+Alt+R does nothing (Python still eases the placements flat);
+            // every Rust capture run has one.
+            return self
+                .desktops(f, |m, v| m.layout_reset(v))
+                .unwrap_or_default();
         }
         if RESIZE_OPS.contains(&op) {
             self.pointed(f, |p| p.on_op(op, out));
@@ -1359,8 +1413,14 @@ impl ViewControl {
 
     /// `_on_menu`: a panel key op. Ctrl+Alt+L while maximized goes back to the overview first.
     fn on_menu(&mut self, op: &str, f: &mut Features<'_>) -> Vec<u8> {
-        if MENU_DESKTOP_OPS.contains(&op) {
-            return Vec::new(); // the open panel's desktop row: the desktops' port (`desktop_action`)
+        if let Some(action) = desktop_row(op) {
+            if !self.state.menu_open {
+                return Vec::new();
+            }
+            let desktop = self.state.menu_desktop;
+            return self
+                .desktops(f, |m, v| m.desktop_action(v, desktop, action))
+                .unwrap_or_default();
         }
         let s = &self.state;
         if matches!(
@@ -1440,6 +1500,110 @@ impl ViewControl {
             out.extend(self.menu_frame());
         }
         out
+    }
+}
+
+/// `view.MENU_DESKTOP_OPS`: the open panel's desktop row on keys, as its action.
+fn desktop_row(op: &str) -> Option<Action> {
+    match op {
+        "menu_ultrawide" => Some(Action::Ultrawide),
+        "menu_add" => Some(Action::Add),
+        "menu_delete" => Some(Action::Remove),
+        _ => None,
+    }
+}
+
+/// The view as the desktop manager sees it for one call: the view and the other features (`self` in the Python's
+/// `desktop_action`, `_desktops_done`, `layout_reset`).
+struct Changing<'v, 'f, 'a> {
+    view: &'v mut ViewControl,
+    f: &'f mut Features<'a>,
+}
+
+impl desktops::View for Changing<'_, '_, '_> {
+    fn state(&mut self) -> &mut ViewState {
+        &mut self.view.state
+    }
+    fn now(&self) -> f64 {
+        self.view.now()
+    }
+    fn video_active(&self) -> bool {
+        self.view.video_active
+    }
+    fn tell(&mut self, text: &str) {
+        self.view.tell(text);
+    }
+    fn flush(&mut self) {
+        self.view.flush();
+    }
+    fn cancel_save(&mut self) {
+        self.view.save_due = None;
+    }
+    fn sync_menu_binds(&mut self) {
+        self.view.menu_due = true; // `sync_binds` after the op or poll
+    }
+    fn view_frame(&mut self) -> Vec<u8> {
+        self.view.view_frame(Flags::default())
+    }
+    fn placement_frame(&mut self) -> Vec<u8> {
+        self.view.placement_frame(false, false)
+    }
+    fn menu_frame(&mut self) -> Vec<u8> {
+        self.view.menu_frame()
+    }
+    fn next_id(&mut self) -> u64 {
+        self.view.take_id()
+    }
+    fn run_id(&self) -> &str {
+        &self.view.run_id
+    }
+    fn session(&self) -> &str {
+        &self.view.session
+    }
+    fn desktops_changed(&mut self) {
+        self.view.desktops_changed(self.f);
+    }
+    fn windows_moved(&mut self) {
+        if let Some(windows) = self.f.windows.as_deref_mut() {
+            windows.mark();
+        }
+    }
+    fn rolls(&self) -> Option<Vec<i64>> {
+        let names = &self.view.state.names;
+        self.f.pointer.as_deref().map(|p| p.rolls(names))
+    }
+    fn set_rolls(&mut self, rolls: &[i64]) {
+        let names = &self.view.state.names;
+        if let Some(p) = self.f.pointer.as_deref_mut() {
+            p.set_rolls_of(names, rolls);
+            self.view.rolls = Some(p.rolls(names));
+        }
+    }
+    fn forget_rolls(&mut self) {
+        self.view.rolls_seen = None;
+    }
+    fn close_menu(&mut self) -> Vec<u8> {
+        self.view.on_menu("menu_toggle", self.f)
+    }
+    fn zoom_out(&mut self) -> Vec<u8> {
+        self.view.zoom_out(self.f)
+    }
+    fn reset_store(
+        &mut self,
+        desktops: Option<&[Desktop]>,
+        placements: &[Placement],
+        rolls: &[i64],
+        spacing: i64,
+    ) {
+        if let Some((path, model)) = self.view.settings.as_ref().and_then(Store::placements) {
+            let _ = setup::store::reset(path, model, desktops, placements, rolls, spacing);
+        }
+    }
+    fn save_settings(&mut self) {
+        self.view.save_settings();
+    }
+    fn save_setup(&mut self) {
+        self.view.save_setup();
     }
 }
 

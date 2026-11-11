@@ -373,6 +373,23 @@ impl Pointer {
         p.rolls[..n].copy_from_slice(&rolls[..n]);
     }
 
+    /// `_set_rolls(rolls)`: each of `names`' levelling roll (`pointer.rolls` by `roll_names`).
+    pub fn set_rolls_of(&mut self, names: &[String], rolls: &[i64]) {
+        let mut p = self.lock();
+        for (name, roll) in names.iter().zip(rolls) {
+            let by: &[String] = if p.roll_names.is_empty() {
+                names
+            } else {
+                &p.roll_names
+            };
+            if let Some(k) = by.iter().position(|n| n == name)
+                && k < p.rolls.len()
+            {
+                p.rolls[k] = *roll;
+            }
+        }
+    }
+
     /// The view's state and its next frame id, put in the shell before the view calls the pointer and after any view op
     /// (the Python pointer reads `control.state` live; the sampler reads it here).
     pub fn share(&mut self, state: &ViewState, next_id: u64) {

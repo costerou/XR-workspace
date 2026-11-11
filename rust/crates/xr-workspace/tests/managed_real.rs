@@ -30,11 +30,12 @@
 //! The Rust run has the stubs of `xr_workspace::view_controls` only (rust/crates/xr-workspace/VIEW_CONTROLS.md), so
 //! the Python side runs none of those features either. Each exclusion, by the module that removes it:
 //!
-//! - `oracle.py`'s `STUBS`, one entry per feature still a stub (the `desktops` wiring). The shipped `view_controls` runs around them, with the ported socket, view, binds, key bind
-//!   panel, overview pointer (its sampler and its join with the view), VR video, window sending, privacy mode, 3D and the window memory's tracker.
-//!   Each feature's port deletes its own entry (VIEW_CONTROLS.md, "Narrowing the oracle").
-//! - `desktops`: `_run_owned` builds its `DesktopManager` on the Python side too, which sends nothing until a pill
-//!   asks for a change through the view controls.
+//! - `oracle.py`'s `STUBS`, one entry per feature still a stub: none now. The shipped `view_controls` runs with the
+//!   ported socket, view, binds, key bind panel, overview pointer (its sampler and its join with the view), VR video,
+//!   window sending, privacy mode, 3D, the pills' desktop changes and the window memory's tracker (VIEW_CONTROLS.md,
+//!   "Narrowing the oracle").
+//! - `desktops`: both runners build their `DesktopManager`, which sends nothing until a pill asks for a change through
+//!   the view controls (`cases/desktops.rs`).
 //! - `window_memory`: ported. `oracle.py`'s stand-in still takes the tracker's last capture in its `finally`, as
 //!   `view_controls` does; a `Session` has no `window-memory.json` unless its case writes one
 //!   (`managed_real/cases/window_memory.rs`), so `place` and `finish` send nothing in the other cases.

@@ -109,8 +109,8 @@ there that neither supervisor reads the file without a pose feed, good or bad, a
 and non-UTF-8 files. The one difference is a value in another script's digits, such as `٣`. Python's `\d` takes it and
 the renderer then refuses it; the Rust supervisor refuses it before the launch.
 
-The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included, with one
-stand-in per view-controls feature the Rust run does not have yet (its `STUBS`); each port deletes its own.
+The Python side (`tests/managed_real/oracle.py`) is the shipped runner, `managed.view_controls` included. Its `STUBS`
+(one stand-in per view-controls feature the Rust run does not have yet) is empty: every feature it took out is ported.
 
 The private control socket is ported (`view_controls::socket`, `ipc.PrivateServer` with `control_request` and
 `serve_without_renderer`): `$XDG_RUNTIME_DIR/xr-workspace-spike/<run_id>/control.sock`, one frame per same-UID

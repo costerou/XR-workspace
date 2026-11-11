@@ -122,13 +122,8 @@ Each port also owns these per-feature files, which exist already so that no two 
 
 Done (the `socket` port). `oracle.py` runs the shipped `view_controls`, with its real `PrivateServer` and the
 supervisor's `control_request` / `serve_without_renderer`, and takes each feature still a stub out with one entry in
-`STUBS`, keyed by module:
-
-| Entry | What it does on the Python side |
-|---|---|
-| `desktops` | `adopt_windows` hidden (the pills' window mover) |
-
-`view`, `send`, `privacy`, `window_memory`, `binds`, `keybinds`, `immersive`, `video` and `overview_pointer` have no entry: they are ported and run on both sides. The helpers are
+`STUBS`, keyed by module. `STUBS` is empty: `view`, `send`, `privacy`, `window_memory`, `binds`, `keybinds`,
+`immersive`, `video`, `overview_pointer` and `desktops` are ported and run on both sides. The helpers are
 `patch(module, name, value)`, and `hide(*methods)` and `quiet(*methods)` on the client wrapper (`Client`). A port deletes its own entry, and, if a helper it used has
 no other user, may leave the helper. If its feature then needs more than deleting (a stand-in the next feature relied
 on), it says so in its report. `tests/managed_real.rs`'s module doc lists the implicit exclusions: no

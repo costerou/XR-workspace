@@ -541,6 +541,35 @@ pub mod store {
         };
         write(path, model, &profile)
     }
+
+    /// `PlacementStore.reset(previous)` (Ctrl+Alt+R): the setup and the spacing become the default, and the layout it
+    /// replaces (`desktops`: None or empty, the profile's) is kept as `previous_setup` unless it is the default.
+    pub fn reset(
+        path: &Path,
+        model: &str,
+        desktops: Option<&[Desktop]>,
+        placements: &[Placement],
+        rolls: &[i64],
+        spacing: i64,
+    ) -> Result<(), String> {
+        model_ok(model)?;
+        let mut profile = load_profile(path, model);
+        let desktops = desktops
+            .filter(|d| !d.is_empty())
+            .unwrap_or(&profile.setup.desktops);
+        let value = serde_json::json!({"desktops": desktops, "placements": placements, "rolls": rolls,
+                                       "spacing": spacing});
+        let kept = Json::parse(&value.to_string())
+            .ok()
+            .and_then(|v| previous(Some(&v)))
+            .filter(|k| k.setup != default_setup() || k.spacing != view::DEFAULT_SPACING);
+        profile.setup = default_setup();
+        profile.view.spacing = view::DEFAULT_SPACING;
+        if kept.is_some() {
+            profile.previous_setup = kept;
+        }
+        write(path, model, &profile)
+    }
 }
 
 /// `{'schema': SCHEMA, 'profiles': {**others, model: profile}}`.
@@ -660,5 +689,39 @@ mod tests {
             &mut |_| {}
         ));
         assert_ne!(fs::read(&path).unwrap(), before);
+    }
+
+    /// `PlacementStore.save_desktops` then `reset(previous)` twice, the second of the default (which keeps the
+    /// backup): the file the Python leaves (tools/native_spike/profiles.py, recorded 2026-11-11).
+    #[test]
+    fn a_reset_keeps_the_layout_it_replaces_as_the_python_does() {
+        let dir = crate::testdir::TestDir::new("setup-reset");
+        let path = dir.path().join("profiles.json");
+        let d = [
+            Desktop {
+                width: 2560,
+                height: 1080,
+                scale: 1.0,
+            },
+            Desktop {
+                width: 1920,
+                height: 1080,
+                scale: 1.25,
+            },
+        ];
+        let moved = Placement {
+            x: 10,
+            y: -5,
+            distance: 120,
+            curvature: 30,
+        };
+        let p = [moved, DEFAULT_PLACEMENT];
+        store::save_desktops(&path, "luma-ultra", &d, &p, Some(&[300, -40])).unwrap();
+        store::reset(&path, "luma-ultra", Some(&d), &p, &[300, -40], 140).unwrap();
+        let flat = [DEFAULT_PLACEMENT; 3];
+        let spacing = view::DEFAULT_SPACING;
+        store::reset(&path, "luma-ultra", None, &flat, &[0; 3], spacing).unwrap();
+        let python = r#"{"schema": 2, "profiles": {"luma-ultra": {"spacing": 40, "mode": "anchor", "prediction": true, "stabilization": 25, "video_quality": {"filter": "catmull-rom", "deband": false}, "environment": {"background": "none", "last": "grid", "brightness": 100}, "immersive": {"global": false, "desktops": {}, "preset": "desktop", "strength": 100, "convergence": 92}, "desktops": [{"width": 1920, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.0}], "placements": [{"x": 0, "y": 0, "distance": 100, "curvature": 0}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}], "rolls": [0, 0, 0], "previous_setup": {"desktops": [{"width": 2560, "height": 1080, "scale": 1.0}, {"width": 1920, "height": 1080, "scale": 1.25}], "placements": [{"x": 10, "y": -5, "distance": 120, "curvature": 30}, {"x": 0, "y": 0, "distance": 100, "curvature": 0}], "rolls": [300, -40], "spacing": 140}, "tracking": true, "mode_switch": true, "tracking_driver": "luma", "fallback": null}}}"#;
+        assert_eq!(fs::read_to_string(&path).unwrap(), python);
     }
 }

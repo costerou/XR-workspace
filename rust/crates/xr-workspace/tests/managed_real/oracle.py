@@ -44,9 +44,7 @@ def patch(module, name, value):
 def apply_stubs():
     from tools.native_spike import managed
     # One entry per feature still a stub in Rust. A port deletes its own line.
-    STUBS = {
-        'desktops': lambda: hide('adopt_windows'),
-    }
+    STUBS = {}
     for stub in STUBS.values(): stub()
     shipped = managed.view_controls
 
