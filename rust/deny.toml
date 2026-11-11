@@ -26,6 +26,8 @@ ignore = true
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Internal path dependencies carry no version; this lets them through for our unpublished crates only.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

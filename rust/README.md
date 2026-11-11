@@ -46,7 +46,9 @@ undefined in the C++ and saturating in Rust.
 
 `Cargo.lock` is committed. `deny.toml` allows permissive third-party licences only (MIT, Apache-2.0,
 BSD, ISC, Zlib, Unicode-3.0); adding any other licence is a deliberate edit to that list. Our own
-crates are `publish = false` and are skipped by the licence check.
+crates are `publish = false` and are skipped by the licence check. `bans` denies wildcard version requirements, but `allow-wildcard-paths = true` lets
+through the versionless path dependencies between our own crates, which cargo-deny accepts only because
+they are `publish = false`.
 
 `tests/run_all.sh rust` runs these gates from the repository root, and a bare `tests/run_all.sh` runs them together
 with ctest, the Python suites and the QML tests.
