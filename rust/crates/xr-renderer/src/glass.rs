@@ -159,7 +159,7 @@ pub const PANEL_HINT_PX: u32 = 18;
 pub const PANEL_ACTION_PX: u32 = 20;
 
 /// options_geometry.hpp kRestoreStepMs (a float there, promoted to double where [`RestoreStep`] uses it).
-const RESTORE_STEP_MS: f64 = 220.0;
+const RESTORE_STEP_MS: f64 = crate::ui_tokens::MOTION_RESTORE_STEP_MS;
 
 // A small grabber capsule at the top centre of an open panel (where the pill was).
 pub const GRABBER_W: f32 = 44.0;
@@ -419,7 +419,7 @@ pub const GLASS_ACTIVE: f32 = 1.7;
 /// The ease from one state to the next.
 pub const GLASS_HOVER_MS: f64 = 140.0;
 /// = CARD_MAX_LEVEL: the brightest any glass pixel may be.
-pub const GLASS_CAP: f32 = 191.0 / 255.0;
+pub const GLASS_CAP: f32 = crate::ui_tokens::LEVEL_CAP_UNIT;
 /// Canvas px drawn around the shape for its shadow.
 pub const GLASS_SHADOW_MARGIN: f32 = 32.0;
 /// The open panel's opacity (the pill is opaque): a hint of what is behind it.
@@ -906,7 +906,7 @@ pub fn glass_fragment_shader() -> &'static str {
     concat!(
         "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n",
         "varying vec2 p; uniform vec4 rect; uniform float radius; uniform vec4 style[5]; uniform float opacity;\n",
-        "const float kCap = 0.74901961;\n",
+        "const float kCap = 0.74901961;\n", // LEVEL_CAP / 255; ui_tokens tests pin it
         "float box(vec2 q) { vec2 d = abs(q) - (rect.zw - vec2(radius));\n",
         "  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius; }\n",
         "void main() {\n",

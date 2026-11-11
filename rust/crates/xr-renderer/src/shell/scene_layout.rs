@@ -17,7 +17,7 @@ use super::scene::{PointerInput, Scene};
 use super::{Presentation, monotonic_ms_f64};
 
 /// The theme border colour before any `style` op (wayland.cpp Impl::accent).
-const DEFAULT_ACCENT: [u8; 3] = [0x8d, 0x8d, 0x8d];
+const DEFAULT_ACCENT: [u8; 3] = xr_renderer::material::MD_DEFAULT_SEED_U8;
 
 pub(super) struct SceneLayout {
     /// Per-desktop placement in wire units ([x, y, distance, curvature]), capture order; absent entries are flat.

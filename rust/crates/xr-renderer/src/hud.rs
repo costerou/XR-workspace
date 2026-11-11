@@ -1254,7 +1254,7 @@ pub const HELP_FADE_OUT_MS: f64 = MENU_FADE_OUT_MS;
 /// OVERLAY_IDLE_CLOSE_S; this copy is only for the help card's footer note (a test pins them).
 pub const OVERLAY_IDLE_CLOSE_S: u32 = 30;
 /// Brightest channel (0..255) any pixel of the help card or a placement panel may reach; full white is 255.
-pub const CARD_MAX_LEVEL: u8 = 191;
+pub const CARD_MAX_LEVEL: u8 = crate::ui_tokens::LEVEL_CAP;
 /// The help card rises this far while fading in (and sinks fading out).
 pub const HELP_RISE_PX: f32 = 18.0;
 

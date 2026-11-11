@@ -126,7 +126,7 @@ pub fn options_maximize_hit(tile: &FRect) -> FRect {
 // 16:10 view) stays its size: only the pill comes. Tile px on the desktop's surface, like the bar, at its stepped
 // distance, so a curved desktop curves it. Mirrored in restore_band.py.
 pub const RESTORE_STEP_SCALE: f32 = 0.84;
-pub const RESTORE_STEP_MS: f32 = 220.0;
+pub const RESTORE_STEP_MS: f32 = crate::ui_tokens::MOTION_RESTORE_STEP_MS as f32;
 pub const RESTORE_BAND_MIN: f32 = 46.0;
 pub const RESTORE_BAND_GAP: f32 = 12.0;
 pub const RESTORE_PILL_W: f32 = 122.0;

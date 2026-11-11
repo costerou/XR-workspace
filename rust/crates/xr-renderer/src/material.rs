@@ -23,9 +23,15 @@ use std::f64::consts::PI;
 pub type MdRgb = [f32; 3];
 
 /// Before the supervisor's first `style` op: the compositor's default border colour (#8d8d8d), a neutral grey scheme.
-pub const MD_DEFAULT_SEED: MdRgb = [0x8d as f32 / 255.0, 0x8d as f32 / 255.0, 0x8d as f32 / 255.0];
+pub const MD_DEFAULT_SEED_U8: [u8; 3] = [0x8d, 0x8d, 0x8d];
+/// [`MD_DEFAULT_SEED_U8`] as sRGB 0..1.
+pub const MD_DEFAULT_SEED: MdRgb = [
+    MD_DEFAULT_SEED_U8[0] as f32 / 255.0,
+    MD_DEFAULT_SEED_U8[1] as f32 / 255.0,
+    MD_DEFAULT_SEED_U8[2] as f32 / 255.0,
+];
 /// `hud::CARD_MAX_LEVEL / 255`: every role is scaled by this.
-pub const MD_OLED_LEVEL: f32 = 191.0 / 255.0;
+pub const MD_OLED_LEVEL: f32 = crate::ui_tokens::LEVEL_CAP_UNIT;
 /// The primary container (the collapsed pill) is the seed at its own tone, pressed into this range (linearly, so a
 /// lighter theme colour still gives a lighter pill).
 pub const MD_CONTAINER_TONE_LO: f32 = 28.0;
