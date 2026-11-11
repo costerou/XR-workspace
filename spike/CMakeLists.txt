@@ -755,6 +755,23 @@ if(XR_ENABLE_PRESENTATION)
           set_tests_properties(capture_e2e_rust_churn_${CHURN}_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
         endforeach()
       endforeach()
+      # Maximize (a zoomed `view`) and the background (`environment`), as for the C++ renderer above.
+      foreach(N RANGE 1 4)
+        add_test(NAME capture_e2e_rust_maximize_${N}_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5
+          --warmup 1 --outputs 4 --maximize ${N} --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_maximize_${N}_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
+      add_test(NAME capture_e2e_rust_maximize_4_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 1.5 --warmup 1
+        --outputs 4 --maximize 4 --renderer "${XR_RUST_RENDERER}")
+      set_tests_properties(capture_e2e_rust_maximize_4_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      foreach(MODE gl-shm gl-dmabuf)
+        add_test(NAME capture_e2e_rust_environment_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5
+          --warmup 1 --environment grid --renderer "${XR_RUST_RENDERER}")
+        add_test(NAME capture_e2e_rust_environment_smoke_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5
+          --warmup 1 --environment smoke --renderer "${XR_RUST_RENDERER}")
+        set_tests_properties(capture_e2e_rust_environment_${MODE} capture_e2e_rust_environment_smoke_${MODE}
+          PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
     endif()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).

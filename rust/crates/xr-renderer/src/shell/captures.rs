@@ -40,7 +40,14 @@ use xr_renderer::gl::{GlCompositor, GpuImage};
 use xr_wire::status::CapturePath;
 use xr_renderer::options_geometry::json_string;
 use xr_renderer::pose::IDENTITY;
-use xr_renderer::view::{Placement, Size, SizeEase, overview_geometry_json, overview_layout};
+use xr_renderer::environment::{ENVIRONMENT_LOOP_S, EnvironmentFade};
+use xr_renderer::hud::{BRIGHTNESS_DEFAULT, Background};
+use xr_renderer::options_geometry::maximize_geometry_json;
+use xr_renderer::view::{
+    Canvas as ViewCanvas, Leaving, Placement, Size, SizeEase, TargetOptions, ViewAnimator, ZoomOptions, blended_layout_leaving,
+    overview_geometry_json, overview_layout, zoomed_placements_with,
+};
+use xr_wire::control::{Environment, View};
 
 use super::{Error, MAX_BUFFERS, Presentation, ShmBuffer, State, monotonic_ms, monotonic_ms_f64};
 
@@ -54,8 +61,6 @@ const SHM_SLOTS: usize = 2;
 const SWAPCHAIN: usize = 3;
 /// The layout's size of a desktop with no frame yet.
 const PLACEHOLDER: Size = Size { w: 1920.0, h: 1080.0 };
-/// Overview spacing between tiles, as the C++ view (`to_spacing_`).
-const SPACING: f32 = 40.0;
 /// The diagonal field of view filled at the centre pose when nothing else sets it, in degrees.
 const FOV_DEG: f32 = 46.0;
 /// Buffer ids at or above this are capture buffers: the compositor never releases them as surface buffers.
@@ -215,6 +220,16 @@ pub(super) struct CaptureState {
     geometry: String,
     geometry_sent: String,
     readback: ReadbackLimiter,
+    /// The `view` op's zoom, selection and spacing (maximize is a zoomed view), eased.
+    view: ViewAnimator,
+    /// The `environment` op: the background's fade, the one drawn (None's fade-out keeps the last), its brightness.
+    environment: EnvironmentFade,
+    background: Background,
+    brightness: u16,
+    /// The last frame drew the background: draw once more after it has faded out.
+    environment_drawn: bool,
+    maximize: String,
+    maximize_sent: String,
 }
 
 /// Destroys dmabuf slots: their wl_buffers and GL images (the buffer objects go with them).
@@ -262,7 +277,13 @@ fn half_extents(width: u32, height: u32) -> (f32, f32) {
 
 impl CaptureState {
     pub(super) fn new(names: &[String]) -> Self {
-        Self { names: names.to_vec(), dirty: true, ..Self::default() }
+        Self {
+            names: names.to_vec(),
+            dirty: true,
+            brightness: BRIGHTNESS_DEFAULT,
+            maximize: String::from("{\"maximize_geometry\":null}"),
+            ..Self::default()
+        }
     }
 
     fn active(&self) -> bool {
@@ -769,7 +790,12 @@ impl Presentation {
             return Err(Error::new("capture", "a capture failed for good"));
         }
         let s = &self.state;
-        let animating = s.capture.captures.iter().any(|c| c.shape.animating());
+        let t = monotonic_ms_f64();
+        let gl = s.capture.gpu.is_some();
+        let env = &s.capture.environment;
+        let animating = s.capture.captures.iter().any(|c| c.shape.animating())
+            || (gl && (s.capture.view.animating() || env.animating(t)))
+            || (s.capture.environment_drawn && !env.on());
         if s.frame.is_some() || !s.metrics.can_submit() || !(s.capture.dirty || animating) {
             return Ok(());
         }
@@ -892,10 +918,34 @@ impl Presentation {
             c.shape.advance(c.layout_size(), now, animate);
             sizes.push(c.shape.value().unwrap_or(PLACEHOLDER));
         }
-        let tiles = overview_layout(&sizes, width as f32, height as f32, SPACING);
-        let placements = vec![Placement::default(); tiles.len()];
+        // The view (wayland.cpp's render path): the blended layout of the eased zoom, and the zoomed desktop grown to
+        // fill the view where it is. No placements op in this build: every desktop at its default placement, so the
+        // camera never turns (identity, the untracked view; ModeController's focus aim is not ported).
+        let view = &mut cs.view;
+        view.advance(now);
+        let (w, h) = (width as f32, height as f32);
+        let leaving = Leaving { zoom: view.left_zoom(), index: view.left() as usize };
+        let tiles = blended_layout_leaving(&sizes, w, h, view.spacing(), view.zoom(), view.position(), leaving);
         let (half_w, half_h) = half_extents(width, height);
-        if !gpu.gl.draw_and_swap(&tiles, &placements, -1, 0.0, &IDENTITY, half_w, half_h, None) {
+        let canvas = ViewCanvas::new(w, h, half_w, half_h);
+        let overview = overview_layout(&sizes, w, h, view.spacing());
+        let own = vec![Placement::default(); tiles.len()];
+        let options = ZoomOptions { leaving, ..ZoomOptions::default() };
+        let placements = zoomed_placements_with(&canvas, &overview, &tiles, &own, view.zoom(), view.position(), options);
+        let focus = view.focus() as usize;
+        cs.maximize = if view.zoom() >= 0.99 && !view.switching() && focus < tiles.len() {
+            maximize_geometry_json(&cs.captures[focus].name, &canvas, &tiles[focus], &placements[focus], &IDENTITY)
+        } else {
+            String::from("{\"maximize_geometry\":null}")
+        };
+        // The background behind everything (untracked: world-locked at the identity view).
+        let level = cs.environment.level(now);
+        let seconds = ((now / 1000.0) % ENVIRONMENT_LOOP_S) as f32;
+        gpu.gl.set_environment(level, cs.background, f32::from(cs.brightness), seconds, &IDENTITY);
+        cs.environment_drawn = level > 0.0;
+        let pan = view.pan_layers();
+        let (highlight, alpha) = (view.focus() as i32, view.highlight_alpha());
+        if !gpu.gl.draw_and_swap(&tiles, &placements, highlight, alpha, &IDENTITY, half_w, half_h, pan.as_ref()) {
             return Err(Error::new("gl", "draw failed"));
         }
         let target = &mut gpu.swapchain[k];
@@ -905,7 +955,8 @@ impl Presentation {
         gpu.gl.finish();
         target.busy = true;
         let proxy = target.proxy.clone();
-        cs.geometry = overview_geometry_json(&tiles, width, height, half_w, half_h);
+        let settled = overview_layout(&sizes, w, h, cs.view.target_spacing());
+        cs.geometry = overview_geometry_json(&settled, width, height, half_w, half_h);
         cs.dirty = false;
         self.commit(&proxy, size.0, size.1)
     }
@@ -940,6 +991,46 @@ impl Presentation {
 
     pub fn resend_overview_geometry(&mut self) {
         self.state.capture.geometry_sent.clear();
+    }
+
+    /// The maximize geometry line (`null` unless a desktop is maximized) when it changed since it was last handed out.
+    pub fn take_maximize_geometry(&mut self) -> Option<String> {
+        let cs = &mut self.state.capture;
+        if cs.gpu.is_none() || cs.maximize == cs.maximize_sent {
+            return None;
+        }
+        cs.maximize_sent = cs.maximize.clone();
+        Some(cs.maximize.clone())
+    }
+
+    pub fn resend_maximize_geometry(&mut self) {
+        self.state.capture.maximize_sent.clear();
+    }
+
+    /// The `view` op (Presentation::set_view): the target zoom, selection (clamped to the desktops) and spacing.
+    /// The viewing mode, pop-ups, prediction and stabilization have nothing to act on in this build.
+    pub fn set_view(&mut self, v: &View) {
+        let cs = &mut self.state.capture;
+        let last = cs.captures.len().max(cs.names.len()).saturating_sub(1) as u32;
+        let options = TargetOptions { center: v.center, cut: v.cut, pan: v.pan };
+        cs.view.set_target_with(v.zoomed, v.selected.min(last), v.spacing, monotonic_ms_f64(), options);
+        cs.dirty = true;
+    }
+
+    /// The `environment` op (Presentation::set_environment): a background fades in, `none` fades the last one out.
+    pub fn set_environment(&mut self, e: &Environment) {
+        let cs = &mut self.state.capture;
+        let chosen = match e.background {
+            1 => Background::Grid,
+            2 => Background::Smoke,
+            _ => Background::None,
+        };
+        if chosen != Background::None {
+            cs.background = chosen;
+        }
+        cs.brightness = e.brightness;
+        cs.environment.set(chosen != Background::None, monotonic_ms_f64());
+        cs.dirty = true;
     }
 
     /// The owner readback line (the supervisor's view of which desktops are on screen), rate limited.

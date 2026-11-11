@@ -95,11 +95,14 @@ fn sent_line(fd: Option<BorrowedFd>, line: &str) -> bool {
         .is_ok_and(|n| n == line.len())
 }
 
-/// What a delivered frame does in this build: `stop` stops; a `video` open takes its descriptor,
-/// which is closed unread until the player is ported. Other ops are logged once each.
-fn apply(m: &Message, descriptors: &mut Descriptors, unhandled: &mut HashSet<Op>) {
+/// What a delivered frame does in this build: `stop` stops; `view` (maximize included) and `environment` go to the
+/// capture shell; a `video` open takes its descriptor, which is closed unread until the player is ported. Other ops
+/// are logged once each.
+fn apply(m: &Message, p: &mut Presentation, descriptors: &mut Descriptors, unhandled: &mut HashSet<Op>) {
     match &m.payload {
         _ if m.op == Op::Stop => STOPPING.store(true, Ordering::Relaxed),
+        Payload::View(v) => p.set_view(v),
+        Payload::Environment(e) => p.set_environment(e),
         Payload::Video(Video::Open { .. }) => match descriptors.take() {
             Some(_closed) => eprintln!("control: video open: no player in this build, file closed"),
             None => eprintln!("control: video open without a file descriptor"),
@@ -273,7 +276,7 @@ fn run(argv: &[String]) -> u8 {
                         Ok(n) => {
                             let more = stream.feed(&buffer[..n], &mut |verdict| match verdict {
                                 Ok(m) => {
-                                    apply(&m, &mut descriptors, &mut unhandled);
+                                    apply(&m, p, &mut descriptors, &mut unhandled);
                                     send_line(status, &encode_applied(m.request_id));
                                 }
                                 Err(r) => {
@@ -312,6 +315,11 @@ fn run(argv: &[String]) -> u8 {
                 if let Some(line) = p.take_overview_geometry() {
                     if !sent_line(status, &format!("{line}\n")) {
                         p.resend_overview_geometry();
+                    }
+                }
+                if let Some(line) = p.take_maximize_geometry() {
+                    if !sent_line(status, &format!("{line}\n")) {
+                        p.resend_maximize_geometry();
                     }
                 }
                 if let Some(line) = p.take_owner_readback(monotonic_ms()) {
