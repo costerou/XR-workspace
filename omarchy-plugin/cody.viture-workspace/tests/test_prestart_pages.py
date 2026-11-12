@@ -122,6 +122,7 @@ ShellRoot {
         const last = sent[sent.length - 1];
         check(last.op === "set_settings" && last.settings.desktops.length === 2 && last.settings.desktops[1].width === 2560
               && last.settings.desktops[0].width === 1920, "setup: preset saves at once " + JSON.stringify(last));
+        p.busy = true; check(!find(editor, "shapeChoice").enabled && !find(editor, "scaleChoice").enabled, "setup: busy locks shape and scale");
         p.destroy();
 
         p = page(setup, {snapshot: at({model:"pro2", fallback_candidates:["DP-1","HDMI-A-1"],

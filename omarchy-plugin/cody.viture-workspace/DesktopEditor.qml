@@ -45,6 +45,7 @@ ColumnLayout {
         RowLabel { text: "XR-" + (root.index + 1) + " shape" }
         Segmented {
             objectName: "shapeChoice"
+            enabled: !root.busy  // commit() shows a pick and saves it only when idle
             value: root.shape
             options: [{value: "16:9", label: "16:9"}, {value: "21:9", label: "21:9"}, {value: "32:9", label: "32:9"}, {value: "custom", label: "Custom"}]
             onPicked: value => {
@@ -107,6 +108,7 @@ ColumnLayout {
         RowLabel { text: "Scale" }
         Segmented {
             objectName: "scaleChoice"
+            enabled: !root.busy
             value: root.draftScale
             options: Model.SCALES.map(s => ({value: s, label: String(Math.round(s * 100)), disabled: root.scales.indexOf(s) < 0}))
             onPicked: value => { if (root.shape === "custom") root.draftScale = value; else root.commit(root.draftWidth, root.draftHeight, value) }
