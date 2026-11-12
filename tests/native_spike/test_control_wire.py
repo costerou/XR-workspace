@@ -137,7 +137,7 @@ class Session:
         """A status reply comes from the supervisor's loop, so everything sent before it is done."""
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             s.settimeout(5); s.connect(self.path)
-            s.sendall(xr_control.control_frame(RUN, SESSION, 'status', {}, time.time_ns()).encode())
+            s.sendall(xr_control.control_frame(RUN, SESSION, 'status', {}, time.monotonic_ns()).encode())
             reply = b''
             while not reply.endswith(b'\n'):
                 chunk = s.recv(65536)
@@ -189,6 +189,17 @@ class Session:
         self.test.assertEqual(faults(self.wire(), RUN, SESSION), [])
         self.test.assertIsNone(self.renderer.rc)
         self.test.assertEqual(self.report, {})
+
+
+class RequestIdClockTests(unittest.TestCase):
+    def test_the_key_helper_stamps_the_monotonic_clock(self):
+        # The run refuses an id that is not above the last one, so a wall clock stepped back would drop every key.
+        seen = []
+        with mock.patch.object(xr_control, 'control_frame', lambda *a: seen.append(a[-1]) or 'x'), \
+             mock.patch.object(time, 'monotonic_ns', lambda: 7), mock.patch.object(time, 'time_ns', lambda: 9):
+            try: xr_control.send('/nonexistent/control.sock', RUN, SESSION, 'zoom_in', {})
+            except OSError: pass
+        self.assertEqual(seen, [7])
 
 
 class SessionTests(unittest.TestCase):

@@ -231,7 +231,9 @@ def send(path, run_id, session, op, payload):
     # A frame that needs json imports it before the request id is stamped, so the id is still taken just before the
     # send (ids must arrive in order: the run drops an older one as a replay).
     if not _plain(run_id, session, op, payload): import json  # noqa: F401
-    data = control_frame(run_id, session, op, payload, time.time_ns()).encode()
+    # Monotonic, not the wall clock: a clock stepped back (time sync after resume) made every id a replay until it caught
+    # up. Every sender to a run must use the same clock: the controller (Units.control) and the Rust helper (control.rs).
+    data = control_frame(run_id, session, op, payload, time.monotonic_ns()).encode()
     s = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
     try:
         s.settimeout(0.5); s.connect(path); s.sendall(data)

@@ -20,7 +20,6 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[path = "support/script.rs"]
 mod script;
@@ -222,11 +221,9 @@ fn stop(path: &Path, handle: JoinHandle<()>) {
     handle.join().unwrap();
 }
 
+/// The clock both helpers stamp request ids with (`time.monotonic_ns()`).
 fn now_ns() -> i128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as i128
+    xr_workspace::runner::monotonic_ns() as i128
 }
 
 /// Blanks each frame's request id after checking it is a wall-clock stamp inside the run, rising frame to frame.

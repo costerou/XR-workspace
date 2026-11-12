@@ -355,6 +355,12 @@
      "target": "xr-workspace supervisor::view",
      "tests": 2
     },
+    "RequestIdClockTests": {
+     "fate": "port",
+     "rust_test": "rust/crates/xr-workspace/tests/control_parity.rs",
+     "target": "xr-workspace control",
+     "tests": 1
+    },
     "SessionTests": {
      "fate": "port",
      "rust_test": null,

@@ -22,7 +22,7 @@ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use crate::lua::{keybinds, overview_cursor, privacy, resize, video, view};
 
@@ -216,14 +216,6 @@ pub fn control_frame(
     out
 }
 
-/// `time.time_ns()`.
-fn time_ns() -> i128 {
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(d) => d.as_nanos() as i128,
-        Err(e) => -(e.duration().as_nanos() as i128),
-    }
-}
-
 fn os_err() -> io::Error {
     io::Error::last_os_error()
 }
@@ -400,7 +392,8 @@ pub fn send(
     op: &str,
     payload: &Payload,
 ) -> io::Result<()> {
-    let data = control_frame(run_id, session, op, payload, time_ns());
+    // `time.monotonic_ns()`, as xr_control.send: a wall clock stepped back made every id a replay.
+    let data = control_frame(run_id, session, op, payload, crate::runner::monotonic_ns() as i128);
     let fd = connect(path.as_bytes())?;
     send_all(&fd, data.as_bytes())
 }

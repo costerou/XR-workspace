@@ -50,7 +50,7 @@ from tools.xr_controller import __main__ as controller_main, server, state
 FILE = Path(__file__).resolve().parents[2] / 'rust' / 'corpus' / 'sockets' / 'frames.json'
 SESSION = 'session-1'
 JOURNAL_DIR = '/run/user/1000/xr-workspace-spike'  # the snapshot shows the journal path: a fixed one, not the temp folder
-FIRST_REQUEST_ID = 1762000000000000000  # time.time_ns() stand-in, counting up
+FIRST_REQUEST_ID = 1762000000000000000  # request id stand-in, counting up
 DIVERGENCE = {
     'depth': 'nested deeper than 32 levels: Python takes it, the Rust decoder refuses it (xr_wire::json::MAX_DEPTH)',
     'bom': 'a leading UTF-8 byte order mark: json.loads of bytes skips it, the Rust decoder refuses it; no panel writes one',
@@ -438,7 +438,7 @@ def generate():
     with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
         os.chmod(tmp, 0o700)
         stack.enter_context(mock.patch.object(state.secrets, 'token_hex', lambda n: format(next(counter), f'0{2 * n}x')))
-        stack.enter_context(mock.patch.object(controller_main.time, 'time_ns', lambda: next(times)))
+        stack.enter_context(mock.patch.object(controller_main.time, 'monotonic_ns', lambda: next(times)))
         rig = Rig(stack, Path(tmp))
         try:
             run_id = walk(rig)

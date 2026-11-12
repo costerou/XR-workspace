@@ -69,7 +69,7 @@ class Units:
             with socket.socket(socket.AF_UNIX) as conn:
                 conn.settimeout(.25); conn.connect(f'/proc/self/fd/{fd}/control.sock'); check_peer(conn,os.getuid())
                 if op is not None:
-                    request_id=time.time_ns()
+                    request_id=time.monotonic_ns()  # the key helper's clock (xr_control.send): one order for both senders
                     frame=dict(schema=1,request_id=request_id,run_id=run_id,session=token(session),op=op,payload=payload or {})
                     conn.sendall((json.dumps(frame,separators=(',',':'),allow_nan=False)+'\n').encode())
                     if op == 'status':

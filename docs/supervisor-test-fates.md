@@ -28,7 +28,7 @@ whatever its fate. The fates say what will cover the Rust supervisor.
 
 | port | wire | keep | drop | all |
 |---|---|---|---|---|
-| 2502 | 164 | 26 | 4 | 2696 |
+| 2503 | 164 | 26 | 4 | 2697 |
 
 The `port` count is large because almost every supervisor test imports a Python module and calls it
 directly. Few tests drive the supervisor through a socket or a process the Rust binary would also serve,
