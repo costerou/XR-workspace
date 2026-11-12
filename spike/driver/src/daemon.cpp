@@ -53,7 +53,7 @@ void Daemon::log_stats() {
          (unsigned long long)stats_.bad_packets, (unsigned long long)stats_.bad_poses, (unsigned long long)stats_.commands,
          (unsigned long long)stats_.starts_skipped, (unsigned long long)stats_.opens, (unsigned long long)stats_.connections,
          (unsigned long long)stats_.disconnects, (unsigned long long)stats_.reconnects, (unsigned long long)stats_.stale_events,
-         (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0, double(process_ns_.percentile(0.99)) / 1000.0);
+         (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0, double(process_ns_.percentile(99.0)) / 1000.0);
     if (config_.vsync) {
         const VsyncState& v = vsync_.state();
         logf("luma: vsync events=%llu locked=%d hz=%.2f resets=%u fit_us=%.1f", (unsigned long long)stats_.display_events,

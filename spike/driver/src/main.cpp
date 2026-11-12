@@ -144,8 +144,8 @@ int main(int argc, char** argv) {
             const rt::LatencyHistogram& times = daemon.process_times();
             char line[160];
             std::snprintf(line, sizeof line, "luma: replay process_us p50=%.2f p99=%.2f p999=%.2f max=%.2f packets=%llu",
-                          double(times.percentile(0.5)) / 1000.0, double(times.percentile(0.99)) / 1000.0,
-                          double(times.percentile(0.999)) / 1000.0, double(times.max()) / 1000.0, (unsigned long long)times.count());
+                          double(times.percentile(50.0)) / 1000.0, double(times.percentile(99.0)) / 1000.0,
+                          double(times.percentile(99.9)) / 1000.0, double(times.max()) / 1000.0, (unsigned long long)times.count());
             log_line(line);
         }
     }  // the estimator hands over its bias as the daemon goes

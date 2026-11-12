@@ -182,9 +182,9 @@ fn run() -> i32 {
             let us = |ns: u64| ns as f64 / 1000.0;
             log_line(&format!(
                 "luma: replay process_us p50={:.2} p99={:.2} p999={:.2} max={:.2} packets={}",
-                us(times.percentile(0.5)),
-                us(times.percentile(0.99)),
-                us(times.percentile(0.999)),
+                us(times.percentile(50.0)),
+                us(times.percentile(99.0)),
+                us(times.percentile(99.9)),
                 us(times.max()),
                 times.count()
             ));
