@@ -65,6 +65,85 @@ pub struct MaterialScheme {
     pub container_tone: f32,
 }
 
+/// The panel's warning colour (#e7c78a) before the OLED cap. It does not follow the seed.
+pub const MD_WARN: MdRgb = [0xe7 as f32 / 255.0, 0xc7 as f32 / 255.0, 0x8a as f32 / 255.0];
+
+/// The design system's colour roles (docs/design-system/tokens.json), named for what they are for. Each is an M3 role.
+impl MaterialScheme {
+    /// Scrim behind a Card over desktops. [`Self::surface`].
+    pub fn surface_1(&self) -> MdRgb {
+        self.surface
+    }
+    /// Sheet rail, dropdown lists, the Video bar. [`Self::surface_container`].
+    pub fn surface_2(&self) -> MdRgb {
+        self.surface_container
+    }
+    /// Body of the Dock, Sheet, Toast and Card. [`Self::surface_container_high`].
+    pub fn surface_3(&self) -> MdRgb {
+        self.surface_container_high
+    }
+    /// Fields, key caps, the selected rail item. [`Self::surface_container_highest`].
+    pub fn surface_4(&self) -> MdRgb {
+        self.surface_container_highest
+    }
+    /// Hairlines: surface edges and dividers. Decoration only. [`Self::outline_variant`].
+    pub fn line(&self) -> MdRgb {
+        self.outline_variant
+    }
+    /// Control borders that carry meaning (3:1 on surface 2 and 3). Not for text. [`Self::outline`].
+    pub fn line_strong(&self) -> MdRgb {
+        self.outline
+    }
+    /// Primary text and icons on surface 1..4. [`Self::on_surface`].
+    pub fn ink(&self) -> MdRgb {
+        self.on_surface
+    }
+    /// Secondary text, values, hints, resting icons on surface 1..4. [`Self::on_surface_variant`].
+    pub fn ink_muted(&self) -> MdRgb {
+        self.on_surface_variant
+    }
+    /// The one filled state: a switch that is on, slider fill, the primary button, the focus ring. [`Self::primary`].
+    pub fn accent(&self) -> MdRgb {
+        self.primary
+    }
+    /// Text and icons on accent. [`Self::on_primary`].
+    pub fn on_accent(&self) -> MdRgb {
+        self.on_primary
+    }
+    /// Rim light on a hovered or dragged control. Never a fill. [`Self::primary_bright`].
+    pub fn accent_bright(&self) -> MdRgb {
+        self.primary_bright
+    }
+    /// The resting Dock. Icons and large bold text only. [`Self::primary_container`].
+    pub fn accent_container(&self) -> MdRgb {
+        self.primary_container
+    }
+    /// Icons and large bold labels on accent container (3:1). [`Self::on_primary_container`].
+    pub fn on_accent_container(&self) -> MdRgb {
+        self.on_primary_container
+    }
+    /// Quiet filled controls: tonal buttons, the status chip, a selected row. [`Self::secondary_container`].
+    pub fn tonal(&self) -> MdRgb {
+        self.secondary_container
+    }
+    /// Text and icons on tonal. [`Self::on_secondary_container`].
+    pub fn on_tonal(&self) -> MdRgb {
+        self.on_secondary_container
+    }
+    /// Armed destructive buttons, the Error chip. Always with a word. [`Self::error_container`].
+    pub fn danger_container(&self) -> MdRgb {
+        self.error_container
+    }
+    /// Text and icons on danger container. [`Self::on_error_container`].
+    pub fn on_danger_container(&self) -> MdRgb {
+        self.on_error_container
+    }
+    /// Pending and needs-attention text on surface 2..4, always with a word: [`MD_WARN`] at the OLED cap.
+    pub fn warn(&self) -> MdRgb {
+        dim(MD_WARN)
+    }
+}
+
 /// OKLCH hue (degrees) and chroma, CIE L* tone (0..100).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MdHct {
@@ -384,4 +463,86 @@ pub fn md_elevation(level: f32) -> MdShadow {
     }
     let a = 0.4 + 0.02 * dp;
     MdShadow { alpha: if a < 0.6 { a } else { 0.6 }, sigma: 1.0 + 0.75 * dp, dy: 0.5 * dp }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hex(c: MdRgb) -> String {
+        let b = |v: f32| (v * 255.0).round() as u8;
+        format!("#{:02x}{:02x}{:02x}", b(c[0]), b(c[1]), b(c[2]))
+    }
+
+    /// The roles in docs/design-system/tokens.json, in the order of [`roles`].
+    const BRAND: [&str; 18] = [
+        "#0c0f14", "#15181e", "#1c1f26", "#24282e", "#30353f", "#676d78", "#a6aab2", "#8f95a1", "#8195bf", "#03186a",
+        "#b9bbbf", "#456abf", "#01015a", "#253456", "#a0aabf", "#6e0002", "#bfa39f", "#ad9567",
+    ];
+    const NEUTRAL: [&str; 18] = [
+        "#0e0e0e", "#181818", "#1f1f1f", "#272727", "#353535", "#6c6c6c", "#aaaaaa", "#959595", "#959595", "#242424",
+        "#bbbbbb", "#6c6c6c", "#181818", "#353535", "#aaaaaa", "#6e0002", "#bfa39f", "#ad9567",
+    ];
+
+    fn roles(s: &MaterialScheme) -> [MdRgb; 18] {
+        [
+            s.surface_1(),
+            s.surface_2(),
+            s.surface_3(),
+            s.surface_4(),
+            s.line(),
+            s.line_strong(),
+            s.ink(),
+            s.ink_muted(),
+            s.accent(),
+            s.on_accent(),
+            s.accent_bright(),
+            s.accent_container(),
+            s.on_accent_container(),
+            s.tonal(),
+            s.on_tonal(),
+            s.danger_container(),
+            s.on_danger_container(),
+            s.warn(),
+        ]
+    }
+
+    fn seed(rgb: [u8; 3]) -> MdRgb {
+        rgb.map(|c| c as f32 / 255.0)
+    }
+
+    #[test]
+    fn roles_match_the_design_tokens() {
+        for (name, rgb, want) in [("brand", [0x5b, 0x8c, 0xff], BRAND), ("neutral", MD_DEFAULT_SEED_U8, NEUTRAL)] {
+            let got = roles(&material_scheme(seed(rgb))).map(hex);
+            assert_eq!(got, want.map(String::from), "theme {name}");
+        }
+    }
+
+    #[test]
+    fn roles_meet_contrast() {
+        for rgb in [[0x5b, 0x8c, 0xff], MD_DEFAULT_SEED_U8] {
+            let s = material_scheme(seed(rgb));
+            let surfaces = [s.surface_1(), s.surface_2(), s.surface_3(), s.surface_4()];
+            let mut text = vec![(s.on_accent(), s.accent()), (s.on_tonal(), s.tonal())];
+            text.push((s.on_danger_container(), s.danger_container()));
+            for bg in surfaces {
+                text.extend([(s.ink(), bg), (s.ink_muted(), bg)]);
+            }
+            for bg in &surfaces[1..] {
+                text.push((s.warn(), *bg));
+            }
+            for (fg, bg) in text {
+                assert!(md_contrast(fg, bg) >= 4.5, "{} on {}: {}", hex(fg), hex(bg), md_contrast(fg, bg));
+            }
+            let large = [
+                (s.line_strong(), s.surface_2()),
+                (s.line_strong(), s.surface_3()),
+                (s.on_accent_container(), s.accent_container()),
+            ];
+            for (fg, bg) in large {
+                assert!(md_contrast(fg, bg) >= 3.0, "{} on {}: {}", hex(fg), hex(bg), md_contrast(fg, bg));
+            }
+        }
+    }
 }
