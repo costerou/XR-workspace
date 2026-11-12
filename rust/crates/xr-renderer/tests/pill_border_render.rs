@@ -138,10 +138,12 @@ fn draw(
         .collect()
 }
 
-/// The border's pixels: the accent itself (its glow, under it, is a fifth as bright at most).
+/// The border's pixels: the accent under the OLED cap (capped_accent; its glow, under it, is a fifth as bright at most).
 fn border_mask(f: &[u8]) -> Vec<bool> {
+    let border = xr_renderer::view::capped_accent(ACCENT.map(|v| f32::from(v) / 255.0))
+        .map(|v| (v * 255.0).round() as i32);
     f.chunks_exact(3)
-        .map(|p| (0..3).all(|c| (i32::from(p[c]) - i32::from(ACCENT[c])).abs() <= 8))
+        .map(|p| (0..3).all(|c| (i32::from(p[c]) - border[c]).abs() <= 8))
         .collect()
 }
 /// The glass's pixels: anything lit on the black desktop, its faintest anti-aliased edge included.
