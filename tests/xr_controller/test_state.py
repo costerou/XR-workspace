@@ -355,6 +355,15 @@ class StateTests(unittest.TestCase):
     def test_recover_requires_confirm(self):
         self.journal(); self.c.tick(); n=len(self.calls); r=self.c.request(dict(op='begin_recover')); self.assertEqual(len(self.calls),n)
         self.assertTrue(self.c.request(dict(op='confirm_recover',scope_id=r['scope_id']))['ok']); self.assertEqual(len(self.calls),n+1)
+    def test_a_recover_in_flight_is_not_a_failed_start(self):
+        # The recover unit carries the run's name, and the dead run's control socket refuses.
+        self.journal(); self.c.tick(); r=self.c.request(dict(op='begin_recover'))
+        self.assertTrue(self.c.request(dict(op='confirm_recover',scope_id=r['scope_id']))['ok'])
+        self.units.active=True; self.units.control=lambda *a: False; self.now+=1; self.c.tick()
+        self.assertEqual(self.c.snapshot()['state'],'stopping')
+        self.assertFalse(self.c.request(dict(op='stop'))['ok'])  # no Stop into a running recovery
+        self.units.active=False; self.now+=10; self.c.tick()
+        self.assertEqual(self.c.snapshot()['state'],'recovery-needed')
     def test_resolution_locked_while_running(self):
         self.journal(); self.units.active=True; self.c.tick(); self.assertFalse(self.c.request(dict(op='set_settings',settings={'desktops':[]}))['ok'])
     def test_changed_fallback_invalidates_scope(self):

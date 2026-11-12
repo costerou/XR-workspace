@@ -124,7 +124,7 @@ class Handler(socketserver.StreamRequestHandler):
                 pending=dict(action='start' if op=='begin_start' else 'recover',scope=self.server.scope,scope_id='offline-scope')
                 self.server.snapshot.update(state='confirming',pending=pending); reply.update(pending)
             elif op=='cancel': self.server.snapshot.update(state='idle',pending=None)
-            elif op in ('confirm_start','confirm_recover'): self.server.snapshot.update(state='starting',pending=None)
+            elif op in ('confirm_start','confirm_recover'): self.server.snapshot.update(state='starting' if op=='confirm_start' else 'stopping',pending=None)
             elif op=='stop': self.server.snapshot['state']='stopping'
             self.wfile.write((json.dumps(dict(reply,schema=1,request_id=msg['request_id']))+'\n').encode())
             if op not in ('status','get_settings'):

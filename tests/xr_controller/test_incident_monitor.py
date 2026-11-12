@@ -392,7 +392,7 @@ class RunEndTests(Case):
         self.tick('recovery-needed', status=None, seconds=30)
         self.assertEqual(self.only()['kind'], 'run-killed')
         self.tick('confirming', status=None, seconds=2)
-        self.tick('starting', status=None, seconds=3)
+        self.tick('stopping', status=None, seconds=3)
         self.idle(30)
         self.assertEqual(len(self.reports()), 1)
 
@@ -401,7 +401,7 @@ class RunEndTests(Case):
         self.session()
         self.tick('recovery-needed', status=None, seconds=30)
         self.tick('confirming', status=None, seconds=2)
-        self.tick('starting', status=None, seconds=3)
+        self.tick('stopping', status=None, seconds=3)
         self.tick('recovery-needed', status=None, seconds=30)
         self.assertEqual([json.loads(p.read_text())['kind'] for p in self.reports()], ['run-killed', 'recovery-failed'])
 
@@ -411,7 +411,7 @@ class RunEndTests(Case):
         self.session()
         self.tick('recovery-needed', status=None, seconds=30)
         self.tick('confirming', status=None, seconds=2)
-        self.tick('starting', status=None, seconds=3)
+        self.tick('stopping', status=None, seconds=3)
         step = '790c77a9-bb02-4d53-9c96-3c70f62bb571'
         self.host.recoveries[RUN] = dict(remaining=[step], reasons=[why])
         self.host.results[RUN] = dict(CLEAN, phase='run', complete=False, remaining=[step], error='ownership plugin retained for explicit recovery')

@@ -12470,7 +12470,7 @@
     {
      "op": "observe",
      "observation": {
-      "state": "starting",
+      "state": "stopping",
       "run_id": "2298c7a18df736b9b6c4bde5b5877031",
       "stop_requested": null,
       "monitors": [
@@ -12502,7 +12502,7 @@
     {
      "op": "observe",
      "observation": {
-      "state": "starting",
+      "state": "stopping",
       "run_id": "2298c7a18df736b9b6c4bde5b5877031",
       "stop_requested": null,
       "monitors": [
@@ -12534,7 +12534,7 @@
     {
      "op": "observe",
      "observation": {
-      "state": "starting",
+      "state": "stopping",
       "run_id": "2298c7a18df736b9b6c4bde5b5877031",
       "stop_requested": null,
       "monitors": [

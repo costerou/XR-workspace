@@ -651,7 +651,8 @@ impl IncidentMonitor {
     fn after_end(&mut self, run_id: &str, o: &Value) {
         let state = get(o, "state").clone();
         let before = self.after.insert(run_id.into(), state);
-        if before.as_ref().and_then(as_str) == Some("starting") && stranded(o) {
+        // Only a Recover shows "stopping" for a run that has ended.
+        if before.as_ref().and_then(as_str) == Some("stopping") && stranded(o) {
             let at = Self::at(o);
             let recovery = self.sources.recovery(run_id);
             let recovery = self.safe("recovery", recovery, Value::Null);

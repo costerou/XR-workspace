@@ -405,7 +405,7 @@ impl<H: ControllerHost> Controller<H> {
             }
             let now = self.host.now();
             let young = matches!(self.started, Some(t) if now - t < GRACE);
-            if self.state == state::STARTING && young {
+            if (self.state == state::STARTING || self.state == state::STOPPING) && young {
                 return Ok(());
             }
             if self.state != state::CONFIRMING && self.state != state::STARTING {
@@ -905,7 +905,9 @@ impl<H: ControllerHost> Controller<H> {
         } else {
             format!("{}.json", run_id(&scope))
         };
-        self.set_state(state::STARTING);
+        // A Recover is on the way out, like a Stop: its unit is up while the dead run's control socket refuses, which
+        // as 'starting' read as a failed start, with a Stop button that interrupted the recovery.
+        self.set_state(if action == "recover" { state::STOPPING } else { state::STARTING });
         self.pending = None;
         self.started = Some(self.host.now());
         let rules: Vec<String> = match pending.get("rules") {

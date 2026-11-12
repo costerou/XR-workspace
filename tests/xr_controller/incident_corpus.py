@@ -185,7 +185,7 @@ def killed_then_failed_recover(s):
     s.session()
     s.tick('recovery-needed', status=None, seconds=30)
     s.tick('confirming', status=None, seconds=2)
-    s.tick('starting', status=None, seconds=3)
+    s.tick('stopping', status=None, seconds=3)
     step = '790c77a9-bb02-4d53-9c96-3c70f62bb571'
     s.set(recoveries={RUN: dict(remaining=[step], reasons=['XR-1: the ownership plugin refused to remove it (state blocked)'])})
     s.result(phase='run', complete=False, remaining=[step], error='ownership plugin retained for explicit recovery')

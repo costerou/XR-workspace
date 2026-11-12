@@ -492,7 +492,7 @@ fn a_dead_journal_needs_recovery_and_recovery_needs_confirm() {
         vec![("recover".into(), "/state/r9.json".into(), Some("/j/r9.json".into()), vec!["rule-a".into()])]
     );
     assert!(c.host.written.is_empty(), "recovery reuses the run's own consent");
-    assert_eq!(c.state, state::STARTING);
+    assert_eq!(c.state, state::STOPPING, "a Recover is on the way out: its live unit is not a failed start");
 }
 
 #[test]

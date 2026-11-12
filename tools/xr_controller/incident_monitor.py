@@ -425,7 +425,7 @@ class IncidentMonitor:
         """A Recover that came back to where it started is a failure of its own; one that finished is the normal way out."""
         before, state = self.after.get(run_id), o.get('state')
         self.after[run_id] = state
-        if before == 'starting' and state in STRANDED:
+        if before == 'stopping' and state in STRANDED:  # only a Recover shows 'stopping' for a run that has ended
             at = o['at']
             reasons = (self._safe(self.sources.recovery, run_id) or {}).get('reasons')
             detail = 'Recover ran, and the session still has unfinished work' + (': ' + '; '.join(reasons) if reasons else '')

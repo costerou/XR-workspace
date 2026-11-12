@@ -186,7 +186,7 @@ class Controller:
                     self.error='XR renderer control unavailable. Stop this session before starting again.'
                     self._state('failed')
                 return
-            if self.state=='starting' and self.started is not None and self.clock()-self.started<5: return
+            if self.state in ('starting','stopping') and self.started is not None and self.clock()-self.started<5: return
             if self.state not in ('confirming','starting'): self._state('recovery-needed')
             elif self.state=='starting' and (self.started is None or self.clock()-self.started>=5): self._state('recovery-needed')
             if self.state=='recovery-needed': self.error=self._recovery_reason(j['run_id'])
@@ -384,7 +384,9 @@ class Controller:
                 name=write_consent(self.consent_fd,consent)
                 self.run=dict(run_id=scope['run_id'])
             else: name=scope['run_id']+'.json'
-            self._state('starting'); self.pending=None; self.started=self.clock()
+            # A Recover is on the way out, like a Stop: its unit is up while the dead run's control socket refuses, which
+            # as 'starting' read as a failed start, with a Stop button that interrupted the recovery.
+            self._state('stopping' if action=='recover' else 'starting'); self.pending=None; self.started=self.clock()
             # Only the desktops the box listed: recover-run edits nothing else (monitor_rules.py).
             rules=[r['name'] for r in pending.get('rules') or []]
             try: self.spawn(action,str(self.state_dir/name),pending.get('journal'),*([rules] if rules else []))
