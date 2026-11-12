@@ -786,11 +786,14 @@ fn main() {
             check!(lit > 500 && off == 0);
         }
         e.gl.set_accent(TOKYO[0], TOKYO[1], TOKYO[2]);
-        // ... and the border itself is that colour, uncapped: the same frame, on the highlighted desktop's edge.
+        // ... and the border itself is that colour, scaled onto the OLED cap (capped_accent): the same frame, on the
+        // highlighted desktop's edge.
         {
             let t = tile_px(1, 0.0, 0);
             let k = ((t.y0 + (t.y1 - t.y0) / 2) as usize * PX_W as usize + (t.x0 - 4) as usize) * 3;
-            check!(with[k..k + 3] == TOKYO);
+            let border = xr_renderer::view::capped_accent(TOKYO.map(|v| f32::from(v) / 255.0))
+                .map(|v| (v * 255.0).round() as u8);
+            check!(with[k..k + 3] == border && border == [94, 125, 191]);
         }
         // Brightness: it scales the scene, black stays exactly black at both ends, and the brightest stays under the cap.
         let dim = Frame {

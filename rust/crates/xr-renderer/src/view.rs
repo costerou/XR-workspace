@@ -946,6 +946,21 @@ pub const GHOST_LEVEL: f32 = 150.0 / 255.0;
 /// The desktop a dragged window would land on: an accent frame DROP_FRAME_PX wide just inside its edge, on its surface.
 pub const DROP_FRAME_PX: f32 = 4.0;
 
+/// The accent as the highlight border and the drop frame draw it: clamped to 0..1 (non-finite: 0) and, when its
+/// brightest channel is over the OLED cap (ui_tokens::LEVEL_CAP_UNIT), scaled as a whole onto the cap so its hue holds.
+pub fn capped_accent(mut accent: [f32; 3]) -> [f32; 3] {
+    for v in &mut accent {
+        *v = if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.0 };
+    }
+    let most = accent[0].max(accent[1]).max(accent[2]);
+    let cap = crate::ui_tokens::LEVEL_CAP_UNIT;
+    if most > cap {
+        accent.map(|v| v * cap / most)
+    } else {
+        accent
+    }
+}
+
 /// That frame: top, bottom, left and right bands (canvas px on the desktop's tile), DROP_FRAME_PX wide just inside its
 /// edge (shrunk to fit a tile narrower than two bands).
 pub fn drop_frame(t: &FRect) -> [FRect; 4] {

@@ -129,7 +129,7 @@ use crate::video::math::{EyeViewport, eye_viewports};
 use crate::view::{
     BORDER_PX, Canvas, FREE_POINTER_HELD_LEVEL, FREE_POINTER_RADIUS_PX, FREE_POINTER_RING_PX,
     FREE_POINTER_SEGMENTS, FRect, GHOST_LEVEL, GHOST_THICKNESS_PX, PanLayers, Placement,
-    PointerLook, Size, Vec3, canvas_disc, direction_disc, direction_marks, direction_outline,
+    PointerLook, Size, Vec3, canvas_disc, capped_accent, direction_disc, direction_marks, direction_outline,
     draw_order, drop_frame, glass_mesh, pan_draw_order, place_point, stereo_surface_hit,
     tile_mesh, zoom_draw_order,
 };
@@ -2183,6 +2183,7 @@ impl GlCompositor {
             }
         }
         let accent = self.accent;
+        let frame_accent = capped_accent(accent); // border and drop frame: under the OLED cap
         let handles = (self.glass.pills || highlight_alpha < 0.5)
             && self.progs.panel.is_some()
             && self.handle_texture.is_some();
@@ -2268,9 +2269,9 @@ impl GlCompositor {
             }
             gl.uniform_4f(
                 p.color_value.as_ref(),
-                accent[0] * alpha,
-                accent[1] * alpha,
-                accent[2] * alpha,
+                frame_accent[0] * alpha,
+                frame_accent[1] * alpha,
+                frame_accent[2] * alpha,
                 if environment { alpha } else { 1.0 },
             ); // over black (or premultiplied over the grid)
             let n = build(
@@ -2583,7 +2584,7 @@ impl GlCompositor {
                 gl.disable_attrib(p.tile_uv as u32);
             }
             program(gl, current, &mut p.color, &fp);
-            gl.uniform_4f(p.color_value.as_ref(), accent[0], accent[1], accent[2], 1.0);
+            gl.uniform_4f(p.color_value.as_ref(), frame_accent[0], frame_accent[1], frame_accent[2], 1.0);
             for (k, band) in drop_frame(&tiles[d]).iter().enumerate() {
                 let n = build(
                     gl,

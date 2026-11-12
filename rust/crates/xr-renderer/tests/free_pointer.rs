@@ -554,6 +554,32 @@ fn drop_frame_bands() {
 }
 
 #[test]
+fn frame_accent_under_the_cap() {
+    // The highlight border and the drop frame draw the accent through capped_accent (the border scaled further by its
+    // fade, the glow by GLOW_INTENSITY 0.18): a pure white accent stays at or under 191/255 in every channel.
+    let cap = xr_renderer::ui_tokens::LEVEL_CAP_UNIT;
+    let white = capped_accent([1.0; 3]);
+    assert!(white.iter().all(|&v| v <= cap && (v - cap).abs() < 1e-6));
+    for alpha in [0.0, 0.5, 1.0] {
+        assert!(white.iter().all(|&v| v * alpha <= cap)); // the border at fade alpha
+    }
+    // A bright theme accent keeps its hue: scaled as a whole so its brightest channel lands on the cap.
+    let tokyo = capped_accent([
+        0x7a as f32 / 255.0,
+        0xa2 as f32 / 255.0,
+        0xf7 as f32 / 255.0,
+    ]);
+    assert!((tokyo[2] - cap).abs() < 1e-6 && (tokyo[0] / tokyo[2] - 122.0 / 247.0).abs() < 1e-5);
+    // The default seed (#8d8d8d, 141/255) is already under the cap: unchanged.
+    assert_eq!(
+        capped_accent(xr_renderer::material::MD_DEFAULT_SEED),
+        xr_renderer::material::MD_DEFAULT_SEED
+    );
+    // Out-of-range or non-finite input never lifts a channel past the cap.
+    assert_eq!(capped_accent([f32::NAN, -1.0, 7.0]), [0.0, 0.0, cap]);
+}
+
+#[test]
 fn oled_levels() {
     // Dim greys at or under the cards' cap; the ring is black, so the dot is never surrounded by light.
     let cap = 191.0 / 255.0;
