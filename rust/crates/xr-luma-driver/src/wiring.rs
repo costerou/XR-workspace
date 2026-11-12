@@ -214,6 +214,12 @@ impl Link for TransportLink<'_> {
     }
 
     fn wait_for_device(&mut self, timeout: Duration) -> bool {
+        // Let go of (a silent device): a closed Transport's read() returns at once, and the daemon's retry hold
+        // would spin on it, which under SCHED_FIFO trips the RLIMIT_RTTIME guard and kills the driver.
+        if !self.started {
+            std::thread::sleep(timeout);
+            return false;
+        }
         self.pump(timeout)
     }
 }
@@ -305,6 +311,14 @@ mod tests {
         assert_eq!(full.len(), 2);
         assert_eq!(full[1], vec![0xfa, 0x55, 0x97, 0, 0]);
         assert!(stop_command().is_empty());
+    }
+
+    #[test]
+    fn a_closed_link_waits_out_its_hold() {
+        let mut link = TransportLink::new(Transport::new(TransportConfig::default()), Box::new(|_| {}));
+        let start = std::time::Instant::now();
+        assert!(!link.wait_for_device(Duration::from_millis(20)));
+        assert!(start.elapsed() >= Duration::from_millis(20));
     }
 
     #[test]

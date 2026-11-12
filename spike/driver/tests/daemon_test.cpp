@@ -626,6 +626,11 @@ void test_transport_link() {
     CHECK(!link.write(std::span<const std::uint8_t>(buffer, 1)));
     link.close();  // up but silent: let go of it, and start again next time
     CHECK(t.closes == 1);
+    t.last_read_timeout = milliseconds(-1);
+    const auto closed_at = std::chrono::steady_clock::now();
+    CHECK(!link.wait_for_device(milliseconds(20)));  // closed: the hold is waited out, not spun on a read that returns at once
+    CHECK(std::chrono::steady_clock::now() - closed_at >= milliseconds(20));
+    CHECK(t.last_read_timeout == milliseconds(-1));
     CHECK(!link.open(why) && t.opens == 2);
 }
 

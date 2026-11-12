@@ -12,6 +12,7 @@
 // handler, on the same thread.
 #include "luma/daemon.hpp"
 #include <functional>
+#include <thread>
 
 namespace luma {
 template <class TransportT, class Io>
@@ -49,7 +50,12 @@ public:
         // A silent device: let go of it entirely. A gone one: Transport is already looking for it, so keep that going.
         if (link_up_) { transport_.close(); started_ = link_up_ = false; }
     }
-    bool wait_for_device(milliseconds timeout) override { return pump(timeout); }
+    bool wait_for_device(milliseconds timeout) override {
+        // Let go of (a silent device): a closed Transport's read() returns at once, and the daemon's retry hold
+        // would spin on it, which under SCHED_FIFO trips the RLIMIT_RTTIME guard and kills the driver.
+        if (!started_) { std::this_thread::sleep_for(timeout); return false; }
+        return pump(timeout);
+    }
     TransportT& transport() { return transport_; }
     void set_stream_endpoint(std::uint8_t endpoint) { stream_endpoint_ = endpoint; }
     void add_stream_endpoint(std::uint8_t endpoint) { second_stream_endpoint_ = endpoint; }
